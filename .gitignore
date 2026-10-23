@@ -1,0 +1,7 @@
+# local only: device backup (serial, settings), personal wallpapers, raw test shots, build output
+.venv/
+build/
+backup/
+wallpapers/
+shots/
+.DS_Store

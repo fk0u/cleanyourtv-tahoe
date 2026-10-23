@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420">
+  <defs>
+    <radialGradient id="a" cx="18%" cy="20%" r="65%"><stop offset="0" stop-color="#2a5ae6"/><stop offset="1" stop-color="#2a5ae6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="b" cx="88%" cy="25%" r="55%"><stop offset="0" stop-color="#7a32dc"/><stop offset="1" stop-color="#7a32dc" stop-opacity="0"/></radialGradient>
+    <radialGradient id="c" cx="60%" cy="110%" r="60%"><stop offset="0" stop-color="#e6468f"/><stop offset="1" stop-color="#e6468f" stop-opacity="0"/></radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity=".08"/></linearGradient>
+  </defs>
+  <rect width="1280" height="420" fill="#070914"/>
+  <rect width="1280" height="420" fill="url(#a)"/>
+  <rect width="1280" height="420" fill="url(#b)"/>
+  <rect width="1280" height="420" fill="url(#c)"/>
+  <!-- menu bar -->
+  <rect width="1280" height="30" fill="#000" fill-opacity=".28"/>
+  <text x="24" y="20" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="13" font-weight="600" fill="#fff">Tahoe TV</text>
+  <text x="1256" y="20" text-anchor="end" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="13" fill="#fff">☁ 27°   Wi-Fi   Pusat Kontrol   Jum 23 Okt  21.40</text>
+  <!-- title -->
+  <text x="64" y="132" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="68" font-weight="200" fill="#fff">Tahoe TV</text>
+  <text x="68" y="172" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="21" fill="#fff" fill-opacity=".85">macOS Tahoe–style launcher &amp; debloat for Android TV / Mi TV Stick</text>
+  <text x="68" y="204" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="15" fill="#fff" fill-opacity=".6">Widgets · Launchpad · Pusat Kontrol · Lock screen · Jadwal sholat · Cuaca</text>
+  <!-- widgets -->
+  <rect x="860" y="62" width="170" height="150" rx="22" fill="#141416" fill-opacity=".45" stroke="#fff" stroke-opacity=".25"/>
+  <text x="878" y="88" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="11" font-weight="600" fill="#fff" fill-opacity=".6" letter-spacing="1">SAMARINDA</text>
+  <text x="876" y="140" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="48" font-weight="200" fill="#fff">27°</text>
+  <text x="878" y="168" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="15" fill="#fff">Berawan</text>
+  <rect x="1046" y="62" width="170" height="150" rx="22" fill="#141416" fill-opacity=".45" stroke="#fff" stroke-opacity=".25"/>
+  <text x="1064" y="88" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="11" font-weight="600" fill="#fff" fill-opacity=".6" letter-spacing="1">SHOLAT</text>
+  <text x="1064" y="112" font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="15" font-weight="600" fill="#fff">Maghrib 25m</text>
+  <g font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="12" fill="#fff" fill-opacity=".75">
+    <text x="1064" y="136">Subuh</text><text x="1198" y="136" text-anchor="end">04:34</text>
+    <text x="1064" y="154">Dzuhur</text><text x="1198" y="154" text-anchor="end">11:56</text>
+    <text x="1064" y="172">Ashar</text><text x="1198" y="172" text-anchor="end">15:13</text>
+    <text x="1064" y="190">Isya</text><text x="1198" y="190" text-anchor="end">19:10</text>
+  </g>
+  <!-- dock -->
+  <rect x="64" y="262" width="1152" height="132" rx="30" fill="#141416" fill-opacity=".4" stroke="#fff" stroke-opacity=".25"/>
+  <rect x="64" y="262" width="1152" height="66" rx="30" fill="url(#glass)" fill-opacity=".5"/>
+  <g>
+    <rect x="96" y="282" width="244" height="92" rx="14" fill="#f2f2f2"/>
+    <rect x="364" y="282" width="244" height="92" rx="14" fill="#e50914"/>
+    <rect x="632" y="282" width="244" height="92" rx="14" fill="#1f6f8b"/>
+    <rect x="900" y="282" width="244" height="92" rx="14" fill="#121212"/>
+    <rect x="88" y="274" width="260" height="108" rx="18" fill="url(#glass)" stroke="#fff" stroke-opacity=".5"/>
+  </g>
+  <g font-family="-apple-system,Segoe UI,Helvetica,Arial" font-size="22" font-weight="700" text-anchor="middle">
+    <text x="218" y="336" fill="#e00">▶ YouTube</text>
+    <text x="486" y="336" fill="#fff">NETFLIX</text>
+    <text x="754" y="336" fill="#fff">bitTV</text>
+    <text x="1022" y="336" fill="#1ed760">Spotify</text>
+  </g>
+</svg>
