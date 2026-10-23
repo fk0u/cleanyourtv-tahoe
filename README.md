@@ -14,6 +14,8 @@
 
 ---
 
+> **Roadmap v2 (gaya tvOS 26):** lihat [PLAN.md](PLAN.md) dan [issues](https://github.com/fk0u/cleanyourtv-tahoe/issues?q=label%3Aroadmap).
+
 ## Daftar isi
 - [Screenshot](#screenshot)
 - [Fitur](#fitur)
