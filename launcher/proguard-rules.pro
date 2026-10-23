@@ -1,0 +1,2 @@
+-keep class tv.clean.home.** { *; }
+-dontwarn org.nanohttpd.**
