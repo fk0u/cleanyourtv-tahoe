@@ -1,0 +1,16 @@
+# Mi TV Stick (MiTV-AESP0, Android 9) - packages disabled with: tools/disable.sh $(grep -v '^#' debloat-list.txt)
+# Check each against your own device first (dumpsys package <name>); restore.sh re-enables them.
+com.miui.tv.analytics
+tv.alphonso.alphonso_eula
+com.google.android.feedback
+com.google.android.tv.bugreportsender
+com.mitv.tvhome.atv
+com.mitv.tvhome.michannel
+com.google.android.tvrecommendations
+com.xm.webcontent
+com.google.android.youtube.tvmusic
+com.google.android.videos
+com.google.android.play.games
+com.mitv.videoplayer
+com.mitv.download.service
+com.google.android.tvlauncher
