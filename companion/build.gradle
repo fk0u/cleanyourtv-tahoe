@@ -1,0 +1,29 @@
+plugins { id "com.android.application" }
+
+android {
+    namespace "tv.clean.companion"
+    compileSdk 36
+    defaultConfig {
+        applicationId "tv.clean.companion"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            signingConfig signingConfigs.debug // personal sideload build
+        }
+    }
+    lint { abortOnError false }
+}
+
+dependencies {
+    implementation "org.java-websocket:Java-WebSocket:1.5.7"
+}
