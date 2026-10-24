@@ -1,19 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dock size = grid columns (4-7). -->
-    <integer name="columns">4</integer>
-    <!-- Dock apps, left to right, by package name. Missing apps are skipped. -->
+    <!-- Dock (macOS style): number of slots, 4-7. -->
+    <integer name="dock_size">6</integer>
+    <!-- Launchpad columns. -->
+    <integer name="columns">5</integer>
+    <!-- Default dock apps, left to right, by package name. Missing apps are skipped.
+         The order you set on the TV (hold OK) is saved there and wins over this list. -->
     <string-array name="dock_apps">
         <item>com.google.android.youtube.tv</item>
         <item>com.netflix.ninja</item>
         <item>com.live_streaming_tv.online_tv</item>
         <item>com.spotify.tv.android</item>
+        <item>com.tiktok.tv</item>
+        <item>com.vidio.android.tv</item>
     </string-array>
     <string name="user_name">Al-Ghani</string>
     <!-- Weather (Open-Meteo) and prayer times (Aladhan, method 20 = Kemenag RI). -->
     <string name="city">Samarinda</string>
     <string name="latitude">-0.4948</string>
     <string name="longitude">117.1436</string>
-    <!-- Wallpapers: /sdcard/Android/data/tv.clean.home/files/wallpapers/*.jpg, rotated every N minutes. -->
+    <!-- Wallpapers + phone photos: files/wallpapers and files/photos, rotated every N minutes. -->
     <integer name="wallpaper_minutes">10</integer>
 </resources>

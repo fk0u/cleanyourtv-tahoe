@@ -43,7 +43,7 @@ final class Notif {
     }
 
     static void banner(Context c, Drawable icon, String app, String title, String text) {
-        if (!Settings.canDrawOverlays(c)) { if (Home.live != null) Home.live.inAppBanner(icon, app, title, text); return; }
+        if (!Settings.canDrawOverlays(c)) return; // grant: appops set tv.clean.home SYSTEM_ALERT_WINDOW allow
         WindowManager wm = (WindowManager) c.getSystemService(Context.WINDOW_SERVICE);
         View v = card(c, icon, app, title, text);
         float d = c.getResources().getDisplayMetrics().density;
@@ -65,7 +65,7 @@ final class Notif {
         LinearLayout row = new LinearLayout(c);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding((int) (14 * d), (int) (12 * d), (int) (16 * d), (int) (12 * d));
-        row.setBackground(Home.glassOf(c, 22 * d, 0xD9242428));
+        row.setBackground(new GlassDrawable(22 * d, Ui.GLASS_STRONG, d));
         ImageView iv = new ImageView(c);
         if (icon != null) iv.setImageDrawable(icon); else iv.setImageResource(android.R.drawable.ic_popup_reminder);
         row.addView(iv, new LinearLayout.LayoutParams((int) (40 * d), (int) (40 * d)));
@@ -81,7 +81,7 @@ final class Notif {
     static TextView line(Context c, String s, float sp, int color) {
         TextView t = new TextView(c);
         t.setText(s); t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp); t.setTextColor(color);
-        t.setTypeface(Home.font(c, 400)); t.setMaxLines(2); t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setTypeface(Ui.font(c, 400)); t.setMaxLines(2); t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         return t;
     }
 }
