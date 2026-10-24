@@ -40,6 +40,21 @@
   #toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px); opacity:0; transition:.25s; padding:12px 18px; border-radius:16px; background:rgba(30,30,34,.92); border:1px solid var(--rim); font-size:14px; }
   #toast.show { opacity:1; transform:translateX(-50%); }
   .answer { white-space:pre-wrap; color:var(--t2); }
+  .seg { display:flex; padding:4px; gap:4px; border-radius:16px; margin:0 auto 14px; width:max-content; }
+  .seg button { border:0; background:transparent; padding:8px 18px; border-radius:12px; font-size:14px; font-weight:600; }
+  .seg button.on { background:var(--text); color:#111; }
+  .gp { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; }
+  .gp .shoulders { grid-column:1/-1; display:flex; justify-content:space-between; }
+  .gp .shoulders button { width:30%; }
+  .gp .dpad, .gp .face { position:relative; width:min(40vw,190px); aspect-ratio:1; justify-self:center; }
+  .gp .dpad button, .gp .face button { position:absolute; width:34%; height:34%; padding:0; font-size:18px; font-weight:700; }
+  .gp .dpad button { border-radius:12px; } .gp .face button { border-radius:50%; }
+  .gp [data-k=up],.gp [data-k=y] { left:33%; top:0; } .gp [data-k=down],.gp [data-k=a] { left:33%; bottom:0; }
+  .gp [data-k=left],.gp [data-k=x] { left:0; top:33%; } .gp [data-k=right],.gp [data-k=b] { right:0; top:33%; }
+  .gp [data-k=a] { background:rgba(48,209,88,.35); } .gp [data-k=b] { background:rgba(255,69,58,.35); }
+  .gp [data-k=x] { background:rgba(10,132,255,.35); } .gp [data-k=y] { background:rgba(255,214,10,.3); }
+  .gp .mid { display:flex; flex-direction:column; gap:10px; } .gp .mid button { font-size:12px; padding:10px 14px; }
+  @media (orientation:landscape) { .gp .dpad, .gp .face { width:min(32vh,200px); } }
 </style>
 </head>
 <body>
@@ -53,6 +68,15 @@
   <main id="app" class="hidden">
     <header><h1><span id="dot" class="dot"></span>Tahoe TV</h1><button id="unpair" style="padding:8px 12px;font-size:13px">Putuskan</button></header>
 
+    <div class="seg glass"><button id="tabRemote" class="on">Remote</button><button id="tabPad">Gamepad</button></div>
+    <section id="gamepad" class="gp hidden">
+      <div class="shoulders"><button data-k="l1">L1</button><button data-k="r1">R1</button></div>
+      <div class="dpad"><button data-k="up">▲</button><button data-k="left">◀</button><button data-k="right">▶</button><button data-k="down">▼</button></div>
+      <div class="mid"><button data-k="select">Select</button><button data-k="start">Start</button></div>
+      <div class="face"><button data-k="y">Y</button><button data-k="x">X</button><button data-k="b">B</button><button data-k="a">A</button></div>
+      <p class="muted" style="grid-column:1/-1;text-align:center">Mengontrol launcher Tahoe TV (A = OK, B = Back, X = opsi, Y = Pusat Kontrol). Game lain butuh controller Bluetooth.</p>
+    </section>
+    <div id="remote">
     <div class="pad glass">
       <button class="up" data-k="up">▲</button><button class="left" data-k="left">◀</button>
       <button class="ok" data-k="ok">OK</button>
@@ -65,6 +89,7 @@
       <button data-vol="-1">Volume −</button><button data-vol="1">Volume +</button>
     </div>
 
+    </div>
     <div class="eyebrow">Tanya asisten</div>
     <div class="field"><input id="ask" type="text" placeholder="Cuaca besok? Buka Netflix…" enterkeyhint="send"><button id="mic" title="Bicara">🎙</button></div>
     <p class="muted">Tip: pakai tombol mic di keyboard HP untuk mendikte.</p>
@@ -176,6 +201,9 @@ $('#adzan').onchange = async e => {
   e.target.value = '';
 };
 
+const tab = pad => { $('#gamepad').classList.toggle('hidden', !pad); $('#remote').classList.toggle('hidden', pad);
+  $('#tabPad').classList.toggle('on', pad); $('#tabRemote').classList.toggle('on', !pad); };
+$('#tabRemote').onclick = () => tab(false); $('#tabPad').onclick = () => tab(true);
 $('#pairBtn').onclick = async () => { try { await pair($('#code').value.trim()); show(); } catch (e) { toast(e.message); } };
 $('#unpair').onclick = logout;
 const qcode = new URLSearchParams(location.search).get('code');

@@ -19,8 +19,8 @@ final class Sheets {
     interface Adjust { void by(int dir); }
 
     static final class Item {
-        String glyph, title, sub; Runnable enter; Adjust adjust; boolean wide; float level = -1; boolean on;
-        Item(String glyph, String title, String sub, Runnable enter) { this.glyph = glyph; this.title = title; this.sub = sub; this.enter = enter; }
+        int icon; String title, sub; Runnable enter; Adjust adjust; boolean wide; float level = -1; boolean on;
+        Item(int icon, String title, String sub, Runnable enter) { this.icon = icon; this.title = title; this.sub = sub; this.enter = enter; }
         Item wide() { wide = true; return this; }
         Item adjust(Adjust a) { adjust = a; return this; }
         Item level(float l) { level = l; return this; }
@@ -91,14 +91,14 @@ final class Sheets {
             LinearLayout t = new LinearLayout(ctx); t.setOrientation(LinearLayout.VERTICAL);
             t.setPadding((int) (14 * d), (int) (11 * d), (int) (14 * d), (int) (11 * d));
             LinearLayout top = new LinearLayout(ctx); top.setGravity(Gravity.CENTER_VERTICAL);
-            TextView g = Ui.text(ctx, 20, 400, Ui.TEXT); g.setText(it.glyph); g.setTag("g");
+            ImageView g = Ui.icon(ctx, it.icon, 20, Ui.TEXT); g.setTag("g");
             TextView ti = Ui.text(ctx, 15, 600, Ui.TEXT); ti.setText(it.title); ti.setTag("t");
-            LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1); tl.leftMargin = (int) (10 * d);
+            LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1); tl.leftMargin = (int) (12 * d);
             top.addView(g); top.addView(ti, tl);
             t.addView(top);
             if (it.sub != null && !it.sub.isEmpty()) {
                 TextView s = Ui.text(ctx, 12.5f, 400, Ui.TEXT_2); s.setText(it.sub); s.setTag("s");
-                s.setPadding((int) (30 * d), (int) (2 * d), 0, 0);
+                s.setPadding((int) (32 * d), (int) (2 * d), 0, 0);
                 t.addView(s);
             }
             if (it.level >= 0) {
@@ -117,7 +117,9 @@ final class Sheets {
                 Item it = rows.get(i).get(j);
                 ((GlassDrawable) v.getBackground()).fill(f ? 0xF2F5F5F7 : it.on ? 0x40FFFFFF : 0x1FFFFFFF);
                 int col = f ? 0xFF111114 : Ui.TEXT;
-                for (String tag : new String[]{"g", "t", "s"}) {
+                ImageView ic = v.findViewWithTag("g");
+                if (ic != null) ic.setImageTintList(android.content.res.ColorStateList.valueOf(col));
+                for (String tag : new String[]{"t", "s"}) {
                     TextView tv = v.findViewWithTag(tag);
                     if (tv != null) { tv.setTextColor(tag.equals("s") ? (f ? 0xB3111114 : Ui.TEXT_2) : col); tv.setShadowLayer(0, 0, 0, 0); }
                 }
@@ -170,26 +172,33 @@ final class Sheets {
         @Override void fill() {
             Home h = home;
             String name = h.getString(R.string.user_name);
-            header(Lock.LockView.initials(name) + "  ·  Pusat Kontrol", name.isEmpty() ? "Tahoe TV" : name);
+            LinearLayout who = new LinearLayout(h); who.setGravity(Gravity.CENTER_VERTICAL);
+            who.setPadding((int) (6 * d), 0, 0, (int) (8 * d));
+            who.addView(Avatar.view(h, 44));
+            LinearLayout names = new LinearLayout(h); names.setOrientation(LinearLayout.VERTICAL); names.setPadding((int) (14 * d), 0, 0, 0);
+            TextView e = Ui.eyebrow(h, Ui.TEXT_3); e.setText("Pusat Kontrol");
+            TextView t = Ui.text(h, Ui.HEADLINE, 600, Ui.TEXT); t.setText(name.isEmpty() ? "Tahoe TV" : name);
+            names.addView(e); names.addView(t); who.addView(names);
+            panel.addView(who);
             AudioManager am = (AudioManager) h.getSystemService(Context.AUDIO_SERVICE);
             int v = am.getStreamVolume(AudioManager.STREAM_MUSIC), max = Math.max(1, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
-            add(new Item("🔊", "Volume", Math.round(100f * v / max) + "%   ◀ ▶", null).wide().level((float) v / max)
+            add(new Item(R.drawable.ic_volume_2, "Volume", Math.round(100f * v / max) + "%   ◀ ▶", null).wide().level((float) v / max)
                     .adjust(dir -> am.adjustSuggestedStreamVolume(dir > 0 ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER, AudioManager.STREAM_MUSIC, 0)));
             if (h.phoneMedia != null) {
                 boolean playing = h.phoneMedia.optBoolean("playing");
-                add(new Item(playing ? "⏸" : "▶", h.phoneMedia.optString("title"), h.phoneMedia.optString("artist") + "  ·  di HP  ·  ◀ ▶ lagu", () -> {
+                add(new Item(playing ? R.drawable.ic_pause : R.drawable.ic_play, h.phoneMedia.optString("title"), h.phoneMedia.optString("artist") + "  ·  di HP  ·  ◀ ▶ lagu", () -> {
                     h.phoneMediaCommand(playing ? "pause" : "play");
                 }).wide().on(playing).adjust(dir -> h.phoneMediaCommand(dir > 0 ? "next" : "prev")));
             }
-            add(new Item("◉", "Wi-Fi", ssid(h), () -> h.start(new Intent(Settings.ACTION_WIFI_SETTINGS))),
-                new Item("ᛒ", "Bluetooth", "Remote & controller", () -> h.start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
-            add(new Item("◐", "Wallpaper", "Ganti sekarang", () -> h.hero.nextWall()),
-                new Item("☁", "Cuaca", "Per jam & 7 hari", () -> { h.closeSheet(); h.openWeather(); }));
-            add(new Item("☪", "Shalat & adzan", "Jadwal & suara", () -> { h.closeSheet(); h.openPrayer(); }),
-                new Item("✦", "Asisten", Assistant.enabled() ? "Gemini" : "Belum diatur", () -> { h.closeSheet(); h.openAssistant(); }));
-            add(new Item("⌂", "Rumah", HomeControl.enabled() ? "Home Assistant" : "Hey Google", () -> { h.closeSheet(); h.openSheet(new Devices(h)); }),
-                new Item("▯", "HP", h.companion == null || h.companion.pairedCount() == 0 ? "Pairing" : h.companion.pairedCount() + " HP", () -> { h.closeSheet(); h.openPair(); }),
-                new Item("⚙", "Setelan", "Sistem", () -> h.start(new Intent(Settings.ACTION_SETTINGS))));
+            add(new Item(R.drawable.ic_wifi, "Wi-Fi", ssid(h), () -> h.start(new Intent(Settings.ACTION_WIFI_SETTINGS))),
+                new Item(R.drawable.ic_bluetooth, "Bluetooth", "Remote & controller", () -> h.start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
+            add(new Item(R.drawable.ic_image, "Wallpaper", "Ganti sekarang", () -> h.hero.nextWall()),
+                new Item(R.drawable.ic_cloud_sun, "Cuaca", "Per jam & 7 hari", () -> { h.closeSheet(); h.openWeather(); }));
+            add(new Item(R.drawable.ic_moon_star, "Shalat & adzan", "Jadwal & suara", () -> { h.closeSheet(); h.openPrayer(); }),
+                new Item(R.drawable.ic_sparkles, "Asisten", Assistant.enabled() ? "Gemini" : "Belum diatur", () -> { h.closeSheet(); h.openAssistant(); }));
+            add(new Item(R.drawable.ic_house, "Rumah", HomeControl.enabled() ? "Home Assistant" : "Hey Google", () -> { h.closeSheet(); h.openSheet(new Devices(h)); }),
+                new Item(R.drawable.ic_smartphone, "HP", h.companion == null || h.companion.pairedCount() == 0 ? "Pairing" : h.companion.pairedCount() + " HP", () -> { h.closeSheet(); h.openPair(); }),
+                new Item(R.drawable.ic_settings, "Setelan", "Sistem", () -> h.start(new Intent(Settings.ACTION_SETTINGS))));
         }
 
         static String ssid(Context c) {
@@ -213,25 +222,25 @@ final class Sheets {
         @Override void fill() {
             Home h = home;
             header(app.system ? "Aplikasi sistem" : "Aplikasi", app.label);
-            add(new Item("▶", "Buka", null, () -> { h.closeSheet(); h.launch(app.launch, app, h.focusedTile()); }).wide());
+            add(new Item(R.drawable.ic_play, "Buka", null, () -> { h.closeSheet(); h.launch(app.launch, app, h.focusedTile()); }).wide());
             if (app.pkg.equals(Trending.YT) && !h.trending.isEmpty()) {
                 Trending.Video v = h.trending.get(h.trendIndex % h.trending.size());
-                add(new Item("★", "Putar trending", v.title, () -> { h.closeSheet(); h.start(Trending.watch(v.id)); }).wide());
+                add(new Item(R.drawable.ic_tv, "Putar trending", v.title, () -> { h.closeSheet(); h.start(Trending.watch(v.id)); }).wide());
             }
             List<String> pins = h.dockPackages();
             int at = pins.indexOf(app.pkg);
             if (at >= 0) {
-                add(new Item("−", "Lepas dari Dock", null, () -> { pins.remove(app.pkg); h.closeSheet(); h.saveDock(pins); }),
-                    new Item("⇄", "Geser", "◀ ▶", null).adjust(dir -> {
+                add(new Item(R.drawable.ic_pin_off, "Lepas dari Dock", null, () -> { pins.remove(app.pkg); h.closeSheet(); h.saveDock(pins); }),
+                    new Item(R.drawable.ic_arrow_left_right, "Geser", "◀ ▶", null).adjust(dir -> {
                         int i = pins.indexOf(app.pkg), j = i + dir;
                         if (j >= 0 && j < pins.size()) { Collections.swap(pins, i, j); h.saveDock(pins); }
                     }));
             } else if (h.dock.size() < h.dockSize)
-                add(new Item("+", "Sematkan ke Dock", null, () -> { pins.add(app.pkg); h.closeSheet(); h.saveDock(pins); }).wide());
-            else add(new Item("+", "Dock penuh", "Lepas satu dulu (" + h.dockSize + ")", null).wide());
-            Item info = new Item("ⓘ", "Info", null, () -> { h.closeSheet(); h.start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.pkg))); });
+                add(new Item(R.drawable.ic_pin, "Sematkan ke Dock", null, () -> { pins.add(app.pkg); h.closeSheet(); h.saveDock(pins); }).wide());
+            else add(new Item(R.drawable.ic_pin, "Dock penuh", "Lepas satu dulu (" + h.dockSize + ")", null).wide());
+            Item info = new Item(R.drawable.ic_info, "Info", null, () -> { h.closeSheet(); h.start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.pkg))); });
             if (app.system) add(info.wide());
-            else add(info, new Item("🗑", "Uninstall", null, () -> { h.closeSheet(); h.start(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg))); }));
+            else add(info, new Item(R.drawable.ic_trash_2, "Uninstall", null, () -> { h.closeSheet(); h.start(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg))); }));
         }
 
         @Override public boolean key(KeyEvent e) {
@@ -253,8 +262,9 @@ final class Sheets {
             home = h;
             float d = Ui.dp(h, 1);
             setBackgroundColor(0xF2080A10);
+            Ui.crumb(this, R.drawable.ic_smartphone, "Hubungkan HP");
             LinearLayout left = new LinearLayout(h); left.setOrientation(LinearLayout.VERTICAL);
-            TextView eb = Ui.eyebrow(h, Ui.TEXT_3); eb.setText("Hubungkan HP");
+            TextView eb = Ui.eyebrow(h, Ui.TEXT_3); eb.setText("Remote · Gamepad · Foto");
             TextView ti = Ui.text(h, Ui.TITLE, 600, Ui.TEXT); ti.setText("Pindai dengan kamera HP");
             TextView body = Ui.text(h, Ui.BODY, 400, Ui.TEXT_2);
             body.setSingleLine(false); body.setLineSpacing(0, 1.3f);
@@ -331,11 +341,11 @@ final class Sheets {
         @Override void fill() {
             header("Rumah", HomeControl.enabled() ? "Perangkat" : "Kontrol rumah");
             if (!HomeControl.enabled()) {
-                add(new Item("🎙", "Pakai tombol mic remote", "\"Hey Google, matikan lampu\" — Google Assistant bawaan TV", null).wide());
-                add(new Item("⌂", "Home Assistant", "Isi homeassistant.url & token di secrets.properties", null).wide());
+                add(new Item(R.drawable.ic_mic, "Pakai tombol mic remote", "\"Hey Google, matikan lampu\" — Google Assistant bawaan TV", null).wide());
+                add(new Item(R.drawable.ic_house, "Home Assistant", "Isi homeassistant.url & token di secrets.properties", null).wide());
                 return;
             }
-            if (list == null || list.isEmpty()) { add(new Item("…", status == null ? "" : status, null, null).wide()); return; }
+            if (list == null || list.isEmpty()) { add(new Item(R.drawable.ic_clock, status == null ? "" : status, null, null).wide()); return; }
             for (int i = 0; i < list.size(); i += 2) {
                 HomeControl.Device a = list.get(i);
                 if (i + 1 < list.size()) add(item(a), item(list.get(i + 1))); else add(item(a).wide());
@@ -343,7 +353,8 @@ final class Sheets {
         }
 
         Item item(HomeControl.Device dv) {
-            String g = dv.domain.equals("light") ? "💡" : dv.domain.equals("fan") ? "❋" : dv.domain.equals("climate") ? "❄" : "⏻";
+            int g = dv.domain.equals("light") ? R.drawable.ic_lightbulb : dv.domain.equals("fan") ? R.drawable.ic_fan
+                    : dv.domain.equals("climate") ? R.drawable.ic_thermometer : R.drawable.ic_power;
             return new Item(g, dv.name, dv.on ? "Nyala" : "Mati", () -> Net.bg.execute(() -> {
                 try { HomeControl.toggle(dv); post(this::rebuild); } catch (Exception e) { post(() -> home.toast("Gagal: " + e.getMessage())); }
             })).on(dv.on);

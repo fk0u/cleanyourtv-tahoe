@@ -18,8 +18,12 @@ final class Ui {
     static final int GLASS = 0x5C17171A, GLASS_STRONG = 0xE6141417, GLASS_FOCUS = 0x47FFFFFF;
     static final int ACCENT = 0xFF64D2FF;
 
-    // Type scale (sp) and weights for the Outfit variable font.
-    static final float DISPLAY = 96, TITLE = 44, HEADLINE = 26, BODY = 17, CAPTION = 12.5f;
+    // Type scale: Apple HIG tvOS sizes (px at 1080p) halved to dp on this 2x display:
+    // Title1 76 → 38, Title3 48 → 24, Body 29 → 15, Caption 23 → 12. DISPLAY is the lock/sheet clock.
+    static final float DISPLAY = 96, TITLE = 38, HEADLINE = 24, BODY = 15, CAPTION = 12;
+
+    // tvOS safe area at 1080p: 60 px top/bottom, 80 px sides (→ 30 / 40 dp). Content never goes past it.
+    static final float SAFE_TOP = 30, SAFE_SIDE = 56;
 
     // Radii (dp) and motion (ms).
     static final float R_SMALL = 12, R_MED = 18, R_LARGE = 28;
@@ -53,6 +57,41 @@ final class Ui {
         TextView t = text(c, CAPTION, 600, color);
         t.setLetterSpacing(0.12f); t.setAllCaps(true);
         return t;
+    }
+
+    /** Lucide icon (vector drawable), tinted. */
+    static android.widget.ImageView icon(Context c, int res, float sizeDp, int color) {
+        android.widget.ImageView v = new android.widget.ImageView(c);
+        v.setImageResource(res);
+        v.setImageTintList(android.content.res.ColorStateList.valueOf(color));
+        v.setLayoutParams(new android.widget.LinearLayout.LayoutParams((int) dp(c, sizeDp), (int) dp(c, sizeDp)));
+        return v;
+    }
+
+    /** tvOS breadcrumb pill ("‹ [icon] Cuaca") for the top-left of full-screen sheets, and a clock pill for the top-right. */
+    static android.widget.FrameLayout.LayoutParams crumb(android.widget.FrameLayout parent, int iconRes, String title) {
+        Context c = parent.getContext();
+        android.widget.LinearLayout pill = new android.widget.LinearLayout(c);
+        pill.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        pill.setBackground(new GlassDrawable(dp(c, 18), GLASS, dp(c, 1)));
+        pill.setPadding((int) dp(c, 8), (int) dp(c, 6), (int) dp(c, 14), (int) dp(c, 6));
+        pill.addView(icon(c, R.drawable.ic_chevron_left, 16, TEXT_2));
+        android.widget.ImageView i = icon(c, iconRes, 16, TEXT);
+        ((android.widget.LinearLayout.LayoutParams) i.getLayoutParams()).leftMargin = (int) dp(c, 6);
+        pill.addView(i);
+        TextView t = text(c, 14, 500, TEXT); t.setText(title); t.setPadding((int) dp(c, 8), 0, 0, 0);
+        pill.addView(t);
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(-2, -2);
+        lp.leftMargin = (int) dp(c, SAFE_SIDE - 16); lp.topMargin = (int) dp(c, SAFE_TOP);
+        parent.addView(pill, lp);
+        TextView clock = text(c, 18, 500, TEXT);
+        clock.setText(new java.text.SimpleDateFormat("HH.mm", java.util.Locale.getDefault()).format(new java.util.Date()));
+        clock.setBackground(new GlassDrawable(dp(c, 20), GLASS, dp(c, 1)));
+        clock.setPadding((int) dp(c, 14), (int) dp(c, 7), (int) dp(c, 14), (int) dp(c, 7));
+        android.widget.FrameLayout.LayoutParams cl = new android.widget.FrameLayout.LayoutParams(-2, -2, android.view.Gravity.END);
+        cl.rightMargin = (int) dp(c, SAFE_SIDE - 16); cl.topMargin = (int) dp(c, SAFE_TOP);
+        parent.addView(clock, cl);
+        return lp;
     }
 
     static ViewOutlineProvider round(float r) {
