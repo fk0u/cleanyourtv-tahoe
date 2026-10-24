@@ -42,17 +42,19 @@ public class Home extends Activity implements Companion.Listener, Tools {
     View dockBand, padScrim, transition;
     TextView greeting, clock, tooltip, padTitle;
     LinearLayout chips;
-    final List<TextView> chipViews = new ArrayList<>();
+    final List<LinearLayout> chipViews = new ArrayList<>();
+    LinearLayout heroAction; ImageView heroActionIcon; TextView heroActionText;
     final List<Runnable> chipActions = new ArrayList<>();
     final List<App> dock = new ArrayList<>(), all = new ArrayList<>();
     final List<Tile> dockTiles = new ArrayList<>();
     final List<List<App>> padRows = new ArrayList<>();
     final List<List<Tile>> padTiles = new ArrayList<>();
     final List<Float> padRowTop = new ArrayList<>();
+    // Focus rows: -2 top bar chips, -1 hero action button, 0 dock, >= 1 Launchpad rows.
     int row = 0, col = 0, lastDockCol = 0, chipCol = 0, firstPadRow = 1;
     Tile focused;
     Sheet sheet; View sheetView;
-    Lock.LockView lock;
+    Lock.Profiles profiles; // boot "who's watching" screen
     JSONObject weather, phoneMedia;
     List<Trending.Video> trending = new ArrayList<>();
     int trendIndex;
@@ -141,7 +143,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
         // Top bar: greeting left; chips + clock right.
         greeting = Ui.eyebrow(this, Ui.TEXT_2);
-        root.addView(greeting, at(M, dp(40), W * 0.4f, -1));
+        root.addView(greeting, at(M, dp(Ui.SAFE_TOP + 12), W * 0.4f, -1));
         LinearLayout right = new LinearLayout(this); right.setGravity(Gravity.CENTER_VERTICAL);
         chips = new LinearLayout(this); chips.setGravity(Gravity.CENTER_VERTICAL);
         right.addView(chips);
@@ -149,8 +151,19 @@ public class Home extends Activity implements Companion.Listener, Tools {
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.leftMargin = (int) dp(18);
         right.addView(clock, cl);
         FrameLayout.LayoutParams rl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        rl.topMargin = (int) dp(26); rl.rightMargin = (int) M;
+        rl.topMargin = (int) dp(Ui.SAFE_TOP); rl.rightMargin = (int) M;
         root.addView(right, rl);
+
+        heroAction = new LinearLayout(this); heroAction.setGravity(Gravity.CENTER_VERTICAL);
+        heroAction.setPadding((int) dp(16), (int) dp(10), (int) dp(20), (int) dp(10));
+        heroAction.setBackground(new GlassDrawable(dp(22), Ui.GLASS, dp(1)));
+        heroActionIcon = Ui.icon(this, R.drawable.ic_play, 18, Ui.TEXT);
+        heroActionText = Ui.text(this, 15, 600, Ui.TEXT); heroActionText.setPadding((int) dp(10), 0, 0, 0);
+        heroAction.addView(heroActionIcon); heroAction.addView(heroActionText);
+        LinearLayout.LayoutParams hal = new LinearLayout.LayoutParams(-2, -2); hal.topMargin = (int) dp(22);
+        hero.block.addView(heroAction, hal);
+        heroAction.setPivotX(0); // tvOS lift grows away from the text edge, not past it
+        hero.block.setClipChildren(false); hero.setClipChildren(false);
 
         // Dock (macOS style): centred glass shelf, tiles magnify toward the focused one.
         tileW = dp(118); tileH = tileW * 9 / 16; gap = dp(16);
@@ -182,44 +195,91 @@ public class Home extends Activity implements Companion.Listener, Tools {
         padTileW = (W - 2 * M - (cols - 1) * padGap) / cols; padTileH = padTileW * 9 / 16;
         padStep = padTileH + dp(46);
 
-        // Boot lock screen (macOS-style login), dismissed with OK.
-        lock = new Lock.LockView(this);
-        root.addView(lock, new FrameLayout.LayoutParams(-1, -1));
-        lock.start();
+        // Boot: "Siapa yang menonton?" (owner with last app, or guest).
+        String[] last = recentApp();
+        Drawable lastIcon = null;
+        if (last != null) try { ApplicationInfo ai = getPackageManager().getApplicationInfo(last[0], 0); lastIcon = ai.loadBanner(getPackageManager()); if (lastIcon == null) lastIcon = ai.loadIcon(getPackageManager()); } catch (Exception ignored) {}
+        profiles = new Lock.Profiles(this, last == null ? null : last[1], lastIcon, p -> {
+            prefs.edit().putString("profile", p).apply();
+            Lock.Profiles v = profiles; profiles = null;
+            v.unlock(() -> root.removeView(v));
+            tick(); loadApps(); render(false);
+        });
+        root.addView(profiles, new FrameLayout.LayoutParams(-1, -1));
+        profiles.start();
         buildChips();
         tick();
     }
 
+    boolean guest() { return "guest".equals(prefs.getString("profile", "main")); }
+
+    /** Most recently used launchable app other than us: {package, label}. */
+    String[] recentApp() {
+        try {
+            UsageStatsManager um = (UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
+            long now = System.currentTimeMillis();
+            UsageStats best = null;
+            for (UsageStats s : um.queryUsageStats(UsageStatsManager.INTERVAL_WEEKLY, now - 7 * 86_400_000L, now)) {
+                if (s.getPackageName().equals(getPackageName()) || s.getTotalTimeInForeground() < 30_000) continue;
+                if (getPackageManager().getLeanbackLaunchIntentForPackage(s.getPackageName()) == null) continue;
+                if (best == null || s.getLastTimeUsed() > best.getLastTimeUsed()) best = s;
+            }
+            if (best == null) return null;
+            PackageManager pm = getPackageManager();
+            return new String[]{best.getPackageName(), pm.getApplicationLabel(pm.getApplicationInfo(best.getPackageName(), 0)).toString()};
+        } catch (Exception e) { return null; }
+    }
+
     void buildChips() {
         chips.removeAllViews(); chipViews.clear(); chipActions.clear();
-        addChip("", this::openWeather);
-        addChip("", this::openPrayer);
-        if (phoneMedia != null) addChip("", this::openControl);
-        if (gamepad) addChip("🎮", () -> { if (row == 0) lastDockCol = col; openPad(); });
-        addChip("✦  Tanya", this::openAssistant);
-        addChip("HP", this::openPair);
-        TextView avatar = addChip(Lock.LockView.initials(getString(R.string.user_name)), this::openControl);
-        avatar.setPadding((int) dp(11), (int) dp(7), (int) dp(11), (int) dp(7));
+        addChip(R.drawable.ic_cloud, "Cuaca", this::openWeather);
+        addChip(R.drawable.ic_moon_star, "Shalat", this::openPrayer);
+        if (phoneMedia != null) addChip(R.drawable.ic_music, "", this::openControl);
+        if (gamepad) addChip(R.drawable.ic_gamepad_2, null, () -> { if (row == 0) lastDockCol = col; openPad(); });
+        addChip(R.drawable.ic_sparkles, "Tanya", this::openAssistant);
+        addChip(R.drawable.ic_smartphone, null, this::openPair);
+        // Profile photo chip opens Control Center.
+        LinearLayout av = new LinearLayout(this);
+        av.setPadding((int) dp(3), (int) dp(3), (int) dp(3), (int) dp(3));
+        av.setBackground(new GlassDrawable(dp(20), Ui.GLASS, dp(1)));
+        av.addView(Avatar.view(this, 30));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = (int) dp(8);
+        chips.addView(av, lp); chipViews.add(av); chipActions.add(this::openControl);
         updateChips();
         chipCol = Math.min(chipCol, chipViews.size() - 1);
     }
 
-    TextView addChip(String s, Runnable action) {
-        TextView t = Ui.text(this, 14, 500, Ui.TEXT);
-        t.setText(s); t.setPadding((int) dp(14), (int) dp(7), (int) dp(14), (int) dp(7));
-        t.setBackground(new GlassDrawable(dp(17), Ui.GLASS, dp(1)));
+    LinearLayout addChip(int icon, String text, Runnable action) {
+        LinearLayout c = new LinearLayout(this); c.setGravity(Gravity.CENTER_VERTICAL);
+        c.setPadding((int) dp(12), (int) dp(8), (int) dp(text == null ? 12 : 15), (int) dp(8));
+        c.setBackground(new GlassDrawable(dp(18), Ui.GLASS, dp(1)));
+        ImageView i = Ui.icon(this, icon, 18, Ui.TEXT); i.setTag("i");
+        c.addView(i);
+        if (text != null) {
+            TextView t = Ui.text(this, 14, 500, Ui.TEXT); t.setText(text); t.setTag("t");
+            t.setPadding((int) dp(8), 0, 0, 0);
+            c.addView(t);
+        }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = (int) dp(8);
-        chips.addView(t, lp); chipViews.add(t); chipActions.add(action);
-        return t;
+        chips.addView(c, lp); chipViews.add(c); chipActions.add(action);
+        return c;
+    }
+
+    void chipText(int i, int icon, String text) {
+        if (i >= chipViews.size()) return;
+        ImageView iv = chipViews.get(i).findViewWithTag("i");
+        TextView tv = chipViews.get(i).findViewWithTag("t");
+        if (iv != null && icon != 0) iv.setImageResource(icon);
+        if (tv != null) tv.setText(text);
     }
 
     void updateChips() {
         if (chipViews.isEmpty()) return;
         JSONObject cur = weather == null ? null : weather.optJSONObject("current");
-        chipViews.get(0).setText(cur == null ? "Cuaca" : Weather.glyph(cur.optInt("weather_code"), cur.optInt("is_day", 1) == 1) + "  " + Math.round(cur.optDouble("temperature_2m")) + "°");
+        if (cur != null) chipText(0, Weather.icon(cur.optInt("weather_code"), cur.optInt("is_day", 1) == 1), Math.round(cur.optDouble("temperature_2m")) + "°");
         Object[] n = Prayer.next(this);
-        chipViews.get(1).setText(n == null ? "Shalat" : n[0] + "  " + new SimpleDateFormat("HH.mm", Locale.getDefault()).format(new Date((Long) n[1])));
-        if (phoneMedia != null && chipViews.size() > 2) chipViews.get(2).setText("♪  " + phoneMedia.optString("title"));
+        chipText(1, 0, n == null ? "Shalat" : n[0] + "  " + new SimpleDateFormat("HH.mm", Locale.getDefault()).format(new Date((Long) n[1])));
+        if (phoneMedia != null) chipText(2, 0, phoneMedia.optString("title"));
     }
 
     // ---------------------------------------------------------------- data
@@ -238,7 +298,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         clock.setText(new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", Locale.getDefault()).format(now));
         int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         String g = h < 4 ? "Selamat malam" : h < 11 ? "Selamat pagi" : h < 15 ? "Selamat siang" : h < 18 ? "Selamat sore" : "Selamat malam";
-        String name = getString(R.string.user_name);
+        String name = guest() ? "" : getString(R.string.user_name);
         greeting.setText(name.isEmpty() ? g : g + ", " + name);
         updateChips();
         if (row != 0 || focusedApp() == null) renderHero();
@@ -247,12 +307,14 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     // ---------------------------------------------------------------- apps
 
+    String dockKey() { return guest() ? "dock_guest" : "dock"; }
+
     List<String> dockPackages() {
-        String saved = prefs.getString("dock", null);
+        String saved = prefs.getString(dockKey(), null);
         List<String> defaults = new ArrayList<>(Arrays.asList(getResources().getStringArray(R.array.dock_apps)));
         if (saved == null) return defaults;
         List<String> l = saved.isEmpty() ? new ArrayList<>() : new ArrayList<>(Arrays.asList(saved.split(",")));
-        if (!prefs.getBoolean("dock_v2", false)) { // one-time: grow an old 4-app dock with the new defaults
+        if (!guest() && !prefs.getBoolean("dock_v2", false)) { // one-time: grow an old 4-app dock with the new defaults
             for (String p : defaults) if (!l.contains(p)) l.add(p);
             prefs.edit().putBoolean("dock_v2", true).putString("dock", android.text.TextUtils.join(",", l)).apply();
         }
@@ -260,7 +322,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
     }
 
     void saveDock(List<String> pkgs) {
-        prefs.edit().putString("dock", android.text.TextUtils.join(",", pkgs)).putBoolean("dock_v2", true).apply();
+        prefs.edit().putString(dockKey(), android.text.TextUtils.join(",", pkgs)).putBoolean("dock_v2", true).apply();
         loadApps();
     }
 
@@ -387,7 +449,11 @@ public class Home extends Activity implements Companion.Listener, Tools {
     // ---------------------------------------------------------------- focus
 
     int rows() { return padRows.size(); }
-    int rowLen(int r) { return r < 0 ? chipViews.size() : r == 0 ? dock.size() : r <= padRows.size() ? padRows.get(r - 1).size() : 0; }
+    int rowLen(int r) {
+        if (r == -2) return chipViews.size();
+        if (r == -1) return dock.isEmpty() ? 0 : 1;
+        return r == 0 ? dock.size() : r >= 1 && r <= padRows.size() ? padRows.get(r - 1).size() : 0;
+    }
 
     void clampFocus() {
         if (row > rows()) row = rows();
@@ -415,10 +481,12 @@ public class Home extends Activity implements Companion.Listener, Tools {
         } else {
             int target = row + dr;
             if (target == 0 && dock.isEmpty()) target += dr;
-            if (target < -1 || target > rows() || rowLen(target) == 0) return;
-            if (row == -1) chipCol = col;
+            if (target == -1 && rowLen(-1) == 0) target += dr;
+            if (target < -2 || target > rows() || rowLen(target) == 0) return;
+            if (row == -2) chipCol = col;
             if (row == 0) lastDockCol = col;
-            if (target == -1) col = chipCol;
+            if (target == -2) col = chipCol;
+            else if (target == -1) col = 0;
             else if (target == 0) col = lastDockCol;
             row = target;
             col = Math.min(col, rowLen(row) - 1);
@@ -434,13 +502,9 @@ public class Home extends Activity implements Companion.Listener, Tools {
         int ms = animate && Ui.motion(this) > 0 ? Ui.MED : 0;
         boolean inPad = row >= 1;
 
-        // Chips
-        for (int i = 0; i < chipViews.size(); i++) {
-            boolean f = row == -1 && col == i;
-            ((GlassDrawable) chipViews.get(i).getBackground()).fill(f ? 0xE6F5F5F7 : Ui.GLASS);
-            chipViews.get(i).setTextColor(f ? 0xFF111114 : Ui.TEXT);
-            chipViews.get(i).setShadowLayer(f ? 0 : dp(10), 0, f ? 0 : dp(1), 0x66000000);
-        }
+        // Chips and the hero action: tvOS focus = bright fill, dark content, slight lift.
+        for (int i = 0; i < chipViews.size(); i++) focusPill(chipViews.get(i), row == -2 && col == i, ms);
+        focusPill(heroAction, row == -1, ms);
 
         // Dock magnification: focused 1.25, neighbours 1.1, others 1.
         for (int i = 0; i < dockTiles.size(); i++) {
@@ -484,6 +548,17 @@ public class Home extends Activity implements Companion.Listener, Tools {
         renderHero();
     }
 
+    void focusPill(LinearLayout p, boolean f, int ms) {
+        ((GlassDrawable) p.getBackground()).fill(f ? 0xF2F5F5F7 : Ui.GLASS);
+        int c = f ? 0xFF111114 : Ui.TEXT;
+        for (int k = 0; k < p.getChildCount(); k++) {
+            View v = p.getChildAt(k);
+            if (v instanceof TextView) { ((TextView) v).setTextColor(c); ((TextView) v).setShadowLayer(0, 0, 0, 0); }
+            else if (v instanceof ImageView && ((ImageView) v).getImageTintList() != null) ((ImageView) v).setImageTintList(android.content.res.ColorStateList.valueOf(c));
+        }
+        p.animate().scaleX(f ? 1.08f : 1f).scaleY(f ? 1.08f : 1f).translationZ(f ? dp(8) : 0).setDuration(ms == 0 ? 0 : Ui.FAST).start();
+    }
+
     // ---------------------------------------------------------------- hero
 
     final Runnable trendTick = () -> { trendIndex++; renderHero(); };
@@ -491,17 +566,20 @@ public class Home extends Activity implements Companion.Listener, Tools {
     void renderHero() {
         if (hero == null) return;
         ui.removeCallbacks(trendTick);
-        App a = row == 0 ? focusedApp() : null;
+        App a = row == 0 ? focusedApp() : row == -1 && !dock.isEmpty() ? dock.get(Math.min(lastDockCol, dock.size() - 1)) : null;
+        heroAction.setVisibility(a == null ? View.GONE : View.VISIBLE);
         if (a != null && a.pkg.equals(Trending.YT) && !trending.isEmpty()) {
             Trending.Video v = trending.get(trendIndex % trending.size());
             hero.context(v.thumb);
-            hero.text("Trending di YouTube · #" + (trendIndex % trending.size() + 1), v.title, v.channel + (v.views.isEmpty() ? "" : "  ·  " + v.views) + "  ·  tahan OK untuk memutar");
-            ui.postDelayed(trendTick, 7000);
+            hero.text("Trending di YouTube · #" + (trendIndex % trending.size() + 1), v.title, v.channel + (v.views.isEmpty() ? "" : "  ·  " + v.views));
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Putar video");
+            if (row == 0) ui.postDelayed(trendTick, 7000); // hold still while the button is focused
             return;
         }
         hero.context(null);
         if (a != null) {
-            hero.text(a.system ? "Aplikasi sistem" : "Di dock", a.label, "OK untuk membuka  ·  tahan OK untuk opsi");
+            hero.text(a.system ? "Aplikasi sistem" : "Di dock", a.label, "Tahan OK untuk opsi");
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Buka " + a.label);
             return;
         }
         // Idle: editorial date + weather + next prayer (+ phone music).
@@ -512,6 +590,14 @@ public class Home extends Activity implements Companion.Listener, Tools {
         String p = n == null ? "" : n[0] + " dalam " + Prayer.countdown((Long) n[1]);
         String meta = (phoneMedia != null ? "♪ " + phoneMedia.optString("title") + " — " + phoneMedia.optString("artist") + "  ·  " : "") + p;
         hero.text(date + (w.isEmpty() ? "" : "  ·  " + w), getString(R.string.city), meta);
+    }
+
+    void heroActivate() {
+        if (dock.isEmpty()) return;
+        int i = Math.min(lastDockCol, dock.size() - 1);
+        App a = dock.get(i);
+        if (a.pkg.equals(Trending.YT) && !trending.isEmpty()) { start(Trending.watch(trending.get(trendIndex % trending.size()).id)); return; }
+        launch(a.launch, a, dockTiles.get(i));
     }
 
     // ---------------------------------------------------------------- launching
@@ -608,12 +694,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
     @Override public boolean dispatchKeyEvent(KeyEvent e) {
         int k = gamepadToRemote(e.getKeyCode());
         if (k != e.getKeyCode()) e = new KeyEvent(e.getDownTime(), e.getEventTime(), e.getAction(), k, e.getRepeatCount(), e.getMetaState());
-        if (lock != null && k != KeyEvent.KEYCODE_HOME) {
-            if (Lock.isOk(k)) {
-                if (e.getAction() == KeyEvent.ACTION_UP) { Lock.LockView l = lock; lock = null; l.unlock(() -> root.removeView(l)); render(false); }
-            } else if (e.getAction() == KeyEvent.ACTION_DOWN) lock.nudge();
-            return true;
-        }
+        if (profiles != null && k != KeyEvent.KEYCODE_HOME) return profiles.key(e);
         if (sheet != null && k != KeyEvent.KEYCODE_HOME) {
             if (sheet.key(e)) return true;
             if (e.getAction() == KeyEvent.ACTION_DOWN && (k == KeyEvent.KEYCODE_BACK || k == KeyEvent.KEYCODE_MENU)) closeSheet();
@@ -650,6 +731,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     @Override public boolean onKeyLongPress(int k, KeyEvent e) {
         if ((k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) && row >= 0) { openAppMenu(); return true; }
+        if ((k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) && row == -1) { row = 0; col = lastDockCol; openAppMenu(); return true; }
         return super.onKeyLongPress(k, e);
     }
 
@@ -657,6 +739,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {
             if (e.isTracking() && !e.isCanceled() || e.getDownTime() == e.getEventTime()) { // synthetic taps have no tracking
                 if (row >= 0) { App a = focusedApp(); if (a != null) launch(a); }
+                else if (row == -1) heroActivate();
                 else if (col < chipActions.size()) chipActions.get(col).run();
             }
             return true;
@@ -683,6 +766,15 @@ public class Home extends Activity implements Companion.Listener, Tools {
             case "ok": code = KeyEvent.KEYCODE_DPAD_CENTER; break;
             case "menu": code = KeyEvent.KEYCODE_MENU; break;
             case "apps": code = KeyEvent.KEYCODE_ALL_APPS; break;
+            // phone-as-gamepad buttons
+            case "a": code = KeyEvent.KEYCODE_BUTTON_A; break;
+            case "b": code = KeyEvent.KEYCODE_BUTTON_B; break;
+            case "x": code = KeyEvent.KEYCODE_BUTTON_X; break;
+            case "y": code = KeyEvent.KEYCODE_BUTTON_Y; break;
+            case "start": code = KeyEvent.KEYCODE_BUTTON_START; break;
+            case "select": code = KeyEvent.KEYCODE_BUTTON_SELECT; break;
+            case "l1": code = KeyEvent.KEYCODE_BUTTON_L1; break;
+            case "r1": code = KeyEvent.KEYCODE_BUTTON_R1; break;
             case "back": if (!hasWindowFocus() && Keys.inst != null) { Keys.inst.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK); return; }
                 code = KeyEvent.KEYCODE_BACK; break;
             case "home": start(new Intent(this, Home.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)); return;

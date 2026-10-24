@@ -7,6 +7,8 @@ import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.ToneGenerator;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.view.*;
 import android.widget.*;
 import java.io.File;
@@ -129,79 +131,109 @@ final class Prayer {
 
     static void stop() { if (player != null) { try { player.release(); } catch (Exception ignored) {} player = null; } }
 
-    // ---- sheet ----
+    // ---- sheet: editorial detail on the left, timeline list on the right ----
 
     static final class Panel extends FrameLayout implements tv.clean.home.Sheet {
         final LinearLayout list;
         final List<String> names = new ArrayList<>();
+        final List<Long> at = new ArrayList<>();
         int sel;
 
         Panel(Context c) {
             super(c);
             float d = Ui.dp(c, 1);
-            setBackgroundColor(0xF2080A10);
-            View glow = new View(c);
-            glow.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                    new int[]{0x4D1F6F5C, 0x00000000, 0x33244A8A}));
-            addView(glow, new LayoutParams(-1, -1));
+            setBackgroundColor(0xF50A0B10);
+            Ui.crumb(this, R.drawable.ic_moon_star, "Jadwal shalat");
 
-            LinearLayout left = new LinearLayout(c); left.setOrientation(LinearLayout.VERTICAL);
-            TextView eb = Ui.eyebrow(c, Ui.TEXT_2);
-            eb.setText(prefs(c).getString("hijri", "") + "  ·  " + c.getString(R.string.city));
             Object[] n = next(c);
-            TextView title = Ui.text(c, Ui.TITLE + 8, 300, Ui.TEXT);
+            LinearLayout left = new LinearLayout(c); left.setOrientation(LinearLayout.VERTICAL);
+            TextView eb = Ui.eyebrow(c, Ui.TEXT_3);
+            eb.setText(new SimpleDateFormat("EEE d", Locale.getDefault()).format(new Date()) + "  ·  " + prefs(c).getString("hijri", ""));
+            TextView title = Ui.text(c, Ui.TITLE, 600, Ui.TEXT);
             title.setText(n == null ? "Sampai jumpa besok" : (String) n[0]);
-            TextView big = Ui.text(c, Ui.DISPLAY, 200, Ui.TEXT);
+            TextView big = Ui.text(c, Ui.DISPLAY, 200, Ui.TEXT); big.setEllipsize(null);
             big.setText(n == null ? "" : new SimpleDateFormat("HH.mm", Locale.getDefault()).format(new Date((Long) n[1])));
-            TextView cd = Ui.text(c, Ui.HEADLINE, 400, Ui.ACCENT);
-            cd.setText(n == null ? "" : "dalam " + countdown((Long) n[1]));
-            left.addView(eb); left.addView(title); left.addView(big); left.addView(cd);
-            LayoutParams ll = new LayoutParams(-2, -2, Gravity.CENTER_VERTICAL); ll.leftMargin = (int) (64 * d);
+            TextView meta = Ui.text(c, Ui.BODY, 400, Ui.TEXT_2);
+            meta.setText((n == null ? "" : "dalam " + countdown((Long) n[1]) + "  ·  ") + c.getString(R.string.city) + "  ·  Kemenag RI");
+            left.addView(eb);
+            LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2); tl.topMargin = (int) (10 * d);
+            left.addView(title, tl); left.addView(big, new LinearLayout.LayoutParams(-1, -2)); left.addView(meta);
+            LayoutParams ll = new LayoutParams((int) (400 * d), -2, Gravity.CENTER_VERTICAL); ll.leftMargin = (int) (Ui.SAFE_SIDE * d);
             addView(left, ll);
 
             list = new LinearLayout(c); list.setOrientation(LinearLayout.VERTICAL);
-            list.setBackground(new GlassDrawable(Ui.dp(c, Ui.R_LARGE), Ui.GLASS, d));
-            list.setPadding((int) (12 * d), (int) (12 * d), (int) (12 * d), (int) (12 * d));
+            list.setBackground(new GlassDrawable(Ui.dp(c, Ui.R_LARGE), 0x29FFFFFF, d));
+            list.setPadding((int) (14 * d), (int) (14 * d), (int) (14 * d), (int) (12 * d));
+            TextView head = Ui.text(c, 13, 500, Ui.TEXT_2);
+            head.setText(times(c).size() + " waktu hari ini  ·  OK: adzan aktif/mati");
+            head.setPadding((int) (8 * d), 0, 0, (int) (8 * d));
+            list.addView(head);
             String nextName = n == null ? "" : (String) n[0];
             for (Map.Entry<String, Long> e : times(c).entrySet()) {
-                names.add(e.getKey());
-                LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.CENTER_VERTICAL);
-                row.setPadding((int) (16 * d), (int) (10 * d), (int) (16 * d), (int) (10 * d));
-                boolean hot = e.getKey().equals(nextName);
-                TextView nm = Ui.text(c, Ui.BODY + 1, hot ? 600 : 400, hot ? Ui.TEXT : Ui.TEXT_2); nm.setText(e.getKey());
-                TextView tm = Ui.text(c, Ui.BODY + 1, hot ? 600 : 400, hot ? Ui.TEXT : Ui.TEXT_2);
-                tm.setText(new SimpleDateFormat("HH:mm", Locale.US).format(new Date(e.getValue())));
-                TextView bell = Ui.text(c, Ui.BODY, 500, Ui.TEXT_2);
-                row.addView(nm, new LinearLayout.LayoutParams(0, -2, 1));
-                row.addView(tm);
-                LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams((int) (92 * d), -2); bl.leftMargin = (int) (18 * d);
-                bell.setGravity(Gravity.END);
-                row.addView(bell, bl);
-                list.addView(row);
+                names.add(e.getKey()); at.add(e.getValue());
+                list.addView(row(c, e.getKey(), e.getValue(), e.getKey().equals(nextName)));
             }
-            names.add("Tes adzan");
-            TextView test = Ui.text(c, Ui.BODY, 500, Ui.TEXT); test.setText("▶  Tes suara adzan");
-            test.setPadding((int) (16 * d), (int) (12 * d), (int) (16 * d), (int) (10 * d));
+            names.add("Tes"); at.add(0L);
+            LinearLayout test = new LinearLayout(c); test.setGravity(Gravity.CENTER_VERTICAL);
+            test.setPadding((int) (44 * d), (int) (8 * d), (int) (12 * d), (int) (6 * d));
+            ImageView pi = Ui.icon(c, R.drawable.ic_play, 16, Ui.TEXT); pi.setTag("i");
+            TextView pt = Ui.text(c, 15, 500, Ui.TEXT); pt.setText("Tes suara adzan"); pt.setPadding((int) (10 * d), 0, 0, 0); pt.setTag("n");
+            test.addView(pi); test.addView(pt);
             list.addView(test);
-            LayoutParams rl = new LayoutParams((int) (380 * d), -2, Gravity.END | Gravity.CENTER_VERTICAL); rl.rightMargin = (int) (64 * d);
+            LayoutParams rl = new LayoutParams((int) (440 * d), -2, Gravity.END | Gravity.TOP); rl.rightMargin = (int) (Ui.SAFE_SIDE * d); rl.topMargin = (int) (84 * d); // below the clock pill
             addView(list, rl);
-
-            TextView hint = Ui.text(c, Ui.CAPTION, 500, Ui.TEXT_3);
-            hint.setText("OK: adzan aktif/mati  ·  Suara sendiri: files/adzan/adzan.mp3");
-            LayoutParams hl = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL); hl.bottomMargin = (int) (18 * d);
-            addView(hint, hl);
+            sel = Math.max(0, names.indexOf(nextName));
             render();
+        }
+
+        View row(Context c, String name, long time, boolean next) {
+            float d = Ui.dp(c, 1);
+            LinearLayout r = new LinearLayout(c); r.setGravity(Gravity.CENTER_VERTICAL);
+            r.setPadding((int) (8 * d), (int) (2 * d), (int) (12 * d), (int) (2 * d));
+            boolean past = time < System.currentTimeMillis();
+            Dot dot = new Dot(c, next, past);
+            r.addView(dot, new LinearLayout.LayoutParams((int) (28 * d), (int) (42 * d)));
+            LinearLayout txt = new LinearLayout(c); txt.setOrientation(LinearLayout.VERTICAL); txt.setPadding((int) (8 * d), 0, 0, 0);
+            TextView nm = Ui.text(c, 15, next ? 700 : 500, past ? Ui.TEXT_3 : Ui.TEXT); nm.setText(name); nm.setTag("n");
+            TextView sub = Ui.text(c, 12.5f, 400, Ui.TEXT_3); sub.setTag("s");
+            sub.setText(new SimpleDateFormat("HH:mm", Locale.US).format(new Date(time)) + (next ? "  ·  berikutnya" : past ? "  ·  sudah lewat" : ""));
+            txt.addView(nm); txt.addView(sub);
+            r.addView(txt, new LinearLayout.LayoutParams(0, -2, 1));
+            if (adzanCapable(name)) {
+                ImageView bell = Ui.icon(c, R.drawable.ic_bell, 18, Ui.TEXT_2); bell.setTag("i");
+                r.addView(bell);
+            }
+            return r;
+        }
+
+        /** Timeline segment: vertical rule with a dot (filled = next, hollow = upcoming, dim = past). */
+        static final class Dot extends View {
+            final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG); final boolean next, past;
+            Dot(Context c, boolean next, boolean past) { super(c); this.next = next; this.past = past; }
+            @Override protected void onDraw(android.graphics.Canvas cv) {
+                float cx = getWidth() / 2f, cy = getHeight() / 2f, d = getResources().getDisplayMetrics().density;
+                p.setStyle(Paint.Style.FILL); p.setColor(0x33FFFFFF);
+                cv.drawRect(cx - d / 2, -d * 6, cx + d / 2, getHeight() + d * 6, p);
+                p.setColor(0xFF0A0B10); cv.drawCircle(cx, cy, 7 * d, p);
+                if (next) { p.setColor(Color.WHITE); cv.drawCircle(cx, cy, 6 * d, p); p.setColor(0xFF0A0B10); cv.drawCircle(cx, cy, 2.5f * d, p); }
+                else { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.5f * d); p.setColor(past ? 0x4DFFFFFF : 0xB3FFFFFF); cv.drawCircle(cx, cy, 5 * d, p); }
+            }
         }
 
         void render() {
             Context c = getContext();
-            for (int i = 0; i < list.getChildCount(); i++) {
-                View row = list.getChildAt(i);
-                row.setBackground(i == sel ? new GlassDrawable(Ui.dp(c, Ui.R_MED), Ui.GLASS_FOCUS, Ui.dp(c, 1)) : null);
-                if (row instanceof LinearLayout && i < names.size() - 1) {
-                    String n = names.get(i);
-                    ((TextView) ((LinearLayout) row).getChildAt(2)).setText(adzanCapable(n) ? (adzanOn(c, n) ? "Adzan ●" : "Adzan ○") : "");
+            for (int i = 0; i < names.size(); i++) {
+                View row = list.getChildAt(i + 1);
+                boolean f = i == sel;
+                row.setBackground(f ? new GlassDrawable(Ui.dp(c, Ui.R_MED), 0x33FFFFFF, Ui.dp(c, 1)) : null);
+                String n = names.get(i);
+                ImageView ic = row.findViewWithTag("i");
+                if (ic != null && adzanCapable(n)) {
+                    boolean on = adzanOn(c, n);
+                    ic.setImageResource(on ? R.drawable.ic_bell : R.drawable.ic_bell_off);
+                    ic.setImageTintList(android.content.res.ColorStateList.valueOf(on ? Ui.TEXT : Ui.TEXT_3));
                 }
+                if (ic != null && n.equals("Tes")) ic.setImageResource(player != null ? R.drawable.ic_pause : R.drawable.ic_play);
             }
         }
 
@@ -213,7 +245,7 @@ final class Prayer {
                 case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: case KeyEvent.KEYCODE_BUTTON_A:
                     if (e.getRepeatCount() > 0) return true;
                     String n = names.get(sel);
-                    if (n.equals("Tes adzan")) { if (player != null) stop(); else play(getContext(), "Dzuhur"); }
+                    if (n.equals("Tes")) { if (player != null) stop(); else play(getContext(), "Dzuhur"); }
                     else if (adzanCapable(n)) { prefs(getContext()).edit().putBoolean("adzan_" + n, !adzanOn(getContext(), n)).apply(); schedule(getContext()); }
                     render();
                     return true;

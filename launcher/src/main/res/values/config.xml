@@ -15,6 +15,8 @@
         <item>com.vidio.android.tv</item>
     </string-array>
     <string name="user_name">Al-Ghani</string>
+    <!-- Profile photo (any https image), cached on the TV after the first download. -->
+    <string name="avatar_url">https://avatars.githubusercontent.com/u/142812925?v=4</string>
     <!-- Weather (Open-Meteo) and prayer times (Aladhan, method 20 = Kemenag RI). -->
     <string name="city">Samarinda</string>
     <string name="latitude">-0.4948</string>

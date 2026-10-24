@@ -49,14 +49,16 @@ final class Weather {
         return Sky.RAIN;
     }
 
-    static String glyph(int code, boolean day) {
-        switch (sky(code)) {
-            case CLEAR: return day ? "☀" : "☾";
-            case CLOUDS: return code == 3 ? "☁" : "⛅";
-            case FOG: return "≋";
-            case STORM: return "⚡";
-            default: return "☂";
-        }
+    /** Lucide icon for a WMO weather code. */
+    static int icon(int code, boolean day) {
+        if (code == 0) return day ? R.drawable.ic_sun : R.drawable.ic_moon;
+        if (code <= 2) return day ? R.drawable.ic_cloud_sun : R.drawable.ic_cloud_moon;
+        if (code == 3) return R.drawable.ic_cloud;
+        if (code <= 48) return R.drawable.ic_cloud_fog;
+        if (code <= 57) return R.drawable.ic_cloud_drizzle;
+        if (code <= 67 || (code >= 80 && code <= 82)) return R.drawable.ic_cloud_rain;
+        if (code <= 77) return R.drawable.ic_snowflake;
+        return R.drawable.ic_cloud_lightning;
     }
 
     static String text(int c) {
@@ -99,7 +101,7 @@ final class Weather {
             left.addView(eyebrow); left.addView(temp); left.addView(desc);
             LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-2, -2); dl.topMargin = (int) (12 * d);
             left.addView(details, dl);
-            LayoutParams ll = new LayoutParams((int) (520 * d), -2); ll.leftMargin = (int) (64 * d); ll.topMargin = (int) (56 * d); // fixed width: wrap_content clipped the big readout
+            LayoutParams ll = new LayoutParams((int) (520 * d), -2); ll.leftMargin = (int) (Ui.SAFE_SIDE * d); ll.topMargin = (int) (96 * d); // fixed width: wrap_content clipped the big readout
             addView(left, ll);
 
             // 7 days, right column
@@ -115,19 +117,19 @@ final class Weather {
                     row.setPadding(0, (int) (7 * d), 0, (int) (7 * d));
                     TextView day = Ui.text(c, Ui.BODY, i == 0 ? 600 : 400, Ui.TEXT);
                     day.setText(i == 0 ? "Hari ini" : dayName(t.optString(i)));
-                    TextView g = Ui.text(c, Ui.BODY, 400, Ui.TEXT);
-                    g.setText(glyph(daily.optJSONArray("weather_code").optInt(i), true));
+                    android.widget.ImageView g = Ui.icon(c, icon(daily.optJSONArray("weather_code").optInt(i), true), 20, Ui.TEXT);
                     TextView rng = Ui.text(c, Ui.BODY, 400, Ui.TEXT_2);
                     rng.setText(Math.round(daily.optJSONArray("temperature_2m_min").optDouble(i)) + "°  "
                             + Math.round(daily.optJSONArray("temperature_2m_max").optDouble(i)) + "°");
                     row.addView(day, new LinearLayout.LayoutParams((int) (110 * d), -2));
-                    row.addView(g, new LinearLayout.LayoutParams((int) (40 * d), -2));
+                    LinearLayout.LayoutParams gl = new LinearLayout.LayoutParams((int) (20 * d), (int) (20 * d)); gl.rightMargin = (int) (20 * d);
+                    row.addView(g, gl);
                     row.addView(rng);
                     days.addView(row);
                 }
             }
             LayoutParams dlp = new LayoutParams((int) (300 * d), -2, Gravity.END | Gravity.TOP);
-            dlp.rightMargin = (int) (56 * d); dlp.topMargin = (int) (56 * d);
+            dlp.rightMargin = (int) (Ui.SAFE_SIDE * d); dlp.topMargin = (int) (90 * d);
             addView(days, dlp);
 
             // hourly strip, bottom
@@ -143,8 +145,8 @@ final class Weather {
                     LinearLayout cell = new LinearLayout(c); cell.setOrientation(LinearLayout.VERTICAL); cell.setGravity(Gravity.CENTER_HORIZONTAL);
                     cell.setPadding((int) (14 * d), (int) (12 * d), (int) (14 * d), (int) (12 * d));
                     TextView h = Ui.text(c, Ui.CAPTION + 1, 500, Ui.TEXT_2); h.setText(i == 0 ? "Kini" : ht.optString(i).substring(11, 16));
-                    TextView g = Ui.text(c, 22, 400, Ui.TEXT);
-                    g.setText(glyph(hourly.optJSONArray("weather_code").optInt(i), hourly.optJSONArray("is_day").optInt(i) == 1));
+                    android.widget.ImageView g = Ui.icon(c, icon(hourly.optJSONArray("weather_code").optInt(i), hourly.optJSONArray("is_day").optInt(i) == 1), 24, Ui.TEXT);
+                    ((LinearLayout.LayoutParams) g.getLayoutParams()).topMargin = ((LinearLayout.LayoutParams) g.getLayoutParams()).bottomMargin = (int) (8 * d);
                     TextView tv = Ui.text(c, Ui.BODY, 500, Ui.TEXT); tv.setText(Math.round(hourly.optJSONArray("temperature_2m").optDouble(i)) + "°");
                     TextView pp = Ui.text(c, Ui.CAPTION, 500, Ui.ACCENT);
                     int prob = hourly.optJSONArray("precipitation_probability").optInt(i);
@@ -158,8 +160,9 @@ final class Weather {
             LayoutParams hl = new LayoutParams(-1, -2, Gravity.BOTTOM); hl.bottomMargin = (int) (40 * d);
             addView(hs, hl);
 
+            Ui.crumb(this, R.drawable.ic_cloud_sun, "Cuaca");
             TextView hint = Ui.text(c, Ui.CAPTION, 500, Ui.TEXT_3);
-            hint.setText("◀ ▶ pilih jam  ·  Back untuk menutup");
+            hint.setText("Kiri/kanan pilih jam  ·  Back untuk menutup");
             LayoutParams hil = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL); hil.bottomMargin = (int) (14 * d);
             addView(hint, hil);
             select(0, cur);
