@@ -17,7 +17,8 @@ android {
         versionName "2.0"
         buildConfigField "String", "YOUTUBE_API_KEY", secret("youtube.apiKey")
         buildConfigField "String", "GEMINI_API_KEY", secret("gemini.apiKey")
-        buildConfigField "String", "GEMINI_MODEL", "\"" + (secrets.getProperty("gemini.model") ?: "gemini-2.5-flash") + "\""
+        buildConfigField "String", "TMDB_API_KEY", secret("tmdb.apiKey")
+        buildConfigField "String", "GEMINI_MODEL", "\"" + (secrets.getProperty("gemini.model") ?: "gemini-3.5-flash-lite") + "\""
         buildConfigField "String", "HA_URL", secret("homeassistant.url")
         buildConfigField "String", "HA_TOKEN", secret("homeassistant.token")
     }

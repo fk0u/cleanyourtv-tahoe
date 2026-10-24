@@ -67,7 +67,8 @@ final class Notif {
         row.setPadding((int) (14 * d), (int) (12 * d), (int) (16 * d), (int) (12 * d));
         row.setBackground(new GlassDrawable(22 * d, Ui.GLASS_STRONG, d));
         ImageView iv = new ImageView(c);
-        if (icon != null) iv.setImageDrawable(icon); else iv.setImageResource(android.R.drawable.ic_popup_reminder);
+        if (icon != null) iv.setImageDrawable(icon);
+        else { iv.setImageResource(R.drawable.ic_bell); iv.setImageTintList(android.content.res.ColorStateList.valueOf(Ui.TEXT)); iv.setPadding((int) (8 * d), (int) (8 * d), (int) (8 * d), (int) (8 * d)); }
         row.addView(iv, new LinearLayout.LayoutParams((int) (40 * d), (int) (40 * d)));
         LinearLayout col = new LinearLayout(c); col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding((int) (12 * d), 0, 0, 0);

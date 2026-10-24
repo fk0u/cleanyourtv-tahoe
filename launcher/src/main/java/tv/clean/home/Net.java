@@ -14,8 +14,12 @@ final class Net {
     static String get(String url) throws IOException { return request("GET", url, null, null); }
 
     static String request(String method, String url, String body, Map<String, String> headers) throws IOException {
+        return request(method, url, body, headers, 20000);
+    }
+
+    static String request(String method, String url, String body, Map<String, String> headers, int readTimeoutMs) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setConnectTimeout(8000); c.setReadTimeout(20000); c.setRequestMethod(method);
+        c.setConnectTimeout(8000); c.setReadTimeout(readTimeoutMs); c.setRequestMethod(method);
         if (headers != null) for (Map.Entry<String, String> h : headers.entrySet()) c.setRequestProperty(h.getKey(), h.getValue());
         if (body != null) {
             c.setDoOutput(true);

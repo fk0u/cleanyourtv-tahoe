@@ -23,12 +23,23 @@ final class Assistant extends FrameLayout implements Sheet {
     final Tools tools;
     final List<JSONObject> history = new ArrayList<>();
     SpeechRecognizer sr;
+    // Own thread (never blocks the shared network thread) and the main looper for UI/tool calls:
+    // View.post() never runs once the sheet is closed, which used to hang the shared thread forever.
+    static final java.util.concurrent.ExecutorService worker = java.util.concurrent.Executors.newSingleThreadExecutor();
+    final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
     TextToSpeech tts;
     boolean busy;
+    // Google Search grounding: on by default; switched off for the session when the key has no search quota (429)
+    // or the model rejects search + function calling together (400).
+    static boolean search = true;
+    String sources = "";
 
     static boolean enabled() { return !BuildConfig.GEMINI_API_KEY.isEmpty(); }
 
-    Assistant(Context c, Tools tools) {
+    Assistant(Context c, Tools tools) { this(c, tools, true); }
+
+    /** listen = start the TV mic right away (false when the question arrives typed/dictated from the phone). */
+    Assistant(Context c, Tools tools, boolean listen) {
         super(c);
         this.tools = tools;
         float d = Ui.dp(c, 1);
@@ -54,7 +65,8 @@ final class Assistant extends FrameLayout implements Sheet {
         if (!enabled()) {
             state.setText("Asisten belum aktif");
             heard.setText("Tambahkan gemini.apiKey di secrets.properties lalu build ulang.");
-        } else listen();
+        } else if (listen) listen();
+        else { state.setText("Dari HP"); orb.mode(0); }
     }
 
     void listen() {
@@ -71,7 +83,7 @@ final class Assistant extends FrameLayout implements Sheet {
                 public void onRmsChanged(float db) { orb.level(db); }
                 public void onBufferReceived(byte[] b) {}
                 public void onEndOfSpeech() { orb.mode(2); }
-                public void onError(int e) { state.setText("Tidak terdengar. OK untuk coba lagi"); orb.mode(0); }
+                public void onError(int e) { if (busy) return; state.setText("Tidak terdengar. OK untuk coba lagi"); orb.mode(0); }
                 public void onPartialResults(Bundle b) { show(b); }
                 public void onEvent(int t, Bundle b) {}
                 public void onResults(Bundle b) { String s = show(b); if (s != null) ask(s); }
@@ -97,23 +109,55 @@ final class Assistant extends FrameLayout implements Sheet {
         busy = true;
         heard.setText(q); answer.setText(""); state.setText("Berpikir…"); orb.mode(2);
         history.add(msg("user", new JSONArray().put(part("text", q))));
-        Net.bg.execute(this::turn);
+        worker.execute(this::turn);
     }
 
     /** One Gemini round; loops while the model calls tools. */
     void turn() {
         try {
             for (int round = 0; round < 4; round++) {
+                android.util.Log.i("Tahoe", "assistant round " + round + " model=" + BuildConfig.GEMINI_MODEL + " search=" + search);
+                JSONArray toolList = new JSONArray().put(new JSONObject().put("functionDeclarations", declarations()));
+                if (search) toolList.put(new JSONObject().put("google_search", new JSONObject()));
                 JSONObject body = new JSONObject()
                         .put("systemInstruction", new JSONObject().put("parts", new JSONArray().put(part("text",
                                 "Kamu asisten di TV rumah bernama Tahoe. Jawab singkat (maks 3 kalimat), santai, Bahasa Indonesia. "
                                         + "Pakai tools untuk membuka aplikasi, mencari di YouTube, cuaca, jadwal shalat, volume, wallpaper, dan perangkat rumah. "
+                                        + "Untuk fakta terbaru (berita, skor, jadwal, harga) gunakan pencarian Google. "
                                         + "Kota: " + getContext().getString(R.string.city) + "."))))
                         .put("contents", new JSONArray(history))
-                        .put("tools", new JSONArray().put(new JSONObject().put("functionDeclarations", declarations())));
-                String js = Net.request("POST", "https://generativelanguage.googleapis.com/v1beta/models/" + BuildConfig.GEMINI_MODEL
-                        + ":generateContent?key=" + BuildConfig.GEMINI_API_KEY, body.toString(), null);
-                JSONObject content = new JSONObject(js).getJSONArray("candidates").getJSONObject(0).getJSONObject("content");
+                        .put("tools", toolList);
+                String js = null;
+                for (int attempt = 0; js == null; attempt++) { // 503 "high demand" is common and short-lived: retry twice
+                    try {
+                        js = Net.request("POST", "https://generativelanguage.googleapis.com/v1beta/models/" + BuildConfig.GEMINI_MODEL
+                                + ":generateContent?key=" + BuildConfig.GEMINI_API_KEY, body.toString(), null, 20_000);
+                    } catch (java.io.IOException e) {
+                        String m = String.valueOf(e.getMessage());
+                        if (search && (m.contains("HTTP 429") || m.contains("HTTP 400"))) { // no search quota: answer without it
+                            search = false;
+                            main.post(() -> state.setText("Tanpa pencarian Google…"));
+                            JSONArray noSearch = new JSONArray().put(new JSONObject().put("functionDeclarations", declarations()));
+                            body.put("tools", noSearch);
+                            attempt--; continue;
+                        }
+                        if (attempt >= 2 || !m.contains("HTTP 503")) throw e;
+                        main.post(() -> state.setText("Gemini sibuk, mencoba lagi…"));
+                        Thread.sleep(1500L * (attempt + 1));
+                    }
+                }
+                JSONObject cand = new JSONObject(js).getJSONArray("candidates").getJSONObject(0);
+                JSONObject content = cand.getJSONObject("content");
+                JSONObject grounding = cand.optJSONObject("groundingMetadata");
+                if (grounding != null && grounding.optJSONArray("groundingChunks") != null) { // "Sumber: kompas.com, detik.com"
+                    LinkedHashSet<String> names = new LinkedHashSet<>();
+                    JSONArray ch = grounding.getJSONArray("groundingChunks");
+                    for (int i = 0; i < ch.length() && names.size() < 3; i++) {
+                        JSONObject web = ch.getJSONObject(i).optJSONObject("web");
+                        if (web != null) names.add(web.optString("title"));
+                    }
+                    sources = names.isEmpty() ? "" : "Sumber: " + android.text.TextUtils.join(", ", names);
+                }
                 history.add(content);
                 JSONArray parts = content.getJSONArray("parts");
                 JSONArray results = new JSONArray();
@@ -129,24 +173,27 @@ final class Assistant extends FrameLayout implements Sheet {
                         if (name.equals("home_control")) out[0] = HomeControl.command(args.optString("command")); // network: stay on this thread
                         else { // UI tools run on the main thread
                             java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
-                            post(() -> { try { out[0] = tools.call(name, args); } finally { done.countDown(); } });
-                            done.await();
+                            main.post(() -> { try { out[0] = tools.call(name, args); } finally { done.countDown(); } });
+                            if (!done.await(5, java.util.concurrent.TimeUnit.SECONDS)) out[0] = "tool timeout";
                         }
                         results.put(new JSONObject().put("functionResponse", new JSONObject().put("name", name)
                                 .put("response", new JSONObject().put("result", out[0] == null ? "ok" : out[0]))));
                     }
                 }
-                if (results.length() == 0) { String a = text.toString().trim(); post(() -> say(a)); return; }
+                if (results.length() == 0) { String a = text.toString().trim(); main.post(() -> say(a)); return; }
                 history.add(msg("user", results));
             }
         } catch (Exception e) {
-            post(() -> { state.setText("Gagal menghubungi Gemini"); answer.setText(String.valueOf(e.getMessage())); orb.mode(0); busy = false; });
+            android.util.Log.w("Tahoe", "assistant failed", e);
+            main.post(() -> { state.setText("Gagal menghubungi Gemini"); answer.setText(String.valueOf(e.getMessage())); orb.mode(0); busy = false; });
         }
     }
 
     void say(String a) {
         busy = false;
-        state.setText("Tahoe"); answer.setText(a); orb.mode(3);
+        state.setText(search ? (sources.isEmpty() ? "Tahoe" : "Tahoe · dengan Google") : "Tahoe · tanpa pencarian Google");
+        answer.setText(sources.isEmpty() ? a : a + "\n" + sources); orb.mode(3);
+        sources = "";
         if (tts != null) tts.speak(a.replaceAll("[*_#`]", ""), TextToSpeech.QUEUE_FLUSH, null, "a");
         while (history.size() > 12) history.remove(0); // keep context small
     }

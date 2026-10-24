@@ -56,7 +56,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
     Sheet sheet; View sheetView;
     Lock.Profiles profiles; // boot "who's watching" screen
     JSONObject weather, phoneMedia;
-    List<Trending.Video> trending = new ArrayList<>();
+    List<Trending.Video> trending = new ArrayList<>(), netflix = new ArrayList<>();
     int trendIndex;
     Companion companion;
     boolean gamepad;
@@ -203,7 +203,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
             prefs.edit().putString("profile", p).apply();
             Lock.Profiles v = profiles; profiles = null;
             v.unlock(() -> root.removeView(v));
-            tick(); loadApps(); render(false);
+            tick(); buildChips(); loadApps(); hero.loadWalls(); hero.showWall(true); render(false);
         });
         root.addView(profiles, new FrameLayout.LayoutParams(-1, -1));
         profiles.start();
@@ -242,7 +242,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         LinearLayout av = new LinearLayout(this);
         av.setPadding((int) dp(3), (int) dp(3), (int) dp(3), (int) dp(3));
         av.setBackground(new GlassDrawable(dp(20), Ui.GLASS, dp(1)));
-        av.addView(Avatar.view(this, 30));
+        av.addView(Avatar.view(this, 30, !guest()));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = (int) dp(8);
         chips.addView(av, lp); chipViews.add(av); chipActions.add(this::openControl);
         updateChips();
@@ -289,6 +289,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
         Prayer.fetchIfStale(this, () -> { Prayer.schedule(this); updateChips(); renderHero(); }, ui);
         trending = Trending.cached(this);
         Trending.refresh(this, () -> { trending = Trending.cached(this); renderHero(); }, ui);
+        netflix = Netflix.cached(this);
+        Netflix.refresh(this, () -> { netflix = Netflix.cached(this); renderHero(); }, ui);
     }
 
     void tick() {
@@ -576,6 +578,14 @@ public class Home extends Activity implements Companion.Listener, Tools {
             if (row == 0) ui.postDelayed(trendTick, 7000); // hold still while the button is focused
             return;
         }
+        if (a != null && a.pkg.equals(Netflix.PKG) && !netflix.isEmpty()) {
+            Trending.Video v = netflix.get(trendIndex % netflix.size());
+            hero.context(v.thumb);
+            hero.text("Populer di Netflix · #" + (trendIndex % netflix.size() + 1), v.title, v.channel);
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Buka Netflix");
+            if (row == 0) ui.postDelayed(trendTick, 7000);
+            return;
+        }
         hero.context(null);
         if (a != null) {
             hero.text(a.system ? "Aplikasi sistem" : "Di dock", a.label, "Tahan OK untuk opsi");
@@ -796,7 +806,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
     }
 
     @Override public void onAsk(String text) {
-        if (!(sheet instanceof Assistant)) openAssistant();
+        if (!(sheet instanceof Assistant)) openSheet(new Assistant(this, this, false));
         if (sheet instanceof Assistant) ((Assistant) sheet).ask(text);
     }
 

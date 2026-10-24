@@ -174,10 +174,10 @@ final class Sheets {
             String name = h.getString(R.string.user_name);
             LinearLayout who = new LinearLayout(h); who.setGravity(Gravity.CENTER_VERTICAL);
             who.setPadding((int) (6 * d), 0, 0, (int) (8 * d));
-            who.addView(Avatar.view(h, 44));
+            who.addView(Avatar.view(h, 44, !h.guest()));
             LinearLayout names = new LinearLayout(h); names.setOrientation(LinearLayout.VERTICAL); names.setPadding((int) (14 * d), 0, 0, 0);
             TextView e = Ui.eyebrow(h, Ui.TEXT_3); e.setText("Pusat Kontrol");
-            TextView t = Ui.text(h, Ui.HEADLINE, 600, Ui.TEXT); t.setText(name.isEmpty() ? "Tahoe TV" : name);
+            TextView t = Ui.text(h, Ui.HEADLINE, 600, Ui.TEXT); t.setText(h.guest() ? "Tamu" : name.isEmpty() ? "Tahoe TV" : name);
             names.addView(e); names.addView(t); who.addView(names);
             panel.addView(who);
             AudioManager am = (AudioManager) h.getSystemService(Context.AUDIO_SERVICE);
@@ -192,7 +192,13 @@ final class Sheets {
             }
             add(new Item(R.drawable.ic_wifi, "Wi-Fi", ssid(h), () -> h.start(new Intent(Settings.ACTION_WIFI_SETTINGS))),
                 new Item(R.drawable.ic_bluetooth, "Bluetooth", "Remote & controller", () -> h.start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
-            add(new Item(R.drawable.ic_image, "Wallpaper", "Ganti sekarang", () -> h.hero.nextWall()),
+            boolean personal = Hero.wallMode(h).equals("personal");
+            add(new Item(R.drawable.ic_image, "Wallpaper", h.guest() ? "Default (Tamu)" : (personal ? "Pribadi" : "Default") + "  ·  ◀ ▶", () -> h.hero.nextWall())
+                    .adjust(dir -> {
+                        if (h.guest()) return;
+                        h.prefs.edit().putString("wall_mode", Hero.wallMode(h).equals("personal") ? "default" : "personal").apply();
+                        h.hero.loadWalls(); h.hero.showWall(true);
+                    }),
                 new Item(R.drawable.ic_cloud_sun, "Cuaca", "Per jam & 7 hari", () -> { h.closeSheet(); h.openWeather(); }));
             add(new Item(R.drawable.ic_moon_star, "Shalat & adzan", "Jadwal & suara", () -> { h.closeSheet(); h.openPrayer(); }),
                 new Item(R.drawable.ic_sparkles, "Asisten", Assistant.enabled() ? "Gemini" : "Belum diatur", () -> { h.closeSheet(); h.openAssistant(); }));

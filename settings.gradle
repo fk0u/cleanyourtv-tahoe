@@ -6,4 +6,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "cleanyourtv-tahoe"
-include ":launcher"
+include ":launcher", ":companion"
