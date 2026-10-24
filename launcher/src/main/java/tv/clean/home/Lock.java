@@ -82,14 +82,16 @@ public class Lock extends DreamService {
             hint = text(c, 15, 400, 0xCCFFFFFF);
             hint.setText("Tekan OK untuk membuka");
             hint.setPadding(dp(16), dp(6), dp(16), dp(6));
-            hint.setBackground(Home.glassOf(c, dp(16), 0x33FFFFFF));
+            hint.setBackground(new GlassDrawable(dp(16), 0x33FFFFFF, dp(1)));
             user.addView(hint, new LinearLayout.LayoutParams(-2, -2));
             LayoutParams ul = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL); ul.bottomMargin = dp(56);
             addView(user, ul);
 
-            File dir = c.getExternalFilesDir("wallpapers");
-            String[] names = dir == null ? null : dir.list();
-            if (names != null) { Arrays.sort(names); for (String n : names) if (n.matches("(?i).*\\.(jpe?g|png|webp)")) walls.add(new File(dir, n).getPath()); }
+            for (String sub : new String[]{"wallpapers", "photos"}) { // photos = sent from the phone (Google Photos via the phone's picker)
+                File dir = c.getExternalFilesDir(sub);
+                String[] names = dir == null ? null : dir.list();
+                if (names != null) { Arrays.sort(names); for (String n : names) if (n.matches("(?i).*\\.(jpe?g|png|webp)")) walls.add(new File(dir, n).getPath()); }
+            }
             index = c.getSharedPreferences("home", Context.MODE_PRIVATE).getInt("wp", 0);
         }
 
@@ -105,7 +107,7 @@ public class Lock extends DreamService {
 
         static TextView text(Context c, float sp, int wght, int color) {
             TextView t = new TextView(c);
-            t.setTextSize(sp); t.setTypeface(Home.font(c, wght)); t.setTextColor(color); t.setSingleLine();
+            t.setTextSize(sp); t.setTypeface(Ui.font(c, wght)); t.setTextColor(color); t.setSingleLine();
             t.setShadowLayer(16, 0, 2, 0x66000000);
             return t;
         }
