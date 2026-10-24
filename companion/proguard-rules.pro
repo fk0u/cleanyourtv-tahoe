@@ -1,0 +1,3 @@
+-keep class tv.clean.companion.** { *; }
+-keep class org.java_websocket.** { *; }
+-dontwarn org.slf4j.**

@@ -21,6 +21,7 @@ public class Lock extends DreamService {
         super.onAttachedToWindow();
         setInteractive(true); // OK unlocks; other keys just nudge the hint
         setFullscreen(true);
+        setScreenBright(false); // low-energy: the system dims the panel while the screensaver runs
         view = new LockView(this);
         setContentView(view);
     }
@@ -60,13 +61,16 @@ public class Lock extends DreamService {
                 String[] names = dir == null ? null : dir.list();
                 if (names != null) { Arrays.sort(names); for (String n : names) if (n.matches("(?i).*\\.(jpe?g|png|webp)")) walls.add(new File(dir, n).getPath()); }
             }
+            if (Hero.wallMode(c).equals("default")) walls.clear();
             index = c.getSharedPreferences("home", Context.MODE_PRIVATE).getInt("wp", 0);
         }
 
+        long interval = 30_000; int fadeMs = 1500;
+
         final Runnable slide = new Runnable() { public void run() {
-            if (walls.isEmpty()) return;
+            if (walls.isEmpty()) { back.setImageBitmap(Hero.defaultWall(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels)); return; }
             show(walls.get(index++ % walls.size()), back.getDrawable() != null);
-            ui.postDelayed(this, 30_000);
+            ui.postDelayed(this, interval);
         } };
 
         void start() { ui.removeCallbacksAndMessages(null); slide.run(); }
@@ -81,7 +85,7 @@ public class Lock extends DreamService {
                 ui.post(() -> {
                     if (!fade) { back.setImageBitmap(bm); return; }
                     front.setImageBitmap(bm); front.setAlpha(0f);
-                    front.animate().alpha(1).setDuration(1500).withEndAction(() -> { back.setImageBitmap(bm); front.setAlpha(0f); front.setImageDrawable(null); }).start();
+                    front.animate().alpha(1).setDuration(fadeMs).withEndAction(() -> { back.setImageBitmap(bm); front.setAlpha(0f); front.setImageDrawable(null); }).start();
                 });
             });
         }
@@ -98,12 +102,15 @@ public class Lock extends DreamService {
         final TextView date, clock, hint;
 
         LockView(Context c) {
-            super(c, new int[]{0x8C000000, 0x14000000, 0x14000000, 0x99000000});
+            // Low-energy look: heavy scrim (dim photo), slow slideshow with long fades.
+            super(c, new int[]{0xD9000000, 0x99000000, 0x99000000, 0xD9000000});
+            interval = 120_000; fadeMs = 3000;
             float d = Ui.dp(c, 1);
             LinearLayout top = new LinearLayout(c); top.setOrientation(LinearLayout.VERTICAL); top.setGravity(Gravity.CENTER_HORIZONTAL);
             date = Ui.text(c, 22, 500, 0xE6FFFFFF); date.setGravity(Gravity.CENTER);
             clock = Ui.text(c, 112, 600, Color.WHITE);
             clock.setGravity(Gravity.CENTER); clock.setEllipsize(null); // full width + no ellipsis: "00.25" was cut to "00.2"
+            date.setAlpha(0.7f); clock.setAlpha(0.8f); // low-energy: dimmer type
             top.addView(date, new LinearLayout.LayoutParams(-1, -2));
             top.addView(clock, new LinearLayout.LayoutParams(-1, -2));
             LayoutParams tl = new LayoutParams(-1, -2, Gravity.TOP); tl.topMargin = (int) (56 * d);

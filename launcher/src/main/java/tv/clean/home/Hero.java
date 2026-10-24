@@ -57,9 +57,35 @@ final class Hero extends FrameLayout {
 
     static ImageView img(Context c) { ImageView v = new ImageView(c); v.setScaleType(ImageView.ScaleType.CENTER_CROP); return v; }
 
+    /** "personal" = wallpapers + phone photos; "default" = the built-in gradient. Guests always get the default. */
+    static String wallMode(Context c) {
+        android.content.SharedPreferences p = c.getSharedPreferences("home", Context.MODE_PRIVATE);
+        return "guest".equals(p.getString("profile", "main")) ? "default" : p.getString("wall_mode", "personal");
+    }
+
+    static Bitmap defaultWall;
+
+    /** Built-in Tahoe-style wallpaper: deep blue/violet light blobs, drawn once at half resolution. */
+    static Bitmap defaultWall(int w, int h) {
+        if (defaultWall != null) return defaultWall;
+        w = Math.max(2, w / 2); h = Math.max(2, h / 2);
+        Bitmap bm = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565);
+        Canvas c = new Canvas(bm);
+        c.drawColor(0xFF06070F);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
+        float[][] blobs = {{0.12f, 0.15f, 0.7f, 0x2A5AE6}, {0.9f, 0.2f, 0.6f, 0x7A32DC}, {0.65f, 1.05f, 0.65f, 0xE6468F}, {0.35f, 0.65f, 0.35f, 0x1496C8}};
+        for (float[] b : blobs) {
+            float r = b[2] * w;
+            p.setShader(new RadialGradient(b[0] * w, b[1] * h, r, 0x8C000000 | (int) b[3], 0x00000000 | (int) b[3], Shader.TileMode.CLAMP));
+            c.drawCircle(b[0] * w, b[1] * h, r, p);
+        }
+        return defaultWall = bm;
+    }
+
     /** Wallpapers + photos sent from the phone (companion), sorted, rotated every N minutes. */
     void loadWalls() {
         walls.clear();
+        if (wallMode(getContext()).equals("default")) return;
         for (String sub : new String[]{"wallpapers", "photos"}) {
             File dir = getContext().getExternalFilesDir(sub);
             String[] names = dir == null ? null : dir.list();
@@ -82,7 +108,11 @@ final class Hero extends FrameLayout {
 
     void showWall(boolean fade) {
         ui.removeCallbacks(rotate);
-        if (walls.isEmpty()) return;
+        if (walls.isEmpty()) {
+            wallBitmap = defaultWall(W, getResources().getDisplayMetrics().heightPixels);
+            if (contextual == null) crossfade(wallBitmap, "default", fade);
+            return;
+        }
         ui.postDelayed(rotate, rotateMinutes * 60_000L);
         String path = walls.get(wallIndex % walls.size());
         decode(path, bm -> { wallBitmap = bm; if (contextual == null) crossfade(bm, path, fade); });
@@ -114,12 +144,24 @@ final class Hero extends FrameLayout {
     void crossfade(Bitmap bm, String key, boolean fade) {
         if (key.equals(showing)) return;
         showing = key;
-        if (!fade || back.getDrawable() == null) { back.setImageBitmap(bm); return; }
+        boolean motion = contextual != null && Ui.motion(getContext()) > 0;
+        if (!fade || back.getDrawable() == null) { back.setImageBitmap(bm); kenBurns(back, motion); return; }
         front.animate().cancel();
         front.setImageBitmap(bm); front.setAlpha(0f);
+        kenBurns(front, motion);
         front.animate().alpha(1).setDuration(Ui.SLOW + 300).withEndAction(() -> {
-            back.setImageBitmap(bm); front.setAlpha(0f); front.setImageDrawable(null);
+            back.animate().cancel();
+            back.setImageBitmap(bm); back.setScaleX(front.getScaleX()); back.setScaleY(front.getScaleY());
+            kenBurns(back, motion);
+            front.setAlpha(0f); front.setImageDrawable(null); front.setScaleX(1); front.setScaleY(1);
         }).start();
+    }
+
+    /** Slow push-in on contextual images (the "motion" stand-in for trailers); wallpapers stay still. */
+    static void kenBurns(ImageView v, boolean on) {
+        v.animate().cancel();
+        if (!on) { v.setScaleX(1); v.setScaleY(1); return; }
+        v.animate().scaleX(1.08f).scaleY(1.08f).setDuration(16_000).setInterpolator(new android.view.animation.LinearInterpolator()).start();
     }
 
     /** Swap the editorial text with a short fade-rise. */
