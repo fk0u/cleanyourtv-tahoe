@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07080d">
+<link rel="manifest" href="/manifest.webmanifest">
+<title>Tahoe TV Remote</title>
+<style>
+  :root { --bg:#07080d; --glass:rgba(255,255,255,.08); --rim:rgba(255,255,255,.18); --text:#f5f5f7; --t2:rgba(245,245,247,.68); --t3:rgba(245,245,247,.42); --accent:#64d2ff; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--text); font:16px/1.4 -apple-system,"SF Pro Text",Inter,Roboto,system-ui,sans-serif; }
+  body { min-height:100vh; padding:max(16px,env(safe-area-inset-top)) 16px 32px;
+    background: radial-gradient(60% 40% at 15% 0%, rgba(64,110,255,.35), transparent), radial-gradient(50% 40% at 100% 30%, rgba(160,80,255,.25), transparent), var(--bg); }
+  header { display:flex; align-items:center; justify-content:space-between; margin:4px 2px 18px; }
+  h1 { font-size:22px; font-weight:650; margin:0; letter-spacing:-.01em; }
+  .dot { width:9px; height:9px; border-radius:50%; background:#ff5f57; display:inline-block; margin-right:8px; }
+  .dot.on { background:#30d158; }
+  .eyebrow { font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--t3); margin:22px 4px 10px; }
+  .glass { background:var(--glass); border:1px solid var(--rim); border-radius:24px; backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); }
+  button { font:inherit; color:var(--text); background:var(--glass); border:1px solid var(--rim); border-radius:18px; padding:14px; cursor:pointer; transition:transform .12s, background .12s; }
+  button:active { transform:scale(.95); background:rgba(255,255,255,.2); }
+  .pad { position:relative; width:min(78vw,300px); aspect-ratio:1; margin:8px auto 0; border-radius:50%; }
+  .pad button { position:absolute; border-radius:50%; width:30%; height:30%; font-size:22px; padding:0; }
+  .pad .up { left:35%; top:3%; } .pad .down { left:35%; bottom:3%; } .pad .left { left:3%; top:35%; } .pad .right { right:3%; top:35%; }
+  .pad .ok { left:32%; top:32%; width:36%; height:36%; background:rgba(255,255,255,.16); font-weight:650; font-size:18px; }
+  .row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:16px; }
+  .row button { font-size:14px; padding:12px 4px; }
+  .apps { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .apps button { text-align:left; font-size:15px; padding:14px 16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .apps button.dock::before { content:"●"; color:var(--accent); font-size:9px; vertical-align:middle; margin-right:8px; }
+  .field { display:flex; gap:8px; }
+  input[type=text], input[type=url], input[type=tel] { flex:1; min-width:0; font:inherit; color:var(--text); background:rgba(0,0,0,.35); border:1px solid var(--rim); border-radius:16px; padding:14px 16px; outline:none; }
+  input:focus { border-color:var(--accent); }
+  .muted { color:var(--t2); font-size:14px; margin:8px 4px; }
+  .card { padding:18px; }
+  #pair { max-width:420px; margin:12vh auto 0; text-align:center; }
+  #pair input { text-align:center; font-size:28px; letter-spacing:.3em; }
+  .hidden { display:none !important; }
+  #toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px); opacity:0; transition:.25s; padding:12px 18px; border-radius:16px; background:rgba(30,30,34,.92); border:1px solid var(--rim); font-size:14px; }
+  #toast.show { opacity:1; transform:translateX(-50%); }
+  .answer { white-space:pre-wrap; color:var(--t2); }
+  .seg { display:flex; padding:4px; gap:4px; border-radius:16px; margin:0 auto 14px; width:max-content; }
+  .seg button { border:0; background:transparent; padding:8px 18px; border-radius:12px; font-size:14px; font-weight:600; }
+  .seg button.on { background:var(--text); color:#111; }
+  .gp { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; }
+  .gp .shoulders { grid-column:1/-1; display:flex; justify-content:space-between; }
+  .gp .shoulders button { width:30%; }
+  .gp .dpad, .gp .face { position:relative; width:min(40vw,190px); aspect-ratio:1; justify-self:center; }
+  .gp .dpad button, .gp .face button { position:absolute; width:34%; height:34%; padding:0; font-size:18px; font-weight:700; }
+  .gp .dpad button { border-radius:12px; } .gp .face button { border-radius:50%; }
+  .gp [data-k=up],.gp [data-k=y] { left:33%; top:0; } .gp [data-k=down],.gp [data-k=a] { left:33%; bottom:0; }
+  .gp [data-k=left],.gp [data-k=x] { left:0; top:33%; } .gp [data-k=right],.gp [data-k=b] { right:0; top:33%; }
+  .gp [data-k=a] { background:rgba(48,209,88,.35); } .gp [data-k=b] { background:rgba(255,69,58,.35); }
+  .gp [data-k=x] { background:rgba(10,132,255,.35); } .gp [data-k=y] { background:rgba(255,214,10,.3); }
+  .gp .mid { display:flex; flex-direction:column; gap:10px; } .gp .mid button { font-size:12px; padding:10px 14px; }
+  @media (orientation:landscape) { .gp .dpad, .gp .face { width:min(32vh,200px); } }
+</style>
+</head>
+<body>
+  <section id="pair" class="glass card hidden">
+    <h1>Hubungkan ke TV</h1>
+    <p class="muted">Masukkan kode 6 digit yang tampil di TV (Pusat Kontrol → HP).</p>
+    <div class="field"><input id="code" type="tel" maxlength="6" inputmode="numeric" placeholder="••••••"></div>
+    <p style="margin-top:14px"><button id="pairBtn" style="width:100%">Sambungkan</button></p>
+  </section>
+
+  <main id="app" class="hidden">
+    <header><h1><span id="dot" class="dot"></span>Tahoe TV</h1><button id="unpair" style="padding:8px 12px;font-size:13px">Putuskan</button></header>
+
+    <div class="seg glass"><button id="tabRemote" class="on">Remote</button><button id="tabPad">Gamepad</button></div>
+    <section id="gamepad" class="gp hidden">
+      <div class="shoulders"><button data-k="l1">L1</button><button data-k="r1">R1</button></div>
+      <div class="dpad"><button data-k="up">▲</button><button data-k="left">◀</button><button data-k="right">▶</button><button data-k="down">▼</button></div>
+      <div class="mid"><button data-k="select">Select</button><button data-k="start">Start</button></div>
+      <div class="face"><button data-k="y">Y</button><button data-k="x">X</button><button data-k="b">B</button><button data-k="a">A</button></div>
+      <p class="muted" style="grid-column:1/-1;text-align:center">Mengontrol launcher Tahoe TV (A = OK, B = Back, X = opsi, Y = Pusat Kontrol). Game lain butuh controller Bluetooth.</p>
+    </section>
+    <div id="remote">
+    <div class="pad glass">
+      <button class="up" data-k="up">▲</button><button class="left" data-k="left">◀</button>
+      <button class="ok" data-k="ok">OK</button>
+      <button class="right" data-k="right">▶</button><button class="down" data-k="down">▼</button>
+    </div>
+    <div class="row">
+      <button data-k="back">Back</button><button data-k="home">Home</button><button data-k="apps">Apps</button><button data-k="menu">Kontrol</button>
+    </div>
+    <div class="row" style="grid-template-columns:1fr 1fr">
+      <button data-vol="-1">Volume −</button><button data-vol="1">Volume +</button>
+    </div>
+
+    </div>
+    <div class="eyebrow">Tanya asisten</div>
+    <div class="field"><input id="ask" type="text" placeholder="Cuaca besok? Buka Netflix…" enterkeyhint="send"><button id="mic" title="Bicara">🎙</button></div>
+    <p class="muted">Tip: pakai tombol mic di keyboard HP untuk mendikte.</p>
+
+    <div class="eyebrow">Kirim ke TV</div>
+    <div class="field"><input id="url" type="url" placeholder="Link YouTube atau web" enterkeyhint="go"><button id="sendUrl">Buka</button></div>
+    <div class="row" style="grid-template-columns:1fr 1fr">
+      <button id="photoBtn">Kirim foto</button><button id="adzanBtn">Suara adzan</button>
+    </div>
+    <input id="photos" type="file" accept="image/*" multiple class="hidden">
+    <input id="adzan" type="file" accept="audio/mpeg,audio/*" class="hidden">
+    <p class="muted">Foto dari Google Photos: pilih lewat “Kirim foto” → Google Photos di HP. Foto masuk ke slideshow & screensaver.</p>
+
+    <div class="eyebrow">Aplikasi</div>
+    <div id="apps" class="apps"></div>
+  </main>
+  <div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); };
+let token = localStorage.getItem('tahoe_token'), ws, retry = 0;
+
+async function pair(code) {
+  const r = await fetch('/pair', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({code}) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'gagal');
+  token = j.token; localStorage.setItem('tahoe_token', token);
+}
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws?token=${encodeURIComponent(token)}`);
+  ws.onopen = () => { retry = 0; $('#dot').classList.add('on'); };
+  ws.onclose = e => {
+    $('#dot').classList.remove('on');
+    if (e.reason === 'pair first' || e.reason === 'unpaired') return logout();
+    setTimeout(connect, Math.min(8000, 500 * 2 ** retry++));
+  };
+}
+const send = o => ws && ws.readyState === 1 ? ws.send(JSON.stringify(o)) : toast('Belum tersambung');
+
+async function loadApps() {
+  const r = await fetch('/apps?token=' + encodeURIComponent(token));
+  if (r.status === 401) return logout();
+  const { apps } = await r.json();
+  const box = $('#apps'); box.innerHTML = '';
+  apps.sort((a, b) => (b.dock - a.dock) || a.label.localeCompare(b.label));
+  for (const a of apps) {
+    const b = document.createElement('button');
+    b.textContent = a.label; if (a.dock) b.className = 'dock';
+    b.onclick = () => { send({ t:'launch', pkg:a.pkg }); toast('Membuka ' + a.label); };
+    box.appendChild(b);
+  }
+}
+
+function logout() { localStorage.removeItem('tahoe_token'); token = null; show(); }
+function show() {
+  $('#pair').classList.toggle('hidden', !!token);
+  $('#app').classList.toggle('hidden', !token);
+  if (token) { connect(); loadApps(); }
+}
+
+// Remote buttons (with hold-to-repeat for arrows)
+document.querySelectorAll('[data-k]').forEach(b => {
+  let h;
+  const fire = () => { send({ t:'key', k:b.dataset.k }); navigator.vibrate && navigator.vibrate(8); };
+  b.addEventListener('pointerdown', e => { e.preventDefault(); fire(); if (['up','down','left','right'].includes(b.dataset.k)) h = setTimeout(function rep() { fire(); h = setTimeout(rep, 110); }, 420); });
+  ['pointerup','pointerleave','pointercancel'].forEach(ev => b.addEventListener(ev, () => clearTimeout(h)));
+});
+document.querySelectorAll('[data-vol]').forEach(b => b.onclick = () => send({ t:'volume', d:+b.dataset.vol }));
+
+$('#ask').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.value.trim()) { send({ t:'ask', q:e.target.value.trim() }); toast('Dikirim ke asisten'); e.target.value = ''; } });
+$('#mic').onclick = () => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR || !window.isSecureContext) { $('#ask').focus(); return toast('Pakai mic di keyboard HP'); }
+  const r = new SR(); r.lang = 'id-ID';
+  r.onresult = e => { const q = e.results[0][0].transcript; $('#ask').value = q; send({ t:'ask', q }); toast('“' + q + '”'); };
+  r.onerror = () => toast('Mic tidak tersedia'); r.start();
+};
+const openUrl = () => { const u = $('#url').value.trim(); if (!u) return; send({ t:'url', u: /^https?:/.test(u) ? u : 'https://' + u }); toast('Dibuka di TV'); $('#url').value = ''; };
+$('#sendUrl').onclick = openUrl; $('#url').addEventListener('keydown', e => e.key === 'Enter' && openUrl());
+
+// Photos: downscale on the phone (max 1920 px) so the TV stores and decodes less.
+async function shrink(file) {
+  const img = await createImageBitmap(file);
+  const s = Math.min(1, 1920 / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
+}
+async function upload(blob, kind, name) {
+  const r = await fetch(`/upload?token=${encodeURIComponent(token)}&kind=${kind}&name=${encodeURIComponent(name)}`, { method:'POST', body:blob });
+  if (!r.ok) throw new Error((await r.json()).error || r.status);
+}
+$('#photoBtn').onclick = () => $('#photos').click();
+$('#photos').onchange = async e => {
+  const files = [...e.target.files]; let ok = 0;
+  for (const [i, f] of files.entries()) {
+    toast(`Mengirim ${i + 1}/${files.length}…`);
+    try { await upload(await shrink(f), 'photo', (f.name || 'foto').replace(/\.\w+$/, '') + '.jpg'); ok++; } catch (err) { toast('Gagal: ' + err.message); }
+  }
+  toast(`${ok} foto terkirim`); e.target.value = '';
+};
+$('#adzanBtn').onclick = () => $('#adzan').click();
+$('#adzan').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const subuh = confirm('Ini adzan Subuh? (OK = Subuh, Batal = waktu lain)');
+  try { await upload(f, 'adzan', subuh ? 'adzan_subuh.mp3' : 'adzan.mp3'); toast('Suara adzan tersimpan di TV'); } catch (err) { toast('Gagal: ' + err.message); }
+  e.target.value = '';
+};
+
+const tab = pad => { $('#gamepad').classList.toggle('hidden', !pad); $('#remote').classList.toggle('hidden', pad);
+  $('#tabPad').classList.toggle('on', pad); $('#tabRemote').classList.toggle('on', !pad); };
+$('#tabRemote').onclick = () => tab(false); $('#tabPad').onclick = () => tab(true);
+$('#pairBtn').onclick = async () => { try { await pair($('#code').value.trim()); show(); } catch (e) { toast(e.message); } };
+$('#unpair').onclick = logout;
+const qcode = new URLSearchParams(location.search).get('code');
+if (!token && qcode) pair(qcode).then(() => { history.replaceState(null, '', '/'); show(); }).catch(() => { $('#code').value = qcode; show(); });
+else show();
+</script>
+</body>
+</html>

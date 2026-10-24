@@ -1,0 +1,8 @@
+{
+  "name": "Tahoe TV Remote",
+  "short_name": "Tahoe TV",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07080d",
+  "theme_color": "#07080d"
+}
