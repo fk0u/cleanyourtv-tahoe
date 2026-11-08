@@ -16,7 +16,7 @@
 > Roadmap & status per fitur: [PLAN.md](PLAN.md) · [issues](https://github.com/fk0u/cleanyourtv-tahoe/issues?q=label%3Aroadmap)
 
 ## Daftar isi
-[Screenshot](#screenshot) · [Fitur](#fitur) · [Kontrol](#kontrol) · [Instalasi](#instalasi) · [Konfigurasi](#konfigurasi) ·
+[Screenshot](#screenshot) · [Fitur](#fitur) · [Kontrol](#kontrol) · [Pasang dari HP](#pasang-dari-hp-tanpa-laptop) · [Instalasi](#instalasi-dari-komputer) · [Konfigurasi](#konfigurasi) ·
 [API key](#api-key-opsional) · [HP ↔ TV](#hp--tv) · [Wallpaper & foto](#wallpaper--foto) · [Debloat](#debloat) ·
 [Batasan perangkat](#batasan-perangkat) · [Mengembalikan semuanya](#mengembalikan-semuanya) · [Struktur proyek](#struktur-proyek) · [Kredit](#kredit--lisensi)
 
@@ -72,7 +72,19 @@
 | Select | Asisten |
 | L1 / R1 | Lompat 3 baris di Launchpad |
 
-## Instalasi
+## Pasang dari HP (tanpa laptop)
+
+1. Di TV: **Settings → Device Preferences → About → tekan "Build" 7×**, lalu **Developer options → USB debugging: ON**.
+2. Di HP Android (Wi-Fi yang sama): pasang `tahoe-tv.apk` dari [Releases](../../releases), buka, lalu **Pasang / kelola Tahoe di TV**.
+3. App memindai Wi-Fi dan menampilkan TV yang ditemukan (port ADB 5555, dan TV yang sudah memakai Tahoe lewat `/info`). Bisa juga ketik IP.
+4. Di TV muncul **"Izinkan debugging USB?"**: centang *Selalu izinkan*, lalu **OKE**.
+5. Pilih aplikasi bawaan yang dimatikan, isi nama, kota (dicari otomatis), foto, dock, dan API key (opsional), lalu **Pasang ke TV**.
+6. Selesai: launcher terpasang dan jadi Home, screensaver aktif, dan HP otomatis tersambung. Tekan **Matikan debugging di TV**.
+
+Ubah setelan kapan saja dengan menyalakan debugging lagi, lalu buka app. **Pulihkan TV** mengembalikan semuanya ke bawaan.
+Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb)) dengan kunci milik HP; setelan dikirim ke receiver `tv.clean.home/.Config` yang hanya bisa dipanggil shell ADB.
+
+## Instalasi (dari komputer)
 
 Butuh: Python 3, JDK 17, Android SDK (platform 36, build-tools 34+). Gradle diunduh otomatis oleh wrapper.
 Di TV: **Settings → Device Preferences → About → tekan "Build" 7×**, lalu **Developer options → USB debugging: ON**.
@@ -99,6 +111,8 @@ tools/disable.sh com.google.android.tvlauncher                         # matikan
 ```
 
 ## Konfigurasi
+
+Build publik tanpa key: `./gradlew -PpublicBuild assembleRelease` (key lalu diisi dari app HP).
 
 [`launcher/src/main/res/values/config.xml`](launcher/src/main/res/values/config.xml), lalu `./build-and-install.sh`:
 

@@ -16,7 +16,7 @@ final class Trending {
 
     static final class Video { String id, title, channel, views; File thumb; }
 
-    static boolean enabled() { return !BuildConfig.YOUTUBE_API_KEY.isEmpty(); }
+    static boolean enabled() { return !Cfg.key("youtube_key", BuildConfig.YOUTUBE_API_KEY).isEmpty(); }
 
     static List<Video> cached(Context c) {
         List<Video> out = new ArrayList<>();
@@ -46,7 +46,7 @@ final class Trending {
         Net.bg.execute(() -> {
             try {
                 String js = Net.get("https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&chart=mostPopular&regionCode=ID&maxResults=8&key="
-                        + BuildConfig.YOUTUBE_API_KEY);
+                        + Cfg.key("youtube_key", BuildConfig.YOUTUBE_API_KEY));
                 JSONArray items = new JSONObject(js).getJSONArray("items");
                 File dir = new File(c.getCacheDir(), "yt"); dir.mkdirs();
                 for (File old : dir.listFiles()) old.delete();

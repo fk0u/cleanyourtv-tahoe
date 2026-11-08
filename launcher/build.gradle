@@ -3,7 +3,8 @@ plugins { id "com.android.application" }
 // API keys live in secrets.properties (gitignored); see secrets.example.properties.
 def secrets = new Properties()
 def sf = rootProject.file("secrets.properties")
-if (sf.exists()) sf.withInputStream { secrets.load(it) }
+// -PpublicBuild: nothing personal compiled in (release APKs); keys are then set from the phone app at runtime.
+if (sf.exists() && !project.hasProperty("publicBuild")) sf.withInputStream { secrets.load(it) }
 def secret = { String k -> "\"" + (secrets.getProperty(k) ?: "") + "\"" }
 
 android {
@@ -13,8 +14,8 @@ android {
         applicationId "tv.clean.home"
         minSdk 26
         targetSdk 34
-        versionCode 2
-        versionName "2.0"
+        versionCode 3
+        versionName "2.1"
         buildConfigField "String", "YOUTUBE_API_KEY", secret("youtube.apiKey")
         buildConfigField "String", "GEMINI_API_KEY", secret("gemini.apiKey")
         buildConfigField "String", "TMDB_API_KEY", secret("tmdb.apiKey")
