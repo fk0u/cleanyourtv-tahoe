@@ -21,11 +21,14 @@ object Sources {
     val EPG = listOf("https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml", Epg.DEFAULT)
 
     /** Restream hosts of paid operators / personal proxies, not the broadcaster's own stream. */
-    private val RESTREAM = Regex("""workers\.dev|dens\.tv|masterplayer|sedot|maling|\.top(:|/|$)|\.pw(:|/|$)|cloudns|ngebutz|pages\.dev|tunnel\.my\.id""", RegexOption.IGNORE_CASE)
+    private val RESTREAM = Regex("""workers\.dev|dens\.tv|masterplayer|sedot|maling|\.top(:|/|$)|\.pw(:|/|$)|cloudns|ngebutz|pages\.dev|tunnel\.my\.id|inisemar|beetv\.my\.id|biz\.id|nextgenz|ottc\.pro|lancartech|indihometv\.com|mikrofast|verspective""", RegexOption.IGNORE_CASE)
     /** Pay-TV brands: never part of free TV, whatever the group says. */
-    private val PAID = Regex("""\b(hbo|cinemax|bein|spotv|champions tv|galaxy|hits|celestial|axn|dreamworks|cartoon network|disney|nat ?geo|fox|warner|vision ?prime|mola)\b""", RegexOption.IGNORE_CASE)
+    private val PAID = Regex("""\b(hbo|cinemax|bein|spotv|champions tv|galaxy|hits|celestial|axn|dreamworks|cartoon network|disney|nat ?geo|fox(?! weather)|warner|vision ?prime|mola|nickelodeon|animax|sportstars|motogp|f1 tv|love nature)\b|\((v\+|r\+|maxstream|vidio|biz)\)""", RegexOption.IGNORE_CASE)
 
-    fun free(c: M3u.Channel) = !c.drm && !RESTREAM.containsMatchIn(c.url) && !PAID.containsMatchIn(c.name)
+    /** Plain video/audio files (trailers, donation clips…), not live channels. */
+    private val FILE = Regex("""\.(mp4|mkv|avi|mov|webm|mp3|m4a)(\?|$)""", RegexOption.IGNORE_CASE)
+
+    fun free(c: M3u.Channel) = !c.drm && !RESTREAM.containsMatchIn(c.url) && !PAID.containsMatchIn(c.name) && !FILE.containsMatchIn(c.url)
 
     /** All sources merged, free TV only. A failing source is skipped, not fatal. */
     fun load(sources: List<Source> = DEFAULT): List<M3u.Channel> = sources.flatMap { s ->
@@ -34,9 +37,9 @@ object Sources {
             .filter(::free)
     }.distinctBy { it.url }
 
-    /** A user-supplied playlist URL replaces the built-in sources (still free TV only). */
-    fun load(custom: String?): List<M3u.Channel> =
-        if (custom.isNullOrBlank()) load() else load(listOf(Source("custom", custom.trim())))
+    /** Built-in sources plus the user's own playlists (URLs or file paths, one per line), all free-TV filtered. */
+    fun load(extra: String?): List<M3u.Channel> =
+        load(DEFAULT + extra.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.map { Source("extra", it) })
 
     // ------------------------------------------------------------------ is it on air?
 

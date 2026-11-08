@@ -45,6 +45,32 @@ class SourcesTest {
         assertEquals(mapOf("Referer" to "https://www.cnbcindonesia.com/", "Origin" to "https://20.detik.com"), l[1].headers)
     }
 
+    @Test fun windoStylePlaylist() { // #EXTGRP groups, stream_headers, license_type copied onto plain HLS
+        val l = M3u.parse("""
+            #EXTINF:-1,TransTV (detik)
+            #EXTGRP:Indonesia Channels
+            #KODIPROP:inputstream.adaptive.license_type=com.widevine.alpha
+            https://live.cnnindonesia.com/transtv/chunklist.m3u8
+            #EXTINF:-1,Padang TV
+            #KODIPROP:inputstream.adaptive.stream_headers=User-Agent=Mozilla/5.0&Referer=https://player.example/
+            http://example.org/padang/playlist.m3u8
+            #EXTINF:-1,SCTV (V+)
+            #KODIPROP:inputstream.adaptive.license_key=https://lic.example/license?id=8
+            https://cdn.example/sctv/index.mpd
+            #EXTINF:-1,FOX WEATHER
+            https://247wlive.foxweather.com/stream/index.m3u8
+            #EXTINF:-1,RCTI (R+)
+            https://rplus.inisemar.my.id/rcti.m3u8
+            #EXTINF:-1,TRAKTIR AKU DONG
+            https://github.com/someone/raw/donate.mp4
+        """.trimIndent())
+        assertEquals("Indonesia Channels", l[0].group)
+        assertFalse(l[0].drm)                                        // HLS without a key plays fine
+        assertEquals(mapOf("User-Agent" to "Mozilla/5.0", "Referer" to "https://player.example/"), l[1].headers)
+        assertTrue(l[2].drm)
+        assertEquals(listOf("TransTV (detik)", "Padang TV", "FOX WEATHER"), l.filter(Sources::free).map { it.name })
+    }
+
     @Test fun keepsFreeTvOnly() {
         assertEquals(listOf("TVRI Bali", "Stara TV"), M3u.parse(playlist).filter(Sources::free).map { it.name })
     }

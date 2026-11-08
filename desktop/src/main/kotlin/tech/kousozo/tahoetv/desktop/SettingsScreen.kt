@@ -47,11 +47,25 @@ fun SettingsScreen() {
         Field(Settings.tmdb, { Settings.tmdb = it.trim() }, "TMDB (Netflix populer)", secret = true)
 
         Section("TV Live")
-        Field(Settings.playlist, { Settings.playlist = it.trim() }, "URL playlist M3U (kosong = bawaan)")
+        OutlinedTextField(Settings.playlist, { Settings.playlist = it }, label = { Text("Playlist tambahan: URL atau file, satu per baris") },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Tahoe.Accent, unfocusedBorderColor = Tahoe.Stroke,
+                focusedLabelColor = Tahoe.Accent, unfocusedLabelColor = Tahoe.Faint, cursorColor = Tahoe.Accent))
         Field(Settings.epg, { Settings.epg = it.trim() }, "URL EPG XMLTV (kosong = bawaan)")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GhostButton("Pakai sumber bawaan (Indonesia)", Icons.Rounded.Restore) { Settings.playlist = ""; Settings.epg = "" }
+            GhostButton("Tambah file playlist…", Icons.Rounded.FolderOpen) { pickPlaylist()?.let { Settings.playlist = (Settings.playlist.trim() + "\n" + it).trim() } }
+            GhostButton("Hanya sumber bawaan", Icons.Rounded.Restore) { Settings.playlist = ""; Settings.epg = "" }
         }
-        Text("Bawaan: TV gratis Indonesia dari iptv-org dan dhanytv (tanpa saluran berbayar/DRM), jadwal dari dhanytv + epg.pw. Playlist sendiri juga disaring: saluran ber-DRM dan restream berbayar tidak ditampilkan.", color = Tahoe.Faint, fontSize = 12.sp)
+        Text("Selalu dipakai: TV gratis Indonesia dari iptv-org dan dhanytv; jadwal dari dhanytv + epg.pw. Playlist tambahan digabung ke situ. " +
+            "Semua sumber disaring: saluran ber-DRM, restream layanan berbayar, dan merek pay-TV tidak ditampilkan.", color = Tahoe.Faint, fontSize = 12.sp)
     }
+}
+
+/** Copies the chosen .m3u/.txt into ~/.tahoetv/playlists (so cleaning Downloads doesn't break it) and returns that path. */
+private fun pickPlaylist(): String? {
+    val d = java.awt.FileDialog(null as java.awt.Frame?, "Pilih file playlist (.m3u / .m3u8 / .txt)", java.awt.FileDialog.LOAD)
+    d.isVisible = true
+    val f = d.files.firstOrNull() ?: return null
+    val dir = java.io.File(System.getProperty("user.home"), ".tahoetv/playlists").apply { mkdirs() }
+    return java.io.File(dir, f.name).also { f.copyTo(it, overwrite = true) }.path
 }

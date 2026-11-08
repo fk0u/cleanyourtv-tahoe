@@ -90,6 +90,7 @@ App desktop (Kotlin + Compose Multiplatform) dengan gaya yang sama:
 - **Beranda**: jam, cuaca, jadwal shalat, rekomendasi trending YouTube/Netflix, pintasan layanan streaming (dibuka di browser, tempat DRM seperti Netflix memang jalan), dan asisten Gemini.
 - **TV Live**: fokus TV lokal Indonesia: "Dekat kamu" (TVRI daerah dan TV lokal di provinsimu), Nasional, TVRI Daerah, TV Lokal, Berita, Religi, Anak.
   - Saluran: TV gratis dari [iptv-org](https://github.com/iptv-org/iptv) + [dhanytv](https://github.com/dhasap/dhanytv) (hanya grup TV Indonesia; saluran ber-DRM, restream operator berbayar, dan merek pay-TV **tidak** diambil). Saluran yang sama dari beberapa sumber jadi cadangan otomatis; saluran yang sedang offline disembunyikan.
+  - Playlist tambahan sendiri (URL atau file .m3u/.txt) bisa digabung lewat Setelan, dengan saringan yang sama.
   - Jadwal acara (EPG): dhanytv + [epg.pw](https://epg.pw).
   - Pemutar di jendela sendiri (layar penuh), termasuk siaran yang butuh header Referer/User-Agent.
   - Di TV dan HP, "Jadwal TV" menampilkan jadwalnya dan menonton lewat **BitTV**.
