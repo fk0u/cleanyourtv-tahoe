@@ -18,7 +18,8 @@ object LocalTv {
         "cnbc indonesia", "beritasatu", "jak tv", "tvri sport", "tvri world")
 
     /** Different spellings across playlists → one name, so sources merge into one row with backups. */
-    private val ALIAS = mapOf("tvri nasional" to "TVRI", "mnc tv" to "MNCTV", "global tv" to "GTV", "transtv" to "Trans TV", "trans 7" to "Trans7",
+    private val ALIAS = mapOf("tvri nasional" to "TVRI", "tvri world" to "TVRI World", "tvri sport" to "TVRI Sport", "tv one" to "tvOne",
+        "mdtv net" to "MDTV", "rajawali tv" to "RTV", "rrinet" to "RRI Net", "rri net" to "RRI Net", "mnc tv" to "MNCTV", "global tv" to "GTV", "transtv" to "Trans TV", "trans 7" to "Trans7",
         "trans 7 tv" to "Trans7", "kompastv" to "Kompas TV", "metrotv" to "Metro TV", "moji tv" to "Moji", "berita satu" to "BeritaSatu",
         "magna tv" to "Magna Channel", "magna channel" to "Magna Channel", "jek tv" to "Jek TV", "cnn indonesia" to "CNN Indonesia",
         "tvone" to "tvOne", "sctv" to "SCTV", "rcti" to "RCTI", "antv" to "ANTV", "gtv" to "GTV", "inews" to "iNews", "indosiar" to "Indosiar")
@@ -96,7 +97,7 @@ object LocalTv {
             FOREIGN.containsMatchIn(c.name) -> Category.Other // raw name: cleanName drops "(Taiwan)"
             nat != null -> Category.National
             l.startsWith("tvri ") -> Category.Tvri
-            "religious" in group -> Category.Religious
+            "religi" in group -> Category.Religious // "Religious", "Religious Channels", "RELIGION"
             "kids" in group -> Category.Kids
             "news" in group || "business" in group || "legislative" in group -> Category.News
             group.isEmpty() || group == "general" || group == "undefined" || "culture" in group || "education" in group -> Category.Local

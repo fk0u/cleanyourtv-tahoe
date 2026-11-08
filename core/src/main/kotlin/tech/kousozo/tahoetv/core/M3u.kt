@@ -5,7 +5,8 @@ import org.json.JSONObject
 /** M3U/M3U8 playlist parser for IPTV lists: #EXTINF attributes plus the per-stream option lines players use
  *  (#EXTVLCOPT / #EXTHTTP headers, #KODIPROP DRM licences). */
 object M3u {
-    /** `headers`: HTTP headers the stream needs (Referer, User-Agent…). `drm`: encrypted (licence key / DASH), never played. */
+    /** `headers`: HTTP headers the stream needs (Referer, User-Agent…). `drm`: encrypted (has a licence key, or DASH), never played.
+     *  A bare `license_type` on an HLS URL is not DRM: some playlists copy it onto plain streams. */
     data class Channel(val name: String, val url: String, val logo: String?, val group: String?,
                        val headers: Map<String, String> = emptyMap(), val drm: Boolean = false)
 
@@ -19,6 +20,7 @@ object M3u {
         var info: String? = null
         val headers = LinkedHashMap<String, String>()
         var drm = false
+        var group: String? = null
         for (raw in text.lineSequence()) {
             val line = raw.trim()
             when {
@@ -32,7 +34,19 @@ object M3u {
                     }
                 }
                 line.startsWith("#EXTHTTP:") -> runCatching { JSONObject(line.substringAfter(':')).let { j -> j.keys().forEach { k -> headers[k] = j.getString(k) } } }
-                line.startsWith("#KODIPROP:") -> if ("license" in line.lowercase() || "drm" in line.lowercase()) drm = true
+                line.startsWith("#KODIPROP:") -> {
+                    val prop = line.substringAfter(':')
+                    when {
+                        prop.startsWith("inputstream.adaptive.license_key", true) -> drm = true
+                        prop.startsWith("inputstream.adaptive.stream_headers", true) -> // "A=1&B=2" or "A=1|B=2"
+                            prop.substringAfter('=').split('&', '|').forEach { kv ->
+                                kv.split('=', limit = 2).takeIf { it.size == 2 }?.let { (k, v) ->
+                                    when (k.trim().lowercase()) { "referer", "referrer" -> headers["Referer"] = v.trim(); "user-agent" -> headers["User-Agent"] = v.trim(); "origin" -> headers["Origin"] = v.trim() }
+                                }
+                            }
+                    }
+                }
+                line.startsWith("#EXTGRP:") -> group = line.substringAfter(':').trim().ifEmpty { null }
                 line.isEmpty() || line.startsWith("#") -> {}
                 info != null -> {
                     val attrs = attr.findAll(info.substringBefore(',', info)).associate { it.groupValues[1].lowercase() to it.groupValues[2] }
@@ -41,14 +55,17 @@ object M3u {
                     val name = info.substringAfterLast(',').trim().ifEmpty { attrs["tvg-name"] ?: line }
                     val dash = line.substringBefore('?').endsWith(".mpd", ignoreCase = true)
                     out += Channel(name.replace(Regex("""\s*\(\d+[pi]\)"""), ""), line, attrs["tvg-logo"]?.takeIf { it.isNotBlank() },
-                        attrs["group-title"]?.takeIf { it.isNotBlank() }?.substringBefore(';'), headers.toMap(), drm || dash)
-                    info = null; headers.clear(); drm = false
+                        (attrs["group-title"]?.takeIf { it.isNotBlank() } ?: group)?.substringBefore(';'), headers.toMap(), drm || dash)
+                    info = null; headers.clear(); drm = false; group = null
                 }
-                else -> { headers.clear(); drm = false } // stray URL without #EXTINF: its options don't leak into the next entry
+                else -> { headers.clear(); drm = false; group = null } // stray URL without #EXTINF: its options don't leak into the next entry
             }
         }
         return out.distinctBy { it.url }
     }
 
-    fun load(url: String) = parse(Web.get(url, 30_000))
+    /** URL, or a local file path (playlists people share as .m3u/.txt files). */
+    fun load(source: String) = parse(
+        if (source.startsWith("http://") || source.startsWith("https://")) Web.get(source, 30_000)
+        else java.io.File(source.removePrefix("file://")).readText())
 }
