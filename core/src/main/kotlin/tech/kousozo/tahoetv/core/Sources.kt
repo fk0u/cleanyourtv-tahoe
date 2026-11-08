@@ -15,6 +15,8 @@ object Sources {
         // dhanytv mixes free Indonesian TV with paid channels; only its Indonesian free-TV groups are used.
         Source("dhanytv", "https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv.m3u",
             setOf("Indonesia Channels", "TVRI", "Local Channels", "Nasional", "TV HIBURAN")),
+        // Indonesian channels re-tested daily for picture + sound; mostly broadcaster/free hosts. Adds backups.
+        Source("yositapjani", "https://raw.githubusercontent.com/yositapjani/iptv-indonesia/main/indonesia.m3u"),
     )
 
     /** Guides in order of preference (schedules only, no streams). */
