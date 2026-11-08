@@ -122,8 +122,15 @@ fun LiveScreen() {
 
         Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             var status by remember { mutableStateOf<String?>(null) }
+            val list by rememberUpdatedState(shown)   // channel up/down follows what's on screen (offline ones skipped)
             LaunchedEffect(playing) { playing?.let { ch -> val e = byUrl[ch.url]
-                PlayerWindow.play(listOf(ch) + e?.alternates.orEmpty(), names[ch.url] ?: ch.name) { status = it } } }
+                PlayerWindow.play(listOf(ch) + e?.alternates.orEmpty(), names[ch.url] ?: ch.name,
+                    onSwitch = { d -> javax.swing.SwingUtilities.invokeLater {
+                        if (list.isNotEmpty()) {
+                            val i = list.indexOfFirst { it.channel.url == playing?.url }
+                            playing = list[((if (i < 0) 0 else i + d) % list.size + list.size) % list.size].channel
+                        }
+                    } }) { status = it } } }
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(24.dp)).background(Color.Black)) {
                 val ch = playing
                 Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
