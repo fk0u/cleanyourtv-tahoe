@@ -103,4 +103,6 @@ private fun Sidebar(selected: Screen, onSelect: (Screen) -> Unit) = Column(
         Spacer(Modifier.width(8.dp))
         Text(if (tv != null) tv.model else "TV belum tersambung", fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1)
     }
+    // jpackage sets this in installed builds; "dev" when run from Gradle
+    Text("Versi " + (System.getProperty("jpackage.app-version") ?: "dev"), Modifier.padding(start = 8.dp), fontSize = 11.sp, color = Tahoe.Faint)
 }
