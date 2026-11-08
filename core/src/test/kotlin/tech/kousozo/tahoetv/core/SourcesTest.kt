@@ -31,6 +31,20 @@ class SourcesTest {
         assertFalse(l[0].drm)
     }
 
+    @Test fun optionsBeforeExtinfBelongToTheNextStream() { // dhanytv layout, "http-referer" spelling
+        val l = M3u.parse("""
+            #EXTINF:-1,TransTV (Detik)
+            https://live.example/transtv.m3u8
+
+            #EXTVLCOPT:http-referer=https://www.cnbcindonesia.com/
+            #EXTVLCOPT:http-origin=https://20.detik.com
+            #EXTINF:-1,Trans7 HD (Detik)
+            https://live.example/trans7.m3u8
+        """.trimIndent())
+        assertEquals(emptyMap(), l[0].headers)
+        assertEquals(mapOf("Referer" to "https://www.cnbcindonesia.com/", "Origin" to "https://20.detik.com"), l[1].headers)
+    }
+
     @Test fun keepsFreeTvOnly() {
         assertEquals(listOf("TVRI Bali", "Stara TV"), M3u.parse(playlist).filter(Sources::free).map { it.name })
     }
