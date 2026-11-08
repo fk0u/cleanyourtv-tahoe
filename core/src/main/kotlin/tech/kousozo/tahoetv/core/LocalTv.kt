@@ -31,7 +31,10 @@ object LocalTv {
         "central sulawesi" to "Sulawesi Tengah", "southeast sulawesi" to "Sulawesi Tenggara", "west sulawesi" to "Sulawesi Barat",
         "north sumatra" to "Sumatera Utara", "west sumatra" to "Sumatera Barat", "south sumatra" to "Sumatera Selatan",
         "east nusa tenggara" to "Nusa Tenggara Timur", "west nusa tenggara" to "Nusa Tenggara Barat", "west papua" to "Papua Barat",
-        "bangka belitung" to "Bangka Belitung")
+        "bangka belitung" to "Bangka Belitung", "ntb" to "Nusa Tenggara Barat", "ntt" to "Nusa Tenggara Timur",
+        "sumatra selatan" to "Sumatera Selatan", "sumatra utara" to "Sumatera Utara", "sumatra barat" to "Sumatera Barat",
+        "ambon" to "Maluku", "dki" to "Jakarta", "dki jakarta" to "Jakarta", "kaltim" to "Kalimantan Timur", "jatim" to "Jawa Timur",
+        "jateng" to "Jawa Tengah", "jabar" to "Jawa Barat", "diy" to "Yogyakarta", "jogja" to "Yogyakarta")
 
     /** Not Indonesian channels, or pay-TV/operator brands: kept, but last. */
     private val FOREIGN = Regex("""\((taiwan)\)|rtm asean|axn|^dens |^biznet |^my (cinema|family)""", RegexOption.IGNORE_CASE)
