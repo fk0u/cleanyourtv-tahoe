@@ -117,7 +117,7 @@ public class Lock extends DreamService {
             addView(top, tl);
 
             LinearLayout user = new LinearLayout(c); user.setOrientation(LinearLayout.VERTICAL); user.setGravity(Gravity.CENTER_HORIZONTAL);
-            String name = c.getString(R.string.user_name);
+            String name = Cfg.s(c, "user_name", R.string.user_name);
             ImageView photo = Avatar.view(c, 84);
             GradientDrawable ring = new GradientDrawable(); ring.setShape(GradientDrawable.OVAL); ring.setStroke((int) (2 * d), 0xB3FFFFFF);
             photo.setForeground(ring);
@@ -176,7 +176,7 @@ public class Lock extends DreamService {
             title.setGravity(Gravity.CENTER); sub.setGravity(Gravity.CENTER);
             col.addView(title); col.addView(sub);
             LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.TOP);
-            String name = c.getString(R.string.user_name);
+            String name = Cfg.s(c, "user_name", R.string.user_name);
             cards[0] = card(c, Avatar.view(c, 132), name.isEmpty() ? "Saya" : name, lastApp, lastIcon);
             ImageView guest = Avatar.view(c, 132, false); // guest never shows the owner's photo
             guest.setPadding((int) (34 * d), (int) (34 * d), (int) (34 * d), (int) (34 * d));

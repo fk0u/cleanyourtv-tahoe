@@ -44,10 +44,16 @@ public class MainActivity extends Activity {
         col.setPadding(pad, (int) dp(48), pad, pad);
         sv.addView(col);
 
-        col.addView(text("Tahoe Companion", 28, Typeface.BOLD, 0xFFF5F5F7));
+        col.addView(text("Tahoe TV", 28, Typeface.BOLD, 0xFFF5F5F7));
         TextView sub = text("Notifikasi & musik dari HP muncul di TV. Kontrol musik dari Pusat Kontrol TV.", 15, Typeface.NORMAL, 0xB3F5F5F7);
         sub.setPadding(0, (int) dp(6), 0, (int) dp(22));
         col.addView(sub);
+        Button setup = button("Pasang / kelola Tahoe di TV", v -> startActivity(new Intent(this, SetupActivity.class)));
+        setup.setBackground(glass(18, 0xFFF5F5F7)); setup.setTextColor(0xFF111114); setup.setTypeface(Typeface.DEFAULT_BOLD);
+        col.addView(setup);
+        TextView hint = text("Tanpa laptop: cari TV di Wi-Fi, debloat, pasang launcher, dan atur semuanya dari HP.", 13, Typeface.NORMAL, 0x99F5F5F7);
+        hint.setPadding(0, (int) dp(6), 0, (int) dp(22));
+        col.addView(hint);
         status = text("", 15, Typeface.BOLD, 0xFF64D2FF);
         status.setPadding(0, 0, 0, (int) dp(18));
         col.addView(status);

@@ -38,6 +38,8 @@
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/keys" />
         </service>
+        <!-- Setup channel for the phone app over ADB; only WRITE_SECURE_SETTINGS holders (adb shell) can send. -->
+        <receiver android:name=".Config" android:exported="true" android:permission="android.permission.WRITE_SECURE_SETTINGS" />
         <!-- Prayer time: banner + adzan, re-armed after reboots. -->
         <receiver android:name=".Prayer$Alarm" android:exported="false" />
         <receiver android:name=".Prayer$Boot" android:exported="true">

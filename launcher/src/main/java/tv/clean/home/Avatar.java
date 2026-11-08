@@ -11,11 +11,14 @@ final class Avatar {
 
     static File file(Context c) { return new File(c.getFilesDir(), "avatar.jpg"); }
 
+    /** New avatar_url from the phone: drop the cached photo so the next view downloads it. */
+    static void reset(Context c) { cached = null; file(c).delete(); }
+
     /** Calls `done` on the main thread with the photo (cached immediately if present, fetched otherwise). */
     static void load(Context c, java.util.function.Consumer<Bitmap> done) {
         if (cached != null) { done.accept(cached); return; }
         File f = file(c);
-        String url = c.getString(R.string.avatar_url);
+        String url = Cfg.s(c, "avatar_url", R.string.avatar_url);
         android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
         Net.bg.execute(() -> {
             try {

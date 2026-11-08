@@ -66,6 +66,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         live = this;
+        Cfg.p(this); // runtime settings from the phone setup app
         prefs = getSharedPreferences("home", MODE_PRIVATE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         enableAppsKey();
@@ -300,7 +301,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         clock.setText(new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", Locale.getDefault()).format(now));
         int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         String g = h < 4 ? "Selamat malam" : h < 11 ? "Selamat pagi" : h < 15 ? "Selamat siang" : h < 18 ? "Selamat sore" : "Selamat malam";
-        String name = guest() ? "" : getString(R.string.user_name);
+        String name = guest() ? "" : Cfg.s(this, "user_name", R.string.user_name);
         greeting.setText(name.isEmpty() ? g : g + ", " + name);
         updateChips();
         if (row != 0 || focusedApp() == null) renderHero();
@@ -599,7 +600,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         Object[] n = Prayer.next(this);
         String p = n == null ? "" : n[0] + " dalam " + Prayer.countdown((Long) n[1]);
         String meta = (phoneMedia != null ? "♪ " + phoneMedia.optString("title") + " — " + phoneMedia.optString("artist") + "  ·  " : "") + p;
-        hero.text(date + (w.isEmpty() ? "" : "  ·  " + w), getString(R.string.city), meta);
+        hero.text(date + (w.isEmpty() ? "" : "  ·  " + w), Cfg.s(this, "city", R.string.city), meta);
     }
 
     void heroActivate() {
