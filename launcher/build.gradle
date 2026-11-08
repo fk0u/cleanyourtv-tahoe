@@ -14,8 +14,8 @@ android {
         applicationId "tv.clean.home"
         minSdk 26
         targetSdk 34
-        versionCode 5
-        versionName "2.4"
+        versionCode 6
+        versionName "2.4.1"
         buildConfigField "String", "YOUTUBE_API_KEY", secret("youtube.apiKey")
         buildConfigField "String", "GEMINI_API_KEY", secret("gemini.apiKey")
         buildConfigField "String", "TMDB_API_KEY", secret("tmdb.apiKey")
