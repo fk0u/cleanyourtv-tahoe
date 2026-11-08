@@ -14,8 +14,8 @@ android {
         applicationId "tv.clean.home"
         minSdk 26
         targetSdk 34
-        versionCode 3
-        versionName "2.1"
+        versionCode 9
+        versionName "2.5.0"
         buildConfigField "String", "YOUTUBE_API_KEY", secret("youtube.apiKey")
         buildConfigField "String", "GEMINI_API_KEY", secret("gemini.apiKey")
         buildConfigField "String", "TMDB_API_KEY", secret("tmdb.apiKey")
@@ -42,4 +42,7 @@ android {
 dependencies {
     implementation "com.google.zxing:core:3.5.3"                 // QR codes for pairing
     implementation "org.nanohttpd:nanohttpd-websocket:2.3.1"     // companion server (HTTP + WebSocket)
+    // Jadwal TV: channel list / EPG / local-TV logic shared with the phone and desktop apps (ADB/WebSocket clients left out).
+    // Watching itself happens in BitTV.
+    implementation(project(":core")) { exclude group: "dev.mobile"; exclude group: "org.java-websocket" }
 }
