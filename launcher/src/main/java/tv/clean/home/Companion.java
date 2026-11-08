@@ -99,6 +99,9 @@ final class Companion extends NanoWSD {
             if (uri.equals("/") || uri.equals("/index.html")) return asset("web/index.html", "text/html; charset=utf-8");
             if (uri.equals("/manifest.webmanifest")) return asset("web/manifest.webmanifest", "application/manifest+json");
             if (uri.equals("/pair") && s.getMethod() == Method.POST) return pair(s);
+            if (uri.equals("/info")) // public: lets the phone's scanner tell a Tahoe TV from any open port
+                return json(Response.Status.OK, new JSONObject().put("app", "tahoe").put("model", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
+                        .put("version", ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName));
             if (!authed(s)) return json(Response.Status.UNAUTHORIZED, new JSONObject().put("error", "pair first"));
             if (uri.equals("/apps")) {
                 JSONArray[] out = new JSONArray[1];

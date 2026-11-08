@@ -34,7 +34,7 @@ final class Assistant extends FrameLayout implements Sheet {
     static boolean search = true;
     String sources = "";
 
-    static boolean enabled() { return !BuildConfig.GEMINI_API_KEY.isEmpty(); }
+    static boolean enabled() { return !Cfg.key("gemini_key", BuildConfig.GEMINI_API_KEY).isEmpty(); }
 
     Assistant(Context c, Tools tools) { this(c, tools, true); }
 
@@ -116,7 +116,7 @@ final class Assistant extends FrameLayout implements Sheet {
     void turn() {
         try {
             for (int round = 0; round < 4; round++) {
-                android.util.Log.i("Tahoe", "assistant round " + round + " model=" + BuildConfig.GEMINI_MODEL + " search=" + search);
+                android.util.Log.i("Tahoe", "assistant round " + round + " model=" + Cfg.key("gemini_model", BuildConfig.GEMINI_MODEL) + " search=" + search);
                 JSONArray toolList = new JSONArray().put(new JSONObject().put("functionDeclarations", declarations()));
                 if (search) toolList.put(new JSONObject().put("google_search", new JSONObject()));
                 JSONObject body = new JSONObject()
@@ -124,14 +124,14 @@ final class Assistant extends FrameLayout implements Sheet {
                                 "Kamu asisten di TV rumah bernama Tahoe. Jawab singkat (maks 3 kalimat), santai, Bahasa Indonesia. "
                                         + "Pakai tools untuk membuka aplikasi, mencari di YouTube, cuaca, jadwal shalat, volume, wallpaper, dan perangkat rumah. "
                                         + "Untuk fakta terbaru (berita, skor, jadwal, harga) gunakan pencarian Google. "
-                                        + "Kota: " + getContext().getString(R.string.city) + "."))))
+                                        + "Kota: " + Cfg.s(getContext(), "city", R.string.city) + "."))))
                         .put("contents", new JSONArray(history))
                         .put("tools", toolList);
                 String js = null;
                 for (int attempt = 0; js == null; attempt++) { // 503 "high demand" is common and short-lived: retry twice
                     try {
-                        js = Net.request("POST", "https://generativelanguage.googleapis.com/v1beta/models/" + BuildConfig.GEMINI_MODEL
-                                + ":generateContent?key=" + BuildConfig.GEMINI_API_KEY, body.toString(), null, 20_000);
+                        js = Net.request("POST", "https://generativelanguage.googleapis.com/v1beta/models/" + Cfg.key("gemini_model", BuildConfig.GEMINI_MODEL)
+                                + ":generateContent?key=" + Cfg.key("gemini_key", BuildConfig.GEMINI_API_KEY), body.toString(), null, 20_000);
                     } catch (java.io.IOException e) {
                         String m = String.valueOf(e.getMessage());
                         if (search && (m.contains("HTTP 429") || m.contains("HTTP 400"))) { // no search quota: answer without it

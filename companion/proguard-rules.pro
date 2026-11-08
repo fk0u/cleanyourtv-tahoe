@@ -1,3 +1,7 @@
 -keep class tv.clean.companion.** { *; }
 -keep class org.java_websocket.** { *; }
 -dontwarn org.slf4j.**
+-keep class dadb.** { *; }
+-dontwarn okio.**
+-dontwarn kotlin.**
+-dontwarn org.bouncycastle.**

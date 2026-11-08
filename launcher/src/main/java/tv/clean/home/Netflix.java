@@ -14,7 +14,7 @@ final class Netflix {
     static final String PKG = "com.netflix.ninja";
     static final long TTL = 6 * 60 * 60_000L;
 
-    static boolean enabled() { return !BuildConfig.TMDB_API_KEY.isEmpty(); }
+    static boolean enabled() { return !Cfg.key("tmdb_key", BuildConfig.TMDB_API_KEY).isEmpty(); }
 
     static List<Trending.Video> cached(Context c) {
         List<Trending.Video> out = new ArrayList<>();
@@ -44,7 +44,7 @@ final class Netflix {
         if (System.currentTimeMillis() - p.getLong("nf_at", 0) < TTL && !cached(c).isEmpty()) return;
         Net.bg.execute(() -> {
             try {
-                String js = Net.get("https://api.themoviedb.org/3/discover/movie?api_key=" + BuildConfig.TMDB_API_KEY
+                String js = Net.get("https://api.themoviedb.org/3/discover/movie?api_key=" + Cfg.key("tmdb_key", BuildConfig.TMDB_API_KEY)
                         + "&with_watch_providers=8&watch_region=ID&sort_by=popularity.desc&language=id-ID&page=1");
                 JSONArray r = new JSONObject(js).getJSONArray("results");
                 File dir = new File(c.getCacheDir(), "nf"); dir.mkdirs();
