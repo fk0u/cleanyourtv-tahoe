@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -49,12 +50,11 @@ fun LiveScreen() {
     LaunchedEffect(epgUrl) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: Sources.EPG) }.getOrNull() } }
     val playlist = Settings.playlist
     var alive by remember { mutableStateOf<Set<String>?>(null) }   // null = still checking
-    var showOffline by remember { mutableStateOf(false) }
     LaunchedEffect(playlist) {
         channels = null; error = null
         alive = null
         withContext(Dispatchers.IO) { runCatching { Sources.load(playlist) } }.fold({ channels = it }, { error = "Playlist tidak bisa dimuat: ${it.message}" })
-        channels?.let { list -> alive = withContext(Dispatchers.IO) { Sources.alive(list) } }
+        channels?.let { list -> alive = withContext(Dispatchers.IO) { Sources.alive(list, 8000) } }
     }
     val province = Settings.province
     val entries = remember(channels, province) { LocalTv.arrange(channels.orEmpty(), province) }
@@ -65,7 +65,6 @@ fun LiveScreen() {
     val cats = remember(entries) { LocalTv.Category.entries.filter { c -> entries.any { LocalTv.inCategory(it, c) } } }
     val shown = entries
         .filter { query.isBlank() || it.name.contains(query, true) }
-        .filter { showOffline || playable(it) }
         .filter { e -> when (group) { null -> true; "★" -> e.channel.url in favs; else -> LocalTv.inCategory(e, LocalTv.Category.valueOf(group!!)) } }
         .sortedByDescending { it.channel.url in favs }
 
@@ -75,10 +74,8 @@ fun LiveScreen() {
                 (if (alive == null) "${entries.size} saluran · memeriksa siaran…" else "$onAir saluran sedang mengudara") +
                     (province.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "")
             } ?: error ?: "Memuat saluran…")
-            if (alive != null && onAir < entries.size) Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(showOffline, { showOffline = it }, colors = SwitchDefaults.colors(checkedTrackColor = Tahoe.Good))
-                Spacer(Modifier.width(8.dp)); Text("Tampilkan ${entries.size - onAir} saluran offline", fontSize = 13.sp, color = Tahoe.Dim)
-            }
+            // Channels are never removed from the list (it used to hide them when the check finished, which made a
+            // channel vanish while you were watching it). Offline ones stay in place, dimmed, and can still be tried.
             Field(query, { query = it }, "Cari saluran", trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 (listOf(null) + cats.map { it.name } + "★").forEach { g ->
@@ -93,7 +90,8 @@ fun LiveScreen() {
                     val ch = e.channel
                     val on = ch == playing
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (on) Color.White.copy(alpha = 0.14f) else Color.Transparent)
+                        Modifier.fillMaxWidth().alpha(if (on || playable(e)) 1f else 0.5f).clip(RoundedCornerShape(12.dp))
+                            .background(if (on) Color.White.copy(alpha = 0.14f) else Color.Transparent)
                             .clickable { playing = ch }.padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -107,6 +105,7 @@ fun LiveScreen() {
                                 Text(e.name, Modifier.weight(1f, fill = false), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
                                 if (e.near) Badge("Dekat", Tahoe.Accent)
                                 if (e.partTime) Badge("Tidak 24 jam", Tahoe.Faint)
+                                if (!playable(e) && !on) Badge("Offline", Tahoe.Bad)
                             }
                             val nowOn = epg?.schedule(e.name, tick)?.firstOrNull()?.takeIf { it.start <= tick }
                             Text(nowOn?.title ?: e.category.label, fontSize = 12.sp, color = if (nowOn != null) Tahoe.Accent else Tahoe.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -130,7 +129,7 @@ fun LiveScreen() {
                             val i = list.indexOfFirst { it.channel.url == playing?.url }
                             playing = list[((if (i < 0) 0 else i + d) % list.size + list.size) % list.size].channel
                         }
-                    } }) { status = it } } }
+                    } }) { s -> status = s; if (s == null) alive = alive?.plus(ch.url) } } } // it plays → it's on air
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(24.dp)).background(Color.Black)) {
                 val ch = playing
                 Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
