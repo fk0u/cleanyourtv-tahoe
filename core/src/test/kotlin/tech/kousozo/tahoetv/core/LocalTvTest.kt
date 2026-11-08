@@ -18,16 +18,22 @@ class LocalTvTest {
         assertEquals(Category.Religious, cat("Rodja TV (720p)", "Religious"))
         assertEquals(Category.Other, cat("FTV (Taiwan) (720p) [Not 24/7]"))
         assertEquals(Category.Other, cat("Biznet Kids (1080p)", "Kids"))
-        assertEquals("TVRI East Kalimantan", LocalTv.cleanName("TVRI East Kalimantan (720p) [Not 24/7]"))
+        assertEquals("TVRI Kalimantan Timur", LocalTv.cleanName("TVRI East Kalimantan (720p) [Not 24/7]"))
+        assertEquals("RCTI", LocalTv.cleanName("RCTI HD (R+)"))
+        assertEquals("Trans7", LocalTv.cleanName("TRANS 7 TV"))
+        assertEquals("MNCTV", LocalTv.cleanName("MNC TV HD"))
+        assertEquals("RTV", LocalTv.cleanName("RTV (Channel Feed))"))
     }
 
     @Test fun nearYouAndOrdering() {
-        assertEquals(listOf("west papua"), LocalTv.nearKeywords("Papua Barat"))      // not plain "Papua"
-        assertEquals(listOf("batam tv"), LocalTv.nearKeywords("Kepulauan Riau"))   // not plain "Riau"
+        assertEquals(listOf("west papua", "tvri papua barat"), LocalTv.nearKeywords("Papua Barat"))      // not plain "Papua"
+        assertEquals(listOf("batam tv", "tvri kepulauan riau"), LocalTv.nearKeywords("Kepulauan Riau"))   // not plain "Riau"
         assertEquals(emptyList(), LocalTv.nearKeywords(null))
         val list = LocalTv.arrange(listOf(ch("Jogja TV"), ch("SCTV"), ch("TVRI East Kalimantan (720p)"), ch("RCTI HD (1080p)"),
             ch("Balikpapan TV (720p)"), ch("RCTI [Not 24/7]")), "Kalimantan Timur")
-        assertEquals(listOf("TVRI East Kalimantan", "Balikpapan TV", "RCTI", "SCTV", "Jogja TV"), list.map { it.name })
-        assertEquals(false, list.first { it.name == "RCTI" }.partTime) // duplicate kept the 24/7 stream
+        assertEquals(listOf("TVRI Kalimantan Timur", "Balikpapan TV", "RCTI", "SCTV", "Jogja TV"), list.map { it.name })
+        val rcti = list.first { it.name == "RCTI" }
+        assertEquals(false, rcti.partTime)          // the 24/7 stream leads
+        assertEquals(1, rcti.alternates.size)       // the other one is kept as a backup
     }
 }

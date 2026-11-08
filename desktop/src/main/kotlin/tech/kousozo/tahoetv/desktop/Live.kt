@@ -27,6 +27,7 @@ import kotlinx.coroutines.withContext
 import tech.kousozo.tahoetv.core.Epg
 import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.M3u
+import tech.kousozo.tahoetv.core.Sources
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -45,24 +46,39 @@ fun LiveScreen() {
     var tick by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { delay(30_000); tick = Instant.now() } }
     val epgUrl = Settings.epg
-    LaunchedEffect(epgUrl) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl) }.getOrNull() } }
+    LaunchedEffect(epgUrl) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: Sources.EPG) }.getOrNull() } }
     val playlist = Settings.playlist
+    var alive by remember { mutableStateOf<Set<String>?>(null) }   // null = still checking
+    var showOffline by remember { mutableStateOf(false) }
     LaunchedEffect(playlist) {
         channels = null; error = null
-        withContext(Dispatchers.IO) { runCatching { M3u.load(playlist) } }.fold({ channels = it }, { error = "Playlist tidak bisa dimuat: ${it.message}" })
+        alive = null
+        withContext(Dispatchers.IO) { runCatching { Sources.load(playlist) } }.fold({ channels = it }, { error = "Playlist tidak bisa dimuat: ${it.message}" })
+        channels?.let { list -> alive = withContext(Dispatchers.IO) { Sources.alive(list) } }
     }
     val province = Settings.province
     val entries = remember(channels, province) { LocalTv.arrange(channels.orEmpty(), province) }
     val names = remember(entries) { entries.associate { it.channel.url to it.name } }
+    val byUrl = remember(entries) { entries.associateBy { it.channel.url } }
+    fun playable(e: LocalTv.Entry) = alive?.let { ok -> (listOf(e.channel) + e.alternates).any { it.url in ok } } ?: true
+    val onAir = entries.count(::playable)
     val cats = remember(entries) { LocalTv.Category.entries.filter { c -> entries.any { LocalTv.inCategory(it, c) } } }
     val shown = entries
         .filter { query.isBlank() || it.name.contains(query, true) }
+        .filter { showOffline || playable(it) }
         .filter { e -> when (group) { null -> true; "★" -> e.channel.url in favs; else -> LocalTv.inCategory(e, LocalTv.Category.valueOf(group!!)) } }
         .sortedByDescending { it.channel.url in favs }
 
     Row(Modifier.fillMaxSize().padding(start = 12.dp, end = 28.dp, top = 24.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         Column(Modifier.width(340.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Title("TV Live", channels?.let { "${entries.size} saluran Indonesia" + (province.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "") } ?: error ?: "Memuat playlist…")
+            Title("TV Live", channels?.let {
+                (if (alive == null) "${entries.size} saluran · memeriksa siaran…" else "$onAir saluran sedang mengudara") +
+                    (province.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "")
+            } ?: error ?: "Memuat saluran…")
+            if (alive != null && onAir < entries.size) Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(showOffline, { showOffline = it }, colors = SwitchDefaults.colors(checkedTrackColor = Tahoe.Good))
+                Spacer(Modifier.width(8.dp)); Text("Tampilkan ${entries.size - onAir} saluran offline", fontSize = 13.sp, color = Tahoe.Dim)
+            }
             Field(query, { query = it }, "Cari saluran", trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 (listOf(null) + cats.map { it.name } + "★").forEach { g ->
@@ -106,7 +122,8 @@ fun LiveScreen() {
 
         Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             var status by remember { mutableStateOf<String?>(null) }
-            LaunchedEffect(playing) { playing?.let { ch -> PlayerWindow.play(ch.url, names[ch.url] ?: ch.name) { status = it } } }
+            LaunchedEffect(playing) { playing?.let { ch -> val e = byUrl[ch.url]
+                PlayerWindow.play(listOf(ch) + e?.alternates.orEmpty(), names[ch.url] ?: ch.name) { status = it } } }
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(24.dp)).background(Color.Black)) {
                 val ch = playing
                 Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -143,7 +160,7 @@ fun LiveScreen() {
                 }
             }
             playing?.let { ch -> Guide(epg?.schedule(names[ch.url] ?: ch.name, tick).orEmpty(), epg != null, tick) }
-            Text("Saluran TV Indonesia dari playlist publik iptv-org, jadwal dari epg.pw (keduanya bisa diganti di Setelan). Sebagian saluran bisa offline atau dibatasi wilayah.",
+            Text("TV gratis Indonesia dari iptv-org dan dhanytv (tanpa saluran berbayar/DRM), jadwal dari dhanytv dan epg.pw. Saluran dengan beberapa sumber otomatis pindah ke cadangan bila satu sumber mati.",
                 fontSize = 12.sp, color = Tahoe.Faint)
         }
     }

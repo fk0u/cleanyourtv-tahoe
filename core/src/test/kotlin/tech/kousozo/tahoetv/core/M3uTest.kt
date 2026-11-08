@@ -17,7 +17,7 @@ class M3uTest {
             """.trimIndent()
         )
         assertEquals(2, list.size)
-        assertEquals(M3u.Channel("TVRI", "https://example.com/tvri.m3u8", "https://x/tvri.png", "General"), list[0])
+        assertEquals(M3u.Channel("TVRI", "https://example.com/tvri.m3u8", "https://x/tvri.png", "General", mapOf("User-Agent" to "Mozilla")), list[0])
         assertEquals(M3u.Channel("Kompas TV", "https://example.com/kompas.m3u8", null, null), list[1])
     }
 

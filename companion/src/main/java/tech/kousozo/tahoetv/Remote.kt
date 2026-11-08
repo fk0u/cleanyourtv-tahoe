@@ -31,7 +31,7 @@ import kotlin.math.abs
 import tech.kousozo.tahoetv.core.TvLink
 import tech.kousozo.tahoetv.core.Epg
 import tech.kousozo.tahoetv.core.LocalTv
-import tech.kousozo.tahoetv.core.M3u
+import tech.kousozo.tahoetv.core.Sources
 import tech.kousozo.tahoetv.core.Web
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -126,8 +126,8 @@ private fun WhatsOn(open: (LocalTv.Entry) -> Unit) {
             val setup = c.getSharedPreferences("setup", 0)
             val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
                 ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
-            entries = runCatching { LocalTv.arrange(M3u.load(M3u.DEFAULT), province) }.getOrNull()
-            epg = runCatching { Epg.load() }.getOrNull()
+            entries = runCatching { LocalTv.arrange(Sources.load(), province) }.getOrNull()
+            epg = runCatching { Epg.load(Sources.EPG) }.getOrNull()
         }
     }
     val list = entries ?: run { Section("Sedang tayang"); LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass); return }

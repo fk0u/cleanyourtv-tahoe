@@ -21,6 +21,8 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
         private val TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z")
         /** One pass over the tags we need; works line by line, so no backtracking over the whole document. */
         private val TAG = Regex("""<channel id="([^"]+)"|<display-name[^>]*>([^<]*)</display-name>|<programme\s([^>]*)>|<title[^>]*>([^<]*)</title>|<desc[^>]*>([^<]*)</desc>|(</programme>)""")
+        /** Filler some guides use for "no data" (dhanytv: thousands of them); dropped so another guide can fill in. */
+        private val PLACEHOLDER = Regex("""(?i)\s*(jadwal belum tersedia|no (programme|program|information)( available)?|tidak ada (jadwal|informasi))\s*""")
         private val ATTR = Regex("""(start|stop|channel)="([^"]+)"""")   // XMLTV doesn't fix attribute order (epg.pw: channel first)
 
         /** "Metro TV HD", "METRO TV" and "MetroTV" all become "metrotv". */
@@ -47,7 +49,7 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
                     m.groups[5] != null -> if (desc == null) desc = unescape(g[5]).takeIf { it.isNotEmpty() }
                     g[6].isNotEmpty() -> {
                         val name = names[progChannel]; val t = title
-                        if (name != null && t != null && start != null && stop != null) runCatching {
+                        if (name != null && t != null && !PLACEHOLDER.matches(t) && start != null && stop != null) runCatching {
                             out.getOrPut(name) { mutableListOf() } +=
                                 Programme(OffsetDateTime.parse(start, TIME).toInstant(), OffsetDateTime.parse(stop, TIME).toInstant(), t, desc)
                         }
@@ -60,5 +62,12 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
         }
 
         fun load(url: String = DEFAULT) = parse(Web.get(url, 60_000))
+
+        /** Several guides combined; for a channel both know, the earlier guide wins. Unreachable guides are skipped. */
+        fun load(urls: List<String>): Epg {
+            val merged = HashMap<String, List<Programme>>()
+            urls.forEach { u -> runCatching { load(u) }.getOrNull()?.byName?.forEach { (k, v) -> merged.putIfAbsent(k, v) } }
+            return Epg(merged)
+        }
     }
 }
