@@ -26,8 +26,9 @@ object Settings {
     var geminiModel get() = pref("gemini_model", "gemini-3.5-flash-lite").state.value; set(v) = pref("gemini_model").set(v)
     var youtube get() = pref("youtube").state.value; set(v) = pref("youtube").set(v)
     var tmdb get() = pref("tmdb").state.value; set(v) = pref("tmdb").set(v)
-    var playlist get() = pref("playlist", tech.kousozo.tahoetv.core.M3u.DEFAULT).state.value; set(v) = pref("playlist").set(v)
-    var epg get() = pref("epg", tech.kousozo.tahoetv.core.Epg.DEFAULT).state.value; set(v) = pref("epg").set(v)
+    /** Blank = built-in sources (iptv-org + dhanytv free TV); the old single default counts as blank. */
+    var playlist get() = pref("playlist").state.value.takeUnless { it == tech.kousozo.tahoetv.core.M3u.DEFAULT }.orEmpty(); set(v) = pref("playlist").set(v)
+    var epg get() = pref("epg").state.value.takeUnless { it == tech.kousozo.tahoetv.core.Epg.DEFAULT }.orEmpty(); set(v) = pref("epg").set(v)
     var tvHost get() = pref("tv_host").state.value; set(v) = pref("tv_host").set(v)
     var favorites: Set<String>
         get() = pref("fav").state.value.split('\n').filter { it.isNotBlank() }.toSet()

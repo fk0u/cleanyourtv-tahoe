@@ -47,11 +47,11 @@ fun SettingsScreen() {
         Field(Settings.tmdb, { Settings.tmdb = it.trim() }, "TMDB (Netflix populer)", secret = true)
 
         Section("TV Live")
-        Field(Settings.playlist, { Settings.playlist = it.trim() }, "URL playlist M3U")
-        Field(Settings.epg, { Settings.epg = it.trim() }, "URL EPG (XMLTV)")
+        Field(Settings.playlist, { Settings.playlist = it.trim() }, "URL playlist M3U (kosong = bawaan)")
+        Field(Settings.epg, { Settings.epg = it.trim() }, "URL EPG XMLTV (kosong = bawaan)")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GhostButton("Pakai sumber bawaan (Indonesia)", Icons.Rounded.Restore) { Settings.playlist = M3u.DEFAULT; Settings.epg = tech.kousozo.tahoetv.core.Epg.DEFAULT }
+            GhostButton("Pakai sumber bawaan (Indonesia)", Icons.Rounded.Restore) { Settings.playlist = ""; Settings.epg = "" }
         }
-        Text("Bawaan: saluran gratis Indonesia dari iptv-org dan jadwal acara dari epg.pw. Kamu bisa memakai playlist dan EPG resmi milikmu sendiri.", color = Tahoe.Faint, fontSize = 12.sp)
+        Text("Bawaan: TV gratis Indonesia dari iptv-org dan dhanytv (tanpa saluran berbayar/DRM), jadwal dari dhanytv + epg.pw. Playlist sendiri juga disaring: saluran ber-DRM dan restream berbayar tidak ditampilkan.", color = Tahoe.Faint, fontSize = 12.sp)
     }
 }

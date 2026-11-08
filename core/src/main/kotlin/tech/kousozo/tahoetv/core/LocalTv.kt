@@ -8,13 +8,29 @@ object LocalTv {
         News("Berita"), Religious("Religi"), Kids("Anak"), Other("Lainnya"),
     }
 
+    /** `alternates`: other streams of the same channel (other sources), tried when `channel` fails. */
     data class Entry(val channel: M3u.Channel, val name: String, val category: Category, val near: Boolean,
-                     val partTime: Boolean, val geoBlocked: Boolean, val rank: Int)
+                     val partTime: Boolean, val geoBlocked: Boolean, val rank: Int, val alternates: List<M3u.Channel> = emptyList())
 
     /** National free-to-air in the usual remote-button order; index = rank. */
     private val NATIONAL = listOf("tvri", "rcti", "sctv", "indosiar", "antv", "gtv", "mnctv", "inews", "metro tv", "tvone",
         "kompas tv", "trans tv", "trans7", "net", "rtv", "moji", "mdtv", "nusantara tv", "garuda tv", "btv", "cnn indonesia",
         "cnbc indonesia", "beritasatu", "jak tv", "tvri sport", "tvri world")
+
+    /** Different spellings across playlists → one name, so sources merge into one row with backups. */
+    private val ALIAS = mapOf("tvri nasional" to "TVRI", "mnc tv" to "MNCTV", "global tv" to "GTV", "transtv" to "Trans TV", "trans 7" to "Trans7",
+        "trans 7 tv" to "Trans7", "kompastv" to "Kompas TV", "metrotv" to "Metro TV", "moji tv" to "Moji", "berita satu" to "BeritaSatu",
+        "magna tv" to "Magna Channel", "magna channel" to "Magna Channel", "jek tv" to "Jek TV", "cnn indonesia" to "CNN Indonesia",
+        "tvone" to "tvOne", "sctv" to "SCTV", "rcti" to "RCTI", "antv" to "ANTV", "gtv" to "GTV", "inews" to "iNews", "indosiar" to "Indosiar")
+
+    /** TVRI regional names come in English (iptv-org) and Indonesian (others); Indonesian wins. */
+    private val TVRI_ID = mapOf("east java" to "Jawa Timur", "central java" to "Jawa Tengah", "west java" to "Jawa Barat",
+        "east kalimantan" to "Kalimantan Timur", "west kalimantan" to "Kalimantan Barat", "south kalimantan" to "Kalimantan Selatan",
+        "central kalimantan" to "Kalimantan Tengah", "north sulawesi" to "Sulawesi Utara", "south sulawesi" to "Sulawesi Selatan",
+        "central sulawesi" to "Sulawesi Tengah", "southeast sulawesi" to "Sulawesi Tenggara", "west sulawesi" to "Sulawesi Barat",
+        "north sumatra" to "Sumatera Utara", "west sumatra" to "Sumatera Barat", "south sumatra" to "Sumatera Selatan",
+        "east nusa tenggara" to "Nusa Tenggara Timur", "west nusa tenggara" to "Nusa Tenggara Barat", "west papua" to "Papua Barat",
+        "bangka belitung" to "Bangka Belitung")
 
     /** Not Indonesian channels, or pay-TV/operator brands: kept, but last. */
     private val FOREIGN = Regex("""\((taiwan)\)|rtm asean|axn|^dens |^biznet |^my (cinema|family)""", RegexOption.IGNORE_CASE)
@@ -58,12 +74,17 @@ object LocalTv {
     /** Keywords for the user's province ("Kalimantan Timur", "Provinsi Jawa Timur", "Daerah Istimewa Yogyakarta"…). */
     fun nearKeywords(province: String?): List<String> {
         val p = province?.lowercase() ?: return emptyList()
-        return PROVINCE.firstOrNull { it.key in p }?.value.orEmpty()
+        val hit = PROVINCE.firstOrNull { it.key in p } ?: return emptyList()
+        return hit.value + "tvri ${hit.key}" // Indonesian TVRI names ("TVRI Kalimantan Timur")
     }
 
-    /** "TVRI East Java (720p) [Not 24/7]" → "TVRI East Java". */
-    fun cleanName(raw: String) = raw.replace(Regex("""\s*\[[^]]*]"""), "").replace(Regex("""\s*\(\d+[pi]\)"""), "")
-        .replace(" (Indonesia)", "").replace(Regex("""\s+HD$"""), "").trim()
+    /** "TVRI East Java (720p) [Not 24/7]" → "TVRI Jawa Timur"; "RCTI HD (R+)" → "RCTI"; "Trans 7 TV" → "Trans7". */
+    fun cleanName(raw: String): String {
+        var n = raw.replace(Regex("""\s*\[[^]]*]"""), "").replace(Regex("""\s*\([^)]*\)\)?"""), "")
+            .replace(Regex("""\s+(HD|FHD|SD)\b""", RegexOption.IGNORE_CASE), "").replace(Regex("""\s+cad$""", RegexOption.IGNORE_CASE), "").trim()
+        if (n.startsWith("TVRI ", true)) TVRI_ID[n.substring(5).lowercase()]?.let { n = "TVRI $it" }
+        return ALIAS[n.lowercase()] ?: n
+    }
 
     fun classify(c: M3u.Channel, near: List<String>): Entry {
         val name = cleanName(c.name)
@@ -72,7 +93,7 @@ object LocalTv {
         val nat = NATIONAL.indexOf(l).takeIf { it >= 0 }
         val isNear = near.any { it in l }
         val cat = when {
-            FOREIGN.containsMatchIn(name) -> Category.Other
+            FOREIGN.containsMatchIn(c.name) -> Category.Other // raw name: cleanName drops "(Taiwan)"
             nat != null -> Category.National
             l.startsWith("tvri ") -> Category.Tvri
             "religious" in group -> Category.Religious
@@ -84,11 +105,15 @@ object LocalTv {
         return Entry(c, name, cat, isNear, "Not 24/7" in c.name, "Geo-blocked" in c.name, nat ?: 1000)
     }
 
-    /** Classify, drop duplicate names (keep the better stream: not part-time), and sort near → category → rank → name. */
+    /** Classify, merge duplicates (best stream first: 24/7, then no special headers; the rest become backups),
+     *  and sort near → category → rank → name. */
     fun arrange(channels: List<M3u.Channel>, province: String?): List<Entry> {
         val near = nearKeywords(province)
         return channels.map { classify(it, near) }
-            .groupBy { it.name.lowercase() }.values.map { dupes -> dupes.minBy { if (it.partTime) 1 else 0 } }
+            .groupBy { it.name.lowercase() }.values.map { dupes ->
+                val sorted = dupes.sortedWith(compareBy({ it.partTime }, { it.channel.headers.isNotEmpty() }))
+                sorted.first().copy(alternates = sorted.drop(1).map { it.channel })
+            }
             .sortedWith(compareBy({ !it.near }, { it.category.ordinal }, { it.rank }, { it.partTime }, { it.name.lowercase() }))
     }
 

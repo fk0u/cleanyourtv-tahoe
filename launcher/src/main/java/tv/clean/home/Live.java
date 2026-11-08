@@ -21,12 +21,13 @@ import java.util.ArrayList;
 import java.util.List;
 import tech.kousozo.tahoetv.core.Epg;
 import tech.kousozo.tahoetv.core.LocalTv;
-import tech.kousozo.tahoetv.core.M3u;
+import tech.kousozo.tahoetv.core.Sources;
 import tech.kousozo.tahoetv.core.Web;
 
 /** "Jadwal TV": what's on now and next on Indonesian channels, local TV first ("Dekat kamu" by province,
  *  national, TVRI regional, local). Watching happens in BitTV: choosing a channel opens it, so BitTV works like
- *  Tahoe's built-in TV app. Channel list: public iptv-org playlist; guide: epg.pw (both replaceable via Config). */
+ *  Tahoe's built-in TV app. Channels: free Indonesian TV from iptv-org + dhanytv (no paid/DRM channels);
+ *  guide: dhanytv + epg.pw (both replaceable via Config). */
 public class Live extends Activity {
     static final String TV_APP = "com.live_streaming_tv.online_tv"; // BitTV
     static List<LocalTv.Entry> cached; static Epg epg; static long cachedAt;   // survive re-opening; refreshed every 6 h
@@ -95,12 +96,12 @@ public class Live extends Activity {
                     Web.Place p = Web.INSTANCE.geocode(Cfg.s(this, "city", R.string.city));
                     if (p != null && !p.getRegion().isEmpty()) { province = p.getRegion(); cfg.edit().putString("province", province).apply(); }
                 }
-                String playlist = cfg.getString("playlist_url", ""); if (playlist.isEmpty()) playlist = M3u.DEFAULT;
-                List<LocalTv.Entry> l = LocalTv.INSTANCE.arrange(M3u.INSTANCE.load(playlist), province);
+                // blank = built-in sources (iptv-org + dhanytv free TV); a custom playlist is filtered the same way
+                List<LocalTv.Entry> l = LocalTv.INSTANCE.arrange(Sources.INSTANCE.load(cfg.getString("playlist_url", "")), province);
                 String finalProvince = province;
                 ui.post(() -> { cached = l; cachedAt = System.currentTimeMillis(); sub.setText(subtitle(finalProvince)); ready(l); });
-                String guideUrl = cfg.getString("epg_url", ""); if (guideUrl.isEmpty()) guideUrl = Epg.DEFAULT;
-                Epg e = Epg.Companion.load(guideUrl);
+                String guideUrl = cfg.getString("epg_url", "");
+                Epg e = guideUrl.isEmpty() ? Epg.Companion.load(Sources.INSTANCE.getEPG()) : Epg.Companion.load(guideUrl);
                 ui.post(() -> { epg = e; buildRows(); View f = getCurrentFocus(); if (f != null && f.getTag() instanceof LocalTv.Entry) detail((LocalTv.Entry) f.getTag()); });
             } catch (Exception e) {
                 ui.post(() -> sub.setText("Daftar saluran tidak bisa dimuat. Cek internet, lalu buka lagi."));
