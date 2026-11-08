@@ -14,7 +14,7 @@ import org.json.JSONObject;
  *    am broadcast -n tv.clean.home/.Config --es user_name Ghani --es city Samarinda --es latitude -0.49 ...
  *    --ez pair true   → result data carries a fresh companion token, so the phone is paired without a code. */
 public class Config extends BroadcastReceiver {
-    static final String[] KEYS = {"user_name", "city", "latitude", "longitude", "avatar_url",
+    static final String[] KEYS = {"user_name", "city", "province", "playlist_url", "epg_url", "latitude", "longitude", "avatar_url",
             "gemini_key", "gemini_model", "youtube_key", "tmdb_key", "ha_url", "ha_token"};
 
     @Override public void onReceive(Context c, Intent i) {

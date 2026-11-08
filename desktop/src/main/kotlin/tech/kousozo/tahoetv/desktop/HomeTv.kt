@@ -177,7 +177,7 @@ private fun install(tv: TvAdb, disable: Set<String>, dock: List<String>, disable
     say(if (home == TvAdb.PKG) "✓ Tahoe jadi Home" else "! Home masih $home (cek manual)")
     val cfg = buildMap {
         Settings.name.takeIf { it.isNotBlank() }?.let { put("user_name", it) }
-        put("city", Settings.city); put("latitude", "${Settings.lat}"); put("longitude", "${Settings.lon}")
+        put("city", Settings.city); put("province", Settings.province); put("latitude", "${Settings.lat}"); put("longitude", "${Settings.lon}")
         if (dock.isNotEmpty()) put("dock", dock.joinToString(","))
         Settings.gemini.takeIf { it.isNotBlank() }?.let { put("gemini_key", it) }
         Settings.youtube.takeIf { it.isNotBlank() }?.let { put("youtube_key", it) }

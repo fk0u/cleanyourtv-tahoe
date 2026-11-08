@@ -19,10 +19,9 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
         const val DEFAULT = "https://epg.pw/xmltv/epg_ID.xml"
 
         private val TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z")
-        private val CHANNEL = Regex("""<channel id="([^"]+)">.*?<display-name[^>]*>([^<]+)</display-name>""", RegexOption.DOT_MATCHES_ALL)
-        private val PROG = Regex("""<programme start="([^"]+)" stop="([^"]+)" channel="([^"]+)"[^>]*>(.*?)</programme>""", RegexOption.DOT_MATCHES_ALL)
-        private val TITLE = Regex("""<title[^>]*>([^<]*)</title>""")
-        private val DESC = Regex("""<desc[^>]*>([^<]*)</desc>""")
+        /** One pass over the tags we need; works line by line, so no backtracking over the whole document. */
+        private val TAG = Regex("""<channel id="([^"]+)"|<display-name[^>]*>([^<]*)</display-name>|<programme\s([^>]*)>|<title[^>]*>([^<]*)</title>|<desc[^>]*>([^<]*)</desc>|(</programme>)""")
+        private val ATTR = Regex("""(start|stop|channel)="([^"]+)"""")   // XMLTV doesn't fix attribute order (epg.pw: channel first)
 
         /** "Metro TV HD", "METRO TV" and "MetroTV" all become "metrotv". */
         fun norm(s: String) = s.lowercase().replace(Regex("\\b(hd|sd|fhd|uhd|4k|indonesia|tv indonesia)\\b"), "")
@@ -30,17 +29,31 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
 
         private fun unescape(s: String) = s.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").trim()
 
-        // ponytail: regex over the whole document (a few MB); a streaming XML parser if guides grow to tens of MB.
         fun parse(xml: String): Epg {
-            val names = CHANNEL.findAll(xml).associate { it.groupValues[1] to norm(unescape(it.groupValues[2])) }
+            val names = HashMap<String, String>()
             val out = HashMap<String, MutableList<Programme>>()
-            for (m in PROG.findAll(xml)) {
-                val name = names[m.groupValues[3]] ?: continue
-                val body = m.groupValues[4]
-                val title = TITLE.find(body)?.groupValues?.get(1)?.let(::unescape) ?: continue
-                out.getOrPut(name) { mutableListOf() } += Programme(
-                    OffsetDateTime.parse(m.groupValues[1], TIME).toInstant(), OffsetDateTime.parse(m.groupValues[2], TIME).toInstant(),
-                    title, DESC.find(body)?.groupValues?.get(1)?.let(::unescape)?.takeIf { it.isNotEmpty() })
+            var channel: String? = null
+            var start: String? = null; var stop: String? = null; var progChannel: String? = null; var title: String? = null; var desc: String? = null
+            for (line in xml.lineSequence()) for (m in TAG.findAll(line)) {
+                val g = m.groupValues
+                when {
+                    g[1].isNotEmpty() -> channel = g[1]
+                    m.groups[2] != null -> channel?.let { if (it !in names) names[it] = norm(unescape(g[2])) }
+                    m.groups[3] != null -> {
+                        val at = ATTR.findAll(g[3]).associate { it.groupValues[1] to it.groupValues[2] }
+                        start = at["start"]; stop = at["stop"]; progChannel = at["channel"]; title = null; desc = null
+                    }
+                    m.groups[4] != null -> if (title == null) title = unescape(g[4])
+                    m.groups[5] != null -> if (desc == null) desc = unescape(g[5]).takeIf { it.isNotEmpty() }
+                    g[6].isNotEmpty() -> {
+                        val name = names[progChannel]; val t = title
+                        if (name != null && t != null && start != null && stop != null) runCatching {
+                            out.getOrPut(name) { mutableListOf() } +=
+                                Programme(OffsetDateTime.parse(start, TIME).toInstant(), OffsetDateTime.parse(stop, TIME).toInstant(), t, desc)
+                        }
+                        progChannel = null
+                    }
+                }
             }
             out.values.forEach { l -> l.sortBy { it.start } }
             return Epg(out)

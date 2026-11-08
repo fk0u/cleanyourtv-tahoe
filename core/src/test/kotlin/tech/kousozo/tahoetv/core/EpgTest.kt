@@ -11,7 +11,9 @@ class EpgTest {
           <channel id="1"><display-name lang="ID">Metro TV HD</display-name></channel>
           <channel id="2"><display-name lang="ID">Trans 7</display-name></channel>
           <programme start="20261108120000 +0700" stop="20261108130000 +0700" channel="1"><title lang="ID">Metro Siang &amp; Berita</title><desc>Berita</desc></programme>
-          <programme start="20261108100000 +0700" stop="20261108120000 +0700" channel="1"><title>Pagi</title></programme>
+          <programme channel="1" start="20261108100000 +0700" stop="20261108120000 +0700">
+            <title>Pagi</title>
+          </programme>
           <programme start="20261108120000 +0700" stop="20261108130000 +0700" channel="9"><title>Orphan</title></programme>
         </tv>
     """.trimIndent()
