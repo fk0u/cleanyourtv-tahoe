@@ -15,7 +15,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -23,14 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import javafx.application.Platform
-import javafx.embed.swing.JFXPanel
-import javafx.scene.Scene
-import javafx.scene.layout.StackPane
-import javafx.scene.media.Media
-import javafx.scene.media.MediaPlayer
-import javafx.scene.media.MediaView
-import javax.swing.SwingUtilities
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import tech.kousozo.tahoetv.core.Epg
@@ -115,12 +106,26 @@ fun LiveScreen() {
 
         Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             var status by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(playing) { playing?.let { ch -> PlayerWindow.play(ch.url, names[ch.url] ?: ch.name) { status = it } } }
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(24.dp)).background(Color.Black)) {
                 val ch = playing
-                if (ch == null) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Rounded.LiveTv, null, tint = Tahoe.Faint, modifier = Modifier.size(56.dp))
-                    Text("Pilih saluran di kiri", color = Tahoe.Dim)
-                } else FxPlayer(ch.url, Modifier.fillMaxSize()) { status = it }
+                Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (ch == null) {
+                        Icon(Icons.Rounded.LiveTv, null, tint = Tahoe.Faint, modifier = Modifier.size(56.dp))
+                        Text("Pilih saluran di kiri", color = Tahoe.Dim)
+                    } else {
+                        Box(Modifier.size(120.dp, 80.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.9f)), contentAlignment = Alignment.Center) {
+                            rememberImage(ch.logo)?.let { Image(it, null, Modifier.padding(10.dp).fillMaxSize(), contentScale = ContentScale.Fit) }
+                                ?: Icon(Icons.Rounded.LiveTv, null, tint = Color.Black, modifier = Modifier.size(40.dp))
+                        }
+                        Text("Diputar di jendela pemutar", color = Tahoe.Dim)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PrimaryButton("Tampilkan pemutar", Icons.Rounded.PictureInPicture) { PlayerWindow.show() }
+                            GhostButton("Hentikan", Icons.Rounded.Stop) { PlayerWindow.stop(); playing = null }
+                        }
+                        Text("F = layar penuh · Spasi = jeda · Esc = tutup", color = Tahoe.Faint, fontSize = 12.sp)
+                    }
+                }
             }
             playing?.let { ch ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -172,30 +177,5 @@ private fun ColumnScope.Guide(schedule: List<Epg.Programme>, loaded: Boolean, no
                 }
             }
         }
-    }
-}
-
-/** JavaFX MediaView inside Compose. One player at a time; disposed when the channel changes or the screen closes. */
-@Composable
-fun FxPlayer(url: String, modifier: Modifier, onStatus: (String?) -> Unit) {
-    val panel = remember { JFXPanel().also { Platform.setImplicitExit(false) } }
-    SwingPanel(background = Color.Black, factory = { panel }, modifier = modifier)
-    DisposableEffect(url) {
-        var mp: MediaPlayer? = null
-        onStatus(null)
-        Platform.runLater {
-            runCatching {
-                val player = MediaPlayer(Media(url)).also { mp = it }
-                val view = MediaView(player).apply { isPreserveRatio = true }
-                val root = StackPane(view).apply { style = "-fx-background-color: black;" }
-                view.fitWidthProperty().bind(root.widthProperty()); view.fitHeightProperty().bind(root.heightProperty())
-                panel.scene = Scene(root, javafx.scene.paint.Color.BLACK)
-                player.setOnError { SwingUtilities.invokeLater { onStatus("Saluran tidak bisa diputar (${player.error?.type ?: "offline"})") } }
-                player.setOnStalled { SwingUtilities.invokeLater { onStatus("Menunggu siaran…") } }
-                player.setOnPlaying { SwingUtilities.invokeLater { onStatus(null) } }
-                player.play()
-            }.onFailure { e -> SwingUtilities.invokeLater { onStatus("Saluran tidak bisa diputar: ${e.message}") } }
-        }
-        onDispose { Platform.runLater { mp?.dispose() } }
     }
 }
