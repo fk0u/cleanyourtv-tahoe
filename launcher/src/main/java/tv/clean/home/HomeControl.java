@@ -12,18 +12,18 @@ final class HomeControl {
 
     static final class Device { String id, name, domain; boolean on; }
 
-    static boolean enabled() { return !BuildConfig.HA_URL.isEmpty() && !BuildConfig.HA_TOKEN.isEmpty(); }
+    static boolean enabled() { return !Cfg.key("ha_url", BuildConfig.HA_URL).isEmpty() && !Cfg.key("ha_token", BuildConfig.HA_TOKEN).isEmpty(); }
 
     static Map<String, String> auth() {
         Map<String, String> h = new HashMap<>();
-        h.put("Authorization", "Bearer " + BuildConfig.HA_TOKEN);
+        h.put("Authorization", "Bearer " + Cfg.key("ha_token", BuildConfig.HA_TOKEN));
         return h;
     }
 
     /** Blocking; call off the main thread. */
     static List<Device> devices() throws Exception {
         List<Device> out = new ArrayList<>();
-        JSONArray states = new JSONArray(Net.request("GET", BuildConfig.HA_URL + "/api/states", null, auth()));
+        JSONArray states = new JSONArray(Net.request("GET", Cfg.key("ha_url", BuildConfig.HA_URL) + "/api/states", null, auth()));
         for (int i = 0; i < states.length(); i++) {
             JSONObject s = states.getJSONObject(i);
             String id = s.getString("entity_id"), domain = id.substring(0, id.indexOf('.'));
@@ -39,7 +39,7 @@ final class HomeControl {
     }
 
     static void toggle(Device d) throws Exception {
-        Net.request("POST", BuildConfig.HA_URL + "/api/services/" + (d.domain.equals("climate") ? "climate" : "homeassistant") + "/toggle",
+        Net.request("POST", Cfg.key("ha_url", BuildConfig.HA_URL) + "/api/services/" + (d.domain.equals("climate") ? "climate" : "homeassistant") + "/toggle",
                 new JSONObject().put("entity_id", d.id).toString(), auth());
         d.on = !d.on;
     }

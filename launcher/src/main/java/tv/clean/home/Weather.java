@@ -17,7 +17,7 @@ final class Weather {
     static final long TTL = 30 * 60_000L;
 
     static String url(Context c) {
-        return "https://api.open-meteo.com/v1/forecast?latitude=" + c.getString(R.string.latitude) + "&longitude=" + c.getString(R.string.longitude)
+        return "https://api.open-meteo.com/v1/forecast?latitude=" + Cfg.s(c, "latitude", R.string.latitude) + "&longitude=" + Cfg.s(c, "longitude", R.string.longitude)
                 + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day,precipitation"
                 + "&hourly=temperature_2m,precipitation_probability,weather_code,is_day"
                 + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,sunrise,sunset"
@@ -180,7 +180,7 @@ final class Weather {
             JSONObject hourly = data.optJSONObject("hourly");
             if (sel == 0 && cur != null) {
                 int code = cur.optInt("weather_code");
-                eyebrow.setText(getContext().getString(R.string.city) + " · sekarang");
+                eyebrow.setText(Cfg.s(getContext(), "city", R.string.city) + " · sekarang");
                 temp.setText(Math.round(cur.optDouble("temperature_2m")) + "°");
                 desc.setText(text(code));
                 details.setText("Terasa " + Math.round(cur.optDouble("apparent_temperature")) + "°  ·  Kelembapan " + cur.optInt("relative_humidity_2m")
@@ -188,7 +188,7 @@ final class Weather {
                 skyView.set(sky(code), cur.optInt("is_day", 1) == 1);
             } else if (hourly != null) {
                 int code = hourly.optJSONArray("weather_code").optInt(sel);
-                eyebrow.setText(getContext().getString(R.string.city) + " · pukul " + hourly.optJSONArray("time").optString(sel).substring(11, 16));
+                eyebrow.setText(Cfg.s(getContext(), "city", R.string.city) + " · pukul " + hourly.optJSONArray("time").optString(sel).substring(11, 16));
                 temp.setText(Math.round(hourly.optJSONArray("temperature_2m").optDouble(sel)) + "°");
                 desc.setText(text(code));
                 details.setText("Peluang hujan " + hourly.optJSONArray("precipitation_probability").optInt(sel) + "%");

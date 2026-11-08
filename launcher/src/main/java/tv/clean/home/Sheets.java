@@ -171,7 +171,7 @@ final class Sheets {
 
         @Override void fill() {
             Home h = home;
-            String name = h.getString(R.string.user_name);
+            String name = Cfg.s(h, "user_name", R.string.user_name);
             LinearLayout who = new LinearLayout(h); who.setGravity(Gravity.CENTER_VERTICAL);
             who.setPadding((int) (6 * d), 0, 0, (int) (8 * d));
             who.addView(Avatar.view(h, 44, !h.guest()));
