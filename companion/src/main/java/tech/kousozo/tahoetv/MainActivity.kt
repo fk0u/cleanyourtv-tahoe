@@ -138,6 +138,9 @@ fun HomeScreen(resumeTick: Int, onSetup: () -> Unit, onRemote: () -> Unit) {
                 Toast.makeText(c, err ?: "Tersambung", Toast.LENGTH_SHORT).show()
             }
         }
+        val version = remember { runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull() }
+        Text("Tahoe TV $version", Modifier.fillMaxWidth().padding(top = 12.dp), color = Tahoe.Faint, fontSize = 12.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
