@@ -75,7 +75,7 @@
 ## Pasang dari HP (tanpa laptop)
 
 1. Di TV: **Settings → Device Preferences → About → tekan "Build" 7×**, lalu **Developer options → USB debugging: ON**.
-2. Di HP Android (Wi-Fi yang sama): pasang `tahoe-tv.apk` dari [Releases](../../releases), buka, lalu **Pasang / kelola Tahoe di TV**.
+2. Di HP Android (Wi-Fi yang sama): pasang `tahoe-tv.apk` (paket `tech.kousozo.tahoetv`) dari [Releases](../../releases), buka, lalu **Pasang / kelola Tahoe di TV**.
 3. App memindai Wi-Fi dan menampilkan TV yang ditemukan (port ADB 5555, dan TV yang sudah memakai Tahoe lewat `/info`). Bisa juga ketik IP.
 4. Di TV muncul **"Izinkan debugging USB?"**: centang *Selalu izinkan*, lalu **OKE**.
 5. Pilih aplikasi bawaan yang dimatikan, isi nama, kota (dicari otomatis), foto, dock, dan API key (opsional), lalu **Pasang ke TV**.
