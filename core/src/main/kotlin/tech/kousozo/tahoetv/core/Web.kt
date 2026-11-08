@@ -28,12 +28,13 @@ object Web {
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 
-    data class Place(val name: String, val label: String, val lat: Double, val lon: Double)
+    /** `region` = province (admin1), used for "near you" local TV. */
+    data class Place(val name: String, val label: String, val lat: Double, val lon: Double, val region: String = "")
 
     fun geocode(q: String): Place? = runCatching {
         val r = JSONObject(get("https://geocoding-api.open-meteo.com/v1/search?count=1&language=id&name=" + enc(q))).getJSONArray("results").getJSONObject(0)
         Place(r.getString("name"), listOf(r.getString("name"), r.optString("admin1"), r.optString("country")).filter { it.isNotBlank() }.joinToString(", "),
-            r.getDouble("latitude"), r.getDouble("longitude"))
+            r.getDouble("latitude"), r.getDouble("longitude"), r.optString("admin1"))
     }.getOrNull()
 
     data class Weather(val tempC: Int, val code: Int, val label: String)

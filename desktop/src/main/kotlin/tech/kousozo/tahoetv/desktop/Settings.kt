@@ -19,6 +19,7 @@ object Settings {
 
     var name get() = pref("name").state.value; set(v) = pref("name").set(v)
     var city get() = pref("city", "Samarinda").state.value; set(v) = pref("city").set(v)
+    var province get() = pref("province", "Kalimantan Timur").state.value; set(v) = pref("province").set(v)
     var lat get() = pref("lat", "-0.5022").state.value.toDoubleOrNull() ?: -0.5022; set(v) = pref("lat").set("$v")
     var lon get() = pref("lon", "117.1536").state.value.toDoubleOrNull() ?: 117.1536; set(v) = pref("lon").set("$v")
     var gemini get() = pref("gemini").state.value; set(v) = pref("gemini").set(v)

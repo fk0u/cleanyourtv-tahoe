@@ -88,7 +88,7 @@ Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb))
 
 App desktop (Kotlin + Compose Multiplatform) dengan gaya yang sama:
 - **Beranda**: jam, cuaca, jadwal shalat, rekomendasi trending YouTube/Netflix, pintasan layanan streaming (dibuka di browser, tempat DRM seperti Netflix memang jalan), dan asisten Gemini.
-- **TV Live**: saluran gratis Indonesia dari playlist publik [iptv-org](https://github.com/iptv-org/iptv) dengan **EPG** (sedang tayang & berikutnya) dari [epg.pw](https://epg.pw). Playlist dan EPG bisa diganti di Setelan dengan sumber resmi milikmu.
+- **TV Live**: fokus TV lokal Indonesia: "Dekat kamu" (TVRI daerah dan TV lokal di provinsimu), Nasional, TVRI Daerah, TV Lokal, Berita, Religi, Anak. Saluran dari playlist publik [iptv-org](https://github.com/iptv-org/iptv) dengan **EPG** (sedang tayang & berikutnya) dari [epg.pw](https://epg.pw). Playlist dan EPG bisa diganti di Setelan dengan sumber resmi milikmu.
 - **TV Rumah**: cari Android TV di Wi-Fi, debloat, pasang dan atur Tahoe (sama seperti app HP).
 - **Remote**: cermin layar TV lewat ADB (klik gambar = ketuk di TV), D-pad, keyboard, volume, media.
 
