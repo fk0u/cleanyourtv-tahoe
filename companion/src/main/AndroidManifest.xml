@@ -2,16 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <application android:label="Tahoe TV" android:theme="@android:style/Theme.Material.NoActionBar" android:usesCleartextTraffic="true">
-        <activity android:name=".MainActivity" android:exported="true">
+    <application android:label="Tahoe TV" android:icon="@mipmap/ic_launcher" android:theme="@style/Tahoe"
+        android:usesCleartextTraffic="true">
+        <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".SetupActivity" android:exported="false" android:label="Pasang Tahoe TV" />
         <!-- Forwards phone notifications and now-playing to the TV; receives play/pause/next back. -->
         <service android:name=".Sync" android:exported="true"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">

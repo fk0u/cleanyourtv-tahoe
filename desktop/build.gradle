@@ -1,0 +1,75 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
+// Tahoe TV for macOS 13+ and Windows: streaming home, live TV (IPTV), home-TV setup over Wi-Fi ADB, remote + mirror.
+plugins {
+    id "org.jetbrains.kotlin.jvm"
+    id "org.jetbrains.kotlin.plugin.compose"
+    id "org.jetbrains.compose"
+}
+
+java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
+
+// JavaFX only for its HLS-capable media player (live TV). Natives per OS: each installer is built on its own OS.
+def os = System.getProperty("os.name").toLowerCase()
+def arm = System.getProperty("os.arch").contains("aarch64")
+def fx = os.contains("mac") ? (arm ? "mac-aarch64" : "mac") : os.contains("win") ? "win" : (arm ? "linux-aarch64" : "linux")
+
+dependencies {
+    implementation project(":core")
+    implementation compose.desktop.currentOs
+    implementation compose.material3
+    implementation compose.materialIconsExtended
+    implementation "org.json:json:20250517"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:2.2.0"
+    ["base", "graphics", "controls", "media", "swing"].each { implementation "org.openjfx:javafx-$it:21.0.5:$fx" }
+}
+
+// The launcher APK ships inside the desktop app too, so installing on a TV needs no download.
+def bundled = layout.buildDirectory.dir("generated/tahoeRes")
+tasks.register("bundleLauncher", Copy) {
+    dependsOn(":launcher:assembleRelease")
+    from(project(":launcher").layout.buildDirectory.file("outputs/apk/release/launcher-release.apk"))
+    into(bundled)
+    rename { "tahoe-launcher.apk" }
+}
+sourceSets.main.resources.srcDir(bundled)
+tasks.named("processResources") { dependsOn("bundleLauncher") }
+
+compose.desktop {
+    application {
+        mainClass = "tech.kousozo.tahoetv.desktop.MainKt"
+        jvmArgs("-Dapple.awt.application.appearance=NSAppearanceNameDarkAqua")
+        nativeDistributions {
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi)
+            packageName = "Tahoe TV"
+            packageVersion = "2.5.0"
+            description = "Tahoe TV untuk desktop"
+            vendor = "kousozo"
+            modules("java.net.http", "jdk.httpserver", "jdk.unsupported", "jdk.unsupported.desktop", "java.naming", "jdk.crypto.ec") // unsupported.desktop: JavaFX-in-Swing (TV Live player)
+            macOS {
+                bundleID = "tech.kousozo.tahoetv.desktop"
+                minimumSystemVersion = "13.0"
+                iconFile.set(project.file("icons/tahoe.icns"))
+            }
+            windows {
+                menuGroup = "Tahoe TV"
+                shortcut = true
+                dirChooser = true
+                upgradeUuid = "8d3b7d64-3c51-4b8e-9a0e-5f1f3f7c2a11"
+                iconFile.set(project.file("icons/tahoe.ico"))
+            }
+        }
+    }
+}
+
+// ./gradlew :desktop:snapshots renders each screen to build/snapshots/*.png headlessly (for review without a window).
+tasks.register("snapshots", Test) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    filter { includeTestsMatching "*Snapshots*" }
+    systemProperty "snapshots.out", layout.buildDirectory.dir("snapshots").get().asFile.path
+    outputs.upToDateWhen { false }
+}
+tasks.named("test") { filter { excludeTestsMatching "*Snapshots*" } }

@@ -33,6 +33,9 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Jadwal TV: what's on now/next (EPG), local channels first; choosing one opens BitTV. -->
+        <activity android:name=".Live" android:exported="false" android:screenOrientation="landscape"
+            android:theme="@style/HomeTheme" android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize" />
         <service android:name=".Keys" android:exported="true"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>

@@ -237,6 +237,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         addChip(R.drawable.ic_moon_star, "Shalat", this::openPrayer);
         if (phoneMedia != null) addChip(R.drawable.ic_music, "", this::openControl);
         if (gamepad) addChip(R.drawable.ic_gamepad_2, null, () -> { if (row == 0) lastDockCol = col; openPad(); });
+        addChip(R.drawable.ic_tv, "Jadwal TV", () -> start(new Intent(this, Live.class)));
         addChip(R.drawable.ic_sparkles, "Tanya", this::openAssistant);
         addChip(R.drawable.ic_smartphone, null, this::openPair);
         // Profile photo chip opens Control Center.

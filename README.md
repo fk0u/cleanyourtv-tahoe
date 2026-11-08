@@ -16,7 +16,7 @@
 > Roadmap & status per fitur: [PLAN.md](PLAN.md) · [issues](https://github.com/fk0u/cleanyourtv-tahoe/issues?q=label%3Aroadmap)
 
 ## Daftar isi
-[Screenshot](#screenshot) · [Fitur](#fitur) · [Kontrol](#kontrol) · [Pasang dari HP](#pasang-dari-hp-tanpa-laptop) · [Instalasi](#instalasi-dari-komputer) · [Konfigurasi](#konfigurasi) ·
+[Screenshot](#screenshot) · [Fitur](#fitur) · [Kontrol](#kontrol) · [Pasang dari HP](#pasang-dari-hp-tanpa-laptop) · [Desktop](#tahoe-tv-untuk-desktop-macos-13-dan-windows) · [Instalasi](#instalasi-dari-komputer) · [Konfigurasi](#konfigurasi) ·
 [API key](#api-key-opsional) · [HP ↔ TV](#hp--tv) · [Wallpaper & foto](#wallpaper--foto) · [Debloat](#debloat) ·
 [Batasan perangkat](#batasan-perangkat) · [Mengembalikan semuanya](#mengembalikan-semuanya) · [Struktur proyek](#struktur-proyek) · [Kredit](#kredit--lisensi)
 
@@ -75,7 +75,7 @@
 ## Pasang dari HP (tanpa laptop)
 
 1. Di TV: **Settings → Device Preferences → About → tekan "Build" 7×**, lalu **Developer options → USB debugging: ON**.
-2. Di HP Android (Wi-Fi yang sama): pasang `tahoe-tv.apk` dari [Releases](../../releases), buka, lalu **Pasang / kelola Tahoe di TV**.
+2. Di HP Android (Wi-Fi yang sama): pasang `tahoe-tv.apk` (paket `tech.kousozo.tahoetv`) dari [Releases](../../releases), buka, lalu **Pasang / kelola Tahoe di TV**.
 3. App memindai Wi-Fi dan menampilkan TV yang ditemukan (port ADB 5555, dan TV yang sudah memakai Tahoe lewat `/info`). Bisa juga ketik IP.
 4. Di TV muncul **"Izinkan debugging USB?"**: centang *Selalu izinkan*, lalu **OKE**.
 5. Pilih aplikasi bawaan yang dimatikan, isi nama, kota (dicari otomatis), foto, dock, dan API key (opsional), lalu **Pasang ke TV**.
@@ -83,6 +83,23 @@
 
 Ubah setelan kapan saja dengan menyalakan debugging lagi, lalu buka app. **Pulihkan TV** mengembalikan semuanya ke bawaan.
 Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb)) dengan kunci milik HP; setelan dikirim ke receiver `tv.clean.home/.Config` yang hanya bisa dipanggil shell ADB.
+
+## Tahoe TV untuk desktop (macOS 13+ dan Windows)
+
+App desktop (Kotlin + Compose Multiplatform) dengan gaya yang sama:
+- **Beranda**: jam, cuaca, jadwal shalat, rekomendasi trending YouTube/Netflix, pintasan layanan streaming (dibuka di browser, tempat DRM seperti Netflix memang jalan), dan asisten Gemini.
+- **TV Live**: fokus TV lokal Indonesia: "Dekat kamu" (TVRI daerah dan TV lokal di provinsimu), Nasional, TVRI Daerah, TV Lokal, Berita, Religi, Anak.
+  - Saluran: TV gratis dari [iptv-org](https://github.com/iptv-org/iptv) + [dhanytv](https://github.com/dhasap/dhanytv) (hanya grup TV Indonesia; saluran ber-DRM, restream operator berbayar, dan merek pay-TV **tidak** diambil). Saluran yang sama dari beberapa sumber jadi cadangan otomatis; saluran yang sedang offline disembunyikan.
+  - Playlist tambahan sendiri (URL atau file .m3u/.txt) bisa digabung lewat Setelan, dengan saringan yang sama.
+  - Jadwal acara (EPG): dhanytv + [epg.pw](https://epg.pw).
+  - Pemutar di jendela sendiri (layar penuh), termasuk siaran yang butuh header Referer/User-Agent.
+  - Di TV dan HP, "Jadwal TV" menampilkan jadwalnya dan menonton lewat **BitTV**.
+- **TV Rumah**: cari Android TV di Wi-Fi, debloat, pasang dan atur Tahoe (sama seperti app HP).
+- **Remote**: cermin layar TV lewat ADB (klik gambar = ketuk di TV), D-pad, keyboard, volume, media.
+
+Unduh dari [Releases](../../releases): `TahoeTV-macos-intel.dmg`, `TahoeTV-macos-arm64.dmg`, `TahoeTV-windows.msi` (dibuat oleh GitHub Actions di tiap OS).
+Build sendiri: `./gradlew -PpublicBuild :desktop:packageDmg` (atau `packageMsi` di Windows), jalankan langsung: `./gradlew :desktop:run`.
+Logika bersama HP dan desktop ada di modul `:core` (penemuan TV, ADB, remote, API web, M3U, EPG).
 
 ## Instalasi (dari komputer)
 
@@ -216,5 +233,6 @@ tools/  tv.py (ADB) · disable.sh · adb-closed.py · lucide.py (ikon)
 
 - Kode: [MIT](LICENSE) © Al-Ghani ([@fk0u](https://github.com/fk0u)).
 - Ikon [Lucide](https://lucide.dev) (ISC). Font [Outfit](https://github.com/Outfitio/Outfit-Fonts) (SIL OFL 1.1, [`OFL.txt`](launcher/src/main/assets/OFL.txt)).
+- Saluran & jadwal TV: [iptv-org](https://github.com/iptv-org/iptv), [dhanytv](https://github.com/dhasap/dhanytv) oleh @dhasap (hanya bagian TV gratis Indonesia), [epg.pw](https://epg.pw). Tahoe tidak meng-host siaran apa pun.
 - Data: [Open-Meteo](https://open-meteo.com/) · [Aladhan](https://aladhan.com/prayer-times-api) · [TMDB](https://www.themoviedb.org/) (produk ini tidak didukung atau disertifikasi TMDB) · YouTube Data API · Gemini API.
 - Terinspirasi dari prompt [cleanyourtv](https://github.com/Gathin23/cleanyourtv). Bukan produk Apple; "tvOS", "macOS", dan "Liquid Glass" adalah merek Apple Inc.
