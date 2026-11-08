@@ -12,7 +12,7 @@ class Snapshots {
         Screen.entries.forEach { s ->
             val scene = ImageComposeScene(1280, 820, Density(1f)) { TahoeTheme { App(s) } }
             var t = 0L
-            repeat(150) { scene.render(t); Thread.sleep(100); t += 100_000_000 } // let images/APIs arrive, animations settle
+            repeat(300) { scene.render(t); Thread.sleep(100); t += 100_000_000 } // let images/APIs arrive, animations settle
             File(out, "${s.name}.png").writeBytes(scene.render(t).encodeToData()!!.bytes)
             scene.close()
         }
