@@ -17,8 +17,8 @@ android {
         applicationId "tech.kousozo.tahoetv"
         minSdk 26
         targetSdk 34
-        versionCode 3
-        versionName "2.2"
+        versionCode 4
+        versionName "2.3"
     }
     buildFeatures { compose true }
     signingConfigs {
@@ -53,8 +53,7 @@ dependencies {
     implementation "androidx.compose.material:material-icons-extended"
     implementation "androidx.activity:activity-compose:1.10.1"
     implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1"
-    implementation "org.java-websocket:Java-WebSocket:1.5.7"
-    implementation "dev.mobile:dadb:2.0.0" // ADB client (Apache-2.0): phone-only TV setup over Wi-Fi
+    implementation project(":core") // TV discovery, ADB setup (dadb), remote link, web APIs
 }
 
 // The launcher APK ships inside this app, so setup needs no computer and no download.

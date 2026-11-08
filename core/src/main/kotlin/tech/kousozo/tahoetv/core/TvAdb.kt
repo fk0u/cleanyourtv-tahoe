@@ -1,15 +1,15 @@
-package tech.kousozo.tahoetv
+package tech.kousozo.tahoetv.core
 
-import android.content.Context
 import dadb.AdbKeyPair
 import dadb.Dadb
 import java.io.File
 import org.json.JSONObject
 
 /** Everything the phone does to a TV over network ADB (port 5555), with the phone's own RSA key.
+ *  Shared by the phone and desktop apps; the key lives in each app's own data dir.
  *  The first connection makes the TV show "Allow USB debugging?"; with "Always allow" ticked it never asks again.
  *  All calls block: run them off the main thread. */
-class Tv private constructor(val host: String, private val adb: Dadb) : AutoCloseable {
+class TvAdb private constructor(val host: String, private val adb: Dadb) : AutoCloseable {
     val props = mutableMapOf<String, String>()
 
     fun sh(cmd: String): String = adb.shell(cmd).allOutput
@@ -38,10 +38,8 @@ class Tv private constructor(val host: String, private val adb: Dadb) : AutoClos
     /** App labels as shown on the TV (best effort; falls back to the package name). */
     fun label(pkg: String): String = KNOWN[pkg] ?: pkg.substringAfterLast('.').replaceFirstChar { it.uppercase() }
 
-    /** Install the launcher APK bundled in this app (assets/tahoe-launcher.apk). */
-    fun installLauncher(c: Context, log: (String) -> Unit) {
-        val apk = File(c.cacheDir, "tahoe-launcher.apk")
-        c.assets.open("tahoe-launcher.apk").use { input -> apk.outputStream().use { input.copyTo(it) } }
+    /** Install the launcher APK (bundled with the phone/desktop app). */
+    fun installLauncher(apk: File, log: (String) -> Unit) {
         log("Mengirim APK (${apk.length() / 1024} KB)…")
         adb.push(apk, "/data/local/tmp/tahoe.apk", 420 /* 0644 */, System.currentTimeMillis())
         log("Memasang…")
@@ -86,6 +84,14 @@ class Tv private constructor(val host: String, private val adb: Dadb) : AutoClos
         return if (i < 0) JSONObject() else JSONObject(out.substring(i + 6, out.lastIndexOf('"')))
     }
 
+    // ---------------------------------------------------------------- remote + mirror
+    /** One PNG frame of the TV screen (~0.3–1 s on a TV stick). ponytail: screencap polling, h264 screenrecord stream if fps matters. */
+    fun screencap(): ByteArray = adb.open("exec:screencap -p").use { it.source.readByteArray() }
+    fun key(code: String) { sh("input keyevent $code") }
+    fun tap(x: Int, y: Int) { sh("input tap $x $y") }
+    fun text(s: String) { sh("input text " + quote(s.replace(" ", "%s"))) }
+    fun foregroundApp(): String? = Regex("u0 ([\\w.]+)/").find(sh("dumpsys activity activities | grep -m1 mResumedActivity"))?.groupValues?.get(1)
+
     override fun close() { runCatching { adb.close() } }
 
     data class Bloat(val pkg: String, val what: String, val default: Boolean)
@@ -95,11 +101,11 @@ class Tv private constructor(val host: String, private val adb: Dadb) : AutoClos
         val STOCK_LAUNCHERS = listOf("com.google.android.tvlauncher", "com.google.android.apps.tv.launcherx")
 
         /** Blocking. Waits up to ~60 s so there is time to accept the prompt on the TV. */
-        fun connect(c: Context, host: String): Tv {
-            val dir = File(c.filesDir, "adb")
+        fun connect(host: String, keyDir: File): TvAdb {
+            val dir = keyDir
             val priv = File(dir, "adbkey"); val pub = File(dir, "adbkey.pub")
             if (!priv.exists()) { dir.mkdirs(); AdbKeyPair.generate(priv, pub) }
-            val tv = Tv(host, Dadb.create(host, 5555, AdbKeyPair.read(priv, pub), 8000, 60_000))
+            val tv = TvAdb(host, Dadb.create(host, 5555, AdbKeyPair.read(priv, pub), 8000, 60_000))
             tv.sh("echo ok") // forces the handshake (and the TV's auth prompt)
             listOf("ro.product.model", "ro.product.manufacturer", "ro.build.version.release", "ro.build.version.sdk",
                 "ro.config.low_ram", "ro.serialno", "ro.product.device").forEach { tv.props[it] = tv.sh("getprop $it").trim() }

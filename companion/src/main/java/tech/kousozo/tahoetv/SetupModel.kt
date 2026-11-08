@@ -8,12 +8,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import java.net.URL
-import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import tech.kousozo.tahoetv.core.Scan
+import tech.kousozo.tahoetv.core.TvAdb
+import tech.kousozo.tahoetv.core.Web
 
 /** Phone-only setup: find the TV on Wi-Fi → connect over network ADB → debloat → personalise → install the bundled
  *  launcher, make it Home, pair this phone → optionally switch debugging off. Also "restore" for a TV running Tahoe.
@@ -31,7 +32,7 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
     val found = mutableStateListOf<Scan.Found>()
     var error by mutableStateOf<String?>(null); private set
 
-    var tv: Tv? = null; private set
+    var tv: TvAdb? = null; private set
     var version by mutableStateOf<String?>(null); private set
     var installed = emptySet<String>(); private set
     var alreadyOff = emptySet<String>(); private set
@@ -59,11 +60,11 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- 1. find the TV
     fun scan() {
         if (scanning) return
-        step = Step.Scan; found.clear(); noWifi = Scan.localAddress(ctx) == null
+        step = Step.Scan; found.clear(); noWifi = wifiAddress(ctx) == null
         if (noWifi) return
         scanning = true
         viewModelScope.launch {
-            Scan.run(ctx) { f -> viewModelScope.launch { found.add(f); found.sortBy { !it.tahoe } } }
+            Scan.run(wifiAddress(ctx)) { f -> viewModelScope.launch { found.add(f); found.sortBy { !it.tahoe } } }
             scanning = false
         }
     }
@@ -76,13 +77,13 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 tv?.close()
-                val t = Tv.connect(ctx, host)
+                val t = TvAdb.connect(host, java.io.File(ctx.filesDir, "adb"))
                 installed = t.packages(); alreadyOff = t.disabled(); apps = t.tvApps()
                 val v = t.installedVersion()
                 withContext(Dispatchers.Main) {
                     tv = t; version = v
                     debloat.clear()
-                    Tv.CATALOG.filter { it.pkg in installed && !Tv.protectedPkg(it.pkg) && it.pkg !in alreadyOff }
+                    TvAdb.CATALOG.filter { it.pkg in installed && !TvAdb.protectedPkg(it.pkg) && it.pkg !in alreadyOff }
                         .forEach { debloat[it.pkg] = it.default }
                     dock.clear()
                     dock.addAll(prefs.getString("dock", "com.google.android.youtube.tv,com.netflix.ninja,com.spotify.tv.android")!!
@@ -111,15 +112,10 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
         val q = city.trim().ifEmpty { return }
         place = "Mencari…"
         viewModelScope.launch(Dispatchers.IO) {
-            val r = runCatching {
-                JSONObject(URL("https://geocoding-api.open-meteo.com/v1/search?count=1&language=id&name=" + URLEncoder.encode(q, "UTF-8")).readText())
-                    .getJSONArray("results").getJSONObject(0)
-            }.getOrNull()
+            val r = Web.geocode(q)
             withContext(Dispatchers.Main) {
                 if (r == null) { place = "Kota tidak ditemukan"; return@withContext }
-                lat = r.getDouble("latitude"); lon = r.getDouble("longitude")
-                city = r.getString("name")
-                place = listOf(r.getString("name"), r.optString("admin1"), r.optString("country")).filter { it.isNotBlank() }.joinToString(", ")
+                lat = r.lat; lon = r.lon; city = r.name; place = r.label
                 prefs.edit().putString("lat", "$lat").putString("lon", "$lon").putString("place", place).apply()
             }
         }
@@ -138,7 +134,7 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
                 val key = "disabled_" + t.serial
                 val record = prefs.getStringSet(key, emptySet())!!.toMutableSet()
                 for (pkg in disable) {
-                    if (Tv.protectedPkg(pkg)) continue
+                    if (TvAdb.protectedPkg(pkg)) continue
                     val ok = "disabled" in t.sh("pm disable-user --user 0 $pkg")
                     say((if (ok) "✓ dimatikan " else "✗ ") + t.label(pkg))
                     if (ok) record += pkg
@@ -146,12 +142,12 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
                 prefs.edit().putStringSet(key, record).apply()
 
                 if (t.sdk >= 26) {
-                    t.installLauncher(ctx, ::say)
+                    t.installLauncher(bundledLauncher(ctx), ::say)
                     say("✓ Tahoe TV terpasang")
                     val home = t.makeHome(::say, disableStock)
-                    if (disableStock && home == Tv.PKG) record += Tv.STOCK_LAUNCHERS
+                    if (disableStock && home == TvAdb.PKG) record += TvAdb.STOCK_LAUNCHERS
                     prefs.edit().putStringSet(key, record).apply()
-                    say(if (home == Tv.PKG) "✓ Tahoe jadi Home" else "! Home masih $home (cek manual)")
+                    say(if (home == TvAdb.PKG) "✓ Tahoe jadi Home" else "! Home masih $home (cek manual)")
 
                     val cfg = buildMap {
                         name.trim().takeIf { it.isNotEmpty() }?.let { put("user_name", it) }
@@ -199,11 +195,11 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val key = "disabled_" + t.serial
-                val record = prefs.getStringSet(key, emptySet())!! + Tv.STOCK_LAUNCHERS
+                val record = prefs.getStringSet(key, emptySet())!! + TvAdb.STOCK_LAUNCHERS
                 record.filter { it in installed }.forEach { t.sh("pm enable $it"); say("✓ dinyalakan ${t.label(it)}") }
                 t.sh("settings put global private_dns_mode opportunistic")
                 t.sh("settings delete secure screensaver_components")
-                say(t.sh("pm uninstall ${Tv.PKG}").trim() + " (uninstall Tahoe)")
+                say(t.sh("pm uninstall ${TvAdb.PKG}").trim() + " (uninstall Tahoe)")
                 t.sh("input keyevent KEYCODE_HOME")
                 prefs.edit().remove(key).apply()
                 say("✓ Selesai")
