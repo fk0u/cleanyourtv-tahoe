@@ -34,6 +34,7 @@ import javax.swing.SwingUtilities
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import tech.kousozo.tahoetv.core.Epg
+import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.M3u
 import java.time.Instant
 import java.time.ZoneId
@@ -46,7 +47,7 @@ fun LiveScreen() {
     var channels by remember { mutableStateOf<List<M3u.Channel>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
-    var group by remember { mutableStateOf<String?>(null) }
+    var group by remember { mutableStateOf<String?>(null) } // null = Semua, "★" = favorites, else a LocalTv.Category name
     var playing by remember { mutableStateOf<M3u.Channel?>(null) }
     var favs by remember { mutableStateOf(Settings.favorites) }
     var epg by remember { mutableStateOf<Epg?>(null) }
@@ -59,26 +60,30 @@ fun LiveScreen() {
         channels = null; error = null
         withContext(Dispatchers.IO) { runCatching { M3u.load(playlist) } }.fold({ channels = it }, { error = "Playlist tidak bisa dimuat: ${it.message}" })
     }
-    val groups = remember(channels) { channels.orEmpty().mapNotNull { it.group }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }.take(10) }
-    val shown = channels.orEmpty()
+    val province = Settings.province
+    val entries = remember(channels, province) { LocalTv.arrange(channels.orEmpty(), province) }
+    val names = remember(entries) { entries.associate { it.channel.url to it.name } }
+    val cats = remember(entries) { LocalTv.Category.entries.filter { c -> entries.any { LocalTv.inCategory(it, c) } } }
+    val shown = entries
         .filter { query.isBlank() || it.name.contains(query, true) }
-        .filter { group == null || (group == "★" && it.url in favs) || it.group == group }
-        .sortedByDescending { it.url in favs }
+        .filter { e -> when (group) { null -> true; "★" -> e.channel.url in favs; else -> LocalTv.inCategory(e, LocalTv.Category.valueOf(group!!)) } }
+        .sortedByDescending { it.channel.url in favs }
 
     Row(Modifier.fillMaxSize().padding(start = 12.dp, end = 28.dp, top = 24.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         Column(Modifier.width(340.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Title("TV Live", channels?.let { "${it.size} saluran" } ?: error ?: "Memuat playlist…")
+            Title("TV Live", channels?.let { "${entries.size} saluran Indonesia" + (province.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "") } ?: error ?: "Memuat playlist…")
             Field(query, { query = it }, "Cari saluran", trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                (listOf(null, "★") + groups).forEach { g ->
+                (listOf(null) + cats.map { it.name } + "★").forEach { g ->
                     val on = g == group
-                    Text(g ?: "Semua", Modifier.clip(RoundedCornerShape(50)).background(if (on) Tahoe.Text else Tahoe.Glass).clickable { group = g }
+                    Text(g?.let { if (it == "★") "★ Favorit" else LocalTv.Category.valueOf(it).label } ?: "Semua", Modifier.clip(RoundedCornerShape(50)).background(if (on) Tahoe.Text else Tahoe.Glass).clickable { group = g }
                         .padding(horizontal = 12.dp, vertical = 6.dp), color = if (on) Color(0xFF111114) else Tahoe.Text, fontSize = 13.sp)
                 }
             }
             if (channels == null && error == null) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(shown, key = { it.url }) { ch ->
+                items(shown, key = { it.channel.url }) { e ->
+                    val ch = e.channel
                     val on = ch == playing
                     Row(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (on) Color.White.copy(alpha = 0.14f) else Color.Transparent)
@@ -87,13 +92,17 @@ fun LiveScreen() {
                     ) {
                         Box(Modifier.size(44.dp, 32.dp).clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.9f)), contentAlignment = Alignment.Center) {
                             rememberImage(ch.logo)?.let { Image(it, null, Modifier.padding(3.dp).fillMaxSize(), contentScale = ContentScale.Fit) }
-                                ?: Text(ch.name.take(2), color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                ?: Text(e.name.take(2), color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(ch.name, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
-                            val nowOn = epg?.schedule(ch.name, tick)?.firstOrNull()?.takeIf { it.start <= tick }
-                            Text(nowOn?.title ?: ch.group ?: "", fontSize = 12.sp, color = if (nowOn != null) Tahoe.Accent else Tahoe.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(e.name, Modifier.weight(1f, fill = false), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
+                                if (e.near) Badge("Dekat", Tahoe.Accent)
+                                if (e.partTime) Badge("Tidak 24 jam", Tahoe.Faint)
+                            }
+                            val nowOn = epg?.schedule(e.name, tick)?.firstOrNull()?.takeIf { it.start <= tick }
+                            Text(nowOn?.title ?: e.category.label, fontSize = 12.sp, color = if (nowOn != null) Tahoe.Accent else Tahoe.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         val fav = ch.url in favs
                         IconButton({ favs = if (fav) favs - ch.url else favs + ch.url; Settings.favorites = favs }, Modifier.size(32.dp)) {
@@ -116,7 +125,7 @@ fun LiveScreen() {
             playing?.let { ch ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(ch.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Text(names[ch.url] ?: ch.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                         Text(status ?: "Memutar langsung", color = if (status != null) Tahoe.Bad else Tahoe.Good, fontSize = 14.sp)
                     }
                     Session.tv?.let { tv ->
@@ -128,12 +137,16 @@ fun LiveScreen() {
                     GhostButton("Buka di pemutar lain", Icons.Rounded.OpenInNew) { browse(ch.url) }
                 }
             }
-            playing?.let { ch -> Guide(epg?.schedule(ch.name, tick).orEmpty(), epg != null, tick) }
-            Text("Saluran dari playlist publik iptv-org, jadwal dari epg.pw (keduanya bisa diganti di Setelan). Sebagian saluran bisa offline atau dibatasi wilayah.",
+            playing?.let { ch -> Guide(epg?.schedule(names[ch.url] ?: ch.name, tick).orEmpty(), epg != null, tick) }
+            Text("Saluran TV Indonesia dari playlist publik iptv-org, jadwal dari epg.pw (keduanya bisa diganti di Setelan). Sebagian saluran bisa offline atau dibatasi wilayah.",
                 fontSize = 12.sp, color = Tahoe.Faint)
         }
     }
 }
+
+@Composable
+private fun Badge(text: String, color: Color) = Text(text, Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.18f))
+    .padding(horizontal = 7.dp, vertical = 1.dp), color = color, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
 
 private val HM = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault())
 
