@@ -16,7 +16,7 @@
 > Roadmap & status per fitur: [PLAN.md](PLAN.md) · [issues](https://github.com/fk0u/cleanyourtv-tahoe/issues?q=label%3Aroadmap)
 
 ## Daftar isi
-[Screenshot](#screenshot) · [Fitur](#fitur) · [Kontrol](#kontrol) · [Pasang dari HP](#pasang-dari-hp-tanpa-laptop) · [Instalasi](#instalasi-dari-komputer) · [Konfigurasi](#konfigurasi) ·
+[Screenshot](#screenshot) · [Fitur](#fitur) · [Kontrol](#kontrol) · [Pasang dari HP](#pasang-dari-hp-tanpa-laptop) · [Desktop](#tahoe-tv-untuk-desktop-macos-13-dan-windows) · [Instalasi](#instalasi-dari-komputer) · [Konfigurasi](#konfigurasi) ·
 [API key](#api-key-opsional) · [HP ↔ TV](#hp--tv) · [Wallpaper & foto](#wallpaper--foto) · [Debloat](#debloat) ·
 [Batasan perangkat](#batasan-perangkat) · [Mengembalikan semuanya](#mengembalikan-semuanya) · [Struktur proyek](#struktur-proyek) · [Kredit](#kredit--lisensi)
 
@@ -83,6 +83,18 @@
 
 Ubah setelan kapan saja dengan menyalakan debugging lagi, lalu buka app. **Pulihkan TV** mengembalikan semuanya ke bawaan.
 Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb)) dengan kunci milik HP; setelan dikirim ke receiver `tv.clean.home/.Config` yang hanya bisa dipanggil shell ADB.
+
+## Tahoe TV untuk desktop (macOS 13+ dan Windows)
+
+App desktop (Kotlin + Compose Multiplatform) dengan gaya yang sama:
+- **Beranda**: jam, cuaca, jadwal shalat, rekomendasi trending YouTube/Netflix, pintasan layanan streaming (dibuka di browser, tempat DRM seperti Netflix memang jalan), dan asisten Gemini.
+- **TV Live**: saluran gratis Indonesia dari playlist publik [iptv-org](https://github.com/iptv-org/iptv) dengan **EPG** (sedang tayang & berikutnya) dari [epg.pw](https://epg.pw). Playlist dan EPG bisa diganti di Setelan dengan sumber resmi milikmu.
+- **TV Rumah**: cari Android TV di Wi-Fi, debloat, pasang dan atur Tahoe (sama seperti app HP).
+- **Remote**: cermin layar TV lewat ADB (klik gambar = ketuk di TV), D-pad, keyboard, volume, media.
+
+Unduh dari [Releases](../../releases): `TahoeTV-macos-intel.dmg`, `TahoeTV-macos-arm64.dmg`, `TahoeTV-windows.msi` (dibuat oleh GitHub Actions di tiap OS).
+Build sendiri: `./gradlew -PpublicBuild :desktop:packageDmg` (atau `packageMsi` di Windows), jalankan langsung: `./gradlew :desktop:run`.
+Logika bersama HP dan desktop ada di modul `:core` (penemuan TV, ADB, remote, API web, M3U, EPG).
 
 ## Instalasi (dari komputer)
 

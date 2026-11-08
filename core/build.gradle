@@ -1,0 +1,14 @@
+// Plain-JVM logic shared by the phone app and the desktop app: TV discovery, ADB setup, remote link, web APIs, M3U.
+plugins { id "org.jetbrains.kotlin.jvm" }
+
+java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
+
+dependencies {
+    api "dev.mobile:dadb:2.0.0"                       // ADB client over TCP (Apache-2.0)
+    api "org.java-websocket:Java-WebSocket:1.5.7"
+    api "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
+    compileOnly "org.json:json:20250517"              // Android ships org.json; desktop adds it itself
+    testImplementation "org.json:json:20250517"
+    testImplementation "org.jetbrains.kotlin:kotlin-test:2.2.0"
+}

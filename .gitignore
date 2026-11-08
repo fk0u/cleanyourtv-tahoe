@@ -15,3 +15,4 @@ secrets.properties
 # release signing for the phone app (tech.kousozo.tahoetv): back these up, never commit
 keystore.properties
 *.jks
+*.apk

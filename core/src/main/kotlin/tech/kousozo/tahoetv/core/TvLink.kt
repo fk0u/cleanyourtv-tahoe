@@ -1,0 +1,42 @@
+package tech.kousozo.tahoetv.core
+
+import java.net.URI
+import org.java_websocket.client.WebSocketClient
+import org.java_websocket.handshake.ServerHandshake
+import org.json.JSONObject
+
+/** Remote control of a TV running Tahoe over its paired WebSocket (port 8765). Works without ADB, e.g. on TV boxes
+ *  where Tahoe was installed from a USB stick. Same messages as the launcher's web remote. */
+class TvLink(val host: String, private val token: String, private val onState: (Boolean) -> Unit = {}) {
+    private var ws: WebSocketClient? = null
+    val connected get() = ws?.isOpen == true
+
+    fun open() {
+        if (connected) return
+        ws = object : WebSocketClient(URI("ws://$host:8765/ws?token=$token")) {
+            override fun onOpen(h: ServerHandshake) = onState(true)
+            override fun onMessage(m: String) {}
+            override fun onClose(code: Int, reason: String, remote: Boolean) = onState(false)
+            override fun onError(e: Exception) {}
+        }.also { it.connect() }
+    }
+
+    fun close() { ws?.close(); ws = null }
+
+    private fun send(o: JSONObject) { ws?.takeIf { it.isOpen }?.send(o.toString()) }
+    /** up, down, left, right, ok, back, home, menu, apps */
+    fun key(k: String) = send(JSONObject().put("t", "key").put("k", k))
+    fun launch(pkg: String) = send(JSONObject().put("t", "launch").put("pkg", pkg))
+    fun url(u: String) = send(JSONObject().put("t", "url").put("u", u))
+    fun ask(q: String) = send(JSONObject().put("t", "ask").put("q", q))
+    fun volume(d: Int) = send(JSONObject().put("t", "volume").put("d", d))
+
+    companion object {
+        /** POST /pair with the 6-digit code shown on the TV. Returns the token, or throws with the TV's error. Blocks. */
+        fun pair(host: String, code: String): String {
+            val res = JSONObject(runCatching { Web.request("POST", "http://$host:8765/pair", JSONObject().put("code", code).toString(), 5000) }
+                .getOrElse { throw java.io.IOException(if ("HTTP 4" in "${it.message}") "Kode salah atau kedaluwarsa" else "Tidak bisa menghubungi TV") })
+            return res.optString("token").ifEmpty { throw java.io.IOException(res.optString("error", "Gagal")) }
+        }
+    }
+}

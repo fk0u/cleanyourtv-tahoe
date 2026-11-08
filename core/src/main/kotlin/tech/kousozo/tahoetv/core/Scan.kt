@@ -1,7 +1,5 @@
-package tech.kousozo.tahoetv
+package tech.kousozo.tahoetv.core
 
-import android.content.Context
-import android.net.ConnectivityManager
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -29,15 +27,13 @@ object Scan {
         }
     }
 
-    /** Phone's IPv4 on the active network, e.g. "192.168.18.20". */
-    fun localAddress(c: Context): String? {
-        val cm = c.getSystemService(ConnectivityManager::class.java)
-        val lp = cm.activeNetwork?.let { cm.getLinkProperties(it) } ?: return null
-        return lp.linkAddresses.map { it.address }.firstOrNull { it is Inet4Address && !it.isLoopbackAddress }?.hostAddress
-    }
+    /** This machine's LAN IPv4 (first non-loopback, site-local), e.g. "192.168.18.20". Android passes its Wi-Fi address instead. */
+    fun localAddress(): String? = java.net.NetworkInterface.getNetworkInterfaces().toList()
+        .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+        .flatMap { it.inetAddresses.toList() }.firstOrNull { it is Inet4Address && it.isSiteLocalAddress }?.hostAddress
 
-    suspend fun run(c: Context, found: (Found) -> Unit) = withContext(Dispatchers.IO) {
-        val me = localAddress(c) ?: return@withContext
+    suspend fun run(me: String?, found: (Found) -> Unit) = withContext(Dispatchers.IO) {
+        me ?: return@withContext
         val base = me.substringBeforeLast('.') + "."
         val gate = Semaphore(48)
         coroutineScope {
