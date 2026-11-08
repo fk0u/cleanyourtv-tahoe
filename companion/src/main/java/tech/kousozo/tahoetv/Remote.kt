@@ -29,6 +29,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import tech.kousozo.tahoetv.core.TvLink
+import tech.kousozo.tahoetv.core.Epg
+import tech.kousozo.tahoetv.core.LocalTv
+import tech.kousozo.tahoetv.core.M3u
+import tech.kousozo.tahoetv.core.Web
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Native remote: swipe touchpad (like the Siri Remote) + tap = OK, system keys, volume, app shortcuts, and
  *  "ask the TV" (Gemini on the TV). Uses the paired WebSocket, so it works on any TV running Tahoe, no ADB. */
@@ -96,8 +107,60 @@ fun RemoteScreen() {
         Field(q, { q = it }, "mis. putar lagu santai di YouTube", trailing = {
             IconButton({ if (q.isNotBlank()) { link.ask(q.trim()); q = "" } }) { Icon(Icons.AutoMirrored.Rounded.Send, "Kirim", tint = Tahoe.Accent) }
         })
+
+        WhatsOn { link.launch(BITTV) }
     }
 }
+
+const val BITTV = "com.live_streaming_tv.online_tv"
+
+/** What's on now on Indonesian TV, local channels first (same list as the TV's "Jadwal TV"). Tapping opens BitTV on the TV. */
+@Composable
+private fun WhatsOn(open: (LocalTv.Entry) -> Unit) {
+    val c = LocalContext.current
+    var entries by remember { mutableStateOf<List<LocalTv.Entry>?>(null) }
+    var epg by remember { mutableStateOf<Epg?>(null) }
+    var cat by remember { mutableStateOf(LocalTv.Category.Near) }
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val setup = c.getSharedPreferences("setup", 0)
+            val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
+                ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
+            entries = runCatching { LocalTv.arrange(M3u.load(M3u.DEFAULT), province) }.getOrNull()
+            epg = runCatching { Epg.load() }.getOrNull()
+        }
+    }
+    val list = entries ?: run { Section("Sedang tayang"); LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass); return }
+    val cats = LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }
+    if (cat !in cats) cat = cats.firstOrNull() ?: return
+    Section("Sedang tayang")
+    Text("Ketuk saluran untuk menonton di BitTV pada TV.", color = Tahoe.Dim, fontSize = 13.sp)
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        cats.forEach { k ->
+            val on = k == cat
+            Text(k.label, Modifier.clip(RoundedCornerShape(50)).background(if (on) Tahoe.Text else Tahoe.Glass).clickable { cat = k }
+                .padding(horizontal = 12.dp, vertical = 7.dp), color = if (on) Color(0xFF111114) else Tahoe.Text, fontSize = 13.sp)
+        }
+    }
+    val now = Instant.now()
+    GlassCard {
+        list.filter { LocalTv.inCategory(it, cat) }.take(30).forEach { e ->
+            val s = epg?.schedule(e.name, now).orEmpty()
+            val p = s.firstOrNull()?.takeIf { it.start <= now }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { open(e) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(e.name, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text(p?.let { "${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}" } ?: if (epg == null) "Memuat jadwal…" else e.category.label,
+                        color = if (p != null) Tahoe.Accent else Tahoe.Faint, fontSize = 13.sp, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+                Icon(Icons.Rounded.PlayCircle, "Tonton", tint = Tahoe.Dim)
+            }
+        }
+    }
+}
+
+private val HM = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault())
 
 @Composable
 private fun RoundKey(icon: ImageVector, label: String, onClick: () -> Unit) = Column(horizontalAlignment = Alignment.CenterHorizontally) {

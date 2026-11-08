@@ -129,8 +129,8 @@ fun LiveScreen() {
                         Text(status ?: "Memutar langsung", color = if (status != null) Tahoe.Bad else Tahoe.Good, fontSize = 14.sp)
                     }
                     Session.tv?.let { tv ->
-                        GhostButton("Putar di TV", Icons.Rounded.Cast) {
-                            Thread { runCatching { tv.sh("am start -a android.intent.action.VIEW -t video/* -d " + tech.kousozo.tahoetv.core.TvAdb.quote(ch.url)) } }.start()
+                        GhostButton("Tonton di BitTV (TV)", Icons.Rounded.Cast) { // BitTV is the TV's watching app; Tahoe brings the guide
+                            Thread { runCatching { tv.sh("monkey -p com.live_streaming_tv.online_tv -c android.intent.category.LEANBACK_LAUNCHER 1") } }.start()
                         }
                         Spacer(Modifier.width(8.dp))
                     }

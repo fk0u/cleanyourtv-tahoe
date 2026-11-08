@@ -44,6 +44,7 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
     var place by mutableStateOf(prefs.getString("place", "").orEmpty()); private set
     private var lat = prefs.getString("lat", null)?.toDoubleOrNull()
     private var lon = prefs.getString("lon", null)?.toDoubleOrNull()
+    private var region = prefs.getString("region", "").orEmpty()
     var avatar by mutableStateOf(prefs.getString("avatar", "").orEmpty())
     val dock = mutableStateListOf<String>()
     var gemini by mutableStateOf(prefs.getString("gemini", "").orEmpty())
@@ -115,8 +116,8 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
             val r = Web.geocode(q)
             withContext(Dispatchers.Main) {
                 if (r == null) { place = "Kota tidak ditemukan"; return@withContext }
-                lat = r.lat; lon = r.lon; city = r.name; place = r.label
-                prefs.edit().putString("lat", "$lat").putString("lon", "$lon").putString("place", place).apply()
+                lat = r.lat; lon = r.lon; city = r.name; place = r.label; region = r.region
+                prefs.edit().putString("lat", "$lat").putString("lon", "$lon").putString("place", place).putString("region", region).apply()
             }
         }
     }
@@ -152,6 +153,7 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
                     val cfg = buildMap {
                         name.trim().takeIf { it.isNotEmpty() }?.let { put("user_name", it) }
                         city.trim().takeIf { it.isNotEmpty() }?.let { put("city", it) }
+                        region.takeIf { it.isNotEmpty() }?.let { put("province", it) }
                         if (lat != null && lon != null) { put("latitude", "$lat"); put("longitude", "$lon") }
                         avatar.trim().takeIf { it.isNotEmpty() }?.let { put("avatar_url", it) }
                         if (dock.isNotEmpty()) put("dock", dock.joinToString(","))
