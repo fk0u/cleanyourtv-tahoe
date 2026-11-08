@@ -23,6 +23,8 @@ class LocalTvTest {
         assertEquals("Trans7", LocalTv.cleanName("TRANS 7 TV"))
         assertEquals("MNCTV", LocalTv.cleanName("MNC TV HD"))
         assertEquals("RTV", LocalTv.cleanName("RTV (Channel Feed))"))
+        assertEquals("TVRI Nusa Tenggara Barat", LocalTv.cleanName("TVRI NTB"))
+        assertEquals("TVRI Maluku", LocalTv.cleanName("TVRI Ambon (480p)"))
     }
 
     @Test fun nearYouAndOrdering() {

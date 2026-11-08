@@ -89,7 +89,7 @@ Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb))
 App desktop (Kotlin + Compose Multiplatform) dengan gaya yang sama:
 - **Beranda**: jam, cuaca, jadwal shalat, rekomendasi trending YouTube/Netflix, pintasan layanan streaming (dibuka di browser, tempat DRM seperti Netflix memang jalan), dan asisten Gemini.
 - **TV Live**: fokus TV lokal Indonesia: "Dekat kamu" (TVRI daerah dan TV lokal di provinsimu), Nasional, TVRI Daerah, TV Lokal, Berita, Religi, Anak.
-  - Saluran: TV gratis dari [iptv-org](https://github.com/iptv-org/iptv) + [dhanytv](https://github.com/dhasap/dhanytv) (hanya grup TV Indonesia; saluran ber-DRM, restream operator berbayar, dan merek pay-TV **tidak** diambil). Saluran yang sama dari beberapa sumber jadi cadangan otomatis; saluran yang sedang offline disembunyikan.
+  - Saluran: TV gratis dari [iptv-org](https://github.com/iptv-org/iptv) + [yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia) + [dhanytv](https://github.com/dhasap/dhanytv) (hanya grup TV Indonesia; saluran ber-DRM, restream operator berbayar, dan merek pay-TV **tidak** diambil). Saluran yang sama dari beberapa sumber jadi cadangan otomatis; saluran yang sedang offline disembunyikan.
   - Playlist tambahan sendiri (URL atau file .m3u/.txt) bisa digabung lewat Setelan, dengan saringan yang sama.
   - Jadwal acara (EPG): dhanytv + [epg.pw](https://epg.pw).
   - Pemutar di jendela sendiri (layar penuh), termasuk siaran yang butuh header Referer/User-Agent.
@@ -233,6 +233,6 @@ tools/  tv.py (ADB) · disable.sh · adb-closed.py · lucide.py (ikon)
 
 - Kode: [MIT](LICENSE) © Al-Ghani ([@fk0u](https://github.com/fk0u)).
 - Ikon [Lucide](https://lucide.dev) (ISC). Font [Outfit](https://github.com/Outfitio/Outfit-Fonts) (SIL OFL 1.1, [`OFL.txt`](launcher/src/main/assets/OFL.txt)).
-- Saluran & jadwal TV: [iptv-org](https://github.com/iptv-org/iptv), [dhanytv](https://github.com/dhasap/dhanytv) oleh @dhasap (hanya bagian TV gratis Indonesia), [epg.pw](https://epg.pw). Tahoe tidak meng-host siaran apa pun.
+- Saluran & jadwal TV: [iptv-org](https://github.com/iptv-org/iptv), [yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia), [dhanytv](https://github.com/dhasap/dhanytv) oleh @dhasap (hanya bagian TV gratis Indonesia), [epg.pw](https://epg.pw). Tahoe tidak meng-host siaran apa pun.
 - Data: [Open-Meteo](https://open-meteo.com/) · [Aladhan](https://aladhan.com/prayer-times-api) · [TMDB](https://www.themoviedb.org/) (produk ini tidak didukung atau disertifikasi TMDB) · YouTube Data API · Gemini API.
 - Terinspirasi dari prompt [cleanyourtv](https://github.com/Gathin23/cleanyourtv). Bukan produk Apple; "tvOS", "macOS", dan "Liquid Glass" adalah merek Apple Inc.
