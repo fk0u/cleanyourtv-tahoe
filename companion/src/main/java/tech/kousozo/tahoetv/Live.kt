@@ -181,7 +181,7 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
         everReady = false; retries = 0
         message = if (source == 0) "Menyambung ke siaran…" else "Mencoba sumber cadangan ${source + 1}/${streams.size}…"
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
-            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/2.9.3").setDefaultRequestProperties(s.headers - "User-Agent")
+            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/2.9.4").setDefaultRequestProperties(s.headers - "User-Agent")
         player.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.fromUri(Uri.parse(s.url))))
         player.prepare(); player.play()
         delay(20_000) // never started → next source

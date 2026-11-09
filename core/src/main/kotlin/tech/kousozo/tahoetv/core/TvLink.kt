@@ -44,6 +44,8 @@ class TvLink(val host: String, private val token: String, private val onState: (
     fun text(s: String) = send(JSONObject().put("t", "text").put("s", s))
     /** Standby ↔ wake. */
     fun power() = send(JSONObject().put("t", "power"))
+    /** Sleep timer in minutes, 0 = off. */
+    fun sleep(minutes: Int) = send(JSONObject().put("t", "sleep").put("m", minutes))
 
     companion object {
         /** POST /pair with the 6-digit code shown on the TV. Returns the token, or throws with the TV's error. Blocks. */

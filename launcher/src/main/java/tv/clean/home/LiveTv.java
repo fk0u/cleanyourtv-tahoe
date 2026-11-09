@@ -14,6 +14,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.SurfaceView;
 import android.view.View;
+import android.widget.Toast;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -85,6 +86,8 @@ public class LiveTv extends Activity {
         guide.setPadding((int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP), (int) dp(20), (int) dp(Ui.SAFE_TOP));
         TextView gt = Ui.text(this, Ui.HEADLINE, 700, Ui.TEXT); gt.setText("Live TV");
         guide.addView(gt);
+        TextView gh = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); gh.setText("OK tonton  ·  ▶ favorit  ·  Menu ingatkan acara berikutnya");
+        guide.addView(gh);
         rows = new LinearLayout(this); rows.setOrientation(LinearLayout.VERTICAL);
         ScrollView sv = new ScrollView(this); sv.setVerticalScrollBarEnabled(false); sv.addView(rows);
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-1, 0, 1); sl.topMargin = (int) dp(12);
@@ -116,12 +119,15 @@ public class LiveTv extends Activity {
 
     void tune(int i) {
         if (list.isEmpty()) return;
+        if (index >= 0) previous = index;
         index = ((i % list.size()) + list.size()) % list.size();
         source = 0;
         LocalTv.Entry e = list.get(index);
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
         order = SourceHealth.order(raw); // fixed for this tune, so `source` keeps pointing at the same stream
-        prefs.edit().putString("last", list.get(index).getChannel().getUrl()).apply();
+        String url = list.get(index).getChannel().getUrl();
+        List<String> rc = recent(); rc.remove(url); rc.add(0, url); while (rc.size() > 10) rc.remove(rc.size() - 1);
+        prefs.edit().putString("last", url).putString("recent", android.text.TextUtils.join("\n", rc)).apply();
         if (Home.live != null) Home.live.pushState(); // phone remote shows the channel
         play();
         showBanner();
@@ -141,7 +147,7 @@ public class LiveTv extends Activity {
         M3u.Channel c = s.get(source);
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(8000).setReadTimeoutMs(15000)
-                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/2.9.3");
+                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/2.9.4");
         java.util.HashMap<String, String> h = new java.util.HashMap<>(c.getHeaders()); h.remove("User-Agent");
         http.setDefaultRequestProperties(h);
         player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(MediaItem.fromUri(Uri.parse(c.getUrl()))));
@@ -160,6 +166,9 @@ public class LiveTv extends Activity {
         bNum.setText(String.format(java.util.Locale.ROOT, "%03d", typed)); osd.animate().alpha(1).setDuration(Ui.FAST).start();
         ui.removeCallbacks(tuneTyped); ui.postDelayed(tuneTyped, 1500);
     }
+
+    /** Previous channel (LAST key on the TV remote, ⟲ on the phone). */
+    void back() { if (previous >= 0 && previous < list.size()) tune(previous); }
 
     void nextSource() { if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), false); source++; play(); }
 
@@ -353,46 +362,111 @@ public class LiveTv extends Activity {
         return o;
     }
 
+    /** Favourite channels (stream URLs), newest-first recent channels, and the channel before this one. */
+    java.util.Set<String> favs() { return new java.util.HashSet<>(prefs.getStringSet("fav", new java.util.HashSet<>())); }
+    List<String> recent() { String v = prefs.getString("recent", ""); return v.isEmpty() ? new ArrayList<>() : new ArrayList<>(java.util.Arrays.asList(v.split("\n"))); }
+    int previous = -1;
+    View[] allRows = new View[0]; // the "Semua saluran" row of each channel, for focusing
+
+    /** Guide: ★ Favorit, Terakhir ditonton, then every channel. */
     void buildRows() {
         rows.removeAllViews();
         Instant now = Instant.now();
-        for (int k = 0; k < list.size(); k++) {
-            LocalTv.Entry e = list.get(k);
-            LinearLayout r = new LinearLayout(this); r.setGravity(Gravity.CENTER_VERTICAL);
-            r.setPadding((int) dp(10), (int) dp(8), (int) dp(12), (int) dp(8));
-            r.setFocusable(true); r.setFocusableInTouchMode(true);
-            TextView num = Ui.text(this, Ui.CAPTION, 600, Ui.TEXT_3); num.setText(String.format(java.util.Locale.ROOT, "%03d", k + 1));
-            r.addView(num, new LinearLayout.LayoutParams((int) dp(34), -2));
-            FrameLayout tile = new FrameLayout(this);
-            android.graphics.drawable.GradientDrawable tg = new android.graphics.drawable.GradientDrawable(); tg.setColor(0xF5FFFFFF); tg.setCornerRadius(dp(8));
-            tile.setBackground(tg);
-            android.widget.ImageView iv = new android.widget.ImageView(this); iv.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-            iv.setPadding((int) dp(4), (int) dp(4), (int) dp(4), (int) dp(4));
-            TextView it = Ui.text(this, Ui.CAPTION, 800, 0xFF111114); it.setShadowLayer(0, 0, 0, 0); it.setGravity(Gravity.CENTER);
-            tile.addView(it, new FrameLayout.LayoutParams(-1, -1)); tile.addView(iv, new FrameLayout.LayoutParams(-1, -1));
-            Logos.into(e.getChannel().getLogo(), iv, it, e.getName());
-            r.addView(tile, new LinearLayout.LayoutParams((int) dp(54), (int) dp(36)));
-            LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
-            TextView name = Ui.text(this, Ui.BODY, 600, Ui.TEXT); name.setText(e.getName()); name.setShadowLayer(0, 0, 0, 0);
-            List<Epg.Programme> s = epg == null ? null : epg.schedule(e.getName(), now);
-            Epg.Programme p = s != null && !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
-            TextView sub = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); sub.setText(p != null ? p.getTitle() : e.getCategory().getLabel()); sub.setShadowLayer(0, 0, 0, 0);
-            col.addView(name); col.addView(sub);
-            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -2, 1); cp.leftMargin = (int) dp(12);
-            r.addView(col, cp);
-            int i = k;
-            r.setOnFocusChangeListener((v, f) -> {
-                v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null);
-                v.animate().scaleX(f ? 1.03f : 1f).scaleY(f ? 1.03f : 1f).setDuration(Ui.FAST).start();
-            });
-            r.setOnClickListener(v -> { guide.setVisibility(View.GONE); tune(i); });
-            rows.addView(r);
-        }
+        java.util.Set<String> fav = favs();
+        java.util.Map<String, Integer> at = new java.util.HashMap<>();
+        for (int k = 0; k < list.size(); k++) at.put(list.get(k).getChannel().getUrl(), k);
+        List<Integer> favRows = new ArrayList<>(), recentRows = new ArrayList<>();
+        for (int k = 0; k < list.size(); k++) if (fav.contains(list.get(k).getChannel().getUrl())) favRows.add(k);
+        for (String u : recent()) { Integer k = at.get(u); if (k != null && !fav.contains(u) && recentRows.size() < 5) recentRows.add(k); }
+        if (!favRows.isEmpty()) { section("★  Favorit"); for (int k : favRows) rows.addView(row(k, now, fav)); }
+        if (!recentRows.isEmpty()) { section("Terakhir ditonton"); for (int k : recentRows) rows.addView(row(k, now, fav)); }
+        if (!favRows.isEmpty() || !recentRows.isEmpty()) section("Semua saluran");
+        allRows = new View[list.size()];
+        for (int k = 0; k < list.size(); k++) { allRows[k] = row(k, now, fav); rows.addView(allRows[k]); }
+    }
+
+    void section(String title) {
+        TextView t = Ui.eyebrow(this, Ui.TEXT_3); t.setText(title);
+        t.setPadding((int) dp(10), (int) dp(14), 0, (int) dp(4));
+        rows.addView(t);
+    }
+
+    View row(int k, Instant now, java.util.Set<String> fav) {
+        LocalTv.Entry e = list.get(k);
+        LinearLayout r = new LinearLayout(this); r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding((int) dp(10), (int) dp(8), (int) dp(12), (int) dp(8));
+        r.setFocusable(true); r.setFocusableInTouchMode(true);
+        // live / dead / not checked yet, from the start-up server check
+        List<M3u.Channel> st = new ArrayList<>(); st.add(e.getChannel()); st.addAll(e.getAlternates());
+        Boolean live = SourceHealth.live(st);
+        View dot = new View(this);
+        android.graphics.drawable.GradientDrawable dg = new android.graphics.drawable.GradientDrawable(); dg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        dg.setColor(live == null ? 0x55FFFFFF : live ? Ui.GOOD : Ui.LIVE); dot.setBackground(dg);
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams((int) dp(7), (int) dp(7)); dl.rightMargin = (int) dp(8);
+        r.addView(dot, dl);
+        TextView num = Ui.text(this, Ui.CAPTION, 600, Ui.TEXT_3); num.setText(String.format(java.util.Locale.ROOT, "%03d", k + 1));
+        r.addView(num, new LinearLayout.LayoutParams((int) dp(34), -2));
+        FrameLayout tile = new FrameLayout(this);
+        android.graphics.drawable.GradientDrawable tg = new android.graphics.drawable.GradientDrawable(); tg.setColor(0xF5FFFFFF); tg.setCornerRadius(dp(8));
+        tile.setBackground(tg);
+        android.widget.ImageView iv = new android.widget.ImageView(this); iv.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        iv.setPadding((int) dp(4), (int) dp(4), (int) dp(4), (int) dp(4));
+        TextView it = Ui.text(this, Ui.CAPTION, 800, 0xFF111114); it.setShadowLayer(0, 0, 0, 0); it.setGravity(Gravity.CENTER);
+        tile.addView(it, new FrameLayout.LayoutParams(-1, -1)); tile.addView(iv, new FrameLayout.LayoutParams(-1, -1));
+        Logos.into(e.getChannel().getLogo(), iv, it, e.getName());
+        r.addView(tile, new LinearLayout.LayoutParams((int) dp(54), (int) dp(36)));
+        LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
+        TextView name = Ui.text(this, Ui.BODY, 600, Ui.TEXT); name.setText(e.getName()); name.setShadowLayer(0, 0, 0, 0);
+        List<Epg.Programme> s = epg == null ? null : epg.schedule(e.getName(), now);
+        Epg.Programme p = s != null && !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
+        Epg.Programme nx = null;
+        if (s != null) for (Epg.Programme q : s) if (q.getStart().isAfter(now)) { nx = q; break; }
+        boolean reminded = nx != null && Reminder.isSet(this, e.getChannel().getUrl(), nx.getStart().toEpochMilli());
+        TextView sub = Ui.text(this, Ui.CAPTION, 500, reminded ? Ui.ACCENT : Ui.TEXT_3); sub.setShadowLayer(0, 0, 0, 0);
+        sub.setText(reminded ? "🔔 " + java.time.format.DateTimeFormatter.ofPattern("HH.mm").withZone(java.time.ZoneId.systemDefault()).format(nx.getStart()) + "  " + nx.getTitle()
+                : p != null ? p.getTitle() : e.getCategory().getLabel());
+        col.addView(name); col.addView(sub);
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -2, 1); cp.leftMargin = (int) dp(12);
+        r.addView(col, cp);
+        if (fav.contains(e.getChannel().getUrl())) { TextView star = Ui.text(this, Ui.BODY, 700, Ui.SUN); star.setText("★"); r.addView(star); }
+        r.setOnFocusChangeListener((v, f) -> {
+            v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null);
+            v.animate().scaleX(f ? 1.03f : 1f).scaleY(f ? 1.03f : 1f).setDuration(Ui.FAST).start();
+        });
+        r.setOnClickListener(v -> { guide.setVisibility(View.GONE); tune(k); });
+        Epg.Programme next = nx;
+        r.setOnKeyListener((v, code, ev) -> {
+            if (ev.getAction() != KeyEvent.ACTION_DOWN) return false;
+            if (code == KeyEvent.KEYCODE_DPAD_RIGHT) { toggleFav(k); return true; }
+            if (code == KeyEvent.KEYCODE_MENU) { remind(k, next); return true; }
+            return false;
+        });
+        return r;
+    }
+
+    void remind(int k, Epg.Programme next) {
+        LocalTv.Entry e = list.get(k);
+        if (next == null) { Toast.makeText(this, "Belum ada jadwal acara berikutnya untuk " + e.getName(), Toast.LENGTH_SHORT).show(); return; }
+        boolean on = Reminder.toggle(this, e.getChannel().getUrl(), e.getName(), next.getTitle(), next.getStart().toEpochMilli());
+        Toast.makeText(this, (on ? "🔔 Diingatkan: " : "Pengingat dibatalkan: ") + next.getTitle(), Toast.LENGTH_SHORT).show();
+        buildRows();
+        if (k < allRows.length) allRows[k].requestFocus();
+    }
+
+    void toggleFav(int k) {
+        String u = list.get(k).getChannel().getUrl();
+        java.util.Set<String> f = favs();
+        boolean add = f.add(u); if (!add) f.remove(u);
+        prefs.edit().putStringSet("fav", f).apply();
+        Toast.makeText(this, (add ? "★ Ditambahkan ke favorit: " : "Dihapus dari favorit: ") + list.get(k).getName(), Toast.LENGTH_SHORT).show();
+        buildRows();
+        if (k < allRows.length) allRows[k].requestFocus();
     }
 
     void openGuide() {
         guide.setVisibility(View.VISIBLE);
-        if (index >= 0 && index < rows.getChildCount()) rows.getChildAt(index).requestFocus();
+        buildRows(); // fresh live/dead dots
+        if (index >= 0 && index < allRows.length) allRows[index].requestFocus();
     }
 
     @Override public boolean onKeyDown(int code, KeyEvent e) {
@@ -400,6 +474,7 @@ public class LiveTv extends Activity {
         if (code == KeyEvent.KEYCODE_BACK) { if (open) guide.setVisibility(View.GONE); else finish(); return true; }
         if (open) return super.onKeyDown(code, e);
         if (code >= KeyEvent.KEYCODE_0 && code <= KeyEvent.KEYCODE_9) { digit(code - KeyEvent.KEYCODE_0); return true; }
+        if (code == KeyEvent.KEYCODE_LAST_CHANNEL) { back(); return true; }
         switch (code) {
             case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_CHANNEL_UP: tune(index - 1); return true;
             case KeyEvent.KEYCODE_DPAD_DOWN: case KeyEvent.KEYCODE_CHANNEL_DOWN: tune(index + 1); return true;

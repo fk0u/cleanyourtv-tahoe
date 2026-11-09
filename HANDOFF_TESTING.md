@@ -114,7 +114,7 @@ curl -s http://localhost:8088/playlist.m3u | grep -E "KODIPROP|EXTINF" | head -n
 
 ---
 
-## 4. Checklist Verifikasi Mandiri untuk Claude & Tim Rilis v2.9.3
+## 4. Checklist Verifikasi Mandiri untuk Claude & Tim Rilis v2.9.4
 
 - [x] `./gradlew :core:test :desktop:test` berhasil dijalankan dengan status `BUILD SUCCESSFUL`.
 - [x] `./gradlew -PpublicBuild :launcher:assembleRelease :companion:assembleRelease :desktop:assemble` berhasil dikompilasi tanpa error.

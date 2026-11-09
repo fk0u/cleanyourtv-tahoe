@@ -113,15 +113,22 @@ fun RemoteScreen() {
             Text("${vol.toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(40.dp))
         }
 
+        // sleep timer: tap to step Mati → 15 → 30 → 60 → 90 → 120 → Mati; shows the TV's minutes left
+        val sleepLeft = tv?.optInt("sleep") ?: 0
+        TextButton({ link?.sleep(listOf(15, 30, 60, 90, 120).firstOrNull { it > sleepLeft } ?: 0) }) {
+            Icon(Icons.Rounded.Bedtime, null); Spacer(Modifier.width(8.dp))
+            Text(if (sleepLeft == 0) "Timer tidur: mati" else "Timer tidur: $sleepLeft menit lagi")
+        }
+
         // channel numbers (Live TV): 1–3 digits, the TV tunes 1.5 s after the last one
         var pad by remember { mutableStateOf(false) }
         TextButton({ pad = !pad }) { Icon(Icons.Rounded.Dialpad, null); Spacer(Modifier.width(8.dp)); Text(if (pad) "Tutup nomor saluran" else "Nomor saluran") }
         if (pad) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("", "0", "")).forEach { row ->
+            listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("⟲", "0", "")).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     row.forEach { d ->
                         if (d.isEmpty()) Spacer(Modifier.size(62.dp))
-                        else Box(Modifier.size(62.dp).clip(CircleShape).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, CircleShape).clickable { key(d) },
+                        else Box(Modifier.size(62.dp).clip(CircleShape).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, CircleShape).clickable { key(if (d == "⟲") "prev" else d) }, // ⟲ = previous channel
                             contentAlignment = Alignment.Center) { Text(d, fontSize = 22.sp, fontWeight = FontWeight.SemiBold) }
                     }
                 }
