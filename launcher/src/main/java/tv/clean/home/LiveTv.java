@@ -154,10 +154,13 @@ public class LiveTv extends Activity {
         M3u.Channel c = s.get(source);
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(8000).setReadTimeoutMs(15000)
-                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/2.9.4");
+                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/2.9.5");
         java.util.HashMap<String, String> h = new java.util.HashMap<>(c.getHeaders()); h.remove("User-Agent");
         http.setDefaultRequestProperties(h);
-        player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(MediaItem.fromUri(Uri.parse(c.getUrl()))));
+        player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(new MediaItem.Builder().setUri(Uri.parse(c.getUrl()))
+                // Play ~20 s behind live (default ~12 s) so a slow piece from the server doesn't empty the buffer;
+                // ExoPlayer clamps this to what the stream keeps available.
+                .setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(20_000).build()).build()));
         player.prepare(); player.play();
         sourceStarted = System.currentTimeMillis(); everReady = false; retries = 0; lastPos = -1; stuckSince = System.currentTimeMillis();
         loading.channel(list.get(index).getChannel().getLogo(), list.get(index).getName());
