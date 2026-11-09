@@ -31,7 +31,9 @@ public class Keys extends AccessibilityService {
                     : code == KeyEvent.KEYCODE_DPAD_CENTER ? GLOBAL_ACTION_DPAD_CENTER : 0;
             if (a != 0 && performGlobalAction(a)) return;
         }
-        AccessibilityNodeInfo f = findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+        // Service-level findFocus() returns null on Android 9 (Mi TV); the active window's root works.
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        AccessibilityNodeInfo f = root == null ? null : root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
         if (f == null) return;
         if (code == KeyEvent.KEYCODE_DPAD_CENTER) { f.performAction(AccessibilityNodeInfo.ACTION_CLICK); return; }
         int dir = code == KeyEvent.KEYCODE_DPAD_UP ? View.FOCUS_UP : code == KeyEvent.KEYCODE_DPAD_DOWN ? View.FOCUS_DOWN
