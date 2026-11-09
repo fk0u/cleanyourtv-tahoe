@@ -189,6 +189,6 @@ private fun install(tv: TvAdb, disable: Set<String>, dock: List<String>, disable
 private fun restore(tv: TvAdb, installed: Set<String>, say: (String) -> Unit) {
     (TvAdb.CATALOG.map { it.pkg } + TvAdb.STOCK_LAUNCHERS).filter { it in installed }.forEach { tv.sh("pm enable $it"); say("✓ dinyalakan ${tv.label(it)}") }
     tv.sh("settings put global private_dns_mode opportunistic"); tv.sh("settings delete secure screensaver_components")
-    say(tv.sh("pm uninstall ${TvAdb.PKG}").trim() + " (uninstall Tahoe)")
+    say(tv.sh("pm uninstall ${TvAdb.PKG}; pm uninstall ${TvAdb.OLD_PKG}").trim() + " (uninstall Tahoe)")
     tv.sh("input keyevent KEYCODE_HOME"); say("✓ Selesai")
 }

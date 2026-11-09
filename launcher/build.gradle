@@ -7,15 +7,20 @@ def sf = rootProject.file("secrets.properties")
 if (sf.exists() && !project.hasProperty("publicBuild")) sf.withInputStream { secrets.load(it) }
 def secret = { String k -> "\"" + (secrets.getProperty(k) ?: "") + "\"" }
 
+// Release key shared with the phone app (keystore.properties, gitignored). Falls back to debug when absent.
+def ksProps = new Properties()
+def ksFile = rootProject.file("keystore.properties")
+if (ksFile.exists()) ksFile.withInputStream { ksProps.load(it) }
+
 android {
     namespace "tv.clean.home"
     compileSdk 36
     defaultConfig {
-        applicationId "tv.clean.home"
+        applicationId "tech.kousozo.tahoetv.launcher" // registered in Android Developer Console; classes stay in tv.clean.home
         minSdk 26
         targetSdk 34
-        versionCode 11
-        versionName "2.6.0"
+        versionCode 12
+        versionName "2.7.0"
         buildConfigField "String", "YOUTUBE_API_KEY", secret("youtube.apiKey")
         buildConfigField "String", "GEMINI_API_KEY", secret("gemini.apiKey")
         buildConfigField "String", "TMDB_API_KEY", secret("tmdb.apiKey")
@@ -24,6 +29,16 @@ android {
         buildConfigField "String", "HA_TOKEN", secret("homeassistant.token")
     }
     buildFeatures { buildConfig true }
+    signingConfigs {
+        release {
+            if (ksFile.exists()) {
+                storeFile rootProject.file(ksProps["storeFile"])
+                storePassword ksProps["storePassword"]
+                keyAlias ksProps["keyAlias"]
+                keyPassword ksProps["keyPassword"]
+            }
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -33,7 +48,7 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            signingConfig signingConfigs.debug // personal sideload build
+            signingConfig ksFile.exists() ? signingConfigs.release : signingConfigs.debug
         }
     }
     lint { abortOnError false }

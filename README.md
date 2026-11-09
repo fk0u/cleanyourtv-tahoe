@@ -82,7 +82,7 @@
 6. Selesai: launcher terpasang dan jadi Home, screensaver aktif, dan HP otomatis tersambung. Tekan **Matikan debugging di TV**.
 
 Ubah setelan kapan saja dengan menyalakan debugging lagi, lalu buka app. **Pulihkan TV** mengembalikan semuanya ke bawaan.
-Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb)) dengan kunci milik HP; setelan dikirim ke receiver `tv.clean.home/.Config` yang hanya bisa dipanggil shell ADB.
+Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb)) dengan kunci milik HP; setelan dikirim ke receiver `tech.kousozo.tahoetv.launcher/tv.clean.home.Config` yang hanya bisa dipanggil shell ADB.
 
 ## Tahoe TV untuk desktop (macOS 13+ dan Windows)
 
@@ -117,13 +117,13 @@ export TV_HOST=192.168.1.50                           # IP TV kamu
 Izin satu kali:
 ```bash
 T=".venv/bin/python tools/tv.py"
-$T 'pm grant tv.clean.home android.permission.ACCESS_FINE_LOCATION'    # nama Wi-Fi
-$T 'pm grant tv.clean.home android.permission.WRITE_SECURE_SETTINGS'   # tombol Apps tetap aktif setelah reboot
-$T 'pm grant tv.clean.home android.permission.RECORD_AUDIO'            # mic untuk asisten
-$T 'appops set tv.clean.home SYSTEM_ALERT_WINDOW allow'                # banner shalat & notifikasi HP
-$T 'appops set tv.clean.home GET_USAGE_STATS allow'                    # titik "baru dipakai", aplikasi terakhir
-$T 'cmd package set-home-activity tv.clean.home/.Home'
-$T 'settings put secure screensaver_components tv.clean.home/tv.clean.home.Lock'
+$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.ACCESS_FINE_LOCATION'    # nama Wi-Fi
+$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.WRITE_SECURE_SETTINGS'   # tombol Apps tetap aktif setelah reboot
+$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.RECORD_AUDIO'            # mic untuk asisten
+$T 'appops set tech.kousozo.tahoetv.launcher SYSTEM_ALERT_WINDOW allow'                # banner shalat & notifikasi HP
+$T 'appops set tech.kousozo.tahoetv.launcher GET_USAGE_STATS allow'                    # titik "baru dipakai", aplikasi terakhir
+$T 'cmd package set-home-activity tech.kousozo.tahoetv.launcher/tv.clean.home.Home'
+$T 'settings put secure screensaver_components tech.kousozo.tahoetv.launcher/tv.clean.home.Lock'
 tools/disable.sh com.google.android.tvlauncher                         # matikan launcher bawaan (bisa dikembalikan)
 ```
 
@@ -179,7 +179,7 @@ Catatan Gemini: pencarian Google (grounding) memakai kuota tersendiri. Kalau kuo
 - **Pribadi** (pemilik): `files/wallpapers` + `files/photos` (foto kiriman HP). **Default**: gradien Tahoe bawaan. Profil **Tamu** selalu memakai Default.
 - Ganti mode: Pusat Kontrol → Wallpaper → ◀ ▶. OK = wallpaper berikutnya.
 - Dari komputer: `sips -s format jpeg -z 1080 1920 foto.jpg --out wallpapers/01.jpg` lalu
-  `.venv/bin/python tools/tv.py --push /sdcard/Android/data/tv.clean.home/files/wallpapers wallpapers/01.jpg`.
+  `.venv/bin/python tools/tv.py --push /sdcard/Android/data/tech.kousozo.tahoetv.launcher/files/wallpapers wallpapers/01.jpg`.
 
 ## Debloat
 
@@ -205,7 +205,7 @@ DNS AdGuard pernah dipasang lalu **dimatikan**. Kalau mau lagi: `settings put gl
 ```bash
 ./restore.sh
 .venv/bin/python tools/tv.py 'pm enable com.google.android.tvlauncher'
-.venv/bin/python tools/tv.py 'pm uninstall tv.clean.home'
+.venv/bin/python tools/tv.py 'pm uninstall tech.kousozo.tahoetv.launcher'
 .venv/bin/python tools/tv.py 'settings put secure screensaver_components com.mitv.dream/com.mitv.dream.MiDream'
 ```
 
