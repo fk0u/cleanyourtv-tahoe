@@ -52,21 +52,20 @@ import tech.kousozo.tahoetv.core.Web
 @Composable
 fun LiveScreen() {
     val c = LocalContext.current
-    var entries by remember { mutableStateOf(liveCache) }
-    var epg by remember { mutableStateOf(epgCache) }
-    var failed by remember { mutableStateOf(false) }
-    var cat by remember { mutableStateOf<LocalTv.Category?>(null) }
+    val entries = Channels.entries
+    val epg = Channels.epg
+    val failed = Channels.failed
+    var cat by remember { mutableStateOf(Nav.liveCategory) }
     var playing by remember { mutableStateOf<LocalTv.Entry?>(null) }
     var full by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (entries == null) withContext(Dispatchers.IO) {
-            val setup = c.getSharedPreferences("setup", 0)
-            val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
-                ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
-            runCatching { LocalTv.arrange(Sources.loadAll(), province) }.fold({ entries = it; liveCache = it }, { failed = true })
-        }
-        if (epg == null) epg = withContext(Dispatchers.IO) { runCatching { Epg.load(Sources.EPG) }.getOrNull() }.also { epgCache = it }
+    LaunchedEffect(Unit) { Channels.load(c) }
+    // requests from Beranda / Kategori: open a category, or start a channel
+    LaunchedEffect(Nav.liveCategory) { cat = Nav.liveCategory }
+    LaunchedEffect(Nav.playUrl, entries) {
+        val u = Nav.playUrl ?: return@LaunchedEffect
+        entries?.firstOrNull { it.channel.url == u }?.let { playing = it; Nav.playUrl = null }
     }
+    LaunchedEffect(playing) { playing?.let { Channels.remember(c, it) } }
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { delay(30_000); now = Instant.now() } }
 
@@ -114,7 +113,7 @@ fun LiveScreen() {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 (listOf<LocalTv.Category?>(null) + LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }).forEach { k ->
                     val on = k == cat
-                    Text(k?.label ?: "Semua", Modifier.clip(RoundedCornerShape(50)).background(if (on) Tahoe.Text else Tahoe.Glass).clickable { cat = k }
+                    Text(k?.label ?: "Semua", Modifier.clip(RoundedCornerShape(50)).background(if (on) Tahoe.Accent else Tahoe.Glass).clickable { cat = k; Nav.liveCategory = k }
                         .padding(horizontal = 12.dp, vertical = 7.dp), color = if (on) Color(0xFF111114) else Tahoe.Text, fontSize = 13.sp)
                 }
             }
@@ -195,13 +194,52 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
     }
 }
 
-private fun nowOn(epg: Epg?, e: LocalTv.Entry, now: Instant) = epg?.schedule(e.name, now)?.firstOrNull()?.takeIf { it.start <= now }
+internal fun nowOn(epg: Epg?, e: LocalTv.Entry, now: Instant) = epg?.schedule(e.name, now)?.firstOrNull()?.takeIf { it.start <= now }
 
 private val HM = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault())
 
-/** Survives tab switches; refreshed when the app restarts. */
-private var liveCache: List<LocalTv.Entry>? = null
-private var epgCache: Epg? = null
+/** Channel list + guide shared by Beranda, TV Live and Kategori; loaded once per app start. */
+object Channels {
+    var entries by mutableStateOf<List<LocalTv.Entry>?>(null); private set
+    var epg by mutableStateOf<Epg?>(null); private set
+    var failed by mutableStateOf(false); private set
+    private var loading = false
+
+    suspend fun load(c: android.content.Context) {
+        if (entries != null || loading) return
+        loading = true
+        withContext(Dispatchers.IO) {
+            val setup = c.getSharedPreferences("setup", 0)
+            val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
+                ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
+            runCatching { LocalTv.arrange(Sources.loadAll(), province) }.fold({ entries = it }, { failed = true })
+            epg = runCatching { Epg.load(Sources.EPG) }.getOrNull()
+        }
+        loading = false
+    }
+
+    /** Recently watched (newest first, max 10), by stream URL. */
+    fun recent(c: android.content.Context): List<LocalTv.Entry> {
+        val urls = c.getSharedPreferences("live", 0).getString("recent", "").orEmpty().split('\n').filter { it.isNotBlank() }
+        val all = entries ?: return emptyList()
+        return urls.mapNotNull { u -> all.firstOrNull { it.channel.url == u } }
+    }
+
+    fun remember(c: android.content.Context, e: LocalTv.Entry) {
+        val p = c.getSharedPreferences("live", 0)
+        val urls = listOf(e.channel.url) + p.getString("recent", "").orEmpty().split('\n').filter { it.isNotBlank() && it != e.channel.url }
+        p.edit().putString("recent", urls.take(10).joinToString("\n")).apply()
+    }
+}
+
+/** Cross-tab requests (Beranda / Kategori → TV Live). */
+object Nav {
+    var tab by mutableIntStateOf(0)
+    var liveCategory by mutableStateOf<LocalTv.Category?>(null)
+    var playUrl by mutableStateOf<String?>(null)
+    fun play(e: LocalTv.Entry) { playUrl = e.channel.url; tab = 1 }
+    fun category(k: LocalTv.Category?) { liveCategory = k; tab = 1 }
+}
 
 /** The TV launcher's built-in Live TV (its pseudo package in the app list). */
 const val TV_LIVE = "tv.clean.home.livetv"
