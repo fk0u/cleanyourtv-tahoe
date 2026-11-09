@@ -85,7 +85,11 @@ final class Prayer {
         am.cancel(pi);
         if (n != null) {
             c.getSharedPreferences("home", Context.MODE_PRIVATE).edit().putString("alarm_for", (String) n[0]).apply();
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, (Long) n[1], pi);
+            // Android 12+ needs the "Alarms & reminders" grant for exact alarms; without it, a slightly inexact
+            // alarm (usually within a minute) beats crashing the launcher.
+            if (android.os.Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms())
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, (Long) n[1], pi);
+            else am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, (Long) n[1], pi);
         }
     }
 

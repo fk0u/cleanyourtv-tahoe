@@ -128,6 +128,25 @@ final class Hero extends FrameLayout {
         decode(path, bm -> { if (path.equals(contextual)) crossfade(bm, path, true); });
     }
 
+    /** The focused app's artwork as the background: its banner, scaled down then up for a soft blur, darkened a little. */
+    void context(android.graphics.drawable.Drawable art, String key) {
+        if (art == null) { context(null); return; }
+        String k = "app:" + key;
+        contextual = k;
+        decoder.execute(() -> {
+            int sw = 64, sh = 36; // tiny on purpose: upscaling gives a cheap blur (no RenderScript on a 1 GB stick)
+            Bitmap small = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888);
+            android.graphics.Canvas c = new android.graphics.Canvas(small);
+            art.mutate(); android.graphics.Rect old = art.copyBounds();
+            art.setBounds(0, 0, sw, sh); art.draw(c); art.setBounds(old);
+            int H = getResources().getDisplayMetrics().heightPixels;
+            Bitmap big = Bitmap.createScaledBitmap(small, W / 4, H / 4, true);
+            Bitmap out = Bitmap.createScaledBitmap(big, W / 2, H / 2, true);
+            new android.graphics.Canvas(out).drawColor(0x40000000);
+            ui.post(() -> { if (k.equals(contextual)) crossfade(out, k, true); });
+        });
+    }
+
     static final java.util.concurrent.ExecutorService decoder = java.util.concurrent.Executors.newSingleThreadExecutor(); // never queued behind network I/O
 
     void decode(String path, java.util.function.Consumer<Bitmap> done) {
