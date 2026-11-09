@@ -52,12 +52,22 @@ object Sources {
         val out = mutableListOf<M3u.Channel>()
         val seenUrls = mutableSetOf<String>()
 
-        // 1. Local workspace files
+        // 1. Local workspace files or packaged jar/apk resources
         localFiles.forEach { path ->
             val f = File(path)
             if (f.exists() && f.isFile) {
                 runCatching { M3u.load(f.absolutePath) }.getOrNull()?.forEach { ch ->
                     if (seenUrls.add(ch.url)) out += ch
+                }
+            } else {
+                val resName = "/" + path.substringAfterLast('/').removePrefix("/")
+                val stream = Sources::class.java.getResourceAsStream(resName)
+                    ?: Thread.currentThread().contextClassLoader?.getResourceAsStream(resName.removePrefix("/"))
+                stream?.use { s ->
+                    val text = s.bufferedReader().readText()
+                    runCatching { M3u.parse(text) }.getOrNull()?.forEach { ch ->
+                        if (seenUrls.add(ch.url)) out += ch
+                    }
                 }
             }
         }
