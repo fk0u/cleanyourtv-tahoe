@@ -94,7 +94,7 @@ fun LiveScreen() {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ChannelLogo(e, Modifier.size(56.dp, 38.dp)); Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) { Pill("LIVE", Color(0xFFFF453A), filled = true); Spacer(Modifier.width(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) { Pill("LIVE", Tahoe.Bad, filled = true); Spacer(Modifier.width(8.dp))
                             Text(e.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
                         nowOn(epg, e, now)?.let { Text("${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}", color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
@@ -179,7 +179,7 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
         AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } }, Modifier.fillMaxSize())
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.55f)))))
         Row(Modifier.align(Alignment.TopStart).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Pill("LIVE", Color(0xFFFF453A), filled = true); Spacer(Modifier.width(8.dp))
+            Pill("LIVE", Tahoe.Bad, filled = true); Spacer(Modifier.width(8.dp))
             Text(e.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         }
         message?.let {

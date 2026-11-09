@@ -237,8 +237,8 @@ private fun LiveCard(modifier: Modifier, onLive: () -> Unit) = Box(
         .clickable(onClick = onLive).padding(20.dp),
 ) {
     Column(Modifier.align(Alignment.TopStart)) {
-        Text("TV Live", color = Color(0xFF06222F), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Text("Nasional, TVRI daerah, TV lokal + jadwal acara", color = Color(0xFF06222F).copy(alpha = 0.75f), fontSize = 12.sp)
+        Text("TV Live", color = Tahoe.OnAccent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text("Nasional, TVRI daerah, TV lokal + jadwal acara", color = Tahoe.OnAccent.copy(alpha = 0.75f), fontSize = 12.sp)
     }
     Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf("TRANS", "RCTI", "SCTV", "TVRI").forEach {
@@ -247,7 +247,7 @@ private fun LiveCard(modifier: Modifier, onLive: () -> Unit) = Box(
             }
         }
     }
-    Box(Modifier.align(Alignment.BottomEnd).size(46.dp).clip(CircleShape).background(Color(0xFF06222F)), contentAlignment = Alignment.Center) {
+    Box(Modifier.align(Alignment.BottomEnd).size(46.dp).clip(CircleShape).background(Tahoe.OnAccent), contentAlignment = Alignment.Center) {
         Icon(Icons.Rounded.PlayArrow, "Buka TV Live", tint = Tahoe.Accent)
     }
 }

@@ -272,7 +272,7 @@ public class LiveTv extends Activity {
 
         LinearLayout right = new LinearLayout(this); right.setOrientation(LinearLayout.VERTICAL);
         LinearLayout chips = new LinearLayout(this);
-        chips.addView(pill("● LIVE", 0xFFFF453A, 0xFFFFFFFF));
+        chips.addView(pill("● LIVE", Ui.LIVE, 0xFFFFFFFF));
         bCat = pill("", 0x33FFFFFF, Ui.TEXT);
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.leftMargin = (int) dp(8);
         chips.addView(bCat, cl);
@@ -298,7 +298,7 @@ public class LiveTv extends Activity {
         // remote colour-key legend
         LinearLayout legend = new LinearLayout(this); legend.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
         String[][] keys = {{"▲▼", "Ganti saluran"}, {"OK", "Daftar saluran"}, {"▶", "Info"}, {"↩", "Keluar"}};
-        int[] colors = {Ui.ACCENT, 0xFF30D158, 0xFFFFD60A, 0xFFFF453A};
+        int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.SUN, Ui.LIVE};
         for (int k = 0; k < keys.length; k++) {
             View dot = new View(this); android.graphics.drawable.GradientDrawable dg = new android.graphics.drawable.GradientDrawable();
             dg.setColor(colors[k]); dg.setCornerRadius(dp(2)); dot.setBackground(dg);

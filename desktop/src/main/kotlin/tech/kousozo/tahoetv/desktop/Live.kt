@@ -169,7 +169,7 @@ fun LiveScreen() {
                     val active = statusFilter == stKey
                     Box(
                         Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                            .background(if (active) (if (stKey == "offline") Color(0xFFFF453A).copy(alpha = 0.25f) else Tahoe.Accent.copy(alpha = 0.25f)) else Tahoe.Glass)
+                            .background(if (active) (if (stKey == "offline") Tahoe.Bad.copy(alpha = 0.25f) else Tahoe.Accent.copy(alpha = 0.25f)) else Tahoe.Glass)
                             .clickable { statusFilter = stKey }.padding(vertical = 5.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -177,7 +177,7 @@ fun LiveScreen() {
                             stLabel,
                             fontSize = 11.sp,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                            color = if (active) (if (stKey == "offline") Color(0xFFFF453A) else Tahoe.Accent) else Tahoe.Dim
+                            color = if (active) (if (stKey == "offline") Tahoe.Bad else Tahoe.Accent) else Tahoe.Dim
                         )
                     }
                 }
@@ -243,14 +243,14 @@ fun LiveScreen() {
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                             when {
                                 on -> Badge("DIPUTAR", Color(0xFF0A84FF), filled = true)
-                                live == true -> Badge("LIVE", Color(0xFF30D158), filled = true)
-                                live == false -> Badge("OFFLINE", Color(0xFFFF453A), filled = true)
+                                live == true -> Badge("LIVE", Tahoe.Good, filled = true)
+                                live == false -> Badge("OFFLINE", Tahoe.Bad, filled = true)
                                 else -> Badge("CEK...", Tahoe.Dim)
                             }
                             if (e.category == LocalTv.Category.Vod) Badge("VOD", Color(0xFFFF2D55))
                             if (e.channel.drm || !e.channel.drmType.isNullOrBlank()) Badge("DRM", Color(0xFFFF9F0A))
                             if (e.channel.url.contains(".mpd", true)) Badge("DASH", Color(0xFFBF5AF2))
-                            if (e.channel.headers.isNotEmpty()) Badge("RELAY", Color(0xFF64D2FF))
+                            if (e.channel.headers.isNotEmpty()) Badge("RELAY", Tahoe.Accent)
                             if (prog != null) Badge("EPG", Tahoe.Text)
                             if (e.alternates.isNotEmpty()) Badge("${e.alternates.size + 1} sumber", Tahoe.Text)
                             if (e.near) Badge("Dekat", Tahoe.Accent)
@@ -307,8 +307,8 @@ private fun Detail(
             // Channel Status Line
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 val (stText, stColor) = when (isLive) {
-                    true -> "Server LIVE & Aktif" to Color(0xFF30D158)
-                    false -> "Server OFFLINE" to Color(0xFFFF453A)
+                    true -> "Server LIVE & Aktif" to Tahoe.Good
+                    false -> "Server OFFLINE" to Tahoe.Bad
                     null -> "Memeriksa Koneksi..." to Tahoe.Dim
                 }
                 Box(Modifier.size(8.dp).clip(CircleShape).background(stColor))
@@ -317,7 +317,7 @@ private fun Detail(
                 if (e.category == LocalTv.Category.Vod) Badge("VOD", Color(0xFFFF2D55))
                 if (e.channel.drm || !e.channel.drmType.isNullOrBlank()) Badge("DRM", Color(0xFFFF9F0A))
                 if (e.channel.url.contains(".mpd", true)) Badge("DASH", Color(0xFFBF5AF2))
-                if (e.channel.headers.isNotEmpty()) Badge("RELAY", Color(0xFF64D2FF))
+                if (e.channel.headers.isNotEmpty()) Badge("RELAY", Tahoe.Accent)
             }
 
             val s = epg?.schedule(e.name, now).orEmpty()

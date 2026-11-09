@@ -101,9 +101,7 @@ private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) = Column(
     Modifier.width(84.dp).fillMaxHeight().padding(vertical = 18.dp, horizontal = 12.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {
-    Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Tahoe.Accent), contentAlignment = Alignment.Center) {
-        Icon(Icons.Rounded.Tv, "Tahoe TV", tint = Color(0xFF06222F), modifier = Modifier.size(24.dp))
-    }
+    BrandTile(46.dp)
     Spacer(Modifier.height(26.dp))
     Column(Modifier.clip(RoundedCornerShape(30.dp)).background(Tahoe.Card).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Screen.entries.forEach { s ->
@@ -113,7 +111,7 @@ private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) = Column(
             Box(Modifier.size(46.dp).clip(CircleShape)
                 .background(if (on) Tahoe.Accent else if (hover) Tahoe.CardHi else Color.Transparent)
                 .hoverable(src).clickable { onSelect(s) }, contentAlignment = Alignment.Center) {
-                Icon(s.icon, s.label, tint = if (on) Color(0xFF06222F) else Tahoe.Dim, modifier = Modifier.size(21.dp))
+                Icon(s.icon, s.label, tint = if (on) Tahoe.OnAccent else Tahoe.Dim, modifier = Modifier.size(21.dp))
             }
         }
     }
@@ -155,9 +153,9 @@ private fun TopBar() {
         Spacer(Modifier.width(12.dp))
         Row(Modifier.height(44.dp).clip(RoundedCornerShape(50)).background(Tahoe.Accent).clickable { DeskNav.screen = Screen.Live }.padding(horizontal = 18.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.LiveTv, null, tint = Color(0xFF06222F), modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.LiveTv, null, tint = Tahoe.OnAccent, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Tonton Live", color = Color(0xFF06222F), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("Tonton Live", color = Tahoe.OnAccent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         }
     }
 }
