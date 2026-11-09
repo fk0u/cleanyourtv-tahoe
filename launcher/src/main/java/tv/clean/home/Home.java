@@ -706,10 +706,12 @@ public class Home extends Activity implements Companion.Listener, Tools {
     }
 
     /** Synthesise a full press for keys coming from the stick or the phone. */
-    void tap(int key) {
+    void tap(int key) { tap(this, key); }
+
+    static void tap(android.app.Activity a, int key) {
         long t = android.os.SystemClock.uptimeMillis();
-        dispatchKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_DOWN, key, 0));
-        dispatchKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_UP, key, 0));
+        a.dispatchKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_DOWN, key, 0));
+        a.dispatchKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_UP, key, 0));
     }
 
     static int gamepadToRemote(int k) {
@@ -810,7 +812,11 @@ public class Home extends Activity implements Companion.Listener, Tools {
             case "home": start(new Intent(this, Home.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)); return;
             default: return;
         }
+        // Launcher in front → press it here; our Live TV in front → press it there; any other app → via the accessibility helper.
+        LiveTv tv = LiveTv.live;
         if (hasWindowFocus()) tap(code);
+        else if (tv != null && tv.hasWindowFocus()) tap(tv, code);
+        else if (Keys.inst != null) Keys.inst.press(code);
     }
 
     @Override public void onLaunch(String pkg) {

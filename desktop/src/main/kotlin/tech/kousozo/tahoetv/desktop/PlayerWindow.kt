@@ -99,25 +99,28 @@ object PlayerWindow {
         SwingUtilities.invokeLater { onStatus(s) }
     }
 
-    private fun start(streams: List<M3u.Channel>, i: Int, gen: Int) {
+    private fun start(streams: List<M3u.Channel>, i: Int, gen: Int, retry: Int = 0) {
         if (gen != generation) return // another channel was chosen meanwhile
         watchdog?.stop(); player?.dispose(); player = null; view.mediaPlayer = null
         val c = streams.getOrNull(i) ?: return report("Saluran ini sedang tidak bisa diputar (semua ${streams.size} sumber offline).", offerNext = true)
         val next = { if (gen == generation) start(streams, i + 1, gen) }
+        var lastTime = -1.0
+        // A source that already played and then errors/freezes reconnects (up to 3×) before moving to the backup.
+        val recover = { if (lastTime >= 0 && retry < 3 && gen == generation) { report("Menyambung ulang…"); start(streams, i, gen, if (lastTime > 60) 1 else retry + 1) } else next() } // a minute of good playback earns fresh retries
         if (c.url.contains(".mpd", true) || c.drm) {
             val alt = streams.drop(i + 1).firstOrNull { !it.url.contains(".mpd", true) && !it.drm }
             if (alt != null) return start(streams, streams.indexOf(alt), gen)
             return report("Saluran ini menggunakan DASH/DRM. Silakan tonton melalui Web Player bawaan (Shaka Player) atau pemutar eksternal (Kodi/TiviMate).", offerNext = true)
         }
-        report(if (i == 0) "Memuat siaran…" else "Sumber ${i} tidak jalan, mencoba cadangan ${i + 1}/${streams.size}…")
+        if (retry == 0) report(if (i == 0) "Memuat siaran…" else "Sumber ${i} tidak jalan, mencoba cadangan ${i + 1}/${streams.size}…")
         val p = try { MediaPlayer(Media(HlsProxy.wrap(c.url, c.headers))) } catch (e: Exception) { return next() }
         player = p; view.mediaPlayer = p
         p.setOnPlaying { if (p.media.width > 0 || p.media.tracks.isNotEmpty()) report(null) }
-        p.setOnError { next() }
+        p.setOnError { recover() }
         p.play()
         // Watchdog: a stream may never error and just hang, or "play" with no picture / a frozen picture.
         // Give it 20 s to start, then require the clock to keep moving and a video size.
-        var lastTime = -1.0; var stuckSince = System.nanoTime(); val began = System.nanoTime()
+        var stuckSince = System.nanoTime(); val began = System.nanoTime()
         watchdog = Timeline(KeyFrame(Duration.seconds(2.0), {
             if (gen != generation || player !== p) return@KeyFrame
             val t = p.currentTime.toSeconds()
@@ -129,7 +132,7 @@ object PlayerWindow {
                 p.status == MediaPlayer.Status.PAUSED -> stuckSince = System.nanoTime()
                 age > 20 && lastTime < 0 -> next()                                   // never started
                 age > 20 && p.media.width == 0 && p.media.tracks.none { it is javafx.scene.media.VideoTrack } -> next() // no picture at all
-                lastTime >= 0 && since > 12 -> { report("Siaran macet, pindah ke sumber lain…"); next() } // frozen
+                lastTime >= 0 && since > 12 -> recover() // frozen
                 lastTime >= 0 && statusLabel.isVisible && moving -> report(null)
             }
         })).apply { cycleCount = Timeline.INDEFINITE; play() }

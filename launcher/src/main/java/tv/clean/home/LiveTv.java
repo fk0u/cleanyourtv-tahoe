@@ -92,9 +92,9 @@ public class LiveTv extends Activity {
         player = new ExoPlayer.Builder(this).build();
         player.setVideoSurfaceView(surface);
         player.addListener(new Player.Listener() {
-            @Override public void onPlayerError(PlaybackException e) { nextSource(); }
+            @Override public void onPlayerError(PlaybackException e) { recover(); }
             @Override public void onPlaybackStateChanged(int s) {
-                if (s == Player.STATE_READY) { loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
+                if (s == Player.STATE_READY) { everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
             }
         });
 
@@ -135,17 +135,28 @@ public class LiveTv extends Activity {
         M3u.Channel c = s.get(source);
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(8000).setReadTimeoutMs(15000)
-                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/2.9.0");
+                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/2.9.2");
         java.util.HashMap<String, String> h = new java.util.HashMap<>(c.getHeaders()); h.remove("User-Agent");
         http.setDefaultRequestProperties(h);
         player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(MediaItem.fromUri(Uri.parse(c.getUrl()))));
         player.prepare(); player.play();
-        sourceStarted = System.currentTimeMillis(); lastPos = -1; stuckSince = System.currentTimeMillis();
+        sourceStarted = System.currentTimeMillis(); everReady = false; retries = 0; lastPos = -1; stuckSince = System.currentTimeMillis();
         loading.setText(source == 0 ? "Memuat " + list.get(index).getName() + "…" : "Mencoba sumber cadangan " + (source + 1) + "/" + s.size() + "…");
         loading.setVisibility(View.VISIBLE);
     }
 
     void nextSource() { source++; play(); }
+
+    boolean everReady; int retries;
+
+    /** A source that already played and then hiccups (rebuffer, network blip, fell behind the live window)
+     *  is reconnected at the live edge; only a source that never played, or keeps failing, moves to the backup. */
+    void recover() {
+        if (!everReady || retries >= 3) { nextSource(); return; }
+        retries++; stuckSince = System.currentTimeMillis(); lastPos = -1;
+        loading.setText("Menyambung ulang…"); loading.setVisibility(View.VISIBLE);
+        ui.postDelayed(() -> { player.seekToDefaultPosition(); player.prepare(); player.play(); }, 1000);
+    }
 
     long lastPos = -1, stuckSince;
 
@@ -155,8 +166,8 @@ public class LiveTv extends Activity {
             long now = System.currentTimeMillis(), pos = player.getCurrentPosition();
             boolean moving = player.isPlaying() && pos != lastPos;
             if (moving) { lastPos = pos; stuckSince = now; }
-            if (player.getPlaybackState() != Player.STATE_READY && now - sourceStarted > 20_000) nextSource();
-            else if (lastPos >= 0 && now - stuckSince > 12_000) nextSource();
+            if (!everReady && now - sourceStarted > 20_000) nextSource();
+            else if (lastPos >= 0 && now - stuckSince > 12_000) recover();
         }
         ui.postDelayed(this, 2000);
     }};
