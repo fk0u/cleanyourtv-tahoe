@@ -27,13 +27,13 @@ class TvAdb private constructor(val host: String, private val adb: Dadb) : AutoC
     fun disabled() = pkgList("-d")
 
     fun installedVersion(): String? =
-        sh("dumpsys package $PKG | grep versionName").lines().firstOrNull { "versionName=" in it }?.substringAfter('=')?.trim()
+        listOf(PKG, OLD_PKG).firstNotNullOfOrNull { p -> sh("dumpsys package $p | grep versionName").lines().firstOrNull { "versionName=" in it }?.substringAfter('=')?.trim() }
 
     /** Launchable TV apps (package names) from the LEANBACK_LAUNCHER intent. */
     fun tvApps(): List<String> =
         sh("cmd package query-activities -a android.intent.action.MAIN -c android.intent.category.LEANBACK_LAUNCHER")
             .lines().map { it.trim() }.filter { it.startsWith("packageName=") }.map { it.substring(12) }
-            .filter { it != PKG }.distinct()
+            .filter { it != PKG && it != OLD_PKG }.distinct()
 
     /** App labels as shown on the TV (best effort; falls back to the package name). */
     fun label(pkg: String): String = KNOWN[pkg] ?: pkg.substringAfterLast('.').replaceFirstChar { it.uppercase() }
@@ -45,6 +45,7 @@ class TvAdb private constructor(val host: String, private val adb: Dadb) : AutoC
         log("Memasang…")
         val r = sh("pm install -r -g /data/local/tmp/tahoe.apk; rm -f /data/local/tmp/tahoe.apk")
         if ("Success" !in r) error("Pasang gagal: ${r.trim()}")
+        if (OLD_PKG in packages()) { sh("pm uninstall $OLD_PKG"); log("Versi lama ($OLD_PKG) diganti") }
     }
 
     /** Grants, Home, stock launcher, screensaver. Returns the package that now answers Home. */
@@ -55,11 +56,11 @@ class TvAdb private constructor(val host: String, private val adb: Dadb) : AutoC
             "pm grant $PKG android.permission.RECORD_AUDIO",
             "appops set $PKG SYSTEM_ALERT_WINDOW allow",
             "appops set $PKG GET_USAGE_STATS allow",
-            "settings put secure screensaver_components $PKG/$PKG.Lock",
+            "settings put secure screensaver_components $PKG/$CLS.Lock",
             "settings put secure screensaver_enabled 1",
         ).forEach { sh(it) }
         log("Izin diberikan, screensaver dipasang")
-        sh("cmd package set-home-activity $PKG/.Home")
+        sh("cmd package set-home-activity $PKG/$CLS.Home")
         var home = homePackage()
         if (home != PKG && disableStock) {
             val pkgs = packages()
@@ -76,7 +77,7 @@ class TvAdb private constructor(val host: String, private val adb: Dadb) : AutoC
 
     /** Push settings to the launcher (Config receiver; only the shell may send it). Returns the receiver's JSON. */
     fun configure(values: Map<String, String>, pair: Boolean): JSONObject {
-        val cmd = StringBuilder("am broadcast -n $PKG/.Config")
+        val cmd = StringBuilder("am broadcast -n $PKG/$CLS.Config")
         values.forEach { (k, v) -> cmd.append(" --es ").append(k).append(' ').append(quote(v)) }
         if (pair) cmd.append(" --ez pair true")
         val out = sh(cmd.toString())
@@ -97,7 +98,12 @@ class TvAdb private constructor(val host: String, private val adb: Dadb) : AutoC
     data class Bloat(val pkg: String, val what: String, val default: Boolean)
 
     companion object {
-        const val PKG = "tv.clean.home"
+        /** Launcher app ID (registered in Android Developer Console). Its classes keep the `tv.clean.home` namespace,
+         *  so components are written in full: "$PKG/$CLS.Home". */
+        const val PKG = "tech.kousozo.tahoetv.launcher"
+        const val CLS = "tv.clean.home"
+        /** App ID of launcher builds up to 2.6.0; replaced (uninstalled) when the new one is installed. */
+        const val OLD_PKG = "tv.clean.home"
         val STOCK_LAUNCHERS = listOf("com.google.android.tvlauncher", "com.google.android.apps.tv.launcherx")
 
         /** Blocking. Waits up to ~60 s so there is time to accept the prompt on the TV. */
@@ -119,7 +125,7 @@ class TvAdb private constructor(val host: String, private val adb: Dadb) : AutoC
             if (p in setOf("android", "com.android.systemui", "com.android.shell", "com.android.phone", "com.android.settings",
                     "com.android.tv.settings", "com.android.vending", "com.google.android.gms", "com.google.android.gsf",
                     "com.google.android.inputmethod.latin", "com.google.android.tv.remote.service",
-                    "com.google.android.tungsten.setupwraith", PKG)) return true
+                    "com.google.android.tungsten.setupwraith", PKG, OLD_PKG)) return true
             if (listOf("permissioncontroller", "packageinstaller", "ext.services", "ext.shared", "modulemetadata").any { it in p }
                 || p.startsWith("com.google.android.overlay.modules")) return true
             if (p.startsWith("com.android.providers."))
