@@ -104,6 +104,11 @@ object PlayerWindow {
         watchdog?.stop(); player?.dispose(); player = null; view.mediaPlayer = null
         val c = streams.getOrNull(i) ?: return report("Saluran ini sedang tidak bisa diputar (semua ${streams.size} sumber offline).", offerNext = true)
         val next = { if (gen == generation) start(streams, i + 1, gen) }
+        if (c.url.contains(".mpd", true) || c.drm) {
+            val alt = streams.drop(i + 1).firstOrNull { !it.url.contains(".mpd", true) && !it.drm }
+            if (alt != null) return start(streams, streams.indexOf(alt), gen)
+            return report("Saluran ini menggunakan DASH/DRM. Silakan tonton melalui Web Player bawaan (Shaka Player) atau pemutar eksternal (Kodi/TiviMate).", offerNext = true)
+        }
         report(if (i == 0) "Memuat siaran…" else "Sumber ${i} tidak jalan, mencoba cadangan ${i + 1}/${streams.size}…")
         val p = try { MediaPlayer(Media(HlsProxy.wrap(c.url, c.headers))) } catch (e: Exception) { return next() }
         player = p; view.mediaPlayer = p

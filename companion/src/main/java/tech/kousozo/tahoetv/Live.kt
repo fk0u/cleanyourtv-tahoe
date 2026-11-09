@@ -63,7 +63,7 @@ fun LiveScreen() {
             val setup = c.getSharedPreferences("setup", 0)
             val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
                 ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
-            runCatching { LocalTv.arrange(Sources.load(), province) }.fold({ entries = it; liveCache = it }, { failed = true })
+            runCatching { LocalTv.arrange(Sources.loadAll(), province) }.fold({ entries = it; liveCache = it }, { failed = true })
         }
         if (epg == null) epg = withContext(Dispatchers.IO) { runCatching { Epg.load(Sources.EPG) }.getOrNull() }.also { epgCache = it }
     }

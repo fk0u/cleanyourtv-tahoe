@@ -43,9 +43,19 @@ object Session {
 }
 
 fun main() = application {
+    LaunchedEffect(Unit) {
+        if (Settings.iptvAutoStart) {
+            runCatching { IptvServer.start(Settings.iptvPort) }
+        }
+    }
     val icon = remember { Screen::class.java.getResourceAsStream("/icon.png")?.use { BitmapPainter(org.jetbrains.skia.Image.makeFromEncoded(it.readBytes()).toComposeImageBitmap()) } }
     Window(
-        onCloseRequest = { Session.tv?.close(); PlayerWindow.close(); exitApplication() }, title = "Tahoe TV", icon = icon,
+        onCloseRequest = {
+            Session.tv?.close()
+            PlayerWindow.close()
+            IptvServer.stop()
+            exitApplication()
+        }, title = "Tahoe TV", icon = icon,
         state = rememberWindowState(size = DpSize(1280.dp, 820.dp)),
     ) {
         window.minimumSize = java.awt.Dimension(980, 640)

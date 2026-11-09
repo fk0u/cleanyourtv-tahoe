@@ -1,7 +1,10 @@
 package tech.kousozo.tahoetv.desktop
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -9,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +62,54 @@ fun SettingsScreen() {
         }
         Text("Selalu dipakai: TV gratis Indonesia dari iptv-org dan dhanytv; jadwal dari dhanytv + epg.pw. Playlist tambahan digabung ke situ. " +
             "Semua sumber disaring: saluran ber-DRM, restream layanan berbayar, dan merek pay-TV tidak ditampilkan.", color = Tahoe.Faint, fontSize = 12.sp)
+
+        Section("Server IPTV (LAN)")
+        Text("Relay streaming IPTV lokal dengan injeksi header HTTP (Referer/User-Agent). Berbagi siaran dari koutv.m3u dan anotheriptv.m3u ke Android TV, HP, atau VLC di jaringan Wi-Fi rumah.", color = Tahoe.Dim, fontSize = 13.sp)
+
+        val isRunning by remember { IptvServer.isRunning }
+        val chCount by remember { IptvServer.channelCount }
+        val relCount by remember { IptvServer.relayCount }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!isRunning) {
+                GhostButton("Nyalakan Server IPTV", Icons.Rounded.PlayArrow, color = Tahoe.Good) {
+                    IptvServer.start(Settings.iptvPort)
+                }
+            } else {
+                GhostButton("Matikan Server", Icons.Rounded.Stop, color = Tahoe.Bad) {
+                    IptvServer.stop()
+                }
+                GhostButton("Buka Web Player", Icons.Rounded.OpenInBrowser) {
+                    runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(IptvServer.webUrl())) }
+                }
+            }
+        }
+
+        if (isRunning) {
+            Column(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                    .background(Tahoe.Glass)
+                    .border(1.dp, Tahoe.Stroke, RoundedCornerShape(14.dp))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("ONLINE", Icons.Rounded.Wifi)
+                    Text("$chCount saluran dimuat ($relCount relay header)", color = Tahoe.Text, fontSize = 14.sp)
+                }
+                Text("Playlist Master: ${IptvServer.masterPlaylistUrl()}", color = Tahoe.Accent, fontSize = 13.sp)
+                Text("EPG Guide: ${IptvServer.epgUrl()}", color = Tahoe.Dim, fontSize = 12.sp)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GhostButton("Salin URL Playlist", Icons.Rounded.ContentCopy) {
+                        java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(IptvServer.masterPlaylistUrl()), null)
+                    }
+                    GhostButton("Salin URL EPG", Icons.Rounded.ContentCopy) {
+                        java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(IptvServer.epgUrl()), null)
+                    }
+                }
+            }
+        }
     }
 }
 
