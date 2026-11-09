@@ -50,12 +50,13 @@ class MainActivity : ComponentActivity() {
                     Aurora()
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {
-                            0 -> HomeScreen(resumed.intValue, onSetup = { tab = 2 }, onRemote = { tab = 1 })
-                            1 -> RemoteScreen()
+                            0 -> HomeScreen(resumed.intValue, onSetup = { tab = 3 }, onRemote = { tab = 2 })
+                            1 -> LiveScreen()
+                            2 -> RemoteScreen()
                             else -> SetupScreen(onExit = { tab = 0 })
                         }
                     }
-                    TabBar(listOf("Beranda" to Icons.Rounded.Home, "Remote" to Icons.Rounded.SettingsRemote, "TV" to Icons.Rounded.Tv),
+                    TabBar(listOf("Beranda" to Icons.Rounded.Home, "TV Live" to Icons.Rounded.LiveTv, "Remote" to Icons.Rounded.SettingsRemote, "Pasang" to Icons.Rounded.Tv),
                         tab, { tab = it }, Modifier.align(Alignment.BottomCenter))
                 }
             }

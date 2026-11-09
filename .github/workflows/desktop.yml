@@ -15,11 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-13        # Intel, macOS 13+
+          - os: macos-15-intel  # Intel, macOS 13+
             task: packageDmg
             out: desktop/build/compose/binaries/main/dmg/*.dmg
             suffix: macos-intel
-          - os: macos-14        # Apple silicon
+          - os: macos-latest    # Apple silicon (arm64)
             task: packageDmg
             out: desktop/build/compose/binaries/main/dmg/*.dmg
             suffix: macos-arm64
