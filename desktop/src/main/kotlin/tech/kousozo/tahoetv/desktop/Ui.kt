@@ -26,7 +26,9 @@ import kotlinx.coroutines.withContext
 
 /** Same palette as the TV launcher and the phone app. */
 object Tahoe {
-    val Bg = Color(0xFF07080D)
+    val Bg = Color(0xFF0E0F13)            // charcoal canvas
+    val Card = Color(0xFF1A1C22)          // solid dashboard cards
+    val CardHi = Color(0xFF23262E)        // hovered / raised card
     val Text = Color(0xFFF5F5F7)
     val Dim = Text.copy(alpha = 0.7f)
     val Faint = Text.copy(alpha = 0.45f)
@@ -48,20 +50,15 @@ fun TahoeTheme(content: @Composable () -> Unit) = MaterialTheme(
     content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, content = content) }, // text is light everywhere, not only inside Surfaces
 )
 
-/** Slow-drifting colour blobs: the Tahoe wallpaper feel without an image. */
+/** Charcoal canvas with a soft brand-accent light from the top-left corner (no moving blobs: calmer for a dashboard). */
 @Composable
-fun Aurora(modifier: Modifier = Modifier) {
-    val t by rememberInfiniteTransition(label = "aurora").animateFloat(0f, 1f,
-        infiniteRepeatable(tween(24_000, easing = LinearEasing), RepeatMode.Reverse), label = "t")
-    Canvas(modifier.fillMaxSize().background(Tahoe.Bg)) {
-        fun blob(c: Color, x: Float, y: Float, r: Float) {
-            val center = Offset(size.width * x, size.height * y); val radius = size.maxDimension * r
-            drawCircle(Brush.radialGradient(listOf(c, Color.Transparent), center, radius), radius, center)
-        }
-        blob(Color(0xFF2A4BFF).copy(alpha = 0.40f), 0.1f + 0.2f * t, 0.1f, 0.55f)
-        blob(Color(0xFFB13CFF).copy(alpha = 0.28f), 0.95f - 0.2f * t, 0.3f + 0.1f * t, 0.5f)
-        blob(Color(0xFF00C2FF).copy(alpha = 0.18f), 0.45f, 1.0f - 0.15f * t, 0.6f)
+fun Aurora(modifier: Modifier = Modifier) = Canvas(modifier.fillMaxSize().background(Tahoe.Bg)) {
+    fun glow(c: Color, x: Float, y: Float, r: Float) {
+        val center = Offset(size.width * x, size.height * y); val radius = size.maxDimension * r
+        drawCircle(Brush.radialGradient(listOf(c, Color.Transparent), center, radius), radius, center)
     }
+    glow(Tahoe.Accent.copy(alpha = 0.16f), 0.08f, -0.1f, 0.45f)
+    glow(Color(0xFF1F3BD1).copy(alpha = 0.12f), 1.0f, 1.05f, 0.5f)
 }
 
 @Composable
@@ -70,8 +67,8 @@ fun Glass(modifier: Modifier = Modifier, radius: Int = 20, onClick: (() -> Unit)
     val hover by src.collectIsHoveredAsState()
     val shape = RoundedCornerShape(radius.dp)
     Column(
-        modifier.clip(shape).background(if (hover && onClick != null) Color.White.copy(alpha = 0.13f) else Tahoe.Glass)
-            .border(1.dp, Tahoe.GlassBorder, shape)
+        modifier.clip(shape).background(if (hover && onClick != null) Tahoe.CardHi else Tahoe.Card)
+            .border(1.dp, Color.White.copy(alpha = 0.06f), shape)
             .then(if (onClick != null) Modifier.hoverable(src).clickable(onClick = onClick) else Modifier)
             .padding(padding.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp), content = content,

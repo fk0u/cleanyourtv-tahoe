@@ -46,7 +46,8 @@ import kotlinx.coroutines.delay
 fun LiveScreen() {
     var channels by remember { mutableStateOf<List<M3u.Channel>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(DeskNav.query) }
+    LaunchedEffect(DeskNav.query) { query = DeskNav.query }   // search from the top bar
     var group by remember { mutableStateOf<String?>(null) } // null = Semua, "★" = favorites, else a LocalTv.Category name
     var playing by remember { mutableStateOf<M3u.Channel?>(null) }
     var favs by remember { mutableStateOf(Settings.favorites) }
