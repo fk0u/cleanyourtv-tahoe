@@ -40,6 +40,8 @@ import tech.kousozo.tahoetv.core.M3u;
  *  Each channel tries its streams in order (main, then backups); a source that errors, never starts, or freezes is
  *  skipped. When every source fails the banner says so and ▼ goes to the next channel. */
 public class LiveTv extends Activity {
+    /** The running player, so the phone remote's CH+/CH− can zap it. */
+    static LiveTv live;
     final Handler ui = new Handler(Looper.getMainLooper());
     final DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault());
     ExoPlayer player;
@@ -218,8 +220,8 @@ public class LiveTv extends Activity {
         return super.onKeyDown(code, e);
     }
 
-    @Override protected void onStop() { super.onStop(); if (player != null) player.pause(); }
-    @Override protected void onStart() { super.onStart(); if (player != null && index >= 0) player.play(); }
+    @Override protected void onStop() { super.onStop(); if (live == this) live = null; if (player != null) player.pause(); }
+    @Override protected void onStart() { super.onStart(); live = this; if (player != null && index >= 0) player.play(); }
     @Override protected void onDestroy() { ui.removeCallbacksAndMessages(null); if (player != null) player.release(); player = null; super.onDestroy(); }
 
     // ------------------------------------------------------------------ app tile

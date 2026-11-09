@@ -26,6 +26,7 @@ import javafx.stage.Stage
 import javafx.util.Duration
 import javax.swing.SwingUtilities
 import tech.kousozo.tahoetv.core.M3u
+import tech.kousozo.tahoetv.core.Web
 
 /** Live TV plays in its own JavaFX window: embedding JavaFX video in the Compose window (JFXPanel in SwingPanel)
  *  renders blank on macOS. A real window also gives native full screen, and keeps playing while you browse the app.
@@ -44,6 +45,28 @@ object PlayerWindow {
     // overlay nodes (created once with the stage)
     private lateinit var view: MediaView
     private lateinit var titleLabel: Label
+    private lateinit var showLabel: Label
+    private lateinit var liveBadge: Label
+    private lateinit var timeLabel: Label
+    private lateinit var elapsedLabel: Label
+    private lateinit var pauseBtn: Button
+    private var schedule: List<tech.kousozo.tahoetv.core.Epg.Programme> = emptyList()
+    private var weather: String = ""
+
+    /** Programme title + elapsed time of the current show, clock + weather; refreshed every few seconds. */
+    private fun refreshInfo() {
+        if (!::showLabel.isInitialized) return
+        val now = java.time.Instant.now()
+        val cur = schedule.firstOrNull { it.start <= now && it.stop > now }
+        showLabel.text = cur?.title ?: titleLabel.text
+        titleLabel.isVisible = cur != null; titleLabel.isManaged = cur != null
+        val sec = cur?.let { now.epochSecond - it.start.epochSecond } ?: 0
+        elapsedLabel.text = if (cur != null) "%02d:%02d:%02d  /  %s".format(sec / 3600, sec % 3600 / 60, sec % 60, HM.format(cur.stop)) else ""
+        timeLabel.text = HM.format(now) + (if (weather.isNotEmpty()) "    $weather" else "")
+        pauseBtn.text = if (player?.status == MediaPlayer.Status.PAUSED) "▶" else "⏸"
+    }
+    private val HM = java.time.format.DateTimeFormatter.ofPattern("HH.mm").withZone(java.time.ZoneId.systemDefault())
+    private val ticker = javafx.animation.Timeline(javafx.animation.KeyFrame(Duration.seconds(1.0), { refreshInfo() })).apply { cycleCount = javafx.animation.Timeline.INDEFINITE }
     private lateinit var statusLabel: Label
     private lateinit var fullBtn: Button
     private lateinit var bar: BorderPane
@@ -59,10 +82,12 @@ object PlayerWindow {
 
     /** `streams` = the channel's main stream then its backups. `onSwitch(±1)` asks the app for the previous/next channel.
      *  `onStatus(null)` = playing, else a message; called on the Swing/Compose thread. */
-    fun play(streams: List<M3u.Channel>, title: String, onSwitch: (Int) -> Unit, onStatus: (String?) -> Unit) = fx {
+    fun play(streams: List<M3u.Channel>, title: String, schedule: List<tech.kousozo.tahoetv.core.Epg.Programme>,
+             onSwitch: (Int) -> Unit, onStatus: (String?) -> Unit) = fx {
+        this.schedule = schedule
         this.onSwitch = onSwitch; this.onStatus = onStatus
         val s = ensureStage()
-        titleLabel.text = title; s.title = "$title — Tahoe TV"
+        titleLabel.text = title; s.title = "$title — Tahoe TV"; refreshInfo()
         start(streams, 0, ++generation)
         s.show(); s.toFront(); reveal()
     }
@@ -131,19 +156,26 @@ object PlayerWindow {
 
     private fun ensureStage(): Stage = stage ?: Stage().also { st ->
         view = MediaView().apply { isPreserveRatio = true }
-        titleLabel = Label().apply { style = "-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;" }
+        titleLabel = Label().apply { style = "-fx-text-fill: rgba(255,255,255,0.75); -fx-font-size: 14px;" }
+        showLabel = Label().apply { style = "-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;" }
+        liveBadge = Label("LIVE").apply { style = "-fx-background-color: #FF453A; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 2 8; -fx-background-radius: 5;" }
+        timeLabel = Label().apply { style = "-fx-text-fill: white; -fx-font-size: 16px;" }
+        elapsedLabel = Label().apply { style = "-fx-text-fill: rgba(255,255,255,0.85); -fx-font-size: 15px; -fx-font-family: monospace;" }
         statusLabel = Label().apply {
             style = "-fx-text-fill: white; -fx-font-size: 16px; -fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 14; -fx-padding: 12 18;"
             isWrapText = true; maxWidth = 560.0; isVisible = false
         }
         nextBtn = button("Saluran berikutnya ▶") { onSwitch(1) }.apply { isVisible = false; isManaged = false }
         fullBtn = button("⤢  Layar penuh") { toggleFull() }
-        val left = HBox(10.0, button("◀  Sebelumnya") { onSwitch(-1) }, button("Berikutnya  ▶") { onSwitch(1) }).apply { alignment = Pos.CENTER_LEFT }
-        val right = HBox(10.0, fullBtn, button("✕  Tutup") { st.close() }).apply { alignment = Pos.CENTER_RIGHT }
+        pauseBtn = button("⏸") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }
+        val left = VBox(4.0, HBox(8.0, liveBadge).apply { alignment = Pos.CENTER_LEFT }, showLabel, titleLabel, elapsedLabel).apply { alignment = Pos.BOTTOM_LEFT }
+        val mid = HBox(12.0, button("⏮") { onSwitch(-1) }, pauseBtn, button("⏭") { onSwitch(1) }).apply { alignment = Pos.CENTER }
+        val right = HBox(10.0, fullBtn, button("✕") { st.close() }).apply { alignment = Pos.BOTTOM_RIGHT }
         val spacer = Region().also { HBox.setHgrow(it, Priority.ALWAYS) }
         bar = BorderPane().apply {
-            top = HBox(16.0, titleLabel, spacer).apply { alignment = Pos.CENTER_LEFT }
-            bottom = HBox(10.0, left, Region().also { HBox.setHgrow(it, Priority.ALWAYS) }, right).apply { padding = Insets(12.0, 0.0, 0.0, 0.0) }
+            top = HBox(16.0, spacer, timeLabel).apply { alignment = Pos.CENTER_RIGHT }
+            bottom = HBox(10.0, left, Region().also { HBox.setHgrow(it, Priority.ALWAYS) }, mid, Region().also { HBox.setHgrow(it, Priority.ALWAYS) }, right)
+                .apply { alignment = Pos.BOTTOM_CENTER; padding = Insets(12.0, 0.0, 0.0, 0.0) }
             padding = Insets(18.0, 22.0, 18.0, 22.0)
             style = "-fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent 30%, transparent 70%, rgba(0,0,0,0.7));"
             isPickOnBounds = false
@@ -174,6 +206,8 @@ object PlayerWindow {
         }
         root.setOnMouseClicked { m -> if (m.button == MouseButton.PRIMARY && m.clickCount == 2) toggleFull() }
         st.setOnHidden { generation++; watchdog?.stop(); player?.dispose(); player = null; SwingUtilities.invokeLater { onStatus("Pemutar ditutup") } }
+        ticker.play()
+        Thread { Web.weather(Settings.lat, Settings.lon)?.let { w -> Platform.runLater { weather = "${w.tempC}° ${w.label}"; refreshInfo() } } }.start()
         stage = st
     }
 

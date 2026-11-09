@@ -786,6 +786,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
     // ---------------------------------------------------------------- companion (phone)
 
     @Override public void onKey(String key) {
+        if (globalKey(key)) return;
         int code;
         switch (key) {
             case "up": code = KeyEvent.KEYCODE_DPAD_UP; break;
@@ -827,6 +828,29 @@ public class Home extends Activity implements Companion.Listener, Tools {
     @Override public void onAsk(String text) {
         if (!(sheet instanceof Assistant)) openSheet(new Assistant(this, this, false));
         if (sheet instanceof Assistant) ((Assistant) sheet).ask(text);
+    }
+
+    /** Keys from the phone remote that work anywhere, not only while the launcher has focus. */
+    boolean globalKey(String key) {
+        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+        int media = key.equals("play_pause") ? KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE : key.equals("rewind") ? KeyEvent.KEYCODE_MEDIA_REWIND
+                : key.equals("ffwd") ? KeyEvent.KEYCODE_MEDIA_FAST_FORWARD : 0;
+        if (media != 0) {
+            am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, media));
+            am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, media));
+            return true;
+        }
+        switch (key) {
+            case "mute": am.adjustSuggestedStreamVolume(AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.STREAM_MUSIC, AudioManager.FLAG_SHOW_UI); return true;
+            case "settings": start(new Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
+            case "livetv": start(new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
+            case "ch_up": case "ch_down":
+                LiveTv tv = LiveTv.live;
+                if (tv != null) tv.ui.post(() -> tv.tune(tv.index + (key.equals("ch_up") ? -1 : 1)));
+                else start(new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                return true;
+        }
+        return false;
     }
 
     @Override public void onVolume(int dir) {
