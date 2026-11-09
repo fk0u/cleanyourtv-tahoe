@@ -9,19 +9,26 @@ import org.json.JSONObject
  *  where Tahoe was installed from a USB stick. Same messages as the launcher's web remote. */
 class TvLink(val host: String, private val token: String, private val onState: (Boolean) -> Unit = {}) {
     private var ws: WebSocketClient? = null
+    @Volatile private var wanted = false
     val connected get() = ws?.isOpen == true
 
-    fun open() {
-        if (connected) return
+    /** Connects and keeps reconnecting (every 2 s) until [close]: the TV may be asleep, restarting, or Wi-Fi dropped. */
+    fun open() { wanted = true; connect() }
+
+    private fun connect() {
+        if (connected || !wanted) return
         ws = object : WebSocketClient(URI("ws://$host:8765/ws?token=$token")) {
             override fun onOpen(h: ServerHandshake) = onState(true)
             override fun onMessage(m: String) {}
-            override fun onClose(code: Int, reason: String, remote: Boolean) = onState(false)
+            override fun onClose(code: Int, reason: String, remote: Boolean) {
+                onState(false)
+                if (wanted) Thread { Thread.sleep(2000); connect() }.apply { isDaemon = true }.start()
+            }
             override fun onError(e: Exception) {}
         }.also { it.connect() }
     }
 
-    fun close() { ws?.close(); ws = null }
+    fun close() { wanted = false; ws?.close(); ws = null }
 
     private fun send(o: JSONObject) { ws?.takeIf { it.isOpen }?.send(o.toString()) }
     /** up, down, left, right, ok, back, home, menu, apps */

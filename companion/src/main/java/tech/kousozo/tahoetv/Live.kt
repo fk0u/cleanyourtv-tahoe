@@ -156,24 +156,33 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
     val player = remember { ExoPlayer.Builder(c).build() }
     var source by remember(e) { mutableIntStateOf(0) }
     var message by remember(e) { mutableStateOf<String?>("Memuat siaran…") }
+    var everReady by remember(e) { mutableStateOf(false) }
+    var retries by remember(e) { mutableIntStateOf(0) }
     val streams = remember(e) { listOf(e.channel) + e.alternates }
     DisposableEffect(player) { onDispose { player.release() } }
     DisposableEffect(player, e) {
         val l = object : Player.Listener {
-            override fun onPlayerError(error: PlaybackException) { source++ }
-            override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_READY) message = null }
+            // A source that already played reconnects at the live edge (blip, rebuffer, fell behind live);
+            // only one that never played, or keeps failing, moves to the backup.
+            override fun onPlayerError(error: PlaybackException) {
+                if (!everReady || retries >= 3) { source++; return }
+                retries++; message = "Menyambung ulang…"
+                player.seekToDefaultPosition(); player.prepare(); player.play()
+            }
+            override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_READY) { message = null; everReady = true; retries = 0 } }
         }
         player.addListener(l); onDispose { player.removeListener(l) }
     }
     LaunchedEffect(e, source) {
         val s = streams.getOrNull(source) ?: run { player.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."; return@LaunchedEffect }
+        everReady = false; retries = 0
         message = if (source == 0) "Memuat siaran…" else "Mencoba sumber cadangan ${source + 1}/${streams.size}…"
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
-            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/2.9.0").setDefaultRequestProperties(s.headers - "User-Agent")
+            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/2.9.2").setDefaultRequestProperties(s.headers - "User-Agent")
         player.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.fromUri(Uri.parse(s.url))))
         player.prepare(); player.play()
         delay(20_000) // never started → next source
-        if (player.playbackState != Player.STATE_READY) source++
+        if (!everReady) source++
     }
     Box(Modifier.fillMaxSize()) {
         AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } }, Modifier.fillMaxSize())
