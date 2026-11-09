@@ -1,5 +1,10 @@
 package tech.kousozo.tahoetv.desktop
 
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.unit.Dp
+import tech.kousozo.tahoetv.core.Brand
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -25,29 +30,70 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Same palette as the TV launcher and the phone app. */
+/** Colours come from core [Brand] (the one source shared with the TV launcher and desktop); see docs/brand/BRAND.md. */
 object Tahoe {
-    val Bg = Color(0xFF0E0F13)            // charcoal canvas
-    val Card = Color(0xFF1A1C22)          // solid dashboard cards
-    val CardHi = Color(0xFF23262E)        // hovered / raised card
-    val Text = Color(0xFFF5F5F7)
-    val Dim = Text.copy(alpha = 0.7f)
-    val Faint = Text.copy(alpha = 0.45f)
-    val Glass = Color.White.copy(alpha = 0.08f)
-    val Stroke = Color.White.copy(alpha = 0.14f)
-    val Accent = Color(0xFF64D2FF)
-    val Good = Color(0xFF30D158)
-    val Bad = Color(0xFFFF453A)
+    val Bg = Color(Brand.CANVAS)
+    val Surface = Color(Brand.SURFACE)
+    val Text = Color(Brand.SNOW)
+    val Dim = Color(Brand.TEXT_2)
+    val Faint = Color(Brand.TEXT_3)
+    val Glass = Color(Brand.GLASS)
+    val Stroke = Color(Brand.STROKE)
+    val Accent = Color(Brand.CYAN)
+    val OnAccent = Color(Brand.ON_CYAN)
+    val Lake = Color(Brand.LAKE)
+    val Good = Color(Brand.PINE)
+    val Bad = Color(Brand.LIVE)
+    val Card = Color(Brand.SURFACE)
+    val CardHi = Color(Brand.SURFACE_HI)
     val GlassBorder = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.26f), Color.White.copy(alpha = 0.05f)))
 }
+
+/** Outfit (variable, OFL), the brand typeface, from resources/font. */
+val Outfit = FontFamily(listOf(300, 400, 500, 600, 700, 800).map { w ->
+    androidx.compose.ui.text.platform.Font("font/Outfit.ttf", FontWeight(w), variationSettings = FontVariation.Settings(FontVariation.weight(w)))
+})
+
+
+/** Every Material text style in the brand face. */
+private fun Typography.withFont(f: FontFamily) = Typography(
+    displayLarge.copy(fontFamily = f), displayMedium.copy(fontFamily = f), displaySmall.copy(fontFamily = f),
+    headlineLarge.copy(fontFamily = f), headlineMedium.copy(fontFamily = f), headlineSmall.copy(fontFamily = f),
+    titleLarge.copy(fontFamily = f), titleMedium.copy(fontFamily = f), titleSmall.copy(fontFamily = f),
+    bodyLarge.copy(fontFamily = f), bodyMedium.copy(fontFamily = f), bodySmall.copy(fontFamily = f),
+    labelLarge.copy(fontFamily = f), labelMedium.copy(fontFamily = f), labelSmall.copy(fontFamily = f),
+)
+
+/** The Tahoe TV mark (core [Brand.MARK_PATH]): a screen with two peaks over a lake, and the live light. */
+@Composable
+fun BrandMark(size: Dp, modifier: Modifier = Modifier, tint: Color = Tahoe.Text, light: Color = Tahoe.Accent) {
+    val path = remember { androidx.compose.ui.graphics.vector.PathParser().parsePathString(Brand.MARK_PATH).toPath() }
+    Canvas(modifier.size(size)) {
+        scale(this.size.minDimension / 24f, pivot = Offset.Zero) {
+            drawPath(path, tint, style = androidx.compose.ui.graphics.drawscope.Stroke(2f,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+            drawCircle(light, Brand.MARK_LIGHT_R, Offset(Brand.MARK_LIGHT_X, Brand.MARK_LIGHT_Y))
+        }
+    }
+}
+
+/** The app icon in miniature: brand gradient squircle with the white mark. Use where the product signs its name. */
+@Composable
+fun BrandTile(size: Dp, modifier: Modifier = Modifier) = Box(
+    modifier.size(size).clip(RoundedCornerShape(size * 0.28f))
+        .background(Brush.linearGradient(listOf(Color(Brand.CYAN), Color(Brand.LAKE), Color(Brand.LAKE_DEEP)))),
+    contentAlignment = Alignment.Center,
+) { BrandMark(size * 0.62f, tint = Color.White, light = Color(Brand.CYAN_LIGHT)) }
 
 @Composable
 fun TahoeTheme(content: @Composable () -> Unit) = MaterialTheme(
     colorScheme = darkColorScheme(
-        primary = Tahoe.Text, onPrimary = Color(0xFF111114), background = Tahoe.Bg, surface = Color(0xFF15151B),
+        primary = Tahoe.Text, onPrimary = Color(Brand.CANVAS), background = Tahoe.Bg, surface = Tahoe.Surface,
         onBackground = Tahoe.Text, onSurface = Tahoe.Text, surfaceVariant = Tahoe.Glass, onSurfaceVariant = Tahoe.Dim,
-        secondary = Tahoe.Accent, outline = Tahoe.Stroke, error = Tahoe.Bad,
+        secondary = Tahoe.Accent, onSecondary = Tahoe.OnAccent, tertiary = Tahoe.Lake, outline = Tahoe.Stroke, error = Tahoe.Bad,
     ),
-    content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, content = content) }, // text is light everywhere, not only inside Surfaces
+    typography = Typography().withFont(Outfit),
+    content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = Outfit), content = content) }, // text is light everywhere, not only inside Surfaces
 )
 
 /** Charcoal canvas with a soft brand-accent light from the top-left corner (no moving blobs: calmer for a dashboard). */
@@ -58,7 +104,7 @@ fun Aurora(modifier: Modifier = Modifier) = Canvas(modifier.fillMaxSize().backgr
         drawCircle(Brush.radialGradient(listOf(c, Color.Transparent), center, radius), radius, center)
     }
     glow(Tahoe.Accent.copy(alpha = 0.16f), 0.08f, -0.1f, 0.45f)
-    glow(Color(0xFF1F3BD1).copy(alpha = 0.12f), 1.0f, 1.05f, 0.5f)
+    glow(Tahoe.Lake.copy(alpha = 0.12f), 1.0f, 1.05f, 0.5f)
 }
 
 @Composable

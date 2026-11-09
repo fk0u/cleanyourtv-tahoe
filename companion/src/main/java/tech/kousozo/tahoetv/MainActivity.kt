@@ -1,5 +1,6 @@
 package tech.kousozo.tahoetv
 
+import tech.kousozo.tahoetv.core.Brand
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
@@ -123,13 +124,15 @@ fun HomeScreen(resumeTick: Int) {
         verticalArrangement = Arrangement.spacedBy(22.dp)) {
         // header
         Row(Modifier.padding(start = 20.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            BrandTile(46.dp)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text((hello + if (name.isNotEmpty()) ", $name" else "").uppercase(), color = Tahoe.Faint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
                 Text("Beranda", fontSize = 32.sp, fontWeight = FontWeight.Bold)
             }
             RoundIcon(if (paired) Icons.Rounded.Tv else Icons.Rounded.TvOff, if (paired) Tahoe.Good else Tahoe.Dim, Tahoe.Glass) { showPair = !showPair }
             Spacer(Modifier.width(10.dp))
-            RoundIcon(Icons.Rounded.AutoAwesome, Color(0xFF06222F), Tahoe.Accent) { Nav.tab = 2 }
+            RoundIcon(Icons.Rounded.AutoAwesome, Tahoe.OnAccent, Tahoe.Accent) { Nav.tab = 2 }
         }
 
         // hero carousel
@@ -237,7 +240,7 @@ private class Slide(val eyebrow: String, val title: String, val sub: String, val
 @Composable
 private fun HeroCard(s: Slide) = Box(
     Modifier.fillMaxWidth().height(186.dp).clip(RoundedCornerShape(26.dp))
-        .background(Brush.linearGradient(listOf(Color(0xFF0E3A52), Color(0xFF0B1B3A), Color(0xFF07080D))))
+        .background(Brush.linearGradient(listOf(Color(0xFF0E3A52), Color(0xFF0B1B3A), Tahoe.Bg)))
         .border(1.dp, Brush.verticalGradient(listOf(Tahoe.Accent.copy(alpha = 0.55f), Color.White.copy(alpha = 0.04f))), RoundedCornerShape(26.dp))
         .clickable(onClick = s.go),
 ) {
@@ -261,7 +264,7 @@ private fun HeroCard(s: Slide) = Box(
 }
 
 @Composable
-private fun LiveDot() = Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFFFF453A)))
+private fun LiveDot() = Box(Modifier.size(7.dp).clip(CircleShape).background(Tahoe.Bad))
 
 @Composable
 private fun SectionHeader(title: String, onAll: () -> Unit) = Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -285,7 +288,7 @@ fun CategoryCard(k: LocalTv.Category, count: Int, modifier: Modifier, big: Boole
         .background(Brush.verticalGradient(listOf(tint.copy(alpha = 0.30f), Color(0xFF0C0E14))))
         .border(1.dp, Brush.verticalGradient(listOf(tint.copy(alpha = 0.55f), Color.White.copy(alpha = 0.04f))), RoundedCornerShape(22.dp))
         .clickable { Nav.category(k) }.padding(14.dp)) {
-        Text("● LIVE", Modifier.align(Alignment.TopStart).clip(RoundedCornerShape(6.dp)).background(Color(0xFFFF453A)).padding(horizontal = 6.dp, vertical = 2.dp),
+        Text("● LIVE", Modifier.align(Alignment.TopStart).clip(RoundedCornerShape(6.dp)).background(Tahoe.Bad).padding(horizontal = 6.dp, vertical = 2.dp),
             color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         Icon(categoryIcon(k), null, tint = tint, modifier = Modifier.align(if (big) Alignment.Center else Alignment.TopEnd).size(if (big) 64.dp else 26.dp))
         Column(Modifier.align(Alignment.BottomStart)) {
@@ -304,6 +307,4 @@ fun categoryIcon(k: LocalTv.Category?): ImageVector = when (k?.name) {
 }
 
 /** Every tint is a shade around the brand accent so the grid stays one family. */
-fun categoryTint(k: LocalTv.Category): Color = when (k.ordinal % 4) {
-    0 -> Tahoe.Accent; 1 -> Color(0xFF5E8BFF); 2 -> Color(0xFF4FE3C1); else -> Color(0xFF9FB4FF)
-}
+fun categoryTint(k: LocalTv.Category): Color = Color(Brand.CATEGORY_TINTS[k.ordinal % Brand.CATEGORY_TINTS.size])

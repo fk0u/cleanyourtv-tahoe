@@ -45,7 +45,7 @@ public class Live extends Activity {
         super.onCreate(b);
         prefs = getSharedPreferences("live", MODE_PRIVATE);
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(0xFF07080D);
+        root.setBackgroundColor(Ui.NIGHT);
         LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding((int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP), (int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP));
         title = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); title.setText("Jadwal TV");

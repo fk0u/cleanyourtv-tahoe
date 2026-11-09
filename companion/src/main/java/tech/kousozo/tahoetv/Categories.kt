@@ -53,7 +53,7 @@ fun CategoriesScreen() {
                     ) {
                         Box(Modifier.size(38.dp).clip(CircleShape).background(if (on) Tahoe.Accent else Color.White.copy(alpha = 0.08f)),
                             contentAlignment = Alignment.Center) {
-                            Icon(categoryIcon(k), null, tint = if (on) Color(0xFF06222F) else Tahoe.Text, modifier = Modifier.size(20.dp))
+                            Icon(categoryIcon(k), null, tint = if (on) Tahoe.OnAccent else Tahoe.Text, modifier = Modifier.size(20.dp))
                         }
                         Column {
                             Text(k?.label ?: "Semua saluran", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
