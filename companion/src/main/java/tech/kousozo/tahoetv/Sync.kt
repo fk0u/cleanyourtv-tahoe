@@ -54,7 +54,8 @@ class Sync : NotificationListenerService() {
         } catch (e: Exception) { status.value = "Alamat TV tidak valid"; null }
     }
 
-    private fun send(o: JSONObject) { ws?.takeIf { it.isOpen }?.send(o.toString()) }
+    /** The socket can close between isOpen and send (TV standby, Wi-Fi blip); send then throws, so drop it quietly. */
+    private fun send(o: JSONObject) { runCatching { ws?.takeIf { it.isOpen }?.send(o.toString()) } }
 
     private fun command(m: String) = runCatching {
         val o = JSONObject(m)

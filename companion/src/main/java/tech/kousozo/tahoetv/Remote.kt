@@ -50,7 +50,12 @@ fun RemoteScreen() {
     val host = p.getString("host", "").orEmpty(); val token = p.getString("token", "").orEmpty()
     var online by remember { mutableStateOf(false) }
     var tv by remember { mutableStateOf<org.json.JSONObject?>(null) } // volume / channel reported by the TV
-    val link = remember(host, token) { if (host.isEmpty() || token.isEmpty()) null else TvLink(host, token) { online = it }.apply { onTvState = { tv = it } } }
+    // TvLink calls back on its network thread; change screen state on the main thread only.
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    val link = remember(host, token) {
+        if (host.isBlank() || token.isEmpty()) null
+        else TvLink(host, token) { o -> main.post { online = o } }.apply { onTvState = { s -> main.post { tv = s } } }
+    }
     DisposableEffect(link) { link?.open(); onDispose { link?.close() } }
     val haptic = LocalHapticFeedback.current
     fun key(k: String) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); link?.key(k) }
@@ -73,7 +78,7 @@ fun RemoteScreen() {
                     Text("Tahoe TV", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     val channel = tv?.optString("channel").orEmpty()
                     Text(if (link == null) "Belum dipasangkan" else if (!online) "Menyambung…"
-                        else if (channel.isNotEmpty()) "Live · %03d %s".format(tv!!.optInt("number"), channel) else "Tersambung · $host", fontSize = 11.sp, color = Tahoe.Dim)
+                        else if (channel.isNotEmpty()) "Live · %03d %s".format(tv?.optInt("number") ?: 0, channel) else "Tersambung · $host", fontSize = 11.sp, color = Tahoe.Dim)
                 }
             }
             Spacer(Modifier.width(10.dp))
