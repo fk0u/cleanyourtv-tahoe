@@ -201,7 +201,7 @@ class SetupModel(app: Application) : AndroidViewModel(app) {
                 record.filter { it in installed }.forEach { t.sh("pm enable $it"); say("✓ dinyalakan ${t.label(it)}") }
                 t.sh("settings put global private_dns_mode opportunistic")
                 t.sh("settings delete secure screensaver_components")
-                say(t.sh("pm uninstall ${TvAdb.PKG}").trim() + " (uninstall Tahoe)")
+                say(t.sh("pm uninstall ${TvAdb.PKG}; pm uninstall ${TvAdb.OLD_PKG}").trim() + " (uninstall Tahoe)")
                 t.sh("input keyevent KEYCODE_HOME")
                 prefs.edit().remove(key).apply()
                 say("✓ Selesai")
