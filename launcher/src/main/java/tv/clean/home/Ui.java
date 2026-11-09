@@ -1,5 +1,6 @@
 package tv.clean.home;
 
+import tech.kousozo.tahoetv.core.Brand;
 import android.content.Context;
 import android.graphics.*;
 import android.graphics.drawable.Drawable;
@@ -14,13 +15,14 @@ import android.widget.TextView;
 /** Design tokens and small helpers for the tvOS-26-style UI. Every view takes its numbers from here. */
 final class Ui {
     // Colour: text at three emphasis levels on dark glass / photos.
-    static final int TEXT = 0xFFF5F5F7, TEXT_2 = 0xB3F5F5F7, TEXT_3 = 0x73F5F5F7;
+    static final int TEXT = Brand.SNOW, TEXT_2 = Brand.TEXT_2, TEXT_3 = Brand.TEXT_3;
     static final int GLASS = 0x5C17171A, GLASS_STRONG = 0xE6141417, GLASS_FOCUS = 0x47FFFFFF;
-    static final int ACCENT = 0xFF64D2FF;
+    // Brand colours live in core Brand (shared with the phone and desktop apps; docs/brand/BRAND.md).
+    static final int ACCENT = Brand.CYAN, ON_ACCENT = Brand.ON_CYAN, LIVE = Brand.LIVE, GOOD = Brand.PINE, SUN = Brand.SUN, NIGHT = Brand.NIGHT;
 
     // Type scale: Apple HIG tvOS sizes (px at 1080p) halved to dp on this 2x display:
     // Title1 76 → 38, Title3 48 → 24, Body 29 → 15, Caption 23 → 12. DISPLAY is the lock/sheet clock.
-    static final float DISPLAY = 96, TITLE = 38, HEADLINE = 24, BODY = 15, CAPTION = 12;
+    static final float DISPLAY = Brand.TV_DISPLAY, TITLE = Brand.TV_TITLE, HEADLINE = Brand.TV_HEADLINE, BODY = Brand.TV_BODY, CAPTION = Brand.TV_CAPTION;
 
     // tvOS safe area at 1080p: 60 px top/bottom, 80 px sides (→ 30 / 40 dp). Content never goes past it.
     static final float SAFE_TOP = 30, SAFE_SIDE = 56;

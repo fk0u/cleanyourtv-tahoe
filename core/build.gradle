@@ -12,3 +12,6 @@ dependencies {
     testImplementation "org.json:json:20250517"
     testImplementation "org.jetbrains.kotlin:kotlin-test:2.2.0"
 }
+
+// pass -Dbrand.write=true through to the test JVM (BrandTokensTest regenerates docs/brand/tokens.json)
+tasks.named("test") { systemProperty "brand.write", System.getProperty("brand.write", "false"); outputs.upToDateWhen { false } }
