@@ -5,6 +5,10 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clip
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
@@ -58,17 +62,20 @@ fun TahoeTheme(content: @Composable () -> Unit) = MaterialTheme(
     content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, content = content) }, // light text outside Surfaces too
 )
 
-/** Slow-drifting colour blobs behind everything: the Tahoe wallpaper feel without an image (GPU-cheap). */
+/** Ambient accent glow behind everything: a soft cyan light from the top that breathes slowly, fading into near-black.
+ *  The brand accent does the lighting, so screens feel lit rather than flat. GPU-cheap (two radial gradients). */
 @Composable
 fun Aurora(modifier: Modifier = Modifier) {
-    val t by rememberInfiniteTransition(label = "aurora").animateFloat(0f, 1f,
-        infiniteRepeatable(tween(18_000, easing = LinearEasing), RepeatMode.Reverse), label = "t")
+    val t by rememberInfiniteTransition(label = "glow").animateFloat(0f, 1f,
+        infiniteRepeatable(tween(9_000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "t")
     Canvas(modifier.fillMaxSize().background(Tahoe.Bg)) {
-        fun blob(c: Color, x: Float, y: Float, r: Float) =
-            drawCircle(Brush.radialGradient(listOf(c, Color.Transparent), Offset(size.width * x, size.height * y), size.minDimension * r), size.minDimension * r, Offset(size.width * x, size.height * y))
-        blob(Color(0xFF2A4BFF).copy(alpha = 0.45f), 0.15f + 0.2f * t, 0.12f, 0.9f)
-        blob(Color(0xFFB13CFF).copy(alpha = 0.32f), 0.9f - 0.25f * t, 0.35f + 0.1f * t, 0.8f)
-        blob(Color(0xFF00C2FF).copy(alpha = 0.22f), 0.4f, 0.95f - 0.15f * t, 0.9f)
+        fun glow(c: Color, x: Float, y: Float, r: Float) {
+            val center = Offset(size.width * x, size.height * y); val radius = size.maxDimension * r
+            drawCircle(Brush.radialGradient(listOf(c, Color.Transparent), center, radius), radius, center)
+        }
+        glow(Tahoe.Accent.copy(alpha = 0.30f + 0.08f * t), 0.5f, -0.05f, 0.62f + 0.04f * t)   // top light
+        glow(Color(0xFF1F3BD1).copy(alpha = 0.22f), 0.05f + 0.1f * t, 0.55f, 0.45f)          // deep blue side fill
+        glow(Tahoe.Accent.copy(alpha = 0.10f), 0.95f, 1.0f, 0.5f)                             // faint bottom rim
     }
 }
 
@@ -170,25 +177,44 @@ fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) = Ro
     Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Tahoe.Good, checkedThumbColor = Color.White))
 }
 
-/** Floating glass tab bar (iOS 26 style). */
+/** Floating glass tab bar with a raised accent button in the middle (the primary action). `tabs` has an odd count;
+ *  the middle entry is the raised one. */
 @Composable
-fun TabBar(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) = Surface(
-    modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 10.dp).fillMaxWidth().height(64.dp),
-    shape = RoundedCornerShape(32.dp), color = Color(0xFF1C1C22).copy(alpha = 0.82f),
-    border = BorderStroke(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.05f)))),
-    shadowElevation = 12.dp,
-) {
-    Row(Modifier.padding(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        tabs.forEachIndexed { i, (label, icon) ->
-            val on = i == selected
-            val bg by animateColorAsState(if (on) Color.White.copy(alpha = 0.14f) else Color.Transparent, label = "tab")
-            Column(
-                Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(26.dp)).background(bg).clickable { onSelect(i) },
-                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-            ) {
-                Icon(icon, label, tint = if (on) Tahoe.Accent else Tahoe.Dim, modifier = Modifier.size(22.dp))
-                Text(label, fontSize = 11.sp, color = if (on) Tahoe.Text else Tahoe.Dim, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
+fun TabBar(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val mid = tabs.size / 2
+    Box(modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth().height(78.dp)) {
+        Surface(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(64.dp),
+            shape = RoundedCornerShape(32.dp), color = Color(0xFF12141A).copy(alpha = 0.88f),
+            border = BorderStroke(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.04f)))),
+            shadowElevation = 16.dp,
+        ) {
+            Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                tabs.forEachIndexed { i, (label, icon) ->
+                    if (i == mid) { Spacer(Modifier.weight(1.2f)); return@forEachIndexed }
+                    val on = i == selected
+                    val tint by animateColorAsState(if (on) Tahoe.Accent else Tahoe.Faint, label = "tab")
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(26.dp)).clickable { onSelect(i) },
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(icon, label, tint = tint, modifier = Modifier.size(22.dp))
+                        Text(label, fontSize = 10.sp, color = if (on) Tahoe.Text else Tahoe.Faint, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
+                        Box(Modifier.padding(top = 3.dp).size(if (on) 4.dp else 0.dp).clip(RoundedCornerShape(50)).background(Tahoe.Accent))
+                    }
+                }
             }
+        }
+        // raised centre button with an accent glow
+        val (label, icon) = tabs[mid]
+        val on = selected == mid
+        val scale by animateFloatAsState(if (on) 1.06f else 1f, label = "fab")
+        Box(Modifier.align(Alignment.TopCenter).size(64.dp).scale(scale)
+            .shadow(18.dp, RoundedCornerShape(50), ambientColor = Tahoe.Accent, spotColor = Tahoe.Accent)
+            .clip(RoundedCornerShape(50))
+            .background(Brush.verticalGradient(listOf(Color(0xFF8BE0FF), Tahoe.Accent, Color(0xFF2EA8E0))))
+            .clickable { onSelect(mid) }, contentAlignment = Alignment.Center) {
+            Icon(icon, label, tint = Color(0xFF06222F), modifier = Modifier.size(28.dp))
         }
     }
 }

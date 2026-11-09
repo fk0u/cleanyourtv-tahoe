@@ -46,8 +46,12 @@ public class LiveTv extends Activity {
     final DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault());
     ExoPlayer player;
     SurfaceView surface;
-    LinearLayout banner, guide, rows;
-    TextView bNum, bName, bNow, bNext, bStatus, loading;
+    LinearLayout guide, rows;
+    FrameLayout osd;                       // on-screen display: top + bottom scrims with all the info
+    TextView bNum, bName, bMeta, bNow, bNowTime, bNext, bNextTime, bStatus, bCat, loading, tTemp, tCond, tDay, tTime, logoText;
+    android.widget.ImageView logo;
+    View progress;
+    FrameLayout progressTrack;
     List<LocalTv.Entry> list = new ArrayList<>();
     Epg epg;
     int index = -1, source = 0;
@@ -68,21 +72,12 @@ public class LiveTv extends Activity {
         loading = Ui.text(this, Ui.HEADLINE, 600, Ui.TEXT); loading.setText("Memuat saluran…");
         root.addView(loading, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
 
-        // info banner (bottom)
-        banner = new LinearLayout(this); banner.setOrientation(LinearLayout.VERTICAL);
-        banner.setBackground(new GlassDrawable(dp(Ui.R_LARGE), Ui.GLASS_STRONG, dp(1)));
-        banner.setPadding((int) dp(24), (int) dp(18), (int) dp(24), (int) dp(18));
-        bNum = Ui.eyebrow(this, Ui.TEXT_2); bName = Ui.text(this, Ui.TITLE, 700, Ui.TEXT);
-        bNow = Ui.text(this, Ui.BODY, 600, Ui.ACCENT); bNext = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2);
-        bStatus = Ui.text(this, Ui.BODY, 500, 0xFFFF8A80);
-        for (View v : new View[]{bNum, bName, bNow, bNext, bStatus}) banner.addView(v);
-        FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams((int) dp(560), -2, Gravity.BOTTOM | Gravity.START);
-        bl.setMargins((int) dp(Ui.SAFE_SIDE), 0, 0, (int) dp(Ui.SAFE_TOP));
-        root.addView(banner, bl);
+        osd = buildOsd();
+        root.addView(osd, new FrameLayout.LayoutParams(-1, -1));
 
         // channel list (left)
         guide = new LinearLayout(this); guide.setOrientation(LinearLayout.VERTICAL);
-        guide.setBackgroundColor(0xE60B0B10);
+        guide.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xF20A0B10, 0xE60A0B10, 0x000A0B10}));
         guide.setPadding((int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP), (int) dp(20), (int) dp(Ui.SAFE_TOP));
         TextView gt = Ui.text(this, Ui.HEADLINE, 700, Ui.TEXT); gt.setText("Live TV");
         guide.addView(gt);
@@ -91,7 +86,7 @@ public class LiveTv extends Activity {
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-1, 0, 1); sl.topMargin = (int) dp(12);
         guide.addView(sv, sl);
         guide.setVisibility(View.GONE);
-        root.addView(guide, new FrameLayout.LayoutParams((int) dp(420), -1, Gravity.START));
+        root.addView(guide, new FrameLayout.LayoutParams((int) dp(480), -1, Gravity.START));
         setContentView(root);
 
         player = new ExoPlayer.Builder(this).build();
@@ -109,7 +104,7 @@ public class LiveTv extends Activity {
             int i = 0;
             for (int k = 0; k < l.size(); k++) if (l.get(k).getChannel().getUrl().equals(want != null ? want : last)) { i = k; break; }
             buildRows(); tune(i);
-        }, e -> { epg = e; if (index >= 0) showBanner(); }, () -> loading.setText("Daftar saluran tidak bisa dimuat. Cek internet."));
+        }, e -> { epg = e; buildRows(); if (index >= 0) showBanner(); }, () -> loading.setText("Daftar saluran tidak bisa dimuat. Cek internet."));
         ui.post(watchdog);
     }
 
@@ -168,37 +163,203 @@ public class LiveTv extends Activity {
 
     // ------------------------------------------------------------------ banner + list
 
-    final Runnable hideBanner = () -> { if (bStatus.getVisibility() != View.VISIBLE) banner.animate().alpha(0).setDuration(Ui.MED).start(); };
+    final Runnable hideBanner = () -> { if (bStatus.getVisibility() != View.VISIBLE) osd.animate().alpha(0).setDuration(Ui.MED).start(); };
 
     void showBanner() {
         if (index < 0) return;
         LocalTv.Entry e = list.get(index);
-        bNum.setText((index + 1) + "  ·  " + e.getCategory().getLabel());
-        bName.setText(e.getName());
+        bNum.setText(String.format(java.util.Locale.ROOT, "%03d", index + 1));
+        bName.setText(e.getName().toUpperCase(java.util.Locale.ROOT));
+        int sources = 1 + e.getAlternates().size();
+        bMeta.setText(e.getCategory().getLabel() + (sources > 1 ? "  ·  " + sources + " sumber" : "") + (e.getNear() ? "  ·  dekat kamu" : ""));
+        bCat.setText(e.getCategory().getLabel());
+        Logos.into(e.getChannel().getLogo(), logo, logoText, e.getName());
         Instant now = Instant.now();
         List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now);
         Epg.Programme p = !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
-        bNow.setText(p != null ? "Sekarang  " + p.getTitle() + "   " + hm.format(p.getStart()) + "–" + hm.format(p.getStop()) : "");
-        bNow.setVisibility(p != null ? View.VISIBLE : View.GONE);
         Epg.Programme n = s.size() > (p != null ? 1 : 0) ? s.get(p != null ? 1 : 0) : null;
-        bNext.setText(n != null ? "Berikutnya  " + hm.format(n.getStart()) + "  " + n.getTitle() : "");
-        bNext.setVisibility(n != null ? View.VISIBLE : View.GONE);
-        banner.animate().cancel(); banner.setAlpha(1);
-        ui.removeCallbacks(hideBanner); ui.postDelayed(hideBanner, 5000);
+        bNowTime.setText(p != null ? hm.format(p.getStart()) + " – " + hm.format(p.getStop()) : "Sekarang");
+        bNow.setText(p != null ? p.getTitle() : epg == null ? "Memuat jadwal…" : "Jadwal acara tidak tersedia");
+        ((View) bNext.getParent()).setVisibility(n != null ? View.VISIBLE : View.GONE);
+        if (n != null) { bNextTime.setText(hm.format(n.getStart()) + " – " + hm.format(n.getStop())); bNext.setText(n.getTitle()); }
+        float f = p == null ? 0 : Math.max(0, Math.min(1, (now.getEpochSecond() - p.getStart().getEpochSecond()) / (float) Math.max(1, p.getStop().getEpochSecond() - p.getStart().getEpochSecond())));
+        progressTrack.post(() -> { progress.getLayoutParams().width = (int) (progressTrack.getWidth() * f); progress.requestLayout(); });
+        tick();
+        osd.animate().cancel(); osd.setAlpha(1);
+        ui.removeCallbacks(hideBanner); ui.postDelayed(hideBanner, 6000);
+    }
+
+    /** Clock + date (top right). */
+    void tick() {
+        java.util.Date d = new java.util.Date();
+        tDay.setText(new java.text.SimpleDateFormat("EEEE", new java.util.Locale("id")).format(d));
+        tTime.setText(new java.text.SimpleDateFormat("d MMM yyyy  ·  HH.mm", new java.util.Locale("id")).format(d));
+    }
+
+    TextView pill(String text, int bg, int fg) {
+        TextView t = Ui.text(this, Ui.CAPTION, 700, fg);
+        t.setText(text); t.setShadowLayer(0, 0, 0, 0); t.setLetterSpacing(0.06f);
+        t.setPadding((int) dp(10), (int) dp(4), (int) dp(10), (int) dp(4));
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+        g.setColor(bg); g.setCornerRadius(dp(8)); t.setBackground(g);
+        return t;
+    }
+
+    /** One schedule line: time in a glass pill, then the title. */
+    LinearLayout scheduleRow(TextView time, TextView title) {
+        LinearLayout r = new LinearLayout(this); r.setGravity(Gravity.CENTER_VERTICAL);
+        time.setPadding((int) dp(12), (int) dp(6), (int) dp(12), (int) dp(6));
+        time.setBackground(new GlassDrawable(dp(10), 0x33FFFFFF, dp(1)));
+        r.addView(time, new LinearLayout.LayoutParams((int) dp(150), -2));
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1); tl.leftMargin = (int) dp(16);
+        r.addView(title, tl);
+        return r;
+    }
+
+    /** Broadcast-style OSD: weather (top left), day/date/time (top right), and a bottom band with the channel logo
+     *  tile, big channel number + name, now/next schedule with progress, and a colour-key legend for the remote. */
+    FrameLayout buildOsd() {
+        FrameLayout o = new FrameLayout(this);
+        View top = new View(this);
+        top.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0xB3000000, 0x00000000}));
+        o.addView(top, new FrameLayout.LayoutParams(-1, (int) dp(150), Gravity.TOP));
+        View bottom = new View(this);
+        bottom.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP, new int[]{0xF2000000, 0xB0000000, 0x00000000}));
+        o.addView(bottom, new FrameLayout.LayoutParams(-1, (int) dp(300), Gravity.BOTTOM));
+
+        // top left: weather
+        LinearLayout w = new LinearLayout(this); w.setGravity(Gravity.CENTER_VERTICAL);
+        tTemp = Ui.text(this, 34, 600, Ui.TEXT); tTemp.setText("—°");
+        LinearLayout wc = new LinearLayout(this); wc.setOrientation(LinearLayout.VERTICAL);
+        TextView we = Ui.eyebrow(this, Ui.TEXT_3); we.setText("Cuaca");
+        tCond = Ui.text(this, Ui.BODY, 600, Ui.TEXT); tCond.setText(Cfg.s(this, "city", R.string.city));
+        wc.addView(we); wc.addView(tCond);
+        View sep = new View(this); sep.setBackgroundColor(0x40FFFFFF);
+        w.addView(tTemp); LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams((int) dp(1), (int) dp(30)); sp.setMargins((int) dp(14), 0, (int) dp(14), 0);
+        w.addView(sep, sp); w.addView(wc);
+        FrameLayout.LayoutParams wl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+        wl.setMargins((int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP), 0, 0);
+        o.addView(w, wl);
+
+        // top right: day + date/time
+        LinearLayout dt = new LinearLayout(this); dt.setOrientation(LinearLayout.VERTICAL); dt.setGravity(Gravity.END);
+        tDay = Ui.text(this, Ui.BODY, 700, Ui.TEXT); tTime = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_2);
+        dt.addView(tDay); dt.addView(tTime);
+        FrameLayout.LayoutParams dl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        dl.setMargins(0, (int) dp(Ui.SAFE_TOP), (int) dp(Ui.SAFE_SIDE), 0);
+        o.addView(dt, dl);
+
+        // bottom band
+        LinearLayout band = new LinearLayout(this); band.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout main = new LinearLayout(this); main.setGravity(Gravity.BOTTOM);
+        FrameLayout tile = new FrameLayout(this);
+        android.graphics.drawable.GradientDrawable tg = new android.graphics.drawable.GradientDrawable(); tg.setColor(0xF5FFFFFF); tg.setCornerRadius(dp(18));
+        tile.setBackground(tg); Ui.clip(tile, dp(18));
+        logo = new android.widget.ImageView(this); logo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        logo.setPadding((int) dp(14), (int) dp(14), (int) dp(14), (int) dp(14));
+        logoText = Ui.text(this, Ui.HEADLINE, 800, 0xFF111114); logoText.setShadowLayer(0, 0, 0, 0); logoText.setGravity(Gravity.CENTER);
+        tile.addView(logoText, new FrameLayout.LayoutParams(-1, -1)); tile.addView(logo, new FrameLayout.LayoutParams(-1, -1));
+        main.addView(tile, new LinearLayout.LayoutParams((int) dp(150), (int) dp(100)));
+
+        LinearLayout id = new LinearLayout(this); id.setOrientation(LinearLayout.VERTICAL);
+        bNum = Ui.text(this, 44, 700, Ui.TEXT); bNum.setIncludeFontPadding(false);
+        bName = Ui.text(this, Ui.HEADLINE, 800, Ui.TEXT); bName.setLetterSpacing(0.02f);
+        bMeta = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_2);
+        bStatus = Ui.text(this, Ui.BODY, 600, 0xFFFF8A80); bStatus.setVisibility(View.GONE);
+        id.addView(bNum); id.addView(bName); id.addView(bMeta); id.addView(bStatus);
+        LinearLayout.LayoutParams il = new LinearLayout.LayoutParams(0, -2, 1); il.leftMargin = (int) dp(20);
+        main.addView(id, il);
+
+        LinearLayout right = new LinearLayout(this); right.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout chips = new LinearLayout(this);
+        chips.addView(pill("● LIVE", 0xFFFF453A, 0xFFFFFFFF));
+        bCat = pill("", 0x33FFFFFF, Ui.TEXT);
+        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.leftMargin = (int) dp(8);
+        chips.addView(bCat, cl);
+        right.addView(chips);
+        bNowTime = Ui.text(this, Ui.BODY, 600, Ui.TEXT); bNow = Ui.text(this, Ui.BODY, 700, Ui.TEXT);
+        bNextTime = Ui.text(this, Ui.BODY, 500, Ui.TEXT_2); bNext = Ui.text(this, Ui.BODY, 500, Ui.TEXT_2);
+        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2); rl.topMargin = (int) dp(10);
+        right.addView(scheduleRow(bNowTime, bNow), rl);
+        LinearLayout.LayoutParams rl2 = new LinearLayout.LayoutParams(-1, -2); rl2.topMargin = (int) dp(8);
+        right.addView(scheduleRow(bNextTime, bNext), rl2);
+        progressTrack = new FrameLayout(this);
+        android.graphics.drawable.GradientDrawable trk = new android.graphics.drawable.GradientDrawable(); trk.setColor(0x33FFFFFF); trk.setCornerRadius(dp(2));
+        progressTrack.setBackground(trk);
+        progress = new View(this);
+        android.graphics.drawable.GradientDrawable pg = new android.graphics.drawable.GradientDrawable(); pg.setColor(Ui.ACCENT); pg.setCornerRadius(dp(2));
+        progress.setBackground(pg);
+        progressTrack.addView(progress, new FrameLayout.LayoutParams(0, -1));
+        LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(-1, (int) dp(4)); pl.topMargin = (int) dp(14);
+        right.addView(progressTrack, pl);
+        main.addView(right, new LinearLayout.LayoutParams((int) dp(500), -2));
+        band.addView(main);
+
+        // remote colour-key legend
+        LinearLayout legend = new LinearLayout(this); legend.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        String[][] keys = {{"▲▼", "Ganti saluran"}, {"OK", "Daftar saluran"}, {"▶", "Info"}, {"↩", "Keluar"}};
+        int[] colors = {Ui.ACCENT, 0xFF30D158, 0xFFFFD60A, 0xFFFF453A};
+        for (int k = 0; k < keys.length; k++) {
+            View dot = new View(this); android.graphics.drawable.GradientDrawable dg = new android.graphics.drawable.GradientDrawable();
+            dg.setColor(colors[k]); dg.setCornerRadius(dp(2)); dot.setBackground(dg);
+            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams((int) dp(8), (int) dp(8)); dlp.leftMargin = (int) dp(k == 0 ? 0 : 26); dlp.rightMargin = (int) dp(8);
+            legend.addView(dot, dlp);
+            TextView lt = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_2); lt.setText(keys[k][0] + "  " + keys[k][1]);
+            legend.addView(lt);
+        }
+        LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-1, -2); ll.topMargin = (int) dp(18);
+        band.addView(legend, ll);
+
+        FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+        bl.setMargins((int) dp(Ui.SAFE_SIDE), 0, (int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP));
+        o.addView(band, bl);
+
+        // weather once, in the background
+        Net.bg.execute(() -> {
+            try {
+                double lat = Double.parseDouble(Cfg.s(this, "latitude", R.string.latitude)), lon = Double.parseDouble(Cfg.s(this, "longitude", R.string.longitude));
+                tech.kousozo.tahoetv.core.Web.Weather wx = tech.kousozo.tahoetv.core.Web.INSTANCE.weather(lat, lon);
+                if (wx != null) ui.post(() -> { tTemp.setText(wx.getTempC() + "°"); tCond.setText(wx.getLabel() + "  ·  " + Cfg.s(this, "city", R.string.city)); });
+            } catch (Exception ignored) {}
+        });
+        tick();
+        return o;
     }
 
     void buildRows() {
         rows.removeAllViews();
+        Instant now = Instant.now();
         for (int k = 0; k < list.size(); k++) {
             LocalTv.Entry e = list.get(k);
-            TextView t = Ui.text(this, Ui.BODY, 500, Ui.TEXT);
-            t.setText((k + 1) + "   " + e.getName());
-            t.setPadding((int) dp(14), (int) dp(10), (int) dp(14), (int) dp(10));
-            t.setShadowLayer(0, 0, 0, 0); t.setFocusable(true); t.setFocusableInTouchMode(true);
+            LinearLayout r = new LinearLayout(this); r.setGravity(Gravity.CENTER_VERTICAL);
+            r.setPadding((int) dp(10), (int) dp(8), (int) dp(12), (int) dp(8));
+            r.setFocusable(true); r.setFocusableInTouchMode(true);
+            TextView num = Ui.text(this, Ui.CAPTION, 600, Ui.TEXT_3); num.setText(String.format(java.util.Locale.ROOT, "%03d", k + 1));
+            r.addView(num, new LinearLayout.LayoutParams((int) dp(34), -2));
+            FrameLayout tile = new FrameLayout(this);
+            android.graphics.drawable.GradientDrawable tg = new android.graphics.drawable.GradientDrawable(); tg.setColor(0xF5FFFFFF); tg.setCornerRadius(dp(8));
+            tile.setBackground(tg);
+            android.widget.ImageView iv = new android.widget.ImageView(this); iv.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+            iv.setPadding((int) dp(4), (int) dp(4), (int) dp(4), (int) dp(4));
+            TextView it = Ui.text(this, Ui.CAPTION, 800, 0xFF111114); it.setShadowLayer(0, 0, 0, 0); it.setGravity(Gravity.CENTER);
+            tile.addView(it, new FrameLayout.LayoutParams(-1, -1)); tile.addView(iv, new FrameLayout.LayoutParams(-1, -1));
+            Logos.into(e.getChannel().getLogo(), iv, it, e.getName());
+            r.addView(tile, new LinearLayout.LayoutParams((int) dp(54), (int) dp(36)));
+            LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
+            TextView name = Ui.text(this, Ui.BODY, 600, Ui.TEXT); name.setText(e.getName()); name.setShadowLayer(0, 0, 0, 0);
+            List<Epg.Programme> s = epg == null ? null : epg.schedule(e.getName(), now);
+            Epg.Programme p = s != null && !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
+            TextView sub = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); sub.setText(p != null ? p.getTitle() : e.getCategory().getLabel()); sub.setShadowLayer(0, 0, 0, 0);
+            col.addView(name); col.addView(sub);
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -2, 1); cp.leftMargin = (int) dp(12);
+            r.addView(col, cp);
             int i = k;
-            t.setOnFocusChangeListener((v, f) -> v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null));
-            t.setOnClickListener(v -> { guide.setVisibility(View.GONE); tune(i); });
-            rows.addView(t);
+            r.setOnFocusChangeListener((v, f) -> {
+                v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null);
+                v.animate().scaleX(f ? 1.03f : 1f).scaleY(f ? 1.03f : 1f).setDuration(Ui.FAST).start();
+            });
+            r.setOnClickListener(v -> { guide.setVisibility(View.GONE); tune(i); });
+            rows.addView(r);
         }
     }
 
