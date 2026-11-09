@@ -134,14 +134,17 @@ final class Hero extends FrameLayout {
         String k = "app:" + key;
         contextual = k;
         decoder.execute(() -> {
-            int sw = 64, sh = 36; // tiny on purpose: upscaling gives a cheap blur (no RenderScript on a 1 GB stick)
-            Bitmap small = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888);
-            android.graphics.Canvas c = new android.graphics.Canvas(small);
+            // Blur without RenderScript: draw small, shrink further, then grow back in 2x bilinear steps.
+            // Each step smooths a little, so even on a 4K panel the result is soft instead of blocky.
+            int sw = 160, sh = 90;
+            Bitmap b = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888);
+            android.graphics.Canvas c = new android.graphics.Canvas(b);
             art.mutate(); android.graphics.Rect old = art.copyBounds();
             art.setBounds(0, 0, sw, sh); art.draw(c); art.setBounds(old);
-            int H = getResources().getDisplayMetrics().heightPixels;
-            Bitmap big = Bitmap.createScaledBitmap(small, W / 4, H / 4, true);
-            Bitmap out = Bitmap.createScaledBitmap(big, W / 2, H / 2, true);
+            for (int w = sw / 2; w >= 20; w /= 2) b = Bitmap.createScaledBitmap(b, w, w * 9 / 16, true);
+            int H = getResources().getDisplayMetrics().heightPixels, target = Math.min(W / 2, 1280);
+            for (int w = b.getWidth() * 2; w <= target; w *= 2) b = Bitmap.createScaledBitmap(b, w, w * 9 / 16, true);
+            Bitmap out = Bitmap.createScaledBitmap(b, target, target * H / Math.max(1, W), true);
             new android.graphics.Canvas(out).drawColor(0x40000000);
             ui.post(() -> { if (k.equals(contextual)) crossfade(out, k, true); });
         });
