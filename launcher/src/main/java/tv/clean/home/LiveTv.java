@@ -97,6 +97,9 @@ public class LiveTv extends Activity {
         setContentView(root);
 
         player = new ExoPlayer.Builder(this).build();
+        // Handle audio focus: pause for the adzan (and other transient sounds), resume after.
+        player.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder()
+                .setUsage(androidx.media3.common.C.USAGE_MEDIA).setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE).build(), true);
         player.setVideoSurfaceView(surface);
         player.addListener(new Player.Listener() {
             @Override public void onPlayerError(PlaybackException e) {
@@ -196,7 +199,8 @@ public class LiveTv extends Activity {
             long now = System.currentTimeMillis(), pos = player.getCurrentPosition();
             boolean moving = player.isPlaying() && pos != lastPos;
             int state = player.getPlaybackState();
-            if (moving || !player.getPlayWhenReady()) { lastPos = pos; stuckSince = now; } // paused on purpose isn't stuck
+            // paused on purpose, or paused for the adzan (audio focus), isn't stuck
+            if (moving || !player.getPlayWhenReady() || player.getPlaybackSuppressionReason() != Player.PLAYBACK_SUPPRESSION_REASON_NONE) { lastPos = pos; stuckSince = now; }
             if (!everReady && now - sourceStarted > 20_000) nextSource();
             // Buffering is ExoPlayer's job: give it 30 s. "Ready" but the picture not moving for 12 s = frozen.
             else if (lastPos >= 0 && now - stuckSince > (state == Player.STATE_BUFFERING ? 30_000 : 12_000)) recover();

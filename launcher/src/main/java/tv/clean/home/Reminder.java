@@ -26,7 +26,12 @@ public final class Reminder extends BroadcastReceiver {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
         boolean on = !keys.remove(key);
-        if (on) { keys.add(key); am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, start, pi); } else am.cancel(pi);
+        if (on) {
+            keys.add(key);
+            // exact, like the adzan alarm (an inexact one fired up to ~50 min late on the Mi TV)
+            if (android.os.Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, start, pi);
+            else am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, start, pi);
+        } else am.cancel(pi);
         prefs(c).edit().putStringSet("keys", keys).apply();
         return on;
     }
