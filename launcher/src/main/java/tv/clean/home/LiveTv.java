@@ -99,7 +99,11 @@ public class LiveTv extends Activity {
         player = new ExoPlayer.Builder(this).build();
         player.setVideoSurfaceView(surface);
         player.addListener(new Player.Listener() {
-            @Override public void onPlayerError(PlaybackException e) { recover(); }
+            @Override public void onPlayerError(PlaybackException e) {
+                // Fell out of the stream's live window: rejoin at the live point (not a failure of the source).
+                if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) { player.seekToDefaultPosition(); player.prepare(); return; }
+                recover();
+            }
             @Override public void onPlaybackStateChanged(int s) {
                 if (s == Player.STATE_READY) { if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), true); everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
             }
@@ -174,13 +178,14 @@ public class LiveTv extends Activity {
 
     boolean everReady; int retries;
 
-    /** A source that already played and then hiccups (rebuffer, network blip, fell behind the live window)
-     *  is reconnected at the live edge; only a source that never played, or keeps failing, moves to the backup. */
+    /** A source that already played and then errors or freezes reconnects and carries on from the same spot
+     *  (seeking to the "default position" here used to jump ~15 s back); only a source that never played, or keeps
+     *  failing, moves to the backup. */
     void recover() {
         if (!everReady || retries >= 3) { nextSource(); return; }
         retries++; stuckSince = System.currentTimeMillis(); lastPos = -1;
         loading.setText("Menyambung ulang…"); loading.setVisibility(View.VISIBLE);
-        ui.postDelayed(() -> { player.seekToDefaultPosition(); player.prepare(); player.play(); }, 1000);
+        ui.postDelayed(() -> { player.prepare(); player.play(); }, 1000);
     }
 
     long lastPos = -1, stuckSince;
@@ -190,9 +195,11 @@ public class LiveTv extends Activity {
         if (player != null && index >= 0 && source < streams().size()) {
             long now = System.currentTimeMillis(), pos = player.getCurrentPosition();
             boolean moving = player.isPlaying() && pos != lastPos;
-            if (moving) { lastPos = pos; stuckSince = now; }
+            int state = player.getPlaybackState();
+            if (moving || !player.getPlayWhenReady()) { lastPos = pos; stuckSince = now; } // paused on purpose isn't stuck
             if (!everReady && now - sourceStarted > 20_000) nextSource();
-            else if (lastPos >= 0 && now - stuckSince > 12_000) recover();
+            // Buffering is ExoPlayer's job: give it 30 s. "Ready" but the picture not moving for 12 s = frozen.
+            else if (lastPos >= 0 && now - stuckSince > (state == Player.STATE_BUFFERING ? 30_000 : 12_000)) recover();
         }
         ui.postDelayed(this, 2000);
     }};
