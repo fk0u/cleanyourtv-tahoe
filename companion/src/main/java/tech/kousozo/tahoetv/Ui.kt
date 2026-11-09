@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,7 +50,7 @@ fun TahoeTheme(content: @Composable () -> Unit) = MaterialTheme(
         onBackground = Tahoe.Text, onSurface = Tahoe.Text, surfaceVariant = Tahoe.Glass, onSurfaceVariant = Tahoe.Dim,
         secondary = Tahoe.Accent, outline = Tahoe.Stroke, error = Tahoe.Bad,
     ),
-    content = content,
+    content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, content = content) }, // light text outside Surfaces too
 )
 
 /** Slow-drifting colour blobs behind everything: the Tahoe wallpaper feel without an image (GPU-cheap). */

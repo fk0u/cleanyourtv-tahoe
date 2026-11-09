@@ -316,11 +316,16 @@ public class Home extends Activity implements Companion.Listener, Tools {
     List<String> dockPackages() {
         String saved = prefs.getString(dockKey(), null);
         List<String> defaults = new ArrayList<>(Arrays.asList(getResources().getStringArray(R.array.dock_apps)));
+        defaults.add(0, LiveTv.PKG); // built-in Live TV leads every default dock
         if (saved == null) return defaults;
         List<String> l = saved.isEmpty() ? new ArrayList<>() : new ArrayList<>(Arrays.asList(saved.split(",")));
         if (!guest() && !prefs.getBoolean("dock_v2", false)) { // one-time: grow an old 4-app dock with the new defaults
             for (String p : defaults) if (!l.contains(p)) l.add(p);
             prefs.edit().putBoolean("dock_v2", true).putString("dock", android.text.TextUtils.join(",", l)).apply();
+        }
+        if (!guest() && !prefs.getBoolean("dock_live", false)) { // one-time: put the built-in Live TV first
+            l.remove(LiveTv.PKG); l.add(0, LiveTv.PKG);
+            prefs.edit().putBoolean("dock_live", true).putString("dock", android.text.TextUtils.join(",", l)).apply();
         }
         return l;
     }
@@ -356,6 +361,12 @@ public class Home extends Activity implements Companion.Listener, Tools {
                     found.put(a.pkg, a);
                 }
             }
+            // Built-in Live TV (free channels with EPG), listed like any other app.
+            App live = new App();
+            live.pkg = LiveTv.PKG; live.label = "Live TV"; live.system = true;
+            live.launch = new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            live.banner = LiveTv.banner(this); live.color = Ui.average(live.banner);
+            found.put(live.pkg, live);
             List<App> d = new ArrayList<>();
             for (String p : dockPackages()) { App a = found.get(p); if (a != null && d.size() < dockSize) d.add(a); }
             List<App> everything = new ArrayList<>(found.values());
@@ -588,7 +599,13 @@ public class Home extends Activity implements Companion.Listener, Tools {
             if (row == 0) ui.postDelayed(trendTick, 7000);
             return;
         }
-        hero.context(null);
+        if (a != null) hero.context(a.banner, a.pkg); // the focused app's own artwork fills the background
+        else hero.context(null);
+        if (a != null && a.pkg.equals(LiveTv.PKG)) {
+            hero.text("Bawaan Tahoe", "Live TV", "Trans TV, Trans7, RCTI, SCTV, TVRI dan TV lokal · jadwal acara");
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Tonton Live TV");
+            return;
+        }
         if (a != null) {
             hero.text(a.system ? "Aplikasi sistem" : "Di dock", a.label, "Tahan OK untuk opsi");
             heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Buka " + a.label);

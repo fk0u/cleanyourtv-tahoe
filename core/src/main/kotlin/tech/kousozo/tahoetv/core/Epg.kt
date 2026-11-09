@@ -57,8 +57,8 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
                     }
                 }
             }
-            out.values.forEach { l -> l.sortBy { it.start } }
-            return Epg(out)
+            // sort, then drop duplicates/overlaps some guides contain (same show listed twice)
+            return Epg(out.mapValues { (_, l) -> l.sortedBy { it.start }.fold(mutableListOf<Programme>()) { acc, p -> if (acc.isEmpty() || p.start >= acc.last().stop) acc += p; acc } })
         }
 
         fun load(url: String = DEFAULT) = parse(Web.get(url, 60_000))
