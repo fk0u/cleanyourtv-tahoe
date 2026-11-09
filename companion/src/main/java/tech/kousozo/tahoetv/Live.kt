@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -89,12 +90,14 @@ fun LiveScreen() {
         }
         if (full) return@Column
         Column(Modifier.padding(horizontal = 20.dp).padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("TV Live", fontSize = 34.sp, fontWeight = FontWeight.Bold)
+            if (playing == null) Text("TV Live", fontSize = 34.sp, fontWeight = FontWeight.Bold)
             playing?.let { e ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    ChannelLogo(e, Modifier.size(56.dp, 38.dp)); Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(e.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                        nowOn(epg, e, now)?.let { Text("Sekarang: ${it.title}", color = Tahoe.Accent, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        Row(verticalAlignment = Alignment.CenterVertically) { Pill("LIVE", Color(0xFFFF453A), filled = true); Spacer(Modifier.width(8.dp))
+                            Text(e.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
+                        nowOn(epg, e, now)?.let { Text("${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}", color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                     val p = remember { Sync.prefs(c) }
                     if (p.getString("token", "").orEmpty().isNotEmpty())
@@ -120,13 +123,25 @@ fun LiveScreen() {
             LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp), contentPadding = PaddingValues(bottom = TabInset)) {
                 items(l.filter { cat == null || LocalTv.inCategory(it, cat!!) }, key = { it.channel.url }) { e ->
                     val on = e == playing
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (on) Color.White.copy(alpha = 0.12f) else Color.Transparent)
-                        .clickable { playing = e }.padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val prog = nowOn(epg, e, now)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(18.dp))
+                        .background(if (on) Color.White.copy(alpha = 0.14f) else Tahoe.Glass).clickable { playing = e }.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        ChannelLogo(e, Modifier.size(72.dp, 48.dp))
+                        Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(e.name, fontSize = 15.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium)
-                            Text(nowOn(epg, e, now)?.let { "${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}" } ?: e.category.label,
-                                color = if (nowOn(epg, e, now) != null) Tahoe.Accent else Tahoe.Faint, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(e.name, Modifier.weight(1f, fill = false), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (prog != null) { Spacer(Modifier.width(6.dp)); Pill("EPG", Tahoe.Faint) }
+                            }
+                            Text(prog?.title ?: e.category.label, color = if (prog != null) Tahoe.Dim else Tahoe.Faint, fontSize = 12.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            prog?.let { pr ->
+                                LinearProgressIndicator({ progress(pr, now) }, Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp).clip(RoundedCornerShape(2.dp)),
+                                    color = if (on) Tahoe.Accent else Tahoe.Dim, trackColor = Tahoe.Stroke)
+                            }
                         }
+                        Spacer(Modifier.width(8.dp))
                         Icon(if (on) Icons.Rounded.GraphicEq else Icons.Rounded.PlayCircle, null, tint = if (on) Tahoe.Accent else Tahoe.Dim)
                     }
                 }
@@ -163,6 +178,11 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
     }
     Box(Modifier.fillMaxSize()) {
         AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } }, Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.55f)))))
+        Row(Modifier.align(Alignment.TopStart).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Pill("LIVE", Color(0xFFFF453A), filled = true); Spacer(Modifier.width(8.dp))
+            Text(e.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        }
         message?.let {
             Text(it, Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp),
                 color = Color.White, fontSize = 14.sp)
@@ -185,3 +205,20 @@ private var epgCache: Epg? = null
 
 /** The TV launcher's built-in Live TV (its pseudo package in the app list). */
 const val TV_LIVE = "tv.clean.home.livetv"
+
+@Composable
+private fun ChannelLogo(e: LocalTv.Entry, modifier: Modifier) = Box(
+    modifier.clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center,
+) {
+    val img = rememberNetImage(e.channel.logo)
+    if (img != null) androidx.compose.foundation.Image(img, e.name, Modifier.padding(6.dp).fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+    else Text(e.name.take(3).uppercase(), color = Color(0xFF111114), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+}
+
+@Composable
+private fun Pill(text: String, color: Color, filled: Boolean = false) = Text(text,
+    Modifier.clip(RoundedCornerShape(6.dp)).background(if (filled) color else color.copy(alpha = 0.18f)).padding(horizontal = 6.dp, vertical = 1.dp),
+    color = if (filled) Color.White else color, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+
+private fun progress(p: Epg.Programme, now: Instant) =
+    ((now.epochSecond - p.start.epochSecond).toFloat() / (p.stop.epochSecond - p.start.epochSecond).coerceAtLeast(1)).coerceIn(0f, 1f)
