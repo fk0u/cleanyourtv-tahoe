@@ -121,6 +121,7 @@ final class Prayer {
         File dir = c.getExternalFilesDir("adzan");
         File own = dir == null ? null : new File(dir, subuh ? "adzan_subuh.mp3" : "adzan.mp3");
         stop();
+        focus(c, true); // Live TV, YouTube, music… pause while the adzan and du'a play, and resume after
         if (start(c, own != null && own.exists() ? own : null, subuh ? R.raw.adzan_subuh : R.raw.adzan,
                 () -> { if (!start(c, null, R.raw.doa_adzan, Prayer::stop)) stop(); })) return;
         ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_ALARM, 70);
@@ -142,7 +143,22 @@ final class Prayer {
         } catch (Exception e) { return false; }
     }
 
-    static void stop() { if (player != null) { try { player.release(); } catch (Exception ignored) {} player = null; } }
+    static android.media.AudioFocusRequest focusRequest;
+    static AudioManager focusAm;
+
+    static void focus(Context c, boolean take) {
+        AudioManager am = focusAm = (AudioManager) c.getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+        if (take) {
+            focusRequest = new android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()).build();
+            am.requestAudioFocus(focusRequest);
+        } else if (focusRequest != null) { am.abandonAudioFocusRequest(focusRequest); focusRequest = null; }
+    }
+
+    static void stop() {
+        if (player != null) { try { player.release(); } catch (Exception ignored) {} player = null; }
+        if (focusRequest != null && focusAm != null) { focusAm.abandonAudioFocusRequest(focusRequest); focusRequest = null; } // others resume
+    }
 
     // ---- sheet: editorial detail on the left, timeline list on the right ----
 
