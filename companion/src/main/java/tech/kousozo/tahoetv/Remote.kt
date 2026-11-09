@@ -108,11 +108,10 @@ fun RemoteScreen() {
             IconButton({ if (q.isNotBlank()) { link.ask(q.trim()); q = "" } }) { Icon(Icons.AutoMirrored.Rounded.Send, "Kirim", tint = Tahoe.Accent) }
         })
 
-        WhatsOn { link.launch(BITTV) }
+        WhatsOn { link.launch(TV_LIVE) }
     }
 }
 
-const val BITTV = "com.live_streaming_tv.online_tv"
 
 /** What's on now on Indonesian TV, local channels first (same list as the TV's "Jadwal TV"). Tapping opens BitTV on the TV. */
 @Composable
@@ -134,7 +133,7 @@ private fun WhatsOn(open: (LocalTv.Entry) -> Unit) {
     val cats = LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }
     if (cat !in cats) cat = cats.firstOrNull() ?: return
     Section("Sedang tayang")
-    Text("Ketuk saluran untuk menonton di BitTV pada TV.", color = Tahoe.Dim, fontSize = 13.sp)
+    Text("Ketuk saluran untuk membuka Live TV di TV.", color = Tahoe.Dim, fontSize = 13.sp)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         cats.forEach { k ->
             val on = k == cat

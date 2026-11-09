@@ -13,9 +13,13 @@ object LocalTv {
                      val partTime: Boolean, val geoBlocked: Boolean, val rank: Int, val alternates: List<M3u.Channel> = emptyList())
 
     /** National free-to-air in the usual remote-button order; index = rank. */
-    private val NATIONAL = listOf("tvri", "rcti", "sctv", "indosiar", "antv", "gtv", "mnctv", "inews", "metro tv", "tvone",
-        "kompas tv", "trans tv", "trans7", "net", "rtv", "moji", "mdtv", "nusantara tv", "garuda tv", "btv", "cnn indonesia",
-        "cnbc indonesia", "beritasatu", "jak tv", "tvri sport", "tvri world")
+    /** The main national channels, in this order, always at the top of every list. */
+    val PRIORITY = listOf("trans tv", "trans7", "rcti", "mnctv", "gtv", "sctv", "antv", "indosiar", "tvone", "btv", "rtv",
+        "cnn indonesia", "cnbc indonesia")
+
+    /** National free-to-air; index = rank (PRIORITY first). */
+    private val NATIONAL = PRIORITY + listOf("tvri", "inews", "metro tv", "kompas tv", "net", "moji", "mdtv", "nusantara tv",
+        "garuda tv", "beritasatu", "jak tv", "tvri sport", "tvri world")
 
     /** Different spellings across playlists → one name, so sources merge into one row with backups. */
     private val ALIAS = mapOf("tvri nasional" to "TVRI", "tvri world" to "TVRI World", "tvri sport" to "TVRI Sport", "tv one" to "tvOne",
@@ -118,7 +122,7 @@ object LocalTv {
                 val sorted = dupes.sortedWith(compareBy({ it.partTime }, { it.channel.headers.isNotEmpty() }))
                 sorted.first().copy(alternates = sorted.drop(1).map { it.channel })
             }
-            .sortedWith(compareBy({ !it.near }, { it.category.ordinal }, { it.rank }, { it.partTime }, { it.name.lowercase() }))
+            .sortedWith(compareBy({ it.rank >= PRIORITY.size }, { !it.near }, { it.category.ordinal }, { it.rank }, { it.partTime }, { it.name.lowercase() }))
     }
 
     fun inCategory(e: Entry, c: Category) = if (c == Category.Near) e.near else e.category == c

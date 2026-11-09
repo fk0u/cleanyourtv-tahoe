@@ -33,7 +33,7 @@ class LocalTvTest {
         assertEquals(emptyList(), LocalTv.nearKeywords(null))
         val list = LocalTv.arrange(listOf(ch("Jogja TV"), ch("SCTV"), ch("TVRI East Kalimantan (720p)"), ch("RCTI HD (1080p)"),
             ch("Balikpapan TV (720p)"), ch("RCTI [Not 24/7]")), "Kalimantan Timur")
-        assertEquals(listOf("TVRI Kalimantan Timur", "Balikpapan TV", "RCTI", "SCTV", "Jogja TV"), list.map { it.name })
+        assertEquals(listOf("RCTI", "SCTV", "TVRI Kalimantan Timur", "Balikpapan TV", "Jogja TV"), list.map { it.name }) // national priority first, then near you
         val rcti = list.first { it.name == "RCTI" }
         assertEquals(false, rcti.partTime)          // the 24/7 stream leads
         assertEquals(1, rcti.alternates.size)       // the other one is kept as a backup

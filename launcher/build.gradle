@@ -14,8 +14,8 @@ android {
         applicationId "tv.clean.home"
         minSdk 26
         targetSdk 34
-        versionCode 10
-        versionName "2.5.1"
+        versionCode 11
+        versionName "2.6.0"
         buildConfigField "String", "YOUTUBE_API_KEY", secret("youtube.apiKey")
         buildConfigField "String", "GEMINI_API_KEY", secret("gemini.apiKey")
         buildConfigField "String", "TMDB_API_KEY", secret("tmdb.apiKey")
@@ -45,4 +45,6 @@ dependencies {
     // Jadwal TV: channel list / EPG / local-TV logic shared with the phone and desktop apps (ADB/WebSocket clients left out).
     // Watching itself happens in BitTV.
     implementation(project(":core")) { exclude group: "dev.mobile"; exclude group: "org.java-websocket" }
+    implementation "androidx.media3:media3-exoplayer:1.5.1"       // built-in Live TV player (HLS)
+    implementation "androidx.media3:media3-exoplayer-hls:1.5.1"
 }

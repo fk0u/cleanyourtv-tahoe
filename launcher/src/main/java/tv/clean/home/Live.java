@@ -25,8 +25,7 @@ import tech.kousozo.tahoetv.core.Sources;
 import tech.kousozo.tahoetv.core.Web;
 
 /** "Jadwal TV": what's on now and next on Indonesian channels, local TV first ("Dekat kamu" by province,
- *  national, TVRI regional, local). Watching happens in BitTV: choosing a channel opens it, so BitTV works like
- *  Tahoe's built-in TV app. Channels: free Indonesian TV from iptv-org + dhanytv (no paid/DRM channels);
+ *  national, TVRI regional, local). Choosing a channel plays it in Tahoe's built-in Live TV player. Channels: free Indonesian TV from iptv-org + dhanytv (no paid/DRM channels);
  *  guide: dhanytv + epg.pw (both replaceable via Config). */
 public class Live extends Activity {
     static final String TV_APP = "com.live_streaming_tv.online_tv"; // BitTV
@@ -69,7 +68,7 @@ public class Live extends Activity {
         dNow = Ui.text(this, Ui.HEADLINE, 600, Ui.ACCENT);
         dDesc = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); dDesc.setSingleLine(false); dDesc.setMaxLines(4);
         dNext = Ui.text(this, Ui.BODY, 400, Ui.TEXT); dNext.setSingleLine(false); dNext.setMaxLines(6); dNext.setLineSpacing(dp(4), 1);
-        dHint = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); dHint.setText("OK  ·  tonton di BitTV");
+        dHint = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); dHint.setText("OK  ·  tonton di Live TV");
         d.addView(dCat); d.addView(dName, lp(4)); d.addView(dNow, lp(18)); d.addView(dDesc, lp(6)); d.addView(dNext, lp(18));
         View spacer = new View(this); d.addView(spacer, new LinearLayout.LayoutParams(0, 0, 1)); d.addView(dHint);
         LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams((int) dp(380), -1); dl.leftMargin = (int) dp(20);
@@ -87,31 +86,39 @@ public class Live extends Activity {
     // ------------------------------------------------------------------ data
 
     void load() {
-        if (cached != null && System.currentTimeMillis() - cachedAt < 6 * 3600_000L) { ready(cached); return; }
+        fetch(this, l -> { sub.setText(subtitle(Cfg.p(this).getString("province", ""))); ready(l); },
+                e -> { buildRows(); View f = getCurrentFocus(); if (f != null && f.getTag() instanceof LocalTv.Entry) detail((LocalTv.Entry) f.getTag()); },
+                () -> sub.setText("Daftar saluran tidak bisa dimuat. Cek internet, lalu buka lagi."));
+    }
+
+    /** Channel list + guide, cached for 6 h and shared with the Live TV player. Callbacks run on the main thread. */
+    static void fetch(android.content.Context c, java.util.function.Consumer<List<LocalTv.Entry>> list,
+                      java.util.function.Consumer<Epg> guide, Runnable failed) {
+        Handler main = new Handler(Looper.getMainLooper());
+        boolean fresh = cached != null && System.currentTimeMillis() - cachedAt < 6 * 3600_000L;
+        if (fresh) { list.accept(cached); if (epg != null) { guide.accept(epg); return; } }
         Net.bg.execute(() -> {
             try {
-                SharedPreferences cfg = Cfg.p(this);
-                String province = cfg.getString("province", "");
-                if (province.isEmpty()) { // learn it once from the configured city ("Samarinda" → "Kalimantan Timur")
-                    Web.Place p = Web.INSTANCE.geocode(Cfg.s(this, "city", R.string.city));
-                    if (p != null && !p.getRegion().isEmpty()) { province = p.getRegion(); cfg.edit().putString("province", province).apply(); }
+                SharedPreferences cfg = Cfg.p(c);
+                if (!fresh) {
+                    String province = cfg.getString("province", "");
+                    if (province.isEmpty()) { // learn it once from the configured city ("Samarinda" → "Kalimantan Timur")
+                        Web.Place p = Web.INSTANCE.geocode(Cfg.s(c, "city", R.string.city));
+                        if (p != null && !p.getRegion().isEmpty()) { province = p.getRegion(); cfg.edit().putString("province", province).apply(); }
+                    }
+                    // built-in free sources (+ a custom playlist from the phone/desktop), filtered the same way
+                    List<LocalTv.Entry> l = LocalTv.INSTANCE.arrange(Sources.INSTANCE.load(cfg.getString("playlist_url", "")), province);
+                    main.post(() -> { cached = l; cachedAt = System.currentTimeMillis(); list.accept(l); });
                 }
-                // blank = built-in sources (iptv-org + dhanytv free TV); a custom playlist is filtered the same way
-                List<LocalTv.Entry> l = LocalTv.INSTANCE.arrange(Sources.INSTANCE.load(cfg.getString("playlist_url", "")), province);
-                String finalProvince = province;
-                ui.post(() -> { cached = l; cachedAt = System.currentTimeMillis(); sub.setText(subtitle(finalProvince)); ready(l); });
                 String guideUrl = cfg.getString("epg_url", "");
                 Epg e = guideUrl.isEmpty() ? Epg.Companion.load(Sources.INSTANCE.getEPG()) : Epg.Companion.load(guideUrl);
-                ui.post(() -> { epg = e; buildRows(); View f = getCurrentFocus(); if (f != null && f.getTag() instanceof LocalTv.Entry) detail((LocalTv.Entry) f.getTag()); });
-            } catch (Exception e) {
-                ui.post(() -> sub.setText("Daftar saluran tidak bisa dimuat. Cek internet, lalu buka lagi."));
-            }
+                main.post(() -> { epg = e; guide.accept(e); });
+            } catch (Exception ex) { main.post(failed); }
         });
     }
 
     String subtitle(String province) {
-        boolean bittv = getPackageManager().getLaunchIntentForPackage(TV_APP) != null || getPackageManager().getLeanbackLaunchIntentForPackage(TV_APP) != null;
-        return (province.isEmpty() ? "TV Indonesia" : "TV lokal " + province) + (bittv ? "  ·  ditonton lewat BitTV" : "  ·  pasang BitTV untuk menonton");
+        return (province.isEmpty() ? "TV Indonesia" : "TV lokal " + province) + "  ·  OK untuk menonton di Live TV";
     }
 
     void ready(List<LocalTv.Entry> l) {
@@ -192,12 +199,9 @@ public class Live extends Activity {
 
     // ------------------------------------------------------------------ watch in BitTV
 
+    /** Watch in Tahoe's own Live TV player, starting at this channel. */
     void watch(LocalTv.Entry e) {
-        Intent i = getPackageManager().getLeanbackLaunchIntentForPackage(TV_APP);
-        if (i == null) i = getPackageManager().getLaunchIntentForPackage(TV_APP);
-        if (i == null) { Toast.makeText(this, "BitTV belum terpasang di TV ini", Toast.LENGTH_LONG).show(); return; }
-        Toast.makeText(this, "Buka " + e.getName() + " di BitTV", Toast.LENGTH_SHORT).show();
-        startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        startActivity(new Intent(this, LiveTv.class).putExtra("url", e.getChannel().getUrl()));
     }
 
     @Override public boolean onKeyDown(int code, KeyEvent e) {

@@ -15,6 +15,7 @@ class EpgTest {
             <title>Pagi</title>
           </programme>
           <programme start="20261108120000 +0700" stop="20261108130000 +0700" channel="9"><title>Orphan</title></programme>
+          <programme start="20261108120000 +0700" stop="20261108130000 +0700" channel="1"><title>Metro Siang &amp; Berita</title></programme>
           <programme start="20261108120000 +0700" stop="20261108130000 +0700" channel="2"><title>Jadwal belum tersedia</title></programme>
         </tv>
     """.trimIndent()
