@@ -7,8 +7,13 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -187,3 +192,26 @@ fun TabBar(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int)
         }
     }
 }
+
+/** Remote images (channel logos) with an in-memory cache; null while loading or on failure. */
+@Composable
+fun rememberNetImage(url: String?): androidx.compose.ui.graphics.ImageBitmap? {
+    var img by remember(url) { mutableStateOf(url?.let { NetImages.cache.get(it) }) }
+    LaunchedEffect(url) {
+        if (url == null || img != null) return@LaunchedEffect
+        img = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val c = java.net.URL(url).openConnection().apply { connectTimeout = 6000; readTimeout = 10000; setRequestProperty("User-Agent", "TahoeTV") }
+                val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }
+                android.graphics.BitmapFactory.decodeStream(c.getInputStream(), null, o)?.let { b ->
+                    // logos only need ~200 px: keep memory small
+                    val s = minOf(1f, 200f / maxOf(b.width, b.height))
+                    (if (s < 1f) android.graphics.Bitmap.createScaledBitmap(b, (b.width * s).toInt().coerceAtLeast(1), (b.height * s).toInt().coerceAtLeast(1), true) else b)
+                }?.asImageBitmap()
+            }.getOrNull()?.also { b: androidx.compose.ui.graphics.ImageBitmap -> NetImages.cache.put(url, b) }
+        }
+    }
+    return img
+}
+
+object NetImages { val cache = android.util.LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(200) }

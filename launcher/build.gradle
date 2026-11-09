@@ -19,8 +19,8 @@ android {
         applicationId "tech.kousozo.tahoetv.launcher" // registered in Android Developer Console; classes stay in tv.clean.home
         minSdk 26
         targetSdk 34
-        versionCode 12
-        versionName "2.7.0"
+        versionCode 13
+        versionName "2.8.0"
         buildConfigField "String", "YOUTUBE_API_KEY", secret("youtube.apiKey")
         buildConfigField "String", "GEMINI_API_KEY", secret("gemini.apiKey")
         buildConfigField "String", "TMDB_API_KEY", secret("tmdb.apiKey")

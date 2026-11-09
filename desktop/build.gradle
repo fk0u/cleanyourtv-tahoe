@@ -44,7 +44,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi)
             packageName = "Tahoe TV"
-            packageVersion = "2.7.0"
+            packageVersion = "2.8.0"
             description = "Tahoe TV untuk desktop"
             vendor = "kousozo"
             modules("java.net.http", "jdk.httpserver", "jdk.unsupported", "jdk.unsupported.desktop", "java.naming", "jdk.crypto.ec") // unsupported.desktop: JavaFX-in-Swing (TV Live player)

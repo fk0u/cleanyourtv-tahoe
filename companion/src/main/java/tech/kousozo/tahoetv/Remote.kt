@@ -1,22 +1,31 @@
 package tech.kousozo.tahoetv
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -25,24 +34,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import tech.kousozo.tahoetv.core.TvLink
-import tech.kousozo.tahoetv.core.Epg
-import tech.kousozo.tahoetv.core.LocalTv
-import tech.kousozo.tahoetv.core.Sources
-import tech.kousozo.tahoetv.core.Web
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
-/** Native remote: swipe touchpad (like the Siri Remote) + tap = OK, system keys, volume, app shortcuts, and
- *  "ask the TV" (Gemini on the TV). Uses the paired WebSocket, so it works on any TV running Tahoe, no ADB. */
+/** Phone remote, laid out like a physical one: TV pill on top, a big ring D-pad (tap the ring edges, tap the centre
+ *  for OK, or swipe anywhere on it), back/home/mute, volume and channel rockers with Live TV between them, then
+ *  shortcut and media rows, and "ask the TV". Talks to the TV over the paired WebSocket (no ADB needed). */
 @Composable
 fun RemoteScreen() {
     val c = LocalContext.current
@@ -54,116 +54,130 @@ fun RemoteScreen() {
     val haptic = LocalHapticFeedback.current
     fun key(k: String) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); link?.key(k) }
 
-    Page("Remote", if (link == null) "Belum tersambung" else if (online) "TV siap" else "Menyambung…", bottomInset = TabInset) {
-        if (link == null) { Note("Sambungkan TV dulu di tab Beranda (kode dari Pusat Kontrol → HP), atau pasang Tahoe dari tab TV.", Icons.Rounded.Info); return@Page }
 
-        // touchpad: swipe = arrows, tap = OK
-        var acc by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-        Box(
-            Modifier.fillMaxWidth().aspectRatio(1.1f).clip(RoundedCornerShape(32.dp))
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f), Color.White.copy(alpha = 0.04f))))
-                .border(1.dp, Tahoe.Stroke, RoundedCornerShape(32.dp))
-                .pointerInput(link) { detectTapGestures { key("ok") } }
-                .pointerInput(link) {
-                    detectDragGestures(onDragEnd = { acc = androidx.compose.ui.geometry.Offset.Zero }) { ch, d ->
-                        ch.consume(); acc += d
-                        val step = 70f
-                        if (abs(acc.x) > step || abs(acc.y) > step) {
-                            key(if (abs(acc.x) > abs(acc.y)) (if (acc.x > 0) "right" else "left") else (if (acc.y > 0) "down" else "up"))
-                            acc = androidx.compose.ui.geometry.Offset.Zero
-                        }
-                    }
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Rounded.TouchApp, null, tint = Tahoe.Faint, modifier = Modifier.size(36.dp))
-                Text("Geser untuk pindah · ketuk untuk OK", color = Tahoe.Faint, fontSize = 13.sp)
+    Column(
+        Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState())
+            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = TabInset + 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        // TV pill
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(if (online) Tahoe.Good else Tahoe.Faint))
+            Spacer(Modifier.width(10.dp))
+            Row(Modifier.weight(1f).clip(RoundedCornerShape(50)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(50))
+                .padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Tv, null, tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text("Tahoe TV", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (link == null) "Belum dipasangkan" else if (online) "Tersambung · $host" else "Menyambung…", fontSize = 11.sp, color = Tahoe.Dim)
+                }
             }
+            Spacer(Modifier.width(10.dp))
+            RoundKey(Icons.Rounded.Settings, "Setelan TV", 44.dp) { key("settings") }
         }
+
+        if (link == null) Note("Belum tersambung. Sambungkan TV di Beranda (kode dari Pusat Kontrol → HP), atau pasang Tahoe dari tab Pasang.", Icons.Rounded.Info)
+        DPad(onKey = ::key)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             RoundKey(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali") { key("back") }
             RoundKey(Icons.Rounded.Home, "Home") { key("home") }
-            RoundKey(Icons.Rounded.Apps, "Aplikasi") { key("apps") }
-            RoundKey(Icons.Rounded.Menu, "Menu") { key("menu") }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.weight(1f)) { SecondaryButton("Volume −", Icons.Rounded.VolumeDown) { link.volume(-1) } }
-            Box(Modifier.weight(1f)) { SecondaryButton("Volume +", Icons.Rounded.VolumeUp) { link.volume(1) } }
+            RoundKey(Icons.AutoMirrored.Rounded.VolumeOff, "Bisu") { key("mute") }
         }
 
-        Section("Buka di TV")
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("YouTube" to "com.google.android.youtube.tv", "Netflix" to "com.netflix.ninja", "Vidio" to "com.vidio.android.tv", "Spotify" to "com.spotify.tv.android")
-                .forEach { (n, pkg) ->
-                    Text(n, Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Tahoe.Glass).clickable { link.launch(pkg) }.padding(vertical = 12.dp),
-                        fontSize = 13.sp, fontWeight = FontWeight.Medium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                }
-        }
-
-        Section("Tanya asisten di TV")
-        var q by remember { mutableStateOf("") }
-        Field(q, { q = it }, "mis. putar lagu santai di YouTube", trailing = {
-            IconButton({ if (q.isNotBlank()) { link.ask(q.trim()); q = "" } }) { Icon(Icons.AutoMirrored.Rounded.Send, "Kirim", tint = Tahoe.Accent) }
-        })
-
-        WhatsOn { link.launch(TV_LIVE) }
-    }
-}
-
-
-/** What's on now on Indonesian TV, local channels first (same list as the TV's "Jadwal TV"). Tapping opens BitTV on the TV. */
-@Composable
-private fun WhatsOn(open: (LocalTv.Entry) -> Unit) {
-    val c = LocalContext.current
-    var entries by remember { mutableStateOf<List<LocalTv.Entry>?>(null) }
-    var epg by remember { mutableStateOf<Epg?>(null) }
-    var cat by remember { mutableStateOf(LocalTv.Category.Near) }
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            val setup = c.getSharedPreferences("setup", 0)
-            val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
-                ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
-            entries = runCatching { LocalTv.arrange(Sources.load(), province) }.getOrNull()
-            epg = runCatching { Epg.load(Sources.EPG) }.getOrNull()
-        }
-    }
-    val list = entries ?: run { Section("Sedang tayang"); LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass); return }
-    val cats = LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }
-    if (cat !in cats) cat = cats.firstOrNull() ?: return
-    Section("Sedang tayang")
-    Text("Ketuk saluran untuk membuka Live TV di TV.", color = Tahoe.Dim, fontSize = 13.sp)
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        cats.forEach { k ->
-            val on = k == cat
-            Text(k.label, Modifier.clip(RoundedCornerShape(50)).background(if (on) Tahoe.Text else Tahoe.Glass).clickable { cat = k }
-                .padding(horizontal = 12.dp, vertical = 7.dp), color = if (on) Color(0xFF111114) else Tahoe.Text, fontSize = 13.sp)
-        }
-    }
-    val now = Instant.now()
-    GlassCard {
-        list.filter { LocalTv.inCategory(it, cat) }.take(30).forEach { e ->
-            val s = epg?.schedule(e.name, now).orEmpty()
-            val p = s.firstOrNull()?.takeIf { it.start <= now }
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { open(e) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(e.name, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                    Text(p?.let { "${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}" } ?: if (epg == null) "Memuat jadwal…" else e.category.label,
-                        color = if (p != null) Tahoe.Accent else Tahoe.Faint, fontSize = 13.sp, maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                }
-                Icon(Icons.Rounded.PlayCircle, "Tonton", tint = Tahoe.Dim)
+        // rockers: volume | Live TV | channel
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            Rocker("VOL", Icons.Rounded.Add, Icons.Rounded.Remove, { link?.volume(1); haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
+                { link?.volume(-1); haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) })
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                RoundKey(Icons.Rounded.LiveTv, "Live TV", tint = Color(0xFFFF5A5F)) { key("livetv") }
+                RoundKey(Icons.Rounded.Apps, "Aplikasi") { key("apps") }
             }
+            Rocker("CH", Icons.Rounded.KeyboardArrowUp, Icons.Rounded.KeyboardArrowDown, { key("ch_up") }, { key("ch_down") })
+        }
+
+        // media row
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
+            .padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            listOf(Icons.Rounded.FastRewind to "rewind", Icons.Rounded.PlayArrow to "play_pause", Icons.Rounded.FastForward to "ffwd", Icons.Rounded.Menu to "menu")
+                .forEach { (icon, k) -> IconButton({ key(k) }) { Icon(icon, k, tint = Tahoe.Text) } }
+        }
+
+        // ask the TV
+        var q by remember { mutableStateOf("") }
+        Field(q, { q = it }, "Tanya asisten di TV…", trailing = {
+            IconButton({ if (q.isNotBlank()) { link?.ask(q.trim()); q = "" } }) { Icon(Icons.AutoMirrored.Rounded.Send, "Kirim", tint = Tahoe.Accent) }
+        })
+    }
+}
+
+/** Ring D-pad: arrows on the ring, OK in the middle; a swipe anywhere on it also moves (one step per ~60 dp). */
+@Composable
+private fun DPad(onKey: (String) -> Unit) {
+    var acc by remember { mutableStateOf(Offset.Zero) }
+    var pressed by remember { mutableStateOf<String?>(null) }
+    val ring = 260.dp
+    Box(
+        Modifier.size(ring).clip(CircleShape)
+            .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.04f))))
+            .border(1.dp, Tahoe.Stroke, CircleShape)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = { o ->
+                        val cx = size.width / 2f; val cy = size.height / 2f; val dx = o.x - cx; val dy = o.y - cy
+                        val k = when {
+                            dx * dx + dy * dy < (size.width * 0.2f) * (size.width * 0.2f) -> "ok"
+                            abs(dx) > abs(dy) -> if (dx > 0) "right" else "left"
+                            else -> if (dy > 0) "down" else "up"
+                        }
+                        pressed = k; tryAwaitRelease(); pressed = null; onKey(k)
+                    })
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(onDragEnd = { acc = Offset.Zero }) { ch, d ->
+                    ch.consume(); acc += d
+                    if (abs(acc.x) > 160f || abs(acc.y) > 160f) {
+                        onKey(if (abs(acc.x) > abs(acc.y)) (if (acc.x > 0) "right" else "left") else (if (acc.y > 0) "down" else "up"))
+                        acc = Offset.Zero
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        @Composable fun Arrow(icon: ImageVector, k: String, a: Alignment) {
+            val s by animateFloatAsState(if (pressed == k) 1.35f else 1f, spring(), label = "arrow")
+            Icon(icon, k, tint = if (pressed == k) Tahoe.Accent else Tahoe.Dim, modifier = Modifier.align(a).padding(18.dp).size(30.dp).scale(s))
+        }
+        Arrow(Icons.Rounded.KeyboardArrowUp, "up", Alignment.TopCenter)
+        Arrow(Icons.Rounded.KeyboardArrowDown, "down", Alignment.BottomCenter)
+        Arrow(Icons.Rounded.KeyboardArrowLeft, "left", Alignment.CenterStart)
+        Arrow(Icons.Rounded.KeyboardArrowRight, "right", Alignment.CenterEnd)
+        val s by animateFloatAsState(if (pressed == "ok") 0.92f else 1f, spring(), label = "ok")
+        Box(Modifier.size(104.dp).scale(s).clip(CircleShape)
+            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.10f))))
+            .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape), contentAlignment = Alignment.Center) {
+            Text("OK", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
-private val HM = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault())
+/** Tall pill with + / − (or ∧ / ∨) and a caption in the middle. */
+@Composable
+private fun Rocker(label: String, upIcon: ImageVector, downIcon: ImageVector, up: () -> Unit, down: () -> Unit) = Column(
+    Modifier.width(72.dp).height(170.dp).clip(RoundedCornerShape(36.dp)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(36.dp)),
+    horizontalAlignment = Alignment.CenterHorizontally,
+) {
+    IconButton(up, Modifier.weight(1f).fillMaxWidth()) { Icon(upIcon, "$label naik", tint = Tahoe.Text, modifier = Modifier.size(28.dp)) }
+    Text(label, fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+    IconButton(down, Modifier.weight(1f).fillMaxWidth()) { Icon(downIcon, "$label turun", tint = Tahoe.Text, modifier = Modifier.size(28.dp)) }
+}
 
 @Composable
-private fun RoundKey(icon: ImageVector, label: String, onClick: () -> Unit) = Column(horizontalAlignment = Alignment.CenterHorizontally) {
-    Box(Modifier.size(62.dp).clip(CircleShape).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center) { Icon(icon, label, tint = Tahoe.Text) }
-    Text(label, fontSize = 11.sp, color = Tahoe.Dim, modifier = Modifier.padding(top = 4.dp))
+private fun RoundKey(icon: ImageVector, label: String, size: Dp = 62.dp, tint: Color = Tahoe.Text, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val down by src.collectIsPressedAsState()
+    val s by animateFloatAsState(if (down) 0.9f else 1f, spring(), label = "key")
+    Box(Modifier.size(size).scale(s).clip(CircleShape).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, CircleShape)
+        .clickable(src, null, onClick = onClick), contentAlignment = Alignment.Center) { Icon(icon, label, tint = tint) }
 }
