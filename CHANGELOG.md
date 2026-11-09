@@ -3,6 +3,21 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
+## 2.9.4
+
+### Adzan
+- **Suara adzan asli bawaan**: adzan Subuh khusus untuk waktu Subuh, adzan Masjid Mesir untuk waktu shalat lainnya, lalu **doa sesudah adzan**. File yang diunggah dari HP tetap bisa menggantikannya.
+- Panel Shalat & adzan punya dua tombol tes: adzan biasa dan adzan Subuh.
+
+### Live TV
+- **Favorit**: tekan ▶ pada saluran di daftar untuk menambah/menghapus. Favorit dan **saluran yang terakhir ditonton** tampil paling atas.
+- **Titik hidup/mati** di setiap saluran, dari pengecekan server.
+- **Saluran sebelumnya**: tombol LAST di remote TV, atau ⟲ di remote HP.
+- **Pengingat acara**: tekan Menu pada saluran di daftar untuk diingatkan saat acara berikutnya mulai. Jika Live TV sedang terbuka, langsung pindah ke saluran itu.
+
+### Timer tidur
+- TV masuk standby setelah 15/30/60/90/120 menit, dengan peringatan 1 menit sebelumnya. Atur dari Pusat Kontrol (◀ ▶) atau remote HP.
+
 ## 2.9.3
 
 ### Lebih cepat

@@ -51,6 +51,7 @@
         <!-- Prayer time: banner + adzan, re-armed after reboots. -->
         <receiver android:name=".Prayer$Alarm" android:exported="false" />
         <receiver android:name=".About$Done" android:exported="false" />
+        <receiver android:name=".Reminder" android:exported="false" />
         <receiver android:name=".Prayer$Boot" android:exported="true">
             <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
         </receiver>
