@@ -20,6 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import tech.kousozo.tahoetv.core.Epg;
+import tech.kousozo.tahoetv.core.SourceHealth;
 import tech.kousozo.tahoetv.core.LocalTv;
 import tech.kousozo.tahoetv.core.Sources;
 import tech.kousozo.tahoetv.core.Web;
@@ -95,8 +96,9 @@ public class Live extends Activity {
     static void fetch(android.content.Context c, java.util.function.Consumer<List<LocalTv.Entry>> list,
                       java.util.function.Consumer<Epg> guide, Runnable failed) {
         Handler main = new Handler(Looper.getMainLooper());
+        SourceHealth.init(new java.io.File(c.getCacheDir(), "source-health.tsv"));
         boolean fresh = cached != null && System.currentTimeMillis() - cachedAt < 6 * 3600_000L;
-        if (fresh) { list.accept(cached); if (epg != null) { guide.accept(epg); return; } }
+        if (fresh) { probe(c, cached); list.accept(cached); if (epg != null) { guide.accept(epg); return; } }
         Net.bg.execute(() -> {
             try {
                 SharedPreferences cfg = Cfg.p(c);
@@ -108,6 +110,7 @@ public class Live extends Activity {
                     }
                     // built-in sources (+ a custom playlist from the phone/desktop), loads all channels unfiltered
                     List<LocalTv.Entry> l = LocalTv.INSTANCE.arrange(Sources.INSTANCE.loadAll(cfg.getString("playlist_url", "")), province);
+                    probe(c, l);
                     main.post(() -> { cached = l; cachedAt = System.currentTimeMillis(); list.accept(l); });
                 }
                 String guideUrl = cfg.getString("epg_url", "");
@@ -115,6 +118,16 @@ public class Live extends Activity {
                 main.post(() -> { epg = e; guide.accept(e); });
             } catch (Exception ex) { main.post(failed); }
         });
+    }
+
+    /** Check every channel's streams in the background, the last-watched channel and its neighbours first. */
+    static void probe(android.content.Context c, List<LocalTv.Entry> l) {
+        String last = c.getSharedPreferences("live", 0).getString("last", null);
+        int at = 0;
+        for (int k = 0; k < l.size(); k++) if (l.get(k).getChannel().getUrl().equals(last)) { at = k; break; }
+        List<LocalTv.Entry> first = new java.util.ArrayList<>();
+        for (int d = 0; d < l.size(); d++) first.add(l.get((at + (d % 2 == 0 ? d / 2 : l.size() - (d + 1) / 2)) % l.size()));
+        SourceHealth.probeAll(SourceHealth.streamsOf(first));
     }
 
     String subtitle(String province) {

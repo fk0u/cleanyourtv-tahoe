@@ -229,8 +229,7 @@ fun HomeScreen(resumeTick: Int) {
                     Icon(Icons.Rounded.SportsEsports, null, tint = Tahoe.Accent); Spacer(Modifier.width(8.dp)); Text("Buka gamepad (web)", color = Tahoe.Accent)
                 }
             }
-            val version = remember { runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull() }
-            Text("Tahoe TV $version", Modifier.fillMaxWidth(), color = Tahoe.Faint, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            UpdateCard() // version, changelog, OTA
         }
     }
 }

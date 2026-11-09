@@ -49,7 +49,8 @@ fun RemoteScreen() {
     val p = remember { Sync.prefs(c) }
     val host = p.getString("host", "").orEmpty(); val token = p.getString("token", "").orEmpty()
     var online by remember { mutableStateOf(false) }
-    val link = remember(host, token) { if (host.isEmpty() || token.isEmpty()) null else TvLink(host, token) { online = it } }
+    var tv by remember { mutableStateOf<org.json.JSONObject?>(null) } // volume / channel reported by the TV
+    val link = remember(host, token) { if (host.isEmpty() || token.isEmpty()) null else TvLink(host, token) { online = it }.apply { onTvState = { tv = it } } }
     DisposableEffect(link) { link?.open(); onDispose { link?.close() } }
     val haptic = LocalHapticFeedback.current
     fun key(k: String) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); link?.key(k) }
@@ -70,11 +71,15 @@ fun RemoteScreen() {
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("Tahoe TV", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    Text(if (link == null) "Belum dipasangkan" else if (online) "Tersambung · $host" else "Menyambung…", fontSize = 11.sp, color = Tahoe.Dim)
+                    val channel = tv?.optString("channel").orEmpty()
+                    Text(if (link == null) "Belum dipasangkan" else if (!online) "Menyambung…"
+                        else if (channel.isNotEmpty()) "Live · %03d %s".format(tv!!.optInt("number"), channel) else "Tersambung · $host", fontSize = 11.sp, color = Tahoe.Dim)
                 }
             }
             Spacer(Modifier.width(10.dp))
             RoundKey(Icons.Rounded.Settings, "Setelan TV", 44.dp) { key("settings") }
+            Spacer(Modifier.width(8.dp))
+            RoundKey(Icons.Rounded.PowerSettingsNew, "Standby TV (menyalakan lagi pakai remote TV)", 44.dp, tint = Color(0xFFFF6B6B)) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); link?.power() }
         }
 
         if (link == null) Note("Belum tersambung. Sambungkan TV di Beranda (kode dari Pusat Kontrol → HP), atau pasang Tahoe dari tab Pasang.", Icons.Rounded.Info)
@@ -97,12 +102,44 @@ fun RemoteScreen() {
             Rocker("CH", Icons.Rounded.KeyboardArrowUp, Icons.Rounded.KeyboardArrowDown, { key("ch_up") }, { key("ch_down") })
         }
 
+        // volume slider with the TV's real level
+        var vol by remember { mutableFloatStateOf(-1f) }
+        LaunchedEffect(tv) { tv?.let { vol = it.optInt("volume").toFloat() } }
+        if (vol >= 0) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
+            .padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (tv?.optBoolean("muted") == true) Icons.AutoMirrored.Rounded.VolumeOff else Icons.Rounded.VolumeUp, null, tint = Tahoe.Accent)
+            Slider(vol, { vol = it }, Modifier.weight(1f).padding(horizontal = 12.dp), valueRange = 0f..100f,
+                onValueChangeFinished = { link?.volumeSet(vol.toInt()) })
+            Text("${vol.toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(40.dp))
+        }
+
+        // channel numbers (Live TV): 1–3 digits, the TV tunes 1.5 s after the last one
+        var pad by remember { mutableStateOf(false) }
+        TextButton({ pad = !pad }) { Icon(Icons.Rounded.Dialpad, null); Spacer(Modifier.width(8.dp)); Text(if (pad) "Tutup nomor saluran" else "Nomor saluran") }
+        if (pad) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("", "0", "")).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    row.forEach { d ->
+                        if (d.isEmpty()) Spacer(Modifier.size(62.dp))
+                        else Box(Modifier.size(62.dp).clip(CircleShape).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, CircleShape).clickable { key(d) },
+                            contentAlignment = Alignment.Center) { Text(d, fontSize = 22.sp, fontWeight = FontWeight.SemiBold) }
+                    }
+                }
+            }
+        }
+
         // media row
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
             .padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
             listOf(Icons.Rounded.FastRewind to "rewind", Icons.Rounded.PlayArrow to "play_pause", Icons.Rounded.FastForward to "ffwd", Icons.Rounded.Menu to "menu")
                 .forEach { (icon, k) -> IconButton({ key(k) }) { Icon(icon, k, tint = Tahoe.Text) } }
         }
+
+        // type into the TV's focused text field (search boxes in YouTube, Netflix, Tahoe…)
+        var typed by remember { mutableStateOf("") }
+        Field(typed, { typed = it; link?.text(it) }, "Ketik ke TV (kolom yang dipilih di TV)…", trailing = {
+            IconButton({ typed = ""; link?.text("") }) { Icon(Icons.Rounded.Backspace, "Hapus", tint = Tahoe.Dim) }
+        })
 
         // ask the TV
         var q by remember { mutableStateOf("") }

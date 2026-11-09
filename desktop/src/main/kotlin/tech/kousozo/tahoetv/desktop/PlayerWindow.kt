@@ -1,5 +1,6 @@
 package tech.kousozo.tahoetv.desktop
 
+import tech.kousozo.tahoetv.core.SourceHealth
 import javafx.animation.KeyFrame
 import javafx.animation.PauseTransition
 import javafx.animation.Timeline
@@ -68,6 +69,9 @@ object PlayerWindow {
     private val HM = java.time.format.DateTimeFormatter.ofPattern("HH.mm").withZone(java.time.ZoneId.systemDefault())
     private val ticker = javafx.animation.Timeline(javafx.animation.KeyFrame(Duration.seconds(1.0), { refreshInfo() })).apply { cycleCount = javafx.animation.Timeline.INDEFINITE }
     private lateinit var statusLabel: Label
+    /** Cyan ring shown while a stream is loading/reconnecting, instead of a bare black window. */
+    private val spinner by lazy { javafx.scene.control.ProgressIndicator().apply {
+        style = "-fx-progress-color: #64D2FF;"; setPrefSize(72.0, 72.0); isVisible = false; isManaged = false } }
     private lateinit var fullBtn: Button
     private lateinit var bar: BorderPane
     private lateinit var hint: Label
@@ -88,12 +92,13 @@ object PlayerWindow {
         this.onSwitch = onSwitch; this.onStatus = onStatus
         val s = ensureStage()
         titleLabel.text = title; s.title = "$title — Tahoe TV"; refreshInfo()
-        start(streams, 0, ++generation)
+        start(SourceHealth.order(streams), 0, ++generation) // known-live sources first
         s.show(); s.toFront(); reveal()
     }
 
     private fun report(s: String?, offerNext: Boolean = false) {
         statusLabel.text = s.orEmpty(); statusLabel.isVisible = s != null
+        spinner.isVisible = s != null && !offerNext; spinner.isManaged = spinner.isVisible // loading, not a dead end
         nextBtn.isVisible = offerNext; nextBtn.isManaged = offerNext
         if (s != null) reveal()
         SwingUtilities.invokeLater { onStatus(s) }
@@ -103,7 +108,7 @@ object PlayerWindow {
         if (gen != generation) return // another channel was chosen meanwhile
         watchdog?.stop(); player?.dispose(); player = null; view.mediaPlayer = null
         val c = streams.getOrNull(i) ?: return report("Saluran ini sedang tidak bisa diputar (semua ${streams.size} sumber offline).", offerNext = true)
-        val next = { if (gen == generation) start(streams, i + 1, gen) }
+        val next = { if (gen == generation) { SourceHealth.report(c.url, false); start(streams, i + 1, gen) } }
         var lastTime = -1.0
         // A source that already played and then errors/freezes reconnects (up to 3×) before moving to the backup.
         val recover = { if (lastTime >= 0 && retry < 3 && gen == generation) { report("Menyambung ulang…"); start(streams, i, gen, if (lastTime > 60) 1 else retry + 1) } else next() } // a minute of good playback earns fresh retries
@@ -115,7 +120,7 @@ object PlayerWindow {
         if (retry == 0) report(if (i == 0) "Memuat siaran…" else "Sumber ${i} tidak jalan, mencoba cadangan ${i + 1}/${streams.size}…")
         val p = try { MediaPlayer(Media(HlsProxy.wrap(c.url, c.headers))) } catch (e: Exception) { return next() }
         player = p; view.mediaPlayer = p
-        p.setOnPlaying { if (p.media.width > 0 || p.media.tracks.isNotEmpty()) report(null) }
+        p.setOnPlaying { if (p.media.width > 0 || p.media.tracks.isNotEmpty()) { SourceHealth.report(c.url, true); report(null) } }
         p.setOnError { recover() }
         p.play()
         // Watchdog: a stream may never error and just hang, or "play" with no picture / a frozen picture.
@@ -192,7 +197,7 @@ object PlayerWindow {
             style = "-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12px;"; StackPane.setAlignment(this, Pos.BOTTOM_CENTER)
             StackPane.setMargin(this, Insets(0.0, 0.0, 70.0, 0.0))
         }
-        val center = VBox(12.0, statusLabel, nextBtn).apply { alignment = Pos.CENTER; isPickOnBounds = false }
+        val center = VBox(12.0, spinner, statusLabel, nextBtn).apply { alignment = Pos.CENTER; isPickOnBounds = false }
         val root = StackPane(view, bar, center, hint).apply { style = "-fx-background-color: black;" }
         view.fitWidthProperty().bind(root.widthProperty()); view.fitHeightProperty().bind(root.heightProperty())
 

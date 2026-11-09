@@ -30,6 +30,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import tech.kousozo.tahoetv.core.SourceHealth;
 import tech.kousozo.tahoetv.core.Epg;
 import tech.kousozo.tahoetv.core.LocalTv;
 import tech.kousozo.tahoetv.core.M3u;
@@ -48,7 +49,8 @@ public class LiveTv extends Activity {
     SurfaceView surface;
     LinearLayout guide, rows;
     FrameLayout osd;                       // on-screen display: top + bottom scrims with all the info
-    TextView bNum, bName, bMeta, bNow, bNowTime, bNext, bNextTime, bStatus, bCat, loading, tTemp, tCond, tDay, tTime, logoText;
+    Loader loading;
+    TextView bNum, bName, bMeta, bNow, bNowTime, bNext, bNextTime, bStatus, bCat, tTemp, tCond, tDay, tTime, logoText;
     android.widget.ImageView logo;
     View progress;
     FrameLayout progressTrack;
@@ -69,8 +71,10 @@ public class LiveTv extends Activity {
         surface = new SurfaceView(this);
         root.addView(surface, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
 
-        loading = Ui.text(this, Ui.HEADLINE, 600, Ui.TEXT); loading.setText("Memuat saluran…");
-        root.addView(loading, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+        loading = new Loader(this); loading.setText("Memuat saluran…");
+        FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        ll.topMargin = (int) dp(64); // above the channel banner, which shows at the same time
+        root.addView(loading, ll);
 
         osd = buildOsd();
         root.addView(osd, new FrameLayout.LayoutParams(-1, -1));
@@ -94,7 +98,7 @@ public class LiveTv extends Activity {
         player.addListener(new Player.Listener() {
             @Override public void onPlayerError(PlaybackException e) { recover(); }
             @Override public void onPlaybackStateChanged(int s) {
-                if (s == Player.STATE_READY) { everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
+                if (s == Player.STATE_READY) { if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), true); everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
             }
         });
 
@@ -114,16 +118,18 @@ public class LiveTv extends Activity {
         if (list.isEmpty()) return;
         index = ((i % list.size()) + list.size()) % list.size();
         source = 0;
+        LocalTv.Entry e = list.get(index);
+        List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
+        order = SourceHealth.order(raw); // fixed for this tune, so `source` keeps pointing at the same stream
         prefs.edit().putString("last", list.get(index).getChannel().getUrl()).apply();
+        if (Home.live != null) Home.live.pushState(); // phone remote shows the channel
         play();
         showBanner();
     }
 
-    List<M3u.Channel> streams() {
-        LocalTv.Entry e = list.get(index);
-        List<M3u.Channel> s = new ArrayList<>(); s.add(e.getChannel()); s.addAll(e.getAlternates());
-        return s;
-    }
+    /** This channel's streams, known-live first (SourceHealth), as ordered when it was tuned. */
+    List<M3u.Channel> order = new ArrayList<>();
+    List<M3u.Channel> streams() { return order; }
 
     void play() {
         List<M3u.Channel> s = streams();
@@ -135,17 +141,27 @@ public class LiveTv extends Activity {
         M3u.Channel c = s.get(source);
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(8000).setReadTimeoutMs(15000)
-                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/2.9.2");
+                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/2.9.3");
         java.util.HashMap<String, String> h = new java.util.HashMap<>(c.getHeaders()); h.remove("User-Agent");
         http.setDefaultRequestProperties(h);
         player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(MediaItem.fromUri(Uri.parse(c.getUrl()))));
         player.prepare(); player.play();
         sourceStarted = System.currentTimeMillis(); everReady = false; retries = 0; lastPos = -1; stuckSince = System.currentTimeMillis();
-        loading.setText(source == 0 ? "Memuat " + list.get(index).getName() + "…" : "Mencoba sumber cadangan " + (source + 1) + "/" + s.size() + "…");
+        loading.channel(list.get(index).getChannel().getLogo(), list.get(index).getName());
+        loading.setText(source == 0 ? "Menyambung ke siaran…" : "Mencoba sumber cadangan " + (source + 1) + "/" + s.size() + "…");
         loading.setVisibility(View.VISIBLE);
     }
 
-    void nextSource() { source++; play(); }
+    /** Number keys (TV remote or phone): type 1–3 digits, it tunes 1.5 s after the last one. */
+    int typed = 0;
+    final Runnable tuneTyped = () -> { if (typed > 0) tune(typed - 1); typed = 0; };
+    void digit(int n) {
+        typed = typed >= 100 ? n : typed * 10 + n;
+        bNum.setText(String.format(java.util.Locale.ROOT, "%03d", typed)); osd.animate().alpha(1).setDuration(Ui.FAST).start();
+        ui.removeCallbacks(tuneTyped); ui.postDelayed(tuneTyped, 1500);
+    }
+
+    void nextSource() { if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), false); source++; play(); }
 
     boolean everReady; int retries;
 
@@ -383,6 +399,7 @@ public class LiveTv extends Activity {
         boolean open = guide.getVisibility() == View.VISIBLE;
         if (code == KeyEvent.KEYCODE_BACK) { if (open) guide.setVisibility(View.GONE); else finish(); return true; }
         if (open) return super.onKeyDown(code, e);
+        if (code >= KeyEvent.KEYCODE_0 && code <= KeyEvent.KEYCODE_9) { digit(code - KeyEvent.KEYCODE_0); return true; }
         switch (code) {
             case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_CHANNEL_UP: tune(index - 1); return true;
             case KeyEvent.KEYCODE_DPAD_DOWN: case KeyEvent.KEYCODE_CHANNEL_DOWN: tune(index + 1); return true;

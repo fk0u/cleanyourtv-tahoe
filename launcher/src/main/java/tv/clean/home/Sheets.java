@@ -205,6 +205,7 @@ final class Sheets {
             add(new Item(R.drawable.ic_house, "Rumah", HomeControl.enabled() ? "Home Assistant" : "Hey Google", () -> { h.closeSheet(); h.openSheet(new Devices(h)); }),
                 new Item(R.drawable.ic_smartphone, "HP", h.companion == null || h.companion.pairedCount() == 0 ? "Pairing" : h.companion.pairedCount() + " HP", () -> { h.closeSheet(); h.openPair(); }),
                 new Item(R.drawable.ic_settings, "Setelan", "Sistem", () -> h.start(new Intent(Settings.ACTION_SETTINGS))));
+            add(new Item(R.drawable.ic_info, "Tentang", "Versi " + About.version(h) + "  ·  Pembaruan", () -> { h.closeSheet(); h.openSheet(new About(h)); }));
         }
 
         static String ssid(Context c) {
