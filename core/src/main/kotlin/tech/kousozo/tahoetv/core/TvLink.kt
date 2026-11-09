@@ -10,29 +10,33 @@ import org.json.JSONObject
 class TvLink(val host: String, private val token: String, private val onState: (Boolean) -> Unit = {}) {
     /** Latest {"t":"state"} from the TV: volume (0–100), muted, channel, number. */
     @Volatile var onTvState: (JSONObject) -> Unit = {}
-    private var ws: WebSocketClient? = null
+    @Volatile private var ws: WebSocketClient? = null
     @Volatile private var wanted = false
     val connected get() = ws?.isOpen == true
 
     /** Connects and keeps reconnecting (every 2 s) until [close]: the TV may be asleep, restarting, or Wi-Fi dropped. */
     fun open() { wanted = true; connect() }
 
+    /** Never throws: a bad address or a failing connect just retries, it must not crash the app. */
     private fun connect() {
         if (connected || !wanted) return
-        ws = object : WebSocketClient(URI("ws://$host:8765/ws?token=$token")) {
+        try { ws = client().also { it.connect() } } catch (e: Exception) { retry() }
+    }
+
+    private fun retry() { if (wanted) Thread { Thread.sleep(2000); connect() }.apply { isDaemon = true }.start() }
+
+    private fun client() = object : WebSocketClient(URI("ws://${host.trim()}:8765/ws?token=$token")) {
             override fun onOpen(h: ServerHandshake) = onState(true)
             override fun onMessage(m: String) { runCatching { JSONObject(m) }.getOrNull()?.takeIf { it.optString("t") == "state" }?.let { onTvState(it) } }
-            override fun onClose(code: Int, reason: String, remote: Boolean) {
-                onState(false)
-                if (wanted) Thread { Thread.sleep(2000); connect() }.apply { isDaemon = true }.start()
-            }
+            override fun onClose(code: Int, reason: String, remote: Boolean) { onState(false); retry() }
             override fun onError(e: Exception) {}
-        }.also { it.connect() }
-    }
+        }
 
     fun close() { wanted = false; ws?.close(); ws = null }
 
-    private fun send(o: JSONObject) { ws?.takeIf { it.isOpen }?.send(o.toString()) }
+    /** Fire and forget. The socket can close between the isOpen check and send (TV to standby, Wi-Fi blip), and
+     *  send then throws: that crashed the phone remote, so a lost key is just dropped. */
+    private fun send(o: JSONObject) { runCatching { ws?.takeIf { it.isOpen }?.send(o.toString()) } }
     /** up, down, left, right, ok, back, home, menu, apps, mute, settings, livetv, ch_up, ch_down, 0–9, play_pause, rewind, ffwd */
     fun key(k: String) = send(JSONObject().put("t", "key").put("k", k))
     fun launch(pkg: String) = send(JSONObject().put("t", "launch").put("pkg", pkg))
