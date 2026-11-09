@@ -113,27 +113,52 @@ final class Prayer {
 
     static MediaPlayer player;
 
-    /** User-supplied adzan in files/adzan/ (adzan_subuh.mp3 for Subuh, adzan.mp3 otherwise); a soft chime if absent. */
+    /** Adzan, then the du'a after adzan. Subuh uses the Subuh adzan (with "ash-shalātu khairum minan-naum"), every other
+     *  prayer the Masjid Mesir adzan. A file uploaded from the phone (files/adzan/adzan_subuh.mp3 or adzan.mp3) replaces
+     *  the built-in one. */
     static void play(Context c, String name) {
+        boolean subuh = name.equals("Subuh");
         File dir = c.getExternalFilesDir("adzan");
-        File f = dir == null ? null : new File(dir, name.equals("Subuh") ? "adzan_subuh.mp3" : "adzan.mp3");
-        if (f != null && !f.exists() && dir != null) f = new File(dir, "adzan.mp3");
+        File own = dir == null ? null : new File(dir, subuh ? "adzan_subuh.mp3" : "adzan.mp3");
         stop();
-        if (f != null && f.exists()) {
-            try {
-                player = new MediaPlayer();
-                player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
-                player.setDataSource(f.getPath());
-                player.setOnCompletionListener(mp -> stop());
-                player.prepare(); player.start();
-                return;
-            } catch (Exception ignored) {}
-        }
+        focus(c, true); // Live TV, YouTube, music… pause while the adzan and du'a play, and resume after
+        if (start(c, own != null && own.exists() ? own : null, subuh ? R.raw.adzan_subuh : R.raw.adzan,
+                () -> { if (!start(c, null, R.raw.doa_adzan, Prayer::stop)) stop(); })) return;
         ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_ALARM, 70);
         tg.startTone(ToneGenerator.TONE_PROP_BEEP2, 600);
     }
 
-    static void stop() { if (player != null) { try { player.release(); } catch (Exception ignored) {} player = null; } }
+    /** Plays [file], or the raw resource when null, as an alarm (heard even when media is muted); then [next]. */
+    private static boolean start(Context c, File file, int raw, Runnable next) {
+        try {
+            MediaPlayer p = new MediaPlayer();
+            p.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            if (file != null) p.setDataSource(file.getPath());
+            else try (android.content.res.AssetFileDescriptor fd = c.getResources().openRawResourceFd(raw)) { p.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength()); }
+            p.setOnCompletionListener(mp -> { mp.release(); if (player == mp) player = null; next.run(); });
+            p.prepare(); p.start();
+            if (player != null) try { player.release(); } catch (Exception ignored) {}
+            player = p;
+            return true;
+        } catch (Exception e) { return false; }
+    }
+
+    static android.media.AudioFocusRequest focusRequest;
+    static AudioManager focusAm;
+
+    static void focus(Context c, boolean take) {
+        AudioManager am = focusAm = (AudioManager) c.getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+        if (take) {
+            focusRequest = new android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()).build();
+            am.requestAudioFocus(focusRequest);
+        } else if (focusRequest != null) { am.abandonAudioFocusRequest(focusRequest); focusRequest = null; }
+    }
+
+    static void stop() {
+        if (player != null) { try { player.release(); } catch (Exception ignored) {} player = null; }
+        if (focusRequest != null && focusAm != null) { focusAm.abandonAudioFocusRequest(focusRequest); focusRequest = null; } // others resume
+    }
 
     // ---- sheet: editorial detail on the left, timeline list on the right ----
 
@@ -177,13 +202,15 @@ final class Prayer {
                 names.add(e.getKey()); at.add(e.getValue());
                 list.addView(row(c, e.getKey(), e.getValue(), e.getKey().equals(nextName)));
             }
-            names.add("Tes"); at.add(0L);
-            LinearLayout test = new LinearLayout(c); test.setGravity(Gravity.CENTER_VERTICAL);
-            test.setPadding((int) (44 * d), (int) (8 * d), (int) (12 * d), (int) (6 * d));
-            ImageView pi = Ui.icon(c, R.drawable.ic_play, 16, Ui.TEXT); pi.setTag("i");
-            TextView pt = Ui.text(c, 15, 500, Ui.TEXT); pt.setText("Tes suara adzan"); pt.setPadding((int) (10 * d), 0, 0, 0); pt.setTag("n");
-            test.addView(pi); test.addView(pt);
-            list.addView(test);
+            for (String[] t : new String[][]{{"Tes", "Tes adzan (Masjid Mesir)"}, {"Tes Subuh", "Tes adzan Subuh"}}) {
+                names.add(t[0]); at.add(0L);
+                LinearLayout test = new LinearLayout(c); test.setGravity(Gravity.CENTER_VERTICAL);
+                test.setPadding((int) (44 * d), (int) (8 * d), (int) (12 * d), (int) (6 * d));
+                ImageView pi = Ui.icon(c, R.drawable.ic_play, 16, Ui.TEXT); pi.setTag("i");
+                TextView pt = Ui.text(c, 15, 500, Ui.TEXT); pt.setText(t[1]); pt.setPadding((int) (10 * d), 0, 0, 0); pt.setTag("n");
+                test.addView(pi); test.addView(pt);
+                list.addView(test);
+            }
             LayoutParams rl = new LayoutParams((int) (440 * d), -2, Gravity.END | Gravity.TOP); rl.rightMargin = (int) (Ui.SAFE_SIDE * d); rl.topMargin = (int) (84 * d); // below the clock pill
             addView(list, rl);
             sel = Math.max(0, names.indexOf(nextName));
@@ -237,7 +264,7 @@ final class Prayer {
                     ic.setImageResource(on ? R.drawable.ic_bell : R.drawable.ic_bell_off);
                     ic.setImageTintList(android.content.res.ColorStateList.valueOf(on ? Ui.TEXT : Ui.TEXT_3));
                 }
-                if (ic != null && n.equals("Tes")) ic.setImageResource(player != null ? R.drawable.ic_pause : R.drawable.ic_play);
+                if (ic != null && n.startsWith("Tes")) ic.setImageResource(player != null ? R.drawable.ic_pause : R.drawable.ic_play);
             }
         }
 
@@ -249,7 +276,7 @@ final class Prayer {
                 case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: case KeyEvent.KEYCODE_BUTTON_A:
                     if (e.getRepeatCount() > 0) return true;
                     String n = names.get(sel);
-                    if (n.equals("Tes")) { if (player != null) stop(); else play(getContext(), "Dzuhur"); }
+                    if (n.startsWith("Tes")) { if (player != null) stop(); else play(getContext(), n.equals("Tes Subuh") ? "Subuh" : "Dzuhur"); }
                     else if (adzanCapable(n)) { prefs(getContext()).edit().putBoolean("adzan_" + n, !adzanOn(getContext(), n)).apply(); schedule(getContext()); }
                     render();
                     return true;

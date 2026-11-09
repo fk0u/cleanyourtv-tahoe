@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
                             else -> SetupScreen(onExit = { Nav.tab = 0 })
                         }
                     }
-                    TabBar(listOf("Beranda" to Icons.Rounded.Home, "TV Live" to Icons.Rounded.LiveTv, "Remote" to Icons.Rounded.SettingsRemote,
+                    if (!Nav.full) TabBar(listOf("Beranda" to Icons.Rounded.Home, "TV Live" to Icons.Rounded.LiveTv, "Remote" to Icons.Rounded.SettingsRemote,
                         "Kategori" to Icons.Rounded.GridView, "Pasang" to Icons.Rounded.Tv), Nav.tab, { Nav.tab = it }, Modifier.align(Alignment.BottomCenter))
                 }
             }

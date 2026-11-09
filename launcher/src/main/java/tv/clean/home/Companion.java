@@ -36,6 +36,7 @@ final class Companion extends NanoWSD {
         void onText(String text);     // typed on the phone → the focused text field on the TV
         void onVolumeSet(int percent);
         void onPower();               // standby ↔ wake
+        void onSleep(int minutes);    // sleep timer, 0 = off
         JSONObject state();           // volume, mute, channel: sent to phones on connect and on change
         JSONArray apps();
     }
@@ -202,6 +203,7 @@ final class Companion extends NanoWSD {
                         case "volume_set": l.onVolumeSet(m.optInt("v")); break;
                         case "text": l.onText(m.optString("s")); break;
                         case "power": l.onPower(); break;
+                        case "sleep": l.onSleep(m.optInt("m")); break;
                         case "notif": l.onPhoneNotification(m.optString("app"), m.optString("title"), m.optString("text")); break;
                         case "media": l.onPhoneMedia(m.optBoolean("stopped") ? null : m); break;
                     }

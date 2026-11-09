@@ -850,6 +850,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         }
         switch (key) {
             case "mute": am.adjustSuggestedStreamVolume(AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.STREAM_MUSIC, AudioManager.FLAG_SHOW_UI); root.postDelayed(this::pushState, 300); return true;
+            case "prev": { LiveTv t = LiveTv.live; if (t != null) t.ui.post(t::back); return true; }
             case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "8": case "9":
                 LiveTv d = LiveTv.live; // channel number entry in Live TV
                 if (d != null) d.ui.post(() -> d.digit(key.charAt(0) - '0'));
@@ -904,8 +905,38 @@ public class Home extends Activity implements Companion.Listener, Tools {
              .put("muted", am.isStreamMute(AudioManager.STREAM_MUSIC));
             LiveTv tv = LiveTv.live;
             if (tv != null && tv.index >= 0 && tv.index < tv.list.size()) o.put("channel", tv.list.get(tv.index).getName()).put("number", tv.index + 1);
+            o.put("sleep", sleepLeft());
         } catch (Exception ignored) {}
         return o;
+    }
+
+    // ---------------------------------------------------------------- sleep timer
+    static final int[] SLEEP = {0, 15, 30, 60, 90, 120};
+    long sleepAt; // 0 = off
+    // ponytail: in-process timer; a launcher restart cancels it (AlarmManager if that ever matters)
+    final Runnable sleepNow = () -> {
+        sleepAt = 0; pushState();
+        if (Keys.inst != null && android.os.Build.VERSION.SDK_INT >= 28) Keys.inst.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
+    };
+    final Runnable sleepWarn = () -> Notif.banner(this, null, "Timer tidur", "TV standby dalam 1 menit", "Ubah atau matikan di Pusat Kontrol");
+
+    /** Minutes left, 0 = off. */
+    int sleepLeft() { return sleepAt == 0 ? 0 : (int) Math.max(1, Math.ceil((sleepAt - System.currentTimeMillis()) / 60000.0)); }
+
+    @Override public void onSleep(int minutes) {
+        root.removeCallbacks(sleepNow); root.removeCallbacks(sleepWarn);
+        sleepAt = minutes <= 0 ? 0 : System.currentTimeMillis() + minutes * 60_000L;
+        if (minutes > 0) { root.postDelayed(sleepNow, minutes * 60_000L); if (minutes > 1) root.postDelayed(sleepWarn, (minutes - 1) * 60_000L); }
+        toast(minutes <= 0 ? "Timer tidur mati" : "TV standby dalam " + minutes + " menit");
+        pushState();
+    }
+
+    /** Next / previous step of SLEEP from the current timer. */
+    void stepSleep(int dir) {
+        int left = sleepLeft(), next = 0;
+        if (dir > 0) { for (int m : SLEEP) if (m > left) { next = m; break; } }
+        else for (int m : SLEEP) if (m < left) next = m;
+        onSleep(next);
     }
 
     /** Tell paired phones the current volume / channel. */

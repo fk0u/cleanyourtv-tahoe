@@ -137,7 +137,8 @@ object PlayerWindow {
                 p.status == MediaPlayer.Status.PAUSED -> stuckSince = System.nanoTime()
                 age > 20 && lastTime < 0 -> next()                                   // never started
                 age > 20 && p.media.width == 0 && p.media.tracks.none { it is javafx.scene.media.VideoTrack } -> next() // no picture at all
-                lastTime >= 0 && since > 12 -> recover() // frozen
+                // STALLED = buffering, give it 30 s (a restart starts the stream over); playing but stuck 12 s = frozen
+                lastTime >= 0 && since > (if (p.status == MediaPlayer.Status.STALLED) 30 else 12) -> recover()
                 lastTime >= 0 && statusLabel.isVisible && moving -> report(null)
             }
         })).apply { cycleCount = Timeline.INDEFINITE; play() }
