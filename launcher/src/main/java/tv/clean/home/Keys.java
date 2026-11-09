@@ -42,6 +42,16 @@ public class Keys extends AccessibilityService {
         if (n != null) n.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
     }
 
+    /** Phone keyboard → the focused text field of the app in front (e.g. YouTube search). */
+    void type(String text) {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        AccessibilityNodeInfo f = root == null ? null : root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+        if (f == null || !f.isEditable()) return;
+        android.os.Bundle b = new android.os.Bundle();
+        b.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text);
+        f.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, b);
+    }
+
     @Override public void onAccessibilityEvent(AccessibilityEvent e) {}
     @Override public void onInterrupt() {}
 }

@@ -1,5 +1,8 @@
 package tech.kousozo.tahoetv
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.drawscope.rotate
+import tech.kousozo.tahoetv.core.SourceHealth
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.net.Uri
@@ -158,31 +161,31 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
     var message by remember(e) { mutableStateOf<String?>("Memuat siaran…") }
     var everReady by remember(e) { mutableStateOf(false) }
     var retries by remember(e) { mutableIntStateOf(0) }
-    val streams = remember(e) { listOf(e.channel) + e.alternates }
+    val streams = remember(e) { SourceHealth.order(listOf(e.channel) + e.alternates) } // known-live sources first
     DisposableEffect(player) { onDispose { player.release() } }
     DisposableEffect(player, e) {
         val l = object : Player.Listener {
             // A source that already played reconnects at the live edge (blip, rebuffer, fell behind live);
             // only one that never played, or keeps failing, moves to the backup.
             override fun onPlayerError(error: PlaybackException) {
-                if (!everReady || retries >= 3) { source++; return }
+                if (!everReady || retries >= 3) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, false) }; source++; return }
                 retries++; message = "Menyambung ulang…"
                 player.seekToDefaultPosition(); player.prepare(); player.play()
             }
-            override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_READY) { message = null; everReady = true; retries = 0 } }
+            override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_READY) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, true) }; message = null; everReady = true; retries = 0 } }
         }
         player.addListener(l); onDispose { player.removeListener(l) }
     }
     LaunchedEffect(e, source) {
         val s = streams.getOrNull(source) ?: run { player.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."; return@LaunchedEffect }
         everReady = false; retries = 0
-        message = if (source == 0) "Memuat siaran…" else "Mencoba sumber cadangan ${source + 1}/${streams.size}…"
+        message = if (source == 0) "Menyambung ke siaran…" else "Mencoba sumber cadangan ${source + 1}/${streams.size}…"
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
-            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/2.9.2").setDefaultRequestProperties(s.headers - "User-Agent")
+            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/2.9.3").setDefaultRequestProperties(s.headers - "User-Agent")
         player.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.fromUri(Uri.parse(s.url))))
         player.prepare(); player.play()
         delay(20_000) // never started → next source
-        if (!everReady) source++
+        if (!everReady) { s.let { SourceHealth.report(it.url, false) }; source++ }
     }
     Box(Modifier.fillMaxSize()) {
         AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } }, Modifier.fillMaxSize())
@@ -192,8 +195,9 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
             Text(e.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         }
         message?.let {
-            Text(it, Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp),
+            if (it.startsWith("Saluran ini")) Text(it, Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp),
                 color = Color.White, fontSize = 14.sp)
+            else ChannelLoader(e.name, it, Modifier.align(Alignment.Center))
         }
         Row(Modifier.align(Alignment.BottomCenter).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalIconButton({ zap(-1) }) { Icon(Icons.Rounded.SkipPrevious, "Saluran sebelumnya") }
@@ -221,7 +225,8 @@ object Channels {
             val setup = c.getSharedPreferences("setup", 0)
             val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
                 ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
-            runCatching { LocalTv.arrange(Sources.loadAll(), province) }.fold({ entries = it }, { failed = true })
+            SourceHealth.init(java.io.File(c.cacheDir, "source-health.tsv"))
+            runCatching { LocalTv.arrange(Sources.loadAll(), province) }.fold({ entries = it; SourceHealth.probeAll(SourceHealth.streamsOf(it)) }, { failed = true })
             epg = runCatching { Epg.load(Sources.EPG) }.getOrNull()
         }
         loading = false
@@ -269,3 +274,31 @@ private fun Pill(text: String, color: Color, filled: Boolean = false) = Text(tex
 
 private fun progress(p: Epg.Programme, now: Instant) =
     ((now.epochSecond - p.start.epochSecond).toFloat() / (p.stop.epochSecond - p.start.epochSecond).coerceAtLeast(1)).coerceIn(0f, 1f)
+
+
+/** While a channel loads: its initials in a white tile inside a rotating cyan ring with a soft pulse, name and status. */
+@Composable
+private fun ChannelLoader(name: String, status: String, modifier: Modifier = Modifier) {
+    val t by androidx.compose.animation.core.rememberInfiniteTransition(label = "load").animateFloat(0f, 1f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1200, easing = androidx.compose.animation.core.LinearEasing)), label = "spin")
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val pulse = (0.5 + 0.5 * kotlin.math.sin(t * 2 * Math.PI)).toFloat()
+                val inset = 8.dp.toPx(); val grow = 4.dp.toPx() * pulse
+                drawCircle(Tahoe.Accent.copy(alpha = 0.15f + 0.2f * pulse), radius = size.minDimension / 2 - inset + grow, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                rotate(t * 360f) {
+                    drawArc(Brush.sweepGradient(listOf(Color.Transparent, Tahoe.Accent, Color(tech.kousozo.tahoetv.core.Brand.CYAN_LIGHT))),
+                        0f, 300f, false, topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
+                        size = androidx.compose.ui.geometry.Size(size.width - 2 * inset, size.height - 2 * inset),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                }
+            }
+            Box(Modifier.size(64.dp, 44.dp).background(Color.White, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                Text(name.take(3).uppercase(), color = Color(0xFF111114), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+            }
+        }
+        Text(name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Text(status, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+    }
+}

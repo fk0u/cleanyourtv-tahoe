@@ -8,6 +8,8 @@ import org.json.JSONObject
 /** Remote control of a TV running Tahoe over its paired WebSocket (port 8765). Works without ADB, e.g. on TV boxes
  *  where Tahoe was installed from a USB stick. Same messages as the launcher's web remote. */
 class TvLink(val host: String, private val token: String, private val onState: (Boolean) -> Unit = {}) {
+    /** Latest {"t":"state"} from the TV: volume (0–100), muted, channel, number. */
+    @Volatile var onTvState: (JSONObject) -> Unit = {}
     private var ws: WebSocketClient? = null
     @Volatile private var wanted = false
     val connected get() = ws?.isOpen == true
@@ -19,7 +21,7 @@ class TvLink(val host: String, private val token: String, private val onState: (
         if (connected || !wanted) return
         ws = object : WebSocketClient(URI("ws://$host:8765/ws?token=$token")) {
             override fun onOpen(h: ServerHandshake) = onState(true)
-            override fun onMessage(m: String) {}
+            override fun onMessage(m: String) { runCatching { JSONObject(m) }.getOrNull()?.takeIf { it.optString("t") == "state" }?.let { onTvState(it) } }
             override fun onClose(code: Int, reason: String, remote: Boolean) {
                 onState(false)
                 if (wanted) Thread { Thread.sleep(2000); connect() }.apply { isDaemon = true }.start()
@@ -31,12 +33,17 @@ class TvLink(val host: String, private val token: String, private val onState: (
     fun close() { wanted = false; ws?.close(); ws = null }
 
     private fun send(o: JSONObject) { ws?.takeIf { it.isOpen }?.send(o.toString()) }
-    /** up, down, left, right, ok, back, home, menu, apps */
+    /** up, down, left, right, ok, back, home, menu, apps, mute, settings, livetv, ch_up, ch_down, 0–9, play_pause, rewind, ffwd */
     fun key(k: String) = send(JSONObject().put("t", "key").put("k", k))
     fun launch(pkg: String) = send(JSONObject().put("t", "launch").put("pkg", pkg))
     fun url(u: String) = send(JSONObject().put("t", "url").put("u", u))
     fun ask(q: String) = send(JSONObject().put("t", "ask").put("q", q))
     fun volume(d: Int) = send(JSONObject().put("t", "volume").put("d", d))
+    fun volumeSet(percent: Int) = send(JSONObject().put("t", "volume_set").put("v", percent))
+    /** Replaces the text of the focused field on the TV. */
+    fun text(s: String) = send(JSONObject().put("t", "text").put("s", s))
+    /** Standby ↔ wake. */
+    fun power() = send(JSONObject().put("t", "power"))
 
     companion object {
         /** POST /pair with the 6-digit code shown on the TV. Returns the token, or throws with the TV's error. Blocks. */

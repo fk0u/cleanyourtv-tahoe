@@ -70,6 +70,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
         prefs = getSharedPreferences("home", MODE_PRIVATE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         enableAppsKey();
+        About.dailyCheck(this);
+        Live.fetch(this, l -> {}, e -> {}, () -> {}); // load channels + check every server now, so Live TV starts instantly
         dockSize = Math.max(4, Math.min(7, getResources().getInteger(R.integer.dock_size)));
         cols = Math.max(4, Math.min(7, getResources().getInteger(R.integer.columns)));
         root = new FrameLayout(this);
@@ -847,7 +849,11 @@ public class Home extends Activity implements Companion.Listener, Tools {
             return true;
         }
         switch (key) {
-            case "mute": am.adjustSuggestedStreamVolume(AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.STREAM_MUSIC, AudioManager.FLAG_SHOW_UI); return true;
+            case "mute": am.adjustSuggestedStreamVolume(AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.STREAM_MUSIC, AudioManager.FLAG_SHOW_UI); root.postDelayed(this::pushState, 300); return true;
+            case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "8": case "9":
+                LiveTv d = LiveTv.live; // channel number entry in Live TV
+                if (d != null) d.ui.post(() -> d.digit(key.charAt(0) - '0'));
+                return true;
             case "settings": start(new Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
             case "livetv": start(new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
             case "ch_up": case "ch_down":
@@ -862,7 +868,48 @@ public class Home extends Activity implements Companion.Listener, Tools {
     @Override public void onVolume(int dir) {
         ((AudioManager) getSystemService(AUDIO_SERVICE)).adjustSuggestedStreamVolume(dir > 0 ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER,
                 AudioManager.STREAM_MUSIC, AudioManager.FLAG_SHOW_UI);
+        root.postDelayed(this::pushState, 300); // the adjustment lands a moment later
     }
+
+    @Override public void onVolumeSet(int percent) {
+        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+        int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        am.setStreamVolume(AudioManager.STREAM_MUSIC, Math.round(Math.max(0, Math.min(100, percent)) * max / 100f), AudioManager.FLAG_SHOW_UI);
+        pushState();
+    }
+
+    @Override public void onText(String text) {
+        View f = getCurrentFocus();
+        if (hasWindowFocus() && f instanceof android.widget.EditText) { ((android.widget.EditText) f).setText(text); ((android.widget.EditText) f).setSelection(text.length()); }
+        else if (Keys.inst != null) Keys.inst.type(text);
+    }
+
+    /** Screen on → standby (Android 9+ accessibility action); asleep → wake it. */
+    @Override public void onPower() {
+        android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+        if (pm.isInteractive()) { if (Keys.inst != null && android.os.Build.VERSION.SDK_INT >= 28) Keys.inst.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN); }
+        else {
+            @SuppressWarnings("deprecation") android.os.PowerManager.WakeLock w = pm.newWakeLock(
+                    android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK | android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP, "tahoe:remote");
+            w.acquire(3000);
+        }
+    }
+
+    @Override public JSONObject state() {
+        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+        int max = Math.max(1, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+        JSONObject o = new JSONObject();
+        try {
+            o.put("t", "state").put("volume", Math.round(am.getStreamVolume(AudioManager.STREAM_MUSIC) * 100f / max))
+             .put("muted", am.isStreamMute(AudioManager.STREAM_MUSIC));
+            LiveTv tv = LiveTv.live;
+            if (tv != null && tv.index >= 0 && tv.index < tv.list.size()) o.put("channel", tv.list.get(tv.index).getName()).put("number", tv.index + 1);
+        } catch (Exception ignored) {}
+        return o;
+    }
+
+    /** Tell paired phones the current volume / channel. */
+    void pushState() { if (companion != null) companion.broadcast(state()); }
 
     @Override public void onPhoneNotification(String app, String title, String text) {
         Notif.banner(this, null, app.isEmpty() ? "HP" : app, title, text);

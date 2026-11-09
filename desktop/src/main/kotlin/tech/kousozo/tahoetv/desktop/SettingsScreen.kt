@@ -110,7 +110,42 @@ fun SettingsScreen() {
                 }
             }
         }
+        Section("Tentang & pembaruan")
+        AboutUpdates()
     }
+}
+
+/** Version, latest release notes (changelog) and OTA: downloads the installer for this Mac/PC and opens it. */
+@Composable
+private fun AboutUpdates() {
+    val scope = rememberCoroutineScope()
+    val current = System.getProperty("jpackage.app-version") ?: "dev"
+    val os = System.getProperty("os.name").lowercase(); val arm = System.getProperty("os.arch").contains("aarch64")
+    val asset = when { "win" in os -> "TahoeTV-windows.msi"; arm -> "TahoeTV-macos-arm64.dmg"; else -> "TahoeTV-macos-intel.dmg" }
+    var latest by remember { mutableStateOf<tech.kousozo.tahoetv.core.Updates.Release?>(null) }
+    var state by remember { mutableStateOf("Mengecek pembaruan…") }
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) { runCatching { tech.kousozo.tahoetv.core.Updates.latest() } }
+            .onSuccess { latest = it; state = if (tech.kousozo.tahoetv.core.Updates.newer(it.version, current)) "Versi ${it.version} tersedia" else "Sudah versi terbaru" }
+            .onFailure { state = "Tidak bisa mengecek pembaruan" }
+    }
+    Text("Tahoe TV $current  ·  $state", color = Tahoe.Dim, fontSize = 14.sp)
+    val r = latest
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (r != null && tech.kousozo.tahoetv.core.Updates.newer(r.version, current) && asset in r.assets)
+            GhostButton("Unduh & pasang ${r.version}", Icons.Rounded.SystemUpdate, color = Tahoe.Accent) {
+                scope.launch {
+                    val out = java.io.File(System.getProperty("user.home"), "Downloads/$asset")
+                    runCatching {
+                        withContext(Dispatchers.IO) { tech.kousozo.tahoetv.core.Updates.download(r.assets.getValue(asset), out) { p -> state = "Mengunduh… $p%" } }
+                        state = "Selesai. Buka penginstal, lalu tutup aplikasi ini."
+                        java.awt.Desktop.getDesktop().open(out)
+                    }.onFailure { state = "Gagal mengunduh: ${it.message}" }
+                }
+            }
+        GhostButton("Halaman rilis", Icons.Rounded.OpenInBrowser) { java.awt.Desktop.getDesktop().browse(java.net.URI(r?.page ?: tech.kousozo.tahoetv.core.Updates.PAGE)) }
+    }
+    r?.let { Text("Catatan rilis ${it.version} (${it.date})\n\n" + it.notes.replace(Regex("(?m)^#+\\s*"), "").replace("**", ""), color = Tahoe.Dim, fontSize = 13.sp) }
 }
 
 /** Copies the chosen .m3u/.txt into ~/.tahoetv/playlists (so cleaning Downloads doesn't break it) and returns that path. */

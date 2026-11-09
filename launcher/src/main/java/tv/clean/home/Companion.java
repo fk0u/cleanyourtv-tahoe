@@ -33,6 +33,10 @@ final class Companion extends NanoWSD {
         void onPhoneNotification(String app, String title, String text);
         void onPhoneMedia(JSONObject media); // null = stopped
         void onUploaded(String kind);
+        void onText(String text);     // typed on the phone → the focused text field on the TV
+        void onVolumeSet(int percent);
+        void onPower();               // standby ↔ wake
+        JSONObject state();           // volume, mute, channel: sent to phones on connect and on change
         JSONArray apps();
     }
 
@@ -89,8 +93,12 @@ final class Companion extends NanoWSD {
     void forgetAll() { prefs.edit().remove("tokens").apply(); synchronized (sockets) { for (Socket s : sockets) try { s.close(WebSocketFrame.CloseCode.NormalClosure, "unpaired", false); } catch (Exception ignored) {} } }
 
     /** Send to every connected phone (e.g. media controls back to the phone app). */
+    /** Socket writes off the main thread (Android throws NetworkOnMainThreadException there). */
+    final java.util.concurrent.ExecutorService out = java.util.concurrent.Executors.newSingleThreadExecutor();
+
     void broadcast(JSONObject msg) {
-        synchronized (sockets) { for (Socket s : sockets) try { s.send(msg.toString()); } catch (Exception ignored) {} }
+        String m = msg.toString();
+        out.execute(() -> { synchronized (sockets) { for (Socket s : sockets) try { s.send(m); } catch (Exception ignored) {} } });
     }
 
     @Override protected Response serveHttp(IHTTPSession s) {
@@ -173,6 +181,7 @@ final class Companion extends NanoWSD {
         @Override protected void onOpen() {
             if (!ok) { try { close(WebSocketFrame.CloseCode.PolicyViolation, "pair first", false); } catch (IOException ignored) {} return; }
             sockets.add(this);
+            ui.post(() -> { String m = l.state().toString(); out.execute(() -> { try { send(m); } catch (Exception ignored) {} }); });
         }
         @Override protected void onClose(WebSocketFrame.CloseCode c, String r, boolean byRemote) { sockets.remove(this); }
         @Override protected void onPong(WebSocketFrame f) {}
@@ -190,6 +199,9 @@ final class Companion extends NanoWSD {
                         case "url": l.onUrl(m.optString("u")); break;
                         case "ask": l.onAsk(m.optString("q")); break;
                         case "volume": l.onVolume(m.optInt("d")); break;
+                        case "volume_set": l.onVolumeSet(m.optInt("v")); break;
+                        case "text": l.onText(m.optString("s")); break;
+                        case "power": l.onPower(); break;
                         case "notif": l.onPhoneNotification(m.optString("app"), m.optString("title"), m.optString("text")); break;
                         case "media": l.onPhoneMedia(m.optBoolean("stopped") ? null : m); break;
                     }

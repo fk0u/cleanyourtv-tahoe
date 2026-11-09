@@ -56,6 +56,7 @@ class TvAdb private constructor(val host: String, private val adb: Dadb) : AutoC
             "pm grant $PKG android.permission.RECORD_AUDIO",
             "appops set $PKG SYSTEM_ALERT_WINDOW allow",
             "appops set $PKG GET_USAGE_STATS allow",
+            "appops set $PKG REQUEST_INSTALL_PACKAGES allow", // OTA from Pusat Kontrol → Tentang
             "settings put secure screensaver_components $PKG/$CLS.Lock",
             "settings put secure screensaver_enabled 1",
         ).forEach { sh(it) }
