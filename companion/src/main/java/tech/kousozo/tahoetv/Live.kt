@@ -170,7 +170,7 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
         val s = streams.getOrNull(source) ?: run { player.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."; return@LaunchedEffect }
         message = if (source == 0) "Memuat siaran…" else "Mencoba sumber cadangan ${source + 1}/${streams.size}…"
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
-            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV").setDefaultRequestProperties(s.headers - "User-Agent")
+            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/2.9.0").setDefaultRequestProperties(s.headers - "User-Agent")
         player.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.fromUri(Uri.parse(s.url))))
         player.prepare(); player.play()
         delay(20_000) // never started → next source

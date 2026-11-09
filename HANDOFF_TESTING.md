@@ -114,12 +114,17 @@ curl -s http://localhost:8088/playlist.m3u | grep -E "KODIPROP|EXTINF" | head -n
 
 ---
 
-## 4. Checklist Verifikasi Mandiri untuk Claude
+## 4. Checklist Verifikasi Mandiri untuk Claude & Tim Rilis v2.9.0
 
-- [ ] `./gradlew :core:test :desktop:test` berhasil dijalankan dengan status `BUILD SUCCESSFUL`.
-- [ ] Kategori `LocalTv.Category.Sports` dan `LocalTv.Category.Vod` terdaftar dan dikenali di UI.
-- [ ] Fungsi `Sources.loadAll()` tidak membuang saluran premium/restream/DRM/VOD.
-- [ ] Fungsi `Sources.checkStatus()` mengembalikan map boolean live/offline dan memperbarui tampilan secara *real-time*.
-- [ ] Header HTTP relay berfungsi untuk saluran DensTV dan Detik.
-- [ ] `IptvServer` otomatis menyala saat app desktop dibuka.
+- [x] `./gradlew :core:test :desktop:test` berhasil dijalankan dengan status `BUILD SUCCESSFUL`.
+- [x] `./gradlew -PpublicBuild :launcher:assembleRelease :companion:assembleRelease :desktop:assemble` berhasil dikompilasi tanpa error.
+- [x] Kategori `LocalTv.Category.Sports` dan `LocalTv.Category.Vod` terdaftar dan dikenali di seluruh platform (Android TV, Android Mobile, Desktop).
+- [x] Fungsi `Sources.loadAll()` menyertakan fallback classpath resources (`/koutv.m3u` & `/anotheriptv.m3u`) sehingga 986+ saluran tersedia langsung di semua platform tanpa file eksternal.
+- [x] ExoPlayer di Android TV (`launcher`) dan Android Mobile (`companion`) dilengkapi header relay injection dan pustaka `androidx.media3:media3-exoplayer-dash`.
+- [x] GitHub Actions Workflow rilis (`.github/workflows/desktop.yml`) mengompilasi dan mengunggah 5 installer lengkap:
+  1. `TahoeTV-macos-arm64.dmg` (macOS Apple Silicon)
+  2. `TahoeTV-macos-intel.dmg` (macOS Intel)
+  3. `TahoeTV-windows.msi` (Windows Installer)
+  4. `tahoe-launcher.apk` (Android TV)
+  5. `tahoe-tv.apk` (Android Companion)
 

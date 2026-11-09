@@ -17,8 +17,8 @@ android {
         applicationId "tech.kousozo.tahoetv"
         minSdk 26
         targetSdk 34
-        versionCode 14
-        versionName "2.8.1"
+        versionCode 15
+        versionName "2.9.0"
     }
     buildFeatures { compose true }
     signingConfigs {
@@ -54,8 +54,9 @@ dependencies {
     implementation "androidx.activity:activity-compose:1.10.1"
     implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1"
     implementation project(":core")
-    implementation "androidx.media3:media3-exoplayer:1.5.1"   // TV Live player
+    implementation "androidx.media3:media3-exoplayer:1.5.1"   // TV Live player (HLS + DASH)
     implementation "androidx.media3:media3-exoplayer-hls:1.5.1"
+    implementation "androidx.media3:media3-exoplayer-dash:1.5.1"
     implementation "androidx.media3:media3-ui:1.5.1" // TV discovery, ADB setup (dadb), remote link, web APIs
 }
 
