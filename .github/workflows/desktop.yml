@@ -79,7 +79,15 @@ jobs:
         with:
           name: TahoeTV-android-apks
           path: dist/*.apk
+      # Release notes = this version's section of CHANGELOG.md (also shown inside the apps).
+      - if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v v="$v" '$0 ~ "^## " {p = ($2 == v)} p && !/^## /' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || echo "Tahoe TV $v" > release-notes.md
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.apk
+          body_path: release-notes.md

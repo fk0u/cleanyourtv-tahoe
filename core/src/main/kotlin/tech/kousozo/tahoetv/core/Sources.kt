@@ -134,7 +134,7 @@ object Sources {
         return result
     }
 
-    private fun check(c: M3u.Channel, timeoutMs: Int): Boolean = runCatching {
+    internal fun check(c: M3u.Channel, timeoutMs: Int): Boolean = runCatching {
         val con = URI(c.url).toURL().openConnection() as HttpURLConnection
         con.connectTimeout = timeoutMs; con.readTimeout = timeoutMs; con.instanceFollowRedirects = true
         con.setRequestProperty("User-Agent", "TahoeTV"); c.headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
