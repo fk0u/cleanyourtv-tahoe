@@ -1,5 +1,9 @@
 package tech.kousozo.tahoetv
 
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.drawscope.rotate
 import tech.kousozo.tahoetv.core.SourceHealth
@@ -60,7 +64,7 @@ fun LiveScreen() {
     val failed = Channels.failed
     var cat by remember { mutableStateOf(Nav.liveCategory) }
     var playing by remember { mutableStateOf<LocalTv.Entry?>(null) }
-    var full by remember { mutableStateOf(false) }
+    var full by Nav::full
     LaunchedEffect(Unit) { Channels.load(c) }
     // requests from Beranda / Kategori: open a category, or start a channel
     LaunchedEffect(Nav.liveCategory) { cat = Nav.liveCategory }
@@ -72,21 +76,34 @@ fun LiveScreen() {
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { delay(30_000); now = Instant.now() } }
 
-    // full screen = landscape, player only; Back returns
+    // full screen = landscape, player only, system bars and tab bar hidden; Back returns.
+    // Turning the phone to landscape while a channel plays also goes full screen (rotation no longer recreates the screen).
     val activity = c as? Activity
+    val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    LaunchedEffect(landscape) { if (playing != null) full = landscape }
     DisposableEffect(full) {
         activity?.requestedOrientation = if (full) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+        activity?.window?.let { w ->
+            val ic = androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
+            ic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (full) ic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars()) else ic.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            activity?.window?.let { w -> androidx.core.view.WindowCompat.getInsetsController(w, w.decorView).show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
+        }
     }
+    DisposableEffect(Unit) { onDispose { Nav.full = false } } // leaving the tab never leaves the tab bar hidden
     BackHandler(full) { full = false }
 
     val list = entries
     Column(Modifier.fillMaxSize().then(if (full) Modifier.background(Color.Black) else Modifier.systemBarsPadding())) {
         playing?.let { e ->
-            Box(Modifier.fillMaxWidth().then(if (full) Modifier.fillMaxHeight() else Modifier.aspectRatio(16f / 9f)).background(Color.Black)) {
+            Box(Modifier.fillMaxWidth().then(if (full) Modifier.fillMaxHeight() else Modifier.aspectRatio(16f / 9f)).background(Color.Black)
+                .semantics { contentDescription = "Siaran ${e.name}" }) {
                 LivePlayer(e) { list?.let { l -> playing = l[(l.indexOf(e) + it + l.size) % l.size] } }
-                IconButton({ full = !full }, Modifier.align(Alignment.TopEnd)) {
-                    Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, "Layar penuh", tint = Color.White)
+                IconButton({ full = !full }, Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                    Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (full) "Keluar dari layar penuh" else "Layar penuh", tint = Color.White)
                 }
             }
         }
@@ -168,9 +185,11 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
             // A source that already played reconnects at the live edge (blip, rebuffer, fell behind live);
             // only one that never played, or keeps failing, moves to the backup.
             override fun onPlayerError(error: PlaybackException) {
+                // Fell out of the live window: rejoin at the live point. Anything else: carry on from the same spot.
+                if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) { player.seekToDefaultPosition(); player.prepare(); return }
                 if (!everReady || retries >= 3) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, false) }; source++; return }
                 retries++; message = "Menyambung ulang…"
-                player.seekToDefaultPosition(); player.prepare(); player.play()
+                player.prepare(); player.play()
             }
             override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_READY) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, true) }; message = null; everReady = true; retries = 0 } }
         }
@@ -195,13 +214,16 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
             Text(e.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         }
         message?.let {
-            if (it.startsWith("Saluran ini")) Text(it, Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp),
+            if (it.startsWith("Saluran ini")) Text(it, Modifier.align(Alignment.Center).semantics { liveRegion = LiveRegionMode.Polite }.background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp),
                 color = Color.White, fontSize = 14.sp)
-            else ChannelLoader(e.name, it, Modifier.align(Alignment.Center))
+            else ChannelLoader(e.name, it, Modifier.align(Alignment.Center).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = "${e.name}: $it" })
         }
         Row(Modifier.align(Alignment.BottomCenter).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalIconButton({ zap(-1) }) { Icon(Icons.Rounded.SkipPrevious, "Saluran sebelumnya") }
-            FilledTonalIconButton({ if (player.isPlaying) player.pause() else player.play() }) { Icon(Icons.Rounded.PlayArrow, "Putar/jeda") }
+            var paused by remember { mutableStateOf(false) }
+            FilledTonalIconButton({ if (player.isPlaying) player.pause() else player.play(); paused = !player.playWhenReady }) {
+                Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (paused) "Putar" else "Jeda")
+            }
             FilledTonalIconButton({ zap(1) }) { Icon(Icons.Rounded.SkipNext, "Saluran berikutnya") }
         }
     }
@@ -251,6 +273,8 @@ object Nav {
     var tab by mutableIntStateOf(0)
     var liveCategory by mutableStateOf<LocalTv.Category?>(null)
     var playUrl by mutableStateOf<String?>(null)
+    /** Live TV player is full screen: the tab bar hides. */
+    var full by mutableStateOf(false)
     fun play(e: LocalTv.Entry) { playUrl = e.channel.url; tab = 1 }
     fun category(k: LocalTv.Category?) { liveCategory = k; tab = 1 }
 }
