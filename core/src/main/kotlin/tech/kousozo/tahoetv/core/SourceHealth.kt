@@ -13,7 +13,8 @@ object SourceHealth {
 
     private const val TTL = 15 * 60_000L
     private val map = ConcurrentHashMap<String, Status>()
-    private val pool = Executors.newFixedThreadPool(16) { r -> Thread(r, "tahoe-probe").apply { isDaemon = true } }
+    // Few threads on purpose: probing runs while people watch, and must not starve the stream on a weak TV.
+    private val pool = Executors.newFixedThreadPool(6) { r -> Thread(r, "tahoe-probe").apply { isDaemon = true } }
     private val queued = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var file: File? = null
 
