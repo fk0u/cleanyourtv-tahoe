@@ -5,10 +5,13 @@ backup/
 wallpapers/
 shots/
 .DS_Store
+*.m3u
 
 # Gradle
 .gradle/
 **/build/
+bin/
+**/bin/
 local.properties
 secrets.properties
 

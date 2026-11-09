@@ -4,8 +4,21 @@ package tech.kousozo.tahoetv.core
  *  regional stations and local TV, with "near you" picked by province. iptv-org's own groups are too coarse for that. */
 object LocalTv {
     enum class Category(val label: String) {
-        Near("Dekat kamu"), National("Nasional"), Tvri("TVRI Daerah"), Local("TV Lokal"),
-        News("Berita"), Religious("Religi"), Kids("Anak"), Other("Lainnya"),
+        Near("Dekat kamu"),
+        National("Nasional"),
+        Sports("Olahraga"),
+        Movies("Film & Sinema"),
+        Entertainment("Hiburan & Serial"),
+        News("Berita"),
+        Kids("Anak & Animasi"),
+        Documentary("Dokumenter"),
+        Music("Musik & Radio"),
+        Lifestyle("Gaya Hidup"),
+        Religious("Religi"),
+        Tvri("TVRI Daerah"),
+        Local("TV Daerah"),
+        Vod("VOD & Film"),
+        Other("Lainnya"),
     }
 
     /** `alternates`: other streams of the same channel (other sources), tried when `channel` fails. */
@@ -40,8 +53,8 @@ object LocalTv {
         "ambon" to "Maluku", "dki" to "Jakarta", "dki jakarta" to "Jakarta", "kaltim" to "Kalimantan Timur", "jatim" to "Jawa Timur",
         "jateng" to "Jawa Tengah", "jabar" to "Jawa Barat", "diy" to "Yogyakarta", "jogja" to "Yogyakarta")
 
-    /** Not Indonesian channels, or pay-TV/operator brands: kept, but last. */
-    private val FOREIGN = Regex("""\((taiwan)\)|rtm asean|axn|^dens |^biznet |^my (cinema|family)""", RegexOption.IGNORE_CASE)
+    /** Foreign / non-Indonesian channels without category: kept, but last. */
+    private val FOREIGN = Regex("""\((taiwan)\)|rtm asean|^biznet kids""", RegexOption.IGNORE_CASE)
 
     /** Province (as geocoding returns it, Indonesian) → name fragments of its TVRI station and local channels. Longest key wins. */
     private val PROVINCE = mapOf(
@@ -98,16 +111,70 @@ object LocalTv {
         val name = cleanName(c.name)
         val l = name.lowercase()
         val group = c.group?.lowercase().orEmpty()
+        val url = c.url.lowercase()
         val nat = NATIONAL.indexOf(l).takeIf { it >= 0 }
         val isNear = near.any { it in l }
+
+        val isVod = group.contains("vod") || url.contains(".mp4") || url.contains(".mkv") || url.contains(".avi") ||
+                url.contains(".mov") || url.contains(".webm") || l.startsWith("vod ") || group.contains("film on demand")
+
+        val isSports = group.contains("sport") || group.contains("worldcup") || group.contains("soccer") ||
+                group.contains("football") || group.contains("otomotif") || group.contains("motor") ||
+                l.contains("bein") || l.contains("spotv") || l.contains("champions tv") || l.contains("premier league") ||
+                l.contains("soccer") || l.contains("sportstars") || l.contains("nba") || l.contains("eurosport") ||
+                l.contains("fight sports") || l.contains("golf") || l.contains("motogp") || l.contains("f1") ||
+                l.contains("mola") || l.contains("k-ball") || l.contains("sport")
+
+        val isMovies = group.contains("movie") || group.contains("cinema") || group.contains("hbo") ||
+                l.contains("hbo") || l.contains("cinemax") || l.contains("fox movies") || l.contains("cinema world") ||
+                l.contains("celestial") || l.contains("hits movies") || l.contains("zee bioskop") || l.contains("galaxy") ||
+                l.contains("flik") || l.contains("my cinema") || l.contains("bioskop") || l.contains("thrill") ||
+                l.contains("paramount")
+
+        val isKids = group.contains("kid") || group.contains("animation") || group.contains("anime") ||
+                group.contains("family") || l.contains("cartoon network") || l.contains("nickelodeon") ||
+                l.contains("nick jr") || l.contains("boomerang") || l.contains("dreamworks") ||
+                l.contains("babyfirst") || l.contains("cbeebies") || l.contains("my kidz") ||
+                l.contains("moonbug") || l.contains("animax") || l.contains("space toon") || l.contains("daai")
+
+        val isNews = group.contains("news") || group.contains("business") || group.contains("berita") ||
+                l.contains("cnn") || l.contains("cnbc") || l.contains("metro tv") || l.contains("tvone") ||
+                l.contains("kompas tv") || l.contains("beritasatu") || l.contains("inews") || l.contains("bbc") ||
+                l.contains("al jazeera") || l.contains("cna") || l.contains("bloomberg")
+
+        val isDoc = group.contains("documentary") || group.contains("knowledge") || group.contains("education") ||
+                l.contains("discovery") || l.contains("nat geo") || l.contains("national geographic") ||
+                l.contains("animal planet") || l.contains("history") || l.contains("bbc earth") ||
+                l.contains("love nature") || l.contains("crime")
+
+        val isEntertainment = group.contains("entertainment") || group.contains("series") || group.contains("comedy") ||
+                group.contains("hiburan") || l.contains("tvn") || l.contains("k-plus") || l.contains("axn") ||
+                l.contains("warner") || l.contains("hits") || l.contains("lifetime") || l.contains("one")
+
+        val isMusic = group.contains("music") || group.contains("radio") || l.contains("mtv") || l.contains("trace")
+
+        val isLifestyle = group.contains("lifestyle") || group.contains("cooking") || group.contains("auto") ||
+                l.contains("food network") || l.contains("hgtv") || l.contains("afn")
+
+        val isReligious = group.contains("religi") || group.contains("christian") || group.contains("islam") ||
+                group.contains("dakwah") || l.contains("rodja") || l.contains("surau") || l.contains("quran") ||
+                l.contains("tv9") || l.contains("madani") || l.contains("nabawi")
+
         val cat = when {
-            FOREIGN.containsMatchIn(c.name) -> Category.Other // raw name: cleanName drops "(Taiwan)"
+            FOREIGN.containsMatchIn(c.name) -> Category.Other
+            isVod -> Category.Vod
             nat != null -> Category.National
+            isSports -> Category.Sports
+            isMovies -> Category.Movies
             l.startsWith("tvri ") -> Category.Tvri
-            "religi" in group -> Category.Religious // "Religious", "Religious Channels", "RELIGION"
-            "kids" in group -> Category.Kids
-            "news" in group || "business" in group || "legislative" in group -> Category.News
-            group.isEmpty() || group == "general" || group == "undefined" || "culture" in group || "education" in group -> Category.Local
+            isKids -> Category.Kids
+            isNews -> Category.News
+            isDoc -> Category.Documentary
+            isEntertainment -> Category.Entertainment
+            isMusic -> Category.Music
+            isLifestyle -> Category.Lifestyle
+            isReligious -> Category.Religious
+            group.isEmpty() || group == "general" || group == "undefined" || "local" in group || "culture" in group -> Category.Local
             else -> Category.Other
         }
         return Entry(c, name, cat, isNear, "Not 24/7" in c.name, "Geo-blocked" in c.name, nat ?: 1000)
@@ -118,7 +185,7 @@ object LocalTv {
     fun arrange(channels: List<M3u.Channel>, province: String?): List<Entry> {
         val near = nearKeywords(province)
         return channels.map { classify(it, near) }
-            .groupBy { it.name.lowercase() }.values.map { dupes ->
+            .groupBy { "${it.name.lowercase()}|${it.category.name}" }.values.map { dupes ->
                 val sorted = dupes.sortedWith(compareBy({ it.partTime }, { it.channel.headers.isNotEmpty() }))
                 sorted.first().copy(alternates = sorted.drop(1).map { it.channel })
             }

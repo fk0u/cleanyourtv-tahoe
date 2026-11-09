@@ -108,8 +108,8 @@ fun HomeScreen(onLive: () -> Unit) {
                 Icon(Icons.Rounded.LiveTv, null, tint = Tahoe.Accent, modifier = Modifier.size(30.dp))
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("TV Live", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Saluran TV gratis dari playlist IPTV, langsung di app ini.", color = Tahoe.Dim, fontSize = 14.sp)
+                    Text("TV Live & VOD", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Saluran TV & VOD lengkap dari playlist IPTV (Nasional, Sports, Movies, Hiburan, Berita, VOD).", color = Tahoe.Dim, fontSize = 14.sp)
                 }
                 Icon(Icons.Rounded.ChevronRight, null, tint = Tahoe.Faint)
             }

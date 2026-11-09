@@ -1,7 +1,9 @@
 package tech.kousozo.tahoetv.core
 
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -43,16 +45,83 @@ object Sources {
     fun load(extra: String?): List<M3u.Channel> =
         load(DEFAULT + extra.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.map { Source("extra", it) })
 
+    /** Loads ALL channels unfiltered: local files (koutv.m3u, anotheriptv.m3u, ~/.tahoetv/playlists/),
+     *  plus user extra sources and built-in playlists. Preserves all premium, sports, movies, VOD & DRM channels. */
+    @JvmOverloads
+    fun loadAll(extra: String? = null, localFiles: List<String> = listOf("koutv.m3u", "anotheriptv.m3u")): List<M3u.Channel> {
+        val out = mutableListOf<M3u.Channel>()
+        val seenUrls = mutableSetOf<String>()
+
+        // 1. Local workspace files
+        localFiles.forEach { path ->
+            val f = File(path)
+            if (f.exists() && f.isFile) {
+                runCatching { M3u.load(f.absolutePath) }.getOrNull()?.forEach { ch ->
+                    if (seenUrls.add(ch.url)) out += ch
+                }
+            }
+        }
+
+        // 2. ~/.tahoetv/playlists
+        val dir = File(System.getProperty("user.home"), ".tahoetv/playlists")
+        if (dir.exists()) {
+            dir.listFiles()?.filter { it.extension.lowercase() in listOf("m3u", "m3u8", "txt") }?.forEach { f ->
+                runCatching { M3u.load(f.absolutePath) }.getOrNull()?.forEach { ch ->
+                    if (seenUrls.add(ch.url)) out += ch
+                }
+            }
+        }
+
+        // 3. Extra playlists specified in settings
+        extra.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.forEach { src ->
+            runCatching { M3u.load(src) }.getOrNull()?.forEach { ch ->
+                if (seenUrls.add(ch.url)) out += ch
+            }
+        }
+
+        // 4. Fallback to built-in sources if no local channels found
+        if (out.isEmpty()) {
+            DEFAULT.forEach { s ->
+                runCatching { M3u.load(s.url) }.getOrNull()?.forEach { ch ->
+                    if (seenUrls.add(ch.url)) out += ch
+                }
+            }
+        }
+
+        return out
+    }
+
     // ------------------------------------------------------------------ is it on air?
 
     /** URLs that answer with a playable playlist/stream within a few seconds. Parallel; ~5 s for a few hundred. */
     fun alive(channels: List<M3u.Channel>, timeoutMs: Int = 5000): Set<String> {
         val pool = Executors.newFixedThreadPool(32)
-        val ok = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+        val ok = ConcurrentHashMap.newKeySet<String>()
         channels.forEach { c -> pool.execute { if (check(c, timeoutMs)) ok += c.url } }
         pool.shutdown(); pool.awaitTermination(timeoutMs * 3L, TimeUnit.MILLISECONDS)
         pool.shutdownNow()
         return ok
+    }
+
+    /** Detailed status check returning Map of url -> isLive (true=LIVE, false=OFFLINE).
+     *  Calls [onProgress] on each checked channel so UI updates in real time. */
+    fun checkStatus(
+        channels: List<M3u.Channel>,
+        timeoutMs: Int = 4000,
+        onProgress: ((url: String, isLive: Boolean) -> Unit)? = null
+    ): Map<String, Boolean> {
+        val pool = Executors.newFixedThreadPool(32)
+        val result = ConcurrentHashMap<String, Boolean>()
+        channels.forEach { c ->
+            pool.execute {
+                val live = check(c, timeoutMs)
+                result[c.url] = live
+                onProgress?.invoke(c.url, live)
+            }
+        }
+        pool.shutdown(); pool.awaitTermination(timeoutMs * 3L, TimeUnit.MILLISECONDS)
+        pool.shutdownNow()
+        return result
     }
 
     private fun check(c: M3u.Channel, timeoutMs: Int): Boolean = runCatching {

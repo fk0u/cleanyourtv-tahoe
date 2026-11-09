@@ -88,12 +88,17 @@ Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb))
 
 App desktop (Kotlin + Compose Multiplatform) dengan gaya yang sama:
 - **Beranda**: jam, cuaca, jadwal shalat, rekomendasi trending YouTube/Netflix, pintasan layanan streaming (dibuka di browser, tempat DRM seperti Netflix memang jalan), dan asisten Gemini.
-- **TV Live**: fokus TV lokal Indonesia: "Dekat kamu" (TVRI daerah dan TV lokal di provinsimu), Nasional, TVRI Daerah, TV Lokal, Berita, Religi, Anak.
-  - Saluran: TV gratis dari [iptv-org](https://github.com/iptv-org/iptv) + [yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia) + [dhanytv](https://github.com/dhasap/dhanytv) (hanya grup TV Indonesia; saluran ber-DRM, restream operator berbayar, dan merek pay-TV **tidak** diambil). Saluran yang sama dari beberapa sumber jadi cadangan otomatis; saluran yang sedang offline disembunyikan.
-  - Playlist tambahan sendiri (URL atau file .m3u/.txt) bisa digabung lewat Setelan, dengan saringan yang sama.
+- **TV Live & VOD**: fokus TV nasional, saluran olahraga, film, dan VOD dengan 14 kategori lengkap:
+  - Kategori: **Nasional**, **Olahraga / Sports** (beIN, SPOTV, Champions TV, Bola, MotoGP, F1), **Film & Sinema** (HBO, Cinemax, Fox Movies, Celestial), **VOD & Film** (VOD INDO, file .mp4/.mkv), **Hiburan**, **Berita**, **Anak**, **Dokumenter**, **Musik**, **Gaya Hidup**, **Religi**, **TVRI Daerah**, **TV Daerah**, dan **Dekat kamu**.
+  - Pengecekan server otomatis secara paralel di latar belakang: badge status visual **LIVE** (hijau), **OFFLINE** (merah), dan **CEK...** (abu-abu), dilengkapi tombol filter status cepat.
+  - Saluran: menggabungkan 980+ saluran dari playlist lokal (`koutv.m3u`, `anotheriptv.m3u`, `~/.tahoetv/playlists/`) dan playlist kustom, lengkap dengan dukungan DRM ClearKey dan Widevine.
   - Jadwal acara (EPG): dhanytv + [epg.pw](https://epg.pw).
-  - Pemutar di jendela sendiri (layar penuh), termasuk siaran yang butuh header Referer/User-Agent.
-  - Di TV dan HP, "Jadwal TV" menampilkan jadwalnya dan menonton lewat **BitTV**.
+  - Pemutar di jendela sendiri (layar penuh) dengan fallback cerdas ke Web Player (Shaka DRM) untuk siaran DASH/DRM.
+- **Server IPTV (LAN)**: relay streaming lokal terintegrasi dengan injeksi header HTTP (`Referer`, `Origin`, `User-Agent`).
+  - Menggabungkan playlist `koutv.m3u` dan `anotheriptv.m3u` (980+ saluran, 200 dengan relay header).
+  - Menyediakan endpoint M3U Master (`http://<ip>:8088/playlist.m3u`) dan EPG (`http://<ip>:8088/epg.xml`) untuk TV, HP, VLC, Kodi, atau TiviMate.
+  - Web Dashboard + Shaka Player interaktif dengan dekripsi otomatis ClearKey DRM di `http://<ip>:8088/`.
+  - Otomatis aktif saat aplikasi desktop dibuka, dan dapat dikontrol dari Setelan → Server IPTV atau via terminal: `./tools/start-iptv-server.sh`.
 - **TV Rumah**: cari Android TV di Wi-Fi, debloat, pasang dan atur Tahoe (sama seperti app HP).
 - **Remote**: cermin layar TV lewat ADB (klik gambar = ketuk di TV), D-pad, keyboard, volume, media.
 

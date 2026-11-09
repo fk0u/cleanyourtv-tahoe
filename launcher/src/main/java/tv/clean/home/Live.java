@@ -106,8 +106,8 @@ public class Live extends Activity {
                         Web.Place p = Web.INSTANCE.geocode(Cfg.s(c, "city", R.string.city));
                         if (p != null && !p.getRegion().isEmpty()) { province = p.getRegion(); cfg.edit().putString("province", province).apply(); }
                     }
-                    // built-in free sources (+ a custom playlist from the phone/desktop), filtered the same way
-                    List<LocalTv.Entry> l = LocalTv.INSTANCE.arrange(Sources.INSTANCE.load(cfg.getString("playlist_url", "")), province);
+                    // built-in sources (+ a custom playlist from the phone/desktop), loads all channels unfiltered
+                    List<LocalTv.Entry> l = LocalTv.INSTANCE.arrange(Sources.INSTANCE.loadAll(cfg.getString("playlist_url", "")), province);
                     main.post(() -> { cached = l; cachedAt = System.currentTimeMillis(); list.accept(l); });
                 }
                 String guideUrl = cfg.getString("epg_url", "");

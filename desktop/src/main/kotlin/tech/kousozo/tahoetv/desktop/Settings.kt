@@ -34,6 +34,9 @@ object Settings {
         get() = pref("fav").state.value.split('\n').filter { it.isNotBlank() }.toSet()
         set(v) = pref("fav").set(v.joinToString("\n"))
 
+    var iptvPort get() = pref("iptv_port", "8088").state.value.toIntOrNull() ?: 8088; set(v) = pref("iptv_port").set("$v")
+    var iptvAutoStart get() = pref("iptv_autostart", "false").state.value == "true"; set(v) = pref("iptv_autostart").set("$v")
+
     /** ADB key of this computer (the TV remembers it after "Always allow"). */
     val adbDir = File(System.getProperty("user.home"), ".tahoetv/adb")
 }
