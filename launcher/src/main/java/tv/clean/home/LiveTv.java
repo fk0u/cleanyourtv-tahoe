@@ -155,7 +155,11 @@ public class LiveTv extends Activity {
         List<M3u.Channel> s = streams();
         if (source >= s.size()) {
             player.stop();
-            bStatus.setText("Saluran ini sedang tidak bisa diputar. Tekan ▼ untuk saluran berikutnya.");
+            LocalTv.Entry e = list.get(index);
+            boolean marked = SourceHealth.isBanned(e.getChannel().getUrl());
+            for (M3u.Channel a : e.getAlternates()) marked |= SourceHealth.isBanned(a.getUrl());
+            bStatus.setText(marked ? "Saluran ini sedang tidak bisa diputar. Tahan OK untuk memulihkan sumber yang ditandai \"bukan live\", atau ▼ untuk saluran berikutnya."
+                    : "Saluran ini sedang tidak bisa diputar. Tekan ▼ untuk saluran berikutnya.");
             bStatus.setVisibility(View.VISIBLE); loading.setVisibility(View.GONE); showBanner(); return;
         }
         M3u.Channel c = s.get(source);
@@ -203,8 +207,10 @@ public class LiveTv extends Activity {
     /** ⏪ / ⏩ within what the server keeps (the live window); past the live edge it jumps back to live. */
     void seekRel(long ms) {
         if (player == null || index < 0) return;
-        long pos = player.getCurrentPosition(), dur = player.getDuration();
-        if (ms > 0 && (dur == C.TIME_UNSET || pos + ms >= dur - 8000)) player.seekToDefaultPosition();
+        long pos = player.getCurrentPosition(), off = player.getCurrentLiveOffset();
+        boolean live = player.isCurrentMediaItemLive();
+        // forward: decided by the live offset (live streams often report no duration); past the ~20 s cushion = live again
+        if (ms > 0 && live && (off == C.TIME_UNSET || off - ms <= 28_000)) player.seekToDefaultPosition();
         else player.seekTo(Math.max(0, pos + ms));
         player.play(); showBanner();
     }
@@ -218,9 +224,18 @@ public class LiveTv extends Activity {
         return "⏪ -" + (sec >= 60 ? (sec / 60) + " mnt " + (sec % 60) + " dtk" : sec + " dtk");
     }
 
-    /** Long-press OK: this source plays a recording / old show. Skip it now and never start it first again. */
+    /** Long-press OK: this source plays a recording / old show. Skip it now and never start it first again.
+     *  On a channel with nothing left to play, long-press OK is the undo: every source marked this way comes back. */
     void flagRecording() {
-        if (index < 0 || source >= order.size()) return;
+        if (index < 0) return;
+        if (source >= order.size()) {
+            LocalTv.Entry e = list.get(index);
+            List<M3u.Channel> all = new ArrayList<>(); all.add(e.getChannel()); all.addAll(e.getAlternates());
+            int n = SourceHealth.unbanAll(all);
+            Toast.makeText(this, n > 0 ? n + " sumber yang ditandai dipulihkan" : "Tidak ada sumber yang ditandai di saluran ini", Toast.LENGTH_SHORT).show();
+            if (n > 0) tune(index);
+            return;
+        }
         SourceHealth.ban(order.get(source).getUrl());
         Toast.makeText(this, "Sumber dilewati: bukan siaran langsung", Toast.LENGTH_SHORT).show();
         nextSource();

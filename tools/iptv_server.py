@@ -17,6 +17,7 @@ import os
 import re
 import socket
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -238,10 +239,17 @@ def hls_kind(text, now=None):
     return "stale" if now - clock > STALE_SECONDS else "live"
 
 
+PLAYLIST_LIMIT = 4 * 1024 * 1024  # live playlists are a few KB; one this big is a long finished video
+
+
 def _fetch_text(url, headers, timeout):
     req = urllib.request.Request(url, headers={"User-Agent": "TahoeTV", **(headers or {})})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read(256 * 1024).decode("utf-8", "replace"), resp.geturl()
+        data = resp.read(PLAYLIST_LIMIT)
+        text = data.decode("utf-8", "replace")
+        if len(data) >= PLAYLIST_LIMIT:
+            text += "\n#EXT-X-ENDLIST\n"  # cut off: its ENDLIST would be past the limit
+        return text, resp.geturl()
 
 
 def channel_health(c, timeout=4):
@@ -250,12 +258,13 @@ def channel_health(c, timeout=4):
         text, final = _fetch_text(c.url, c.headers, timeout)
     except Exception:
         return "dead"
-    if ".m3u8" not in c.url.lower():
+    if not urllib.parse.urlparse(c.url).path.lower().endswith(".m3u8"):
         return "live"
     if not text.lstrip().startswith("#EXTM3U"):
         return "dead"
     group = (c.group or "").lower()
-    if "vod" in group or "film on demand" in group:
+    path = urllib.parse.urlparse(c.url).path.lower()
+    if "vod" in group or "film on demand" in group or path.endswith((".mp4", ".mkv", ".avi", ".mov", ".webm")):
         return "live"
     if "#EXT-X-STREAM-INF" in text:
         lines = [l.strip() for l in text.splitlines()]
@@ -282,8 +291,9 @@ class IptvHandler(SimpleHTTPRequestHandler):
     start_time = time.time()
     health = {}            # cid -> live | replay | stale | dead
     health_at = 0.0
-    health_running = False
+    health_lock = threading.Lock()   # held for the whole scan: one scan at a time
     epg_cache = None       # (bytes, fetched_at): the guide is kept 6 h instead of downloaded per request
+    epg_lock = threading.Lock()      # one guide download at a time
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -902,21 +912,26 @@ class IptvHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def fresh_epg(self):
+        cached = IptvHandler.epg_cache
+        return cached[0] if cached and time.time() - cached[1] < 6 * 3600 else None
+
     def serve_epg(self):
         try:
-            cached = IptvHandler.epg_cache
-            if cached and time.time() - cached[1] < 6 * 3600:
-                body = cached[0]
-            else:
-                try:
-                    req = urllib.request.Request(self.epg_url, headers={"User-Agent": "TahoeIPTV"})
-                    with urllib.request.urlopen(req, timeout=15) as resp:
-                        body = resp.read()
-                    IptvHandler.epg_cache = (body, time.time())
-                except Exception:
-                    if not cached:
-                        raise
-                    body = cached[0]  # a stale guide beats none
+            body = self.fresh_epg()
+            if body is None:
+                with IptvHandler.epg_lock:  # a burst after expiry waits for one download
+                    body = self.fresh_epg()
+                    if body is None:
+                        try:
+                            req = urllib.request.Request(self.epg_url, headers={"User-Agent": "TahoeIPTV"})
+                            with urllib.request.urlopen(req, timeout=15) as resp:
+                                body = resp.read()
+                            IptvHandler.epg_cache = (body, time.time())
+                        except Exception:
+                            if not IptvHandler.epg_cache:
+                                raise
+                            body = IptvHandler.epg_cache[0]  # a stale guide beats none
             self.send_response(200)
             self.send_header("Content-Type", "application/xml; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -1111,9 +1126,10 @@ class IptvHandler(SimpleHTTPRequestHandler):
     @classmethod
     def refresh_health(cls, force=False):
         """Checks every channel (16 at a time) in a background thread, at most every 15 min unless forced."""
-        if cls.health_running or (not force and time.time() - cls.health_at < 15 * 60):
+        if not force and time.time() - cls.health_at < 15 * 60:
             return
-        cls.health_running = True
+        if not cls.health_lock.acquire(blocking=False):
+            return  # a scan is already running
 
         def run():
             from concurrent.futures import ThreadPoolExecutor
@@ -1123,9 +1139,8 @@ class IptvHandler(SimpleHTTPRequestHandler):
                         cls.health[c.cid] = kind
                 cls.health_at = time.time()
             finally:
-                cls.health_running = False
+                cls.health_lock.release()
 
-        import threading
         threading.Thread(target=run, name="tahoe-health", daemon=True).start()
 
     def serve_api_health(self, query):
@@ -1135,7 +1150,7 @@ class IptvHandler(SimpleHTTPRequestHandler):
         for v in self.health.values():
             counts[v] = counts.get(v, 0) + 1
         data = {
-            "checking": IptvHandler.health_running, "checked_at": int(IptvHandler.health_at),
+            "checking": IptvHandler.health_lock.locked(), "checked_at": int(IptvHandler.health_at),
             "total": len(self.channels), "checked": len(self.health),
             "live": counts.get("live", 0), "replay": counts.get("replay", 0),
             "stale": counts.get("stale", 0), "dead": counts.get("dead", 0),

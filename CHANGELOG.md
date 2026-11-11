@@ -6,12 +6,12 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 ## Belum dirilis
 
 ### Perbaikan
-- **Siaran rekaman / "siaran kemarin yang berulang"** (misalnya Trans7): sumber yang playlist-nya sudah selesai (`ENDLIST`/VOD) atau segmen terbarunya bertanggal lama kini terdeteksi dan dilewati, di TV, HP, dan desktop, lalu pindah ke sumber cadangan. Sebelumnya cukup "menjawab 200" untuk dianggap LIVE. Jika ada sumber yang tidak terdeteksi otomatis: TV tahan **OK** (atau tombol merah) dan desktop tombol **⚑ Bukan live** untuk melewatinya selamanya.
+- **Siaran rekaman / "siaran kemarin yang berulang"** (misalnya Trans7): sumber yang playlist-nya sudah selesai (`ENDLIST`/VOD) atau segmen terbarunya bertanggal lama kini terdeteksi dan dilewati, di TV, HP, dan desktop, lalu pindah ke sumber cadangan. Sebelumnya cukup "menjawab 200" untuk dianggap LIVE. Jika ada sumber yang tidak terdeteksi otomatis: TV tahan **OK** (atau tombol merah) dan desktop tombol **⚑ Bukan live** untuk melewatinya. Salah tandai? Saat saluran tak bisa diputar, tahan OK lagi (TV) atau **Pulihkan sumber yang ditandai** (desktop).
 - **Desktop, layar hitam di Live TV:** pemutar tidak lagi menganggap "sedang memutar" hanya karena ada track suara; gambar hitam terus-menerus atau stream tanpa gambar terdeteksi, sumber berikutnya dicoba, dan jika semua gagal muncul pilihan **Buka di Web Player**.
 - **Desktop, tidak bisa pindah saluran:** pemutar lama dilepas di latar sehingga tidak menahan saluran baru, dan satu klik pada kartu saluran langsung memindah saluran saat pemutar terbuka.
 
 ### Baru
-- **Loading ala Apple TV / Netflix** di TV, HP, dan desktop: logo dan nama saluran dengan spinner 12 garis; tidak ada lagi teks "Mencoba sumber cadangan…".
+- **Loading ala Apple TV / Netflix** di TV, HP, dan desktop: logo (HP: inisial) dan nama saluran dengan spinner 12 garis; tidak ada lagi teks "Mencoba sumber cadangan…".
 - **Tunda siaran langsung (TV & HP):** ⏪/⏩ 30 detik di dalam jendela siaran, jeda, dan kembali ke live. Di TV tombol media (Play/Pause, Rewind, Fast Forward) bekerja; label LIVE berubah jadi "⏪ -1 mnt" saat tertinggal.
 - **Dekoder cadangan** di TV dan HP: jika dekoder utama menolak sebuah stream, dekoder lain dicoba sebelum sumber dianggap gagal.
 - **Server IPTV (desktop dan `tools/iptv_server.py`):** `/api/health` (live / rekaman / basi / mati per saluran), `?live=1` pada playlist dan `/api/channels` untuk menyembunyikan rekaman dan saluran mati, serta cache EPG 6 jam.

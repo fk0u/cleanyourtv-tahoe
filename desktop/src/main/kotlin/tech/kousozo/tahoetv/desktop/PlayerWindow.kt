@@ -82,6 +82,11 @@ object PlayerWindow {
     private lateinit var webBtn: Button
     private lateinit var flagBtn: Button
     private var currentStreams: List<M3u.Channel> = emptyList()
+    /** Every stream of the channel (main + backups) incl. ones marked "not live", for the restore button. */
+    private var channelStreams: List<M3u.Channel> = emptyList()
+    private lateinit var restoreBtn: Button
+    /** Sent to the app when the window closes, so it stops treating the channel as playing. */
+    const val CLOSED = "Pemutar ditutup"
     private var currentIndex = 0
     private var failReason: String? = null
 
@@ -136,6 +141,7 @@ object PlayerWindow {
         val logo = streams.firstOrNull()?.logo
         loaderLogo.image = logo?.let { runCatching { Image(it, 200.0, 120.0, true, true, true) }.getOrNull() }
         loaderTile.isVisible = loaderLogo.image != null; loaderTile.isManaged = loaderTile.isVisible
+        channelStreams = streams
         start(SourceHealth.order(streams), 0, ++generation) // known-live sources first, recordings left out
         s.show(); s.toFront(); reveal()
     }
@@ -143,6 +149,7 @@ object PlayerWindow {
     /** Playing: hide the loader and any error. Only real failures ever reach the app window (no "loading…" chatter). */
     private fun playingNow() {
         loading(false); statusLabel.isVisible = false; nextBtn.isVisible = false; nextBtn.isManaged = false; webBtn.isVisible = false; webBtn.isManaged = false
+        restoreBtn.isVisible = false; restoreBtn.isManaged = false
         SwingUtilities.invokeLater { onStatus(null) }
     }
 
@@ -151,6 +158,8 @@ object PlayerWindow {
         loading(false)
         statusLabel.text = msg; statusLabel.isVisible = true
         nextBtn.isVisible = true; nextBtn.isManaged = true; webBtn.isVisible = offerWeb; webBtn.isManaged = offerWeb
+        val marked = channelStreams.any { SourceHealth.isBanned(it.url) }
+        restoreBtn.isVisible = marked; restoreBtn.isManaged = marked
         reveal()
         SwingUtilities.invokeLater { onStatus(msg) }
     }
@@ -214,10 +223,12 @@ object PlayerWindow {
         val p = try { MediaPlayer(Media(HlsProxy.wrap(c.url, c.headers))) } catch (e: Exception) { return next() }
         player = p; view.mediaPlayer = p
         // "Playing" means a picture: sound alone, or tracks that never draw, no longer end the loader (that was the black screen).
-        p.setOnPlaying { if (p.media.width > 0 || p.media.tracks.any { it is javafx.scene.media.VideoTrack }) { SourceHealth.report(c.url, true); playingNow() } }
-        p.setOnError { recover() }
+        // Events from a player that was already replaced (disposal runs in the background) must not touch the new one.
+        val current = { gen == generation && player === p }
+        p.setOnPlaying { if (current() && (p.media.width > 0 || p.media.tracks.any { it is javafx.scene.media.VideoTrack })) { SourceHealth.report(c.url, true); playingNow() } }
+        p.setOnError { if (current()) recover() }
         // A live channel that reaches its end is a finished recording: restarting it just plays it from the top again.
-        p.setOnEndOfMedia { if (!isVod && gen == generation && player === p) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; next() } }
+        p.setOnEndOfMedia { if (!isVod && current()) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; next() } }
         p.play()
         // Watchdog: a stream may never error and just hang, or "play" with no picture / a frozen or black picture.
         var stuckSince = System.nanoTime(); val began = System.nanoTime()
@@ -233,14 +244,17 @@ object PlayerWindow {
             when {
                 p.status == MediaPlayer.Status.PAUSED -> stuckSince = System.nanoTime()
                 age > 20 && lastTime < 0 -> next()                                   // never started
-                age > 12 && noVideo -> { failReason = "Siaran ini hanya mengirim suara, tanpa gambar."; next() } // sound only
+                // sound only: judged once it really plays (track info is known by then), not while still connecting
+                age > 12 && noVideo && lastTime >= 0 && p.status == MediaPlayer.Status.PLAYING && p.media.tracks.isNotEmpty() ->
+                    { failReason = "Siaran ini hanya mengirim suara, tanpa gambar."; next() }
                 // STALLED = buffering, give it 30 s (a restart starts the stream over); playing but stuck 12 s = frozen
                 lastTime >= 0 && since > (if (p.status == MediaPlayer.Status.STALLED) 30 else 12) -> recover()
             }
             // Playing for a while but nothing is drawn: the decoder can't show this video (JavaFX plays H.264/AAC only).
             if (moving && !noVideo) {
                 black = if (pictureIsBlack()) black + 1 else 0
-                if (black >= 4) { black = 0; failReason = "Pemutar ini tidak bisa menampilkan gambar siaran tersebut (kodek video tidak didukung)."; next() }
+                // ~20 s of pure black (10 checks): longer than a fade or a dark scene
+                if (black >= 10) { black = 0; failReason = "Pemutar ini tidak bisa menampilkan gambar siaran tersebut (kodek video tidak didukung)."; next() }
             }
         })).apply { cycleCount = Timeline.INDEFINITE; play() }
     }
@@ -282,6 +296,9 @@ object PlayerWindow {
         }
         nextBtn = button("Saluran berikutnya ▶") { onSwitch(1) }.apply { isVisible = false; isManaged = false }
         webBtn = button("Buka di Web Player") { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(IptvServer.webUrl())) } }.apply { isVisible = false; isManaged = false }
+        restoreBtn = button("Pulihkan sumber yang ditandai") {
+            SourceHealth.unbanAll(channelStreams); start(SourceHealth.order(channelStreams), 0, ++generation)
+        }.apply { isVisible = false; isManaged = false }
         flagBtn = button("⚑ Bukan live") { reportRecording() }.apply { tooltip = javafx.scene.control.Tooltip("Sumber ini memutar rekaman / siaran lama: lewati dan jangan dipakai lagi") }
         fullBtn = button("⤢  Layar penuh") { toggleFull() }
         pauseBtn = button("⏸") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }
@@ -301,7 +318,7 @@ object PlayerWindow {
             style = "-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12px;"; StackPane.setAlignment(this, Pos.BOTTOM_CENTER)
             StackPane.setMargin(this, Insets(0.0, 0.0, 70.0, 0.0))
         }
-        val center = VBox(12.0, statusLabel, nextBtn, webBtn).apply { alignment = Pos.CENTER; isPickOnBounds = false }
+        val center = VBox(12.0, statusLabel, nextBtn, webBtn, restoreBtn).apply { alignment = Pos.CENTER; isPickOnBounds = false }
         loaderLogo = ImageView().apply { isPreserveRatio = true; fitWidth = 150.0; fitHeight = 84.0 }
         loaderTile = StackPane(loaderLogo).apply {
             maxWidth = 176.0; maxHeight = 104.0; padding = Insets(10.0)
@@ -333,7 +350,7 @@ object PlayerWindow {
             reveal()
         }
         root.setOnMouseClicked { m -> if (m.button == MouseButton.PRIMARY && m.clickCount == 2) toggleFull() }
-        st.setOnHidden { generation++; watchdog?.stop(); release(); spinTimer.stop(); SwingUtilities.invokeLater { onStatus("Pemutar ditutup") } }
+        st.setOnHidden { generation++; watchdog?.stop(); release(); spinTimer.stop(); SwingUtilities.invokeLater { onStatus(CLOSED) } }
         ticker.play()
         Thread { Web.weather(Settings.lat, Settings.lon)?.let { w -> Platform.runLater { weather = "${w.tempC}° ${w.label}"; refreshInfo() } } }.start()
         stage = st
@@ -347,6 +364,6 @@ object PlayerWindow {
     private fun reportRecording() {
         val c = currentStreams.getOrNull(currentIndex) ?: return
         SourceHealth.ban(c.url); failReason = "Semua sumber saluran ini memutar rekaman."
-        start(currentStreams, currentIndex + 1, generation)
+        start(currentStreams, currentIndex + 1, ++generation) // new generation: a probe still running for the flagged source is ignored
     }
 }

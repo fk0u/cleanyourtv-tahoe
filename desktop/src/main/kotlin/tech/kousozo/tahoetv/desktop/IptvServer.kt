@@ -52,7 +52,10 @@ object IptvServer {
     /** id → "live" | "replay" (finished playlist) | "stale" (old broadcast replayed) | "dead", refreshed in the background. */
     private val health = ConcurrentHashMap<String, String>()
     @Volatile private var healthAt = 0L
-    @Volatile private var healthRunning = false
+    /** One scan at a time, started atomically (two /api/health?refresh=1 at once must not start two scans). */
+    private val healthRunning = java.util.concurrent.atomic.AtomicBoolean(false)
+    /** Bumped when playlists reload: verdicts of an older scan are dropped instead of landing on reused ids. */
+    private val healthGen = java.util.concurrent.atomic.AtomicInteger(0)
 
     private fun verdict(c: M3u.Channel): String {
         if (!c.url.contains(".m3u8", true)) return if (Sources.check(c, 4000)) "live" else "dead"
@@ -67,15 +70,19 @@ object IptvServer {
 
     /** Checks every channel (16 at a time) in the background, at most once per 15 min unless [force]. */
     private fun refreshHealth(force: Boolean = false) {
-        if (healthRunning || (!force && System.currentTimeMillis() - healthAt < 15 * 60_000L)) return
-        healthRunning = true
+        if (!force && System.currentTimeMillis() - healthAt < 15 * 60_000L) return
+        if (!healthRunning.compareAndSet(false, true)) return
+        val gen = healthGen.get()
         Thread({
+            val pool = Executors.newFixedThreadPool(16)
             try {
-                val pool = Executors.newFixedThreadPool(16)
-                channels.toList().forEach { sc -> pool.execute { health[sc.id] = verdict(sc.channel) } }
-                pool.shutdown(); pool.awaitTermination(3, java.util.concurrent.TimeUnit.MINUTES)
-                healthAt = System.currentTimeMillis()
-            } finally { healthRunning = false }
+                channels.toList().forEach { sc -> pool.execute { val v = verdict(sc.channel); if (healthGen.get() == gen) health[sc.id] = v } }
+                pool.shutdown()
+                // Every probe has its own timeouts; this only guards against a hang. A scan that didn't finish isn't "done".
+                val finished = pool.awaitTermination(10, java.util.concurrent.TimeUnit.MINUTES)
+                if (!finished) pool.shutdownNow()
+                if (finished && healthGen.get() == gen) healthAt = System.currentTimeMillis()
+            } finally { healthRunning.set(false) }
         }, "tahoe-health").apply { isDaemon = true }.start()
     }
 
@@ -120,6 +127,7 @@ object IptvServer {
     }
 
     private fun loadPlaylists(customFiles: List<String>) {
+        healthGen.incrementAndGet(); health.clear(); healthAt = 0L // new channel list: old verdicts no longer apply
         channels.clear()
         byId.clear()
         loadedSources.clear()
@@ -355,14 +363,16 @@ object IptvServer {
     /** Guide XML kept in memory for 6 h: every TV/phone/player asking used to download the whole file again. */
     @Volatile private var epgCache: ByteArray? = null
     @Volatile private var epgAt = 0L
+    private val epgLock = Any()
 
     private fun serveEpg(ex: HttpExchange) {
-        val fresh = epgCache?.takeIf { System.currentTimeMillis() - epgAt < 6 * 3600_000L }
-        val data = fresh ?: runCatching {
+        fun fresh() = epgCache?.takeIf { System.currentTimeMillis() - epgAt < 6 * 3600_000L }
+        // One download at a time: a burst of requests after the cache expires waits for it instead of each fetching the XML.
+        val data = fresh() ?: synchronized(epgLock) { fresh() ?: runCatching {
             val c = URI("https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml").toURL().openConnection() as HttpURLConnection
             c.connectTimeout = 10000; c.readTimeout = 15000; c.setRequestProperty("User-Agent", "TahoeIPTV")
             c.inputStream.use { it.readBytes() }.also { epgCache = it; epgAt = System.currentTimeMillis() }
-        }.getOrNull() ?: epgCache // a stale guide beats none
+        }.getOrNull() ?: epgCache } // a stale guide beats none
 
         if (data == null) { ex.sendResponseHeaders(502, -1); ex.close(); return }
         sendCors(ex)
@@ -377,7 +387,7 @@ object IptvServer {
         refreshHealth(force = query["refresh"] in listOf("1", "true"))
         val counts = health.values.groupingBy { it }.eachCount()
         val j = JSONObject().apply {
-            put("checking", healthRunning); put("checked_at", healthAt); put("total", channels.size); put("checked", health.size)
+            put("checking", healthRunning.get()); put("checked_at", healthAt); put("total", channels.size); put("checked", health.size)
             put("live", counts["live"] ?: 0); put("replay", counts["replay"] ?: 0); put("stale", counts["stale"] ?: 0); put("dead", counts["dead"] ?: 0)
             put("channels", JSONObject(health.toMap()))
         }

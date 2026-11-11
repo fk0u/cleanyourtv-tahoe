@@ -109,7 +109,7 @@ object LocalTv {
 
     /** Movies and on-demand files: a finished playlist is normal for these, unlike a live channel. */
     fun isVod(c: M3u.Channel): Boolean {
-        val group = c.group?.lowercase().orEmpty(); val url = c.url.lowercase(); val l = cleanName(c.name).lowercase()
+        val group = c.group?.lowercase().orEmpty(); val url = c.url.substringBefore('?').lowercase(); val l = cleanName(c.name).lowercase()
         return group.contains("vod") || url.contains(".mp4") || url.contains(".mkv") || url.contains(".avi") ||
             url.contains(".mov") || url.contains(".webm") || l.startsWith("vod ") || group.contains("film on demand")
     }
