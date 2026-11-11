@@ -4,8 +4,6 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.RectF;
-import android.graphics.SweepGradient;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
@@ -15,37 +13,42 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** Shown while a channel loads (instead of a black screen): the channel's logo tile inside a rotating cyan ring with a
- *  soft pulse, its name, and a status line. Same setText/setVisibility as the TextView it replaces. */
+/** Shown while a channel loads, in the style of Apple TV / Netflix: a dim full-screen scrim, the channel's logo tile and
+ *  name, and a tvOS-style spinner (12 ticks fading around a circle). It says nothing about sources or retries: the text
+ *  line stays hidden and is only used for real problems (setText with a message shows it, an empty string hides it). */
 final class Loader extends LinearLayout {
     final TextView name, status, logoText;
     final ImageView logo;
-    final Ring ring;
+    final Ticks ticks;
+    final FrameLayout tile;
     ValueAnimator spin;
 
     Loader(Context c) {
         super(c);
-        setOrientation(VERTICAL); setGravity(Gravity.CENTER_HORIZONTAL);
+        setOrientation(VERTICAL); setGravity(Gravity.CENTER);
+        setBackgroundColor(0xCC07080D); // dim the picture behind (black on first tune, last frame on reconnect)
         float d = Ui.dp(c, 1);
 
-        FrameLayout stage = new FrameLayout(c);
-        ring = new Ring(c);
-        stage.addView(ring, new FrameLayout.LayoutParams(-1, -1));
-        FrameLayout tile = new FrameLayout(c);
+        tile = new FrameLayout(c);
         GradientDrawable bg = new GradientDrawable(); bg.setColor(0xF5FFFFFF); bg.setCornerRadius(18 * d);
         tile.setBackground(bg); Ui.clip(tile, 18 * d);
         logoText = Ui.text(c, Ui.HEADLINE, 800, 0xFF111114); logoText.setShadowLayer(0, 0, 0, 0); logoText.setGravity(Gravity.CENTER);
         logo = new ImageView(c); logo.setScaleType(ImageView.ScaleType.FIT_CENTER); logo.setPadding((int) (12 * d), (int) (12 * d), (int) (12 * d), (int) (12 * d));
         tile.addView(logoText, new FrameLayout.LayoutParams(-1, -1)); tile.addView(logo, new FrameLayout.LayoutParams(-1, -1));
-        stage.addView(tile, new FrameLayout.LayoutParams((int) (120 * d), (int) (80 * d), Gravity.CENTER));
-        addView(stage, new LayoutParams((int) (200 * d), (int) (200 * d)));
+        addView(tile, new LayoutParams((int) (132 * d), (int) (88 * d)));
 
         name = Ui.text(c, Ui.HEADLINE, 700, Ui.TEXT);
-        LayoutParams nl = new LayoutParams(-2, -2); nl.topMargin = (int) (6 * d);
+        LayoutParams nl = new LayoutParams(-2, -2); nl.topMargin = (int) (16 * d);
         addView(name, nl);
+
+        ticks = new Ticks(c);
+        LayoutParams tl = new LayoutParams((int) (48 * d), (int) (48 * d)); tl.topMargin = (int) (22 * d);
+        addView(ticks, tl);
+
         status = Ui.text(c, Ui.BODY, 500, Ui.TEXT_2);
-        LayoutParams sl = new LayoutParams(-2, -2); sl.topMargin = (int) (6 * d);
+        LayoutParams sl = new LayoutParams(-2, -2); sl.topMargin = (int) (14 * d);
         addView(status, sl);
+        status.setVisibility(GONE);
     }
 
     /** Logo + name of the channel being loaded. */
@@ -54,7 +57,11 @@ final class Loader extends LinearLayout {
         name.setText(channelName);
     }
 
-    void setText(CharSequence s) { status.setText(s); }
+    /** A problem to tell the person (e.g. the list could not be loaded). Empty = no text, just the spinner. */
+    void setText(CharSequence s) {
+        boolean has = s != null && s.length() > 0;
+        status.setText(has ? s : ""); status.setVisibility(has ? VISIBLE : GONE);
+    }
 
     @Override public void setVisibility(int v) {
         boolean show = v == VISIBLE, was = getVisibility() == VISIBLE && getAlpha() > 0;
@@ -64,44 +71,32 @@ final class Loader extends LinearLayout {
     }
 
     void start() {
-        if (spin != null || Ui.motion(getContext()) == 0) return; // "remove animations": static ring
-        spin = ValueAnimator.ofFloat(0, 1); spin.setDuration(1200); spin.setRepeatCount(ValueAnimator.INFINITE);
+        if (spin != null || Ui.motion(getContext()) == 0) return; // "remove animations": a still spinner
+        spin = ValueAnimator.ofFloat(0, 12); spin.setDuration(1000); spin.setRepeatCount(ValueAnimator.INFINITE);
         spin.setInterpolator(new LinearInterpolator());
-        spin.addUpdateListener(a -> { ring.t = (float) a.getAnimatedValue(); ring.invalidate(); });
+        spin.addUpdateListener(a -> { ticks.phase = (int) ((float) a.getAnimatedValue()) % 12; ticks.invalidate(); });
         spin.start();
     }
 
     void stop() { if (spin != null) { spin.cancel(); spin = null; } }
 
-    /** Rotating cyan arc with a fading tail, over a faint pulsing halo. */
-    static final class Ring extends View {
-        float t;
-        final Paint arc = new Paint(Paint.ANTI_ALIAS_FLAG), halo = new Paint(Paint.ANTI_ALIAS_FLAG);
-        final RectF box = new RectF();
+    /** 12 rounded ticks around a circle; the brightest moves clockwise and the others fade behind it. */
+    static final class Ticks extends View {
+        int phase;
+        final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        Ring(Context c) {
-            super(c);
-            arc.setStyle(Paint.Style.STROKE); arc.setStrokeCap(Paint.Cap.ROUND); arc.setStrokeWidth(Ui.dp(c, 4));
-            halo.setStyle(Paint.Style.STROKE); halo.setStrokeWidth(Ui.dp(c, 2));
-        }
-
-        @Override protected void onSizeChanged(int w, int h, int ow, int oh) {
-            float in = Ui.dp(getContext(), 12);
-            box.set(in, in, w - in, h - in);
-            arc.setShader(new SweepGradient(w / 2f, h / 2f, new int[]{0x0064D2FF, Ui.ACCENT, Brand_CYAN_LIGHT}, new float[]{0f, 0.7f, 1f}));
-        }
-
-        static final int Brand_CYAN_LIGHT = tech.kousozo.tahoetv.core.Brand.CYAN_LIGHT;
+        Ticks(Context c) { super(c); p.setColor(0xFFFFFFFF); p.setStrokeCap(Paint.Cap.ROUND); }
 
         @Override protected void onDraw(Canvas c) {
-            float pulse = (float) (0.5 + 0.5 * Math.sin(t * 2 * Math.PI));
-            halo.setColor((Ui.ACCENT & 0x00FFFFFF) | ((int) (40 + 50 * pulse) << 24));
-            float grow = Ui.dp(getContext(), 6) * pulse;
-            c.drawOval(box.left - grow, box.top - grow, box.right + grow, box.bottom + grow, halo);
-            c.save();
-            c.rotate(t * 360, getWidth() / 2f, getHeight() / 2f);
-            c.drawArc(box, 0, 300, false, arc);
-            c.restore();
+            float cx = getWidth() / 2f, cy = getHeight() / 2f, r = Math.min(cx, cy);
+            p.setStrokeWidth(r * 0.14f);
+            for (int i = 0; i < 12; i++) {
+                int behind = ((phase - i) % 12 + 12) % 12; // 0 = brightest
+                p.setAlpha((int) (255 * (0.2f + 0.8f * (1f - behind / 11f))));
+                c.save(); c.rotate(i * 30f, cx, cy);
+                c.drawLine(cx, cy - r * 0.95f, cx, cy - r * 0.6f, p);
+                c.restore();
+            }
         }
     }
 }

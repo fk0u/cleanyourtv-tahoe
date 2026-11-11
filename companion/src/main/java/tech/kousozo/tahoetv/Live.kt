@@ -40,6 +40,10 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.hls.HlsManifest
+import androidx.media3.common.C
+import androidx.media3.common.Timeline
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import java.time.Instant
@@ -173,9 +177,10 @@ fun LiveScreen() {
 @Composable
 private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
     val c = LocalContext.current
-    val player = remember { ExoPlayer.Builder(c).build() }
+    // Decoder fallback: if the phone's hardware decoder refuses a stream, try another decoder instead of failing the source.
+    val player = remember { ExoPlayer.Builder(c, DefaultRenderersFactory(c).setEnableDecoderFallback(true)).build() }
     var source by remember(e) { mutableIntStateOf(0) }
-    var message by remember(e) { mutableStateOf<String?>("Memuat siaran…") }
+    var message by remember(e) { mutableStateOf<String?>("") }
     var everReady by remember(e) { mutableStateOf(false) }
     var retries by remember(e) { mutableIntStateOf(0) }
     val streams = remember(e) { SourceHealth.order(listOf(e.channel) + e.alternates) } // known-live sources first
@@ -188,17 +193,22 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
                 // Fell out of the live window: rejoin at the live point. Anything else: carry on from the same spot.
                 if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) { player.seekToDefaultPosition(); player.prepare(); return }
                 if (!everReady || retries >= 3) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, false) }; source++; return }
-                retries++; message = "Menyambung ulang…"
+                retries++; message = ""
                 player.prepare(); player.play()
             }
-            override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_READY) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, true) }; message = null; everReady = true; retries = 0 } }
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state != Player.STATE_READY) return
+                // A finished playlist, or a "live" window far in the past, is a recording (yesterday's show on a loop), not live TV.
+                if (!everReady && isRecording(player, streams.getOrNull(source))) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, false) }; source++; return }
+                streams.getOrNull(source)?.let { SourceHealth.report(it.url, true) }; message = null; everReady = true; retries = 0
+            }
         }
         player.addListener(l); onDispose { player.removeListener(l) }
     }
     LaunchedEffect(e, source) {
         val s = streams.getOrNull(source) ?: run { player.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."; return@LaunchedEffect }
         everReady = false; retries = 0
-        message = if (source == 0) "Menyambung ke siaran…" else "Mencoba sumber cadangan ${source + 1}/${streams.size}…"
+        message = "" // loading: the spinner shows, no text about sources
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
             .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/2.9.5").setDefaultRequestProperties(s.headers - "User-Agent")
         player.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.Builder().setUri(Uri.parse(s.url))
@@ -218,17 +228,35 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
         message?.let {
             if (it.startsWith("Saluran ini")) Text(it, Modifier.align(Alignment.Center).semantics { liveRegion = LiveRegionMode.Polite }.background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp),
                 color = Color.White, fontSize = 14.sp)
-            else ChannelLoader(e.name, it, Modifier.align(Alignment.Center).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = "${e.name}: $it" })
+            else ChannelLoader(e.name, Modifier.fillMaxSize().semantics { liveRegion = LiveRegionMode.Polite; contentDescription = "Memuat ${e.name}" })
         }
         Row(Modifier.align(Alignment.BottomCenter).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalIconButton({ zap(-1) }) { Icon(Icons.Rounded.SkipPrevious, "Saluran sebelumnya") }
+            FilledTonalIconButton({ player.seekTo(maxOf(0L, player.currentPosition - 30_000)); player.play() }) { Icon(Icons.Rounded.Replay30, "Mundur 30 detik") }
             var paused by remember { mutableStateOf(false) }
             FilledTonalIconButton({ if (player.isPlaying) player.pause() else player.play(); paused = !player.playWhenReady }) {
                 Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (paused) "Putar" else "Jeda")
             }
+            FilledTonalIconButton({
+                val d = player.duration
+                if (d == C.TIME_UNSET || player.currentPosition + 30_000 >= d - 8_000) player.seekToDefaultPosition() else player.seekTo(player.currentPosition + 30_000)
+                player.play()
+            }) { Icon(Icons.Rounded.Forward30, "Maju 30 detik, atau kembali ke siaran langsung") }
             FilledTonalIconButton({ zap(1) }) { Icon(Icons.Rounded.SkipNext, "Saluran berikutnya") }
         }
     }
+}
+
+/** True when the source that just became ready is a recording, not live: a finished HLS playlist (ENDLIST / VOD) or a live
+ *  window whose position is more than 15 min in the past. Movies/VOD and non-HLS streams are never judged this way. */
+internal fun isRecording(player: ExoPlayer, s: M3u.Channel?): Boolean {
+    if (s == null || LocalTv.isVod(s) || player.currentManifest !is HlsManifest) return false
+    val t = player.currentTimeline
+    if (t.isEmpty) return false
+    val w = t.getWindow(player.currentMediaItemIndex, Timeline.Window())
+    if (!w.isLive) return true
+    val off = player.currentLiveOffset
+    return off != C.TIME_UNSET && off > 15 * 60_000L
 }
 
 internal fun nowOn(epg: Epg?, e: LocalTv.Entry, now: Instant) = epg?.schedule(e.name, now)?.firstOrNull()?.takeIf { it.start <= now }
@@ -302,29 +330,30 @@ private fun progress(p: Epg.Programme, now: Instant) =
     ((now.epochSecond - p.start.epochSecond).toFloat() / (p.stop.epochSecond - p.start.epochSecond).coerceAtLeast(1)).coerceIn(0f, 1f)
 
 
-/** While a channel loads: its initials in a white tile inside a rotating cyan ring with a soft pulse, name and status. */
+/** While a channel loads, Apple TV / Netflix style: a dim scrim over the picture, the channel's initials in a white tile, its
+ *  name, and a tvOS spinner (12 ticks fading around a circle). No text about sources or retries. */
 @Composable
-private fun ChannelLoader(name: String, status: String, modifier: Modifier = Modifier) {
-    val t by androidx.compose.animation.core.rememberInfiniteTransition(label = "load").animateFloat(0f, 1f,
-        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1200, easing = androidx.compose.animation.core.LinearEasing)), label = "spin")
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
-            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                val pulse = (0.5 + 0.5 * kotlin.math.sin(t * 2 * Math.PI)).toFloat()
-                val inset = 8.dp.toPx(); val grow = 4.dp.toPx() * pulse
-                drawCircle(Tahoe.Accent.copy(alpha = 0.15f + 0.2f * pulse), radius = size.minDimension / 2 - inset + grow, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
-                rotate(t * 360f) {
-                    drawArc(Brush.sweepGradient(listOf(Color.Transparent, Tahoe.Accent, Color(tech.kousozo.tahoetv.core.Brand.CYAN_LIGHT))),
-                        0f, 300f, false, topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
-                        size = androidx.compose.ui.geometry.Size(size.width - 2 * inset, size.height - 2 * inset),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round))
+private fun ChannelLoader(name: String, modifier: Modifier = Modifier) {
+    val t by androidx.compose.animation.core.rememberInfiniteTransition(label = "load").animateFloat(0f, 12f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing)), label = "spin")
+    Column(modifier.background(Color(0xCC07080D)), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(Modifier.size(80.dp, 54.dp).background(Color.White, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+            Text(name.take(3).uppercase(), color = Color(0xFF111114), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        Spacer(Modifier.height(14.dp))
+        androidx.compose.foundation.Canvas(Modifier.size(34.dp)) {
+            val phase = t.toInt() % 12
+            val r = size.minDimension / 2
+            for (i in 0 until 12) {
+                val behind = ((phase - i) % 12 + 12) % 12
+                rotate(i * 30f) {
+                    drawLine(Color.White.copy(alpha = 0.2f + 0.8f * (1f - behind / 11f)),
+                        androidx.compose.ui.geometry.Offset(center.x, center.y - r * 0.95f), androidx.compose.ui.geometry.Offset(center.x, center.y - r * 0.6f),
+                        strokeWidth = r * 0.14f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
                 }
             }
-            Box(Modifier.size(64.dp, 44.dp).background(Color.White, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                Text(name.take(3).uppercase(), color = Color(0xFF111114), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-            }
         }
-        Text(name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-        Text(status, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
     }
 }

@@ -69,6 +69,7 @@ fun LiveScreen() {
 
         // Ensure local IPTV server is running for LAN & header relay
         withContext(Dispatchers.IO) {
+            runCatching { java.io.File(System.getProperty("user.home"), ".tahoetv").also { it.mkdirs() }.let { SourceHealth.init(java.io.File(it, "source-health.tsv")) } }
             if (!IptvServer.isRunning.value) {
                 runCatching { IptvServer.start(Settings.iptvPort) }
             }
@@ -231,7 +232,7 @@ fun LiveScreen() {
                     Modifier.fillMaxWidth().scale(scale).alpha(if (on || live != false) 1f else 0.5f).clip(RoundedCornerShape(18.dp))
                         .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
                         .border(1.dp, if (focused) Color.White.copy(alpha = 0.35f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
-                        .clickable { if (focused) watch(e) else selected = e }.padding(12.dp),
+                        .clickable { if (focused || playing != null) watch(e) else selected = e }.padding(12.dp), // with a player open, one click switches channel
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.size(110.dp, 72.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center) {

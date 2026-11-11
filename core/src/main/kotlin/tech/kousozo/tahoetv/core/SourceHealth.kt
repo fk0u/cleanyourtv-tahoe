@@ -17,11 +17,15 @@ object SourceHealth {
     private val pool = Executors.newFixedThreadPool(6) { r -> Thread(r, "tahoe-probe").apply { isDaemon = true } }
     private val queued = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var file: File? = null
+    /** Streams a person marked "this is a recording, not live". Kept across sessions; never played first again. */
+    private val banned = ConcurrentHashMap.newKeySet<String>()
+    private var banFile: File? = null
 
     /** Restores the last results (if still fresh) and saves new ones to [f]. Call once at start-up. */
     @JvmStatic fun init(f: File) {
         if (file != null) return
         file = f
+        banFile = File(f.parentFile, "source-banned.txt").also { b -> runCatching { b.readLines().filter { it.isNotBlank() }.forEach { banned += it } } }
         val now = System.currentTimeMillis()
         runCatching {
             f.readLines().forEach { l ->
@@ -35,10 +39,17 @@ object SourceHealth {
         runCatching { f.writeText(map.entries.joinToString("\n") { (u, s) -> "$u\t${if (s.live) 1 else 0}\t${s.ms}\t${s.at}" }) }
     }
 
-    @JvmStatic fun status(url: String): Status? = map[url]?.takeIf { System.currentTimeMillis() - it.at < TTL }
+    @JvmStatic fun status(url: String): Status? =
+        if (url in banned) Status(false, 0, System.currentTimeMillis()) else map[url]?.takeIf { System.currentTimeMillis() - it.at < TTL }
+
+    /** "This source plays a recording (yesterday's show, a loop)": skip it from now on, in every app session. */
+    @JvmStatic fun ban(url: String) { banned += url; saveBans() }
+    @JvmStatic fun unban(url: String) { banned -= url; saveBans() }
+    @JvmStatic fun isBanned(url: String) = url in banned
+    private fun saveBans() { banFile?.let { f -> runCatching { f.writeText(banned.joinToString("\n")) } } }
 
     /** A player's verdict beats a probe: it really played (or really failed). */
-    @JvmStatic fun report(url: String, live: Boolean) { map[url] = Status(live, status(url)?.ms ?: 0, System.currentTimeMillis()) }
+    @JvmStatic fun report(url: String, live: Boolean) { if (url in banned) return; map[url] = Status(live, status(url)?.ms ?: 0, System.currentTimeMillis()) }
 
     /** Probes every stream not checked in the last 15 min, in the given order (put the likely next channels first). */
     @JvmStatic @JvmOverloads fun probeAll(streams: List<M3u.Channel>, done: Runnable? = null) {
@@ -56,8 +67,8 @@ object SourceHealth {
         }
     }
 
-    /** Main stream + backups, best first: live by latency, then unknown (original order), then known dead. */
-    @JvmStatic fun order(streams: List<M3u.Channel>): List<M3u.Channel> = streams.sortedBy { s ->
+    /** Main stream + backups, best first: live by latency, then unknown (original order), then known dead. Sources marked as recordings are left out. */
+    @JvmStatic fun order(streams: List<M3u.Channel>): List<M3u.Channel> = streams.filterNot { it.url in banned }.sortedBy { s ->
         val st = status(s.url)
         when { st == null -> 1_000_000L; st.live -> st.ms; else -> 10_000_000L }
     }

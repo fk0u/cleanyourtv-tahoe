@@ -20,7 +20,11 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Timeline;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.hls.HlsManifest;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DefaultHttpDataSource;
@@ -51,7 +55,7 @@ public class LiveTv extends Activity {
     LinearLayout guide, rows;
     FrameLayout osd;                       // on-screen display: top + bottom scrims with all the info
     Loader loading;
-    TextView bNum, bName, bMeta, bNow, bNowTime, bNext, bNextTime, bStatus, bCat, tTemp, tCond, tDay, tTime, logoText;
+    TextView bLive, bNum, bName, bMeta, bNow, bNowTime, bNext, bNextTime, bStatus, bCat, tTemp, tCond, tDay, tTime, logoText;
     android.widget.ImageView logo;
     View progress;
     FrameLayout progressTrack;
@@ -72,10 +76,8 @@ public class LiveTv extends Activity {
         surface = new SurfaceView(this);
         root.addView(surface, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
 
-        loading = new Loader(this); loading.setText("Memuat saluran…");
-        FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-        ll.topMargin = (int) dp(64); // above the channel banner, which shows at the same time
-        root.addView(loading, ll);
+        loading = new Loader(this); // Apple TV / Netflix style: logo, name, spinner. No "loading source" text.
+        root.addView(loading, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
 
         osd = buildOsd();
         root.addView(osd, new FrameLayout.LayoutParams(-1, -1));
@@ -96,7 +98,8 @@ public class LiveTv extends Activity {
         root.addView(guide, new FrameLayout.LayoutParams((int) dp(480), -1, Gravity.START));
         setContentView(root);
 
-        player = new ExoPlayer.Builder(this).build();
+        // Decoder fallback: if the TV's hardware decoder refuses a stream, try the next decoder instead of failing the source.
+        player = new ExoPlayer.Builder(this, new DefaultRenderersFactory(this).setEnableDecoderFallback(true)).build();
         // Handle audio focus: pause for the adzan (and other transient sounds), resume after.
         player.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder()
                 .setUsage(androidx.media3.common.C.USAGE_MEDIA).setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE).build(), true);
@@ -108,7 +111,11 @@ public class LiveTv extends Activity {
                 recover();
             }
             @Override public void onPlaybackStateChanged(int s) {
-                if (s == Player.STATE_READY) { if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), true); everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
+                if (s == Player.STATE_READY) {
+                    if (!everReady && isRecording()) { nextSource(); return; } // a finished/old playlist: not live TV, try the backup
+                    if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), true);
+                    everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE);
+                }
             }
         });
 
@@ -164,8 +171,7 @@ public class LiveTv extends Activity {
         player.prepare(); player.play();
         sourceStarted = System.currentTimeMillis(); everReady = false; retries = 0; lastPos = -1; stuckSince = System.currentTimeMillis();
         loading.channel(list.get(index).getChannel().getLogo(), list.get(index).getName());
-        loading.setText(source == 0 ? "Menyambung ke siaran…" : "Mencoba sumber cadangan " + (source + 1) + "/" + s.size() + "…");
-        loading.setVisibility(View.VISIBLE);
+        loading.setText(""); loading.setVisibility(View.VISIBLE);
     }
 
     /** Number keys (TV remote or phone): type 1–3 digits, it tunes 1.5 s after the last one. */
@@ -180,6 +186,46 @@ public class LiveTv extends Activity {
     /** Previous channel (LAST key on the TV remote, ⟲ on the phone). */
     void back() { if (previous >= 0 && previous < list.size()) tune(previous); }
 
+    /** True when the source that just became ready is a recording, not a live channel: a finished HLS playlist
+     *  (ENDLIST / VOD) or a "live" window whose position is more than 15 min in the past (yesterday's show replayed).
+     *  Movies/VOD files are meant to be like that, and non-HLS streams carry no such information. */
+    boolean isRecording() {
+        if (index < 0 || source >= order.size() || LocalTv.INSTANCE.isVod(order.get(source))) return false;
+        if (!(player.getCurrentManifest() instanceof HlsManifest)) return false;
+        Timeline t = player.getCurrentTimeline();
+        if (t.isEmpty()) return false;
+        Timeline.Window w = t.getWindow(player.getCurrentMediaItemIndex(), new Timeline.Window());
+        if (!w.isLive()) return true;
+        long off = player.getCurrentLiveOffset();
+        return off != C.TIME_UNSET && off > 15 * 60_000L;
+    }
+
+    /** ⏪ / ⏩ within what the server keeps (the live window); past the live edge it jumps back to live. */
+    void seekRel(long ms) {
+        if (player == null || index < 0) return;
+        long pos = player.getCurrentPosition(), dur = player.getDuration();
+        if (ms > 0 && (dur == C.TIME_UNSET || pos + ms >= dur - 8000)) player.seekToDefaultPosition();
+        else player.seekTo(Math.max(0, pos + ms));
+        player.play(); showBanner();
+    }
+
+    /** "● LIVE", or how far behind the live point we are (after ⏪ or a pause). */
+    String liveLabel() {
+        if (player == null || !player.getPlayWhenReady()) return "⏸ JEDA";
+        long off = player.getCurrentLiveOffset();
+        if (off == C.TIME_UNSET || off < 40_000) return "● LIVE";
+        long sec = Math.max(0, off - 20_000) / 1000; // ~20 s behind is the normal cushion
+        return "⏪ -" + (sec >= 60 ? (sec / 60) + " mnt " + (sec % 60) + " dtk" : sec + " dtk");
+    }
+
+    /** Long-press OK: this source plays a recording / old show. Skip it now and never start it first again. */
+    void flagRecording() {
+        if (index < 0 || source >= order.size()) return;
+        SourceHealth.ban(order.get(source).getUrl());
+        Toast.makeText(this, "Sumber dilewati: bukan siaran langsung", Toast.LENGTH_SHORT).show();
+        nextSource();
+    }
+
     void nextSource() { if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), false); source++; play(); }
 
     boolean everReady; int retries;
@@ -190,7 +236,7 @@ public class LiveTv extends Activity {
     void recover() {
         if (!everReady || retries >= 3) { nextSource(); return; }
         retries++; stuckSince = System.currentTimeMillis(); lastPos = -1;
-        loading.setText("Menyambung ulang…"); loading.setVisibility(View.VISIBLE);
+        loading.setText(""); loading.setVisibility(View.VISIBLE);
         ui.postDelayed(() -> { player.prepare(); player.play(); }, 1000);
     }
 
@@ -223,6 +269,7 @@ public class LiveTv extends Activity {
         int sources = 1 + e.getAlternates().size();
         bMeta.setText(e.getCategory().getLabel() + (sources > 1 ? "  ·  " + sources + " sumber" : "") + (e.getNear() ? "  ·  dekat kamu" : ""));
         bCat.setText(e.getCategory().getLabel());
+        bLive.setText(liveLabel());
         Logos.into(e.getChannel().getLogo(), logo, logoText, e.getName());
         Instant now = Instant.now();
         List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now);
@@ -322,7 +369,8 @@ public class LiveTv extends Activity {
 
         LinearLayout right = new LinearLayout(this); right.setOrientation(LinearLayout.VERTICAL);
         LinearLayout chips = new LinearLayout(this);
-        chips.addView(pill("● LIVE", Ui.LIVE, 0xFFFFFFFF));
+        bLive = pill("● LIVE", Ui.LIVE, 0xFFFFFFFF);
+        chips.addView(bLive);
         bCat = pill("", 0x33FFFFFF, Ui.TEXT);
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.leftMargin = (int) dp(8);
         chips.addView(bCat, cl);
@@ -347,8 +395,8 @@ public class LiveTv extends Activity {
 
         // remote colour-key legend
         LinearLayout legend = new LinearLayout(this); legend.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        String[][] keys = {{"▲▼", "Ganti saluran"}, {"OK", "Daftar saluran"}, {"▶", "Info"}, {"↩", "Keluar"}};
-        int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.SUN, Ui.LIVE};
+        String[][] keys = {{"▲▼", "Ganti saluran"}, {"OK", "Daftar saluran"}, {"⏪⏩", "Tunda / maju"}, {"▶", "Info"}, {"↩", "Keluar"}};
+        int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.SUN, Ui.TEXT_3, Ui.LIVE};
         for (int k = 0; k < keys.length; k++) {
             View dot = new View(this); android.graphics.drawable.GradientDrawable dg = new android.graphics.drawable.GradientDrawable();
             dg.setColor(colors[k]); dg.setCornerRadius(dp(2)); dot.setBackground(dg);
@@ -492,10 +540,29 @@ public class LiveTv extends Activity {
         switch (code) {
             case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_CHANNEL_UP: tune(index - 1); return true;
             case KeyEvent.KEYCODE_DPAD_DOWN: case KeyEvent.KEYCODE_CHANNEL_DOWN: tune(index + 1); return true;
-            case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_MENU: openGuide(); return true;
+            case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: e.startTracking(); return true; // tap = list, hold = "not live"
+            case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_MENU: openGuide(); return true;
+            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: case KeyEvent.KEYCODE_MEDIA_PLAY: case KeyEvent.KEYCODE_MEDIA_PAUSE:
+                if (player != null) { boolean pause = code == KeyEvent.KEYCODE_MEDIA_PAUSE || (code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE && player.getPlayWhenReady());
+                    if (pause) player.pause(); else { player.play(); if (code == KeyEvent.KEYCODE_MEDIA_PLAY) player.seekToDefaultPosition(); } showBanner(); }
+                return true;
+            case KeyEvent.KEYCODE_MEDIA_REWIND: seekRel(-30_000); return true;
+            case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD: seekRel(30_000); return true;
+            case KeyEvent.KEYCODE_PROG_RED: flagRecording(); return true;
             case KeyEvent.KEYCODE_DPAD_RIGHT: case KeyEvent.KEYCODE_INFO: showBanner(); return true;
         }
         return super.onKeyDown(code, e);
+    }
+
+    @Override public boolean onKeyLongPress(int code, KeyEvent e) {
+        if (guide.getVisibility() != View.VISIBLE && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)) { flagRecording(); return true; }
+        return super.onKeyLongPress(code, e);
+    }
+
+    @Override public boolean onKeyUp(int code, KeyEvent e) {
+        if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) && guide.getVisibility() != View.VISIBLE
+                && e.isTracking() && !e.isCanceled()) { openGuide(); return true; }
+        return super.onKeyUp(code, e);
     }
 
     @Override protected void onStop() { super.onStop(); if (live == this) live = null; if (player != null) player.pause(); }
