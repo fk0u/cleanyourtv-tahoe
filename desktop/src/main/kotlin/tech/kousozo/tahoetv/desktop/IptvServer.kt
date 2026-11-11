@@ -17,7 +17,10 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import org.json.JSONArray
 import org.json.JSONObject
+import tech.kousozo.tahoetv.core.HlsProbe
+import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.M3u
+import tech.kousozo.tahoetv.core.Sources
 
 /** LAN IPTV Server & Streaming Relay:
  *  Aggregates local M3U playlists (koutv.m3u, anotheriptv.m3u, ~/.tahoetv/playlists),
@@ -44,6 +47,47 @@ object IptvServer {
     private val byId = ConcurrentHashMap<String, ServerChannel>()
     private val executor = Executors.newFixedThreadPool(16)
     private val URI_ATTR = Regex("""URI="([^"]+)"""")
+
+    // ------------------------------------------------------------------ health: is each channel really live?
+    /** id → "live" | "replay" (finished playlist) | "stale" (old broadcast replayed) | "dead", refreshed in the background. */
+    private val health = ConcurrentHashMap<String, String>()
+    @Volatile private var healthAt = 0L
+    /** One scan at a time, started atomically (two /api/health?refresh=1 at once must not start two scans). */
+    private val healthRunning = java.util.concurrent.atomic.AtomicBoolean(false)
+    /** Bumped when playlists reload: verdicts of an older scan are dropped instead of landing on reused ids. */
+    private val healthGen = java.util.concurrent.atomic.AtomicInteger(0)
+
+    private fun verdict(c: M3u.Channel): String {
+        if (!c.url.contains(".m3u8", true)) return if (Sources.check(c, 4000)) "live" else "dead"
+        if (LocalTv.isVod(c)) return if (Sources.check(c, 4000)) "live" else "dead"
+        return when (HlsProbe.probe(c.url, c.headers, 4000)) {
+            HlsProbe.Kind.REPLAY -> "replay"
+            HlsProbe.Kind.STALE -> "stale"
+            HlsProbe.Kind.LIVE -> "live"
+            HlsProbe.Kind.UNKNOWN -> if (Sources.check(c, 4000)) "live" else "dead"
+        }
+    }
+
+    /** Checks every channel (16 at a time) in the background, at most once per 15 min unless [force]. */
+    private fun refreshHealth(force: Boolean = false) {
+        if (!force && System.currentTimeMillis() - healthAt < 15 * 60_000L) return
+        if (!healthRunning.compareAndSet(false, true)) return
+        val gen = healthGen.get()
+        Thread({
+            val pool = Executors.newFixedThreadPool(16)
+            try {
+                channels.toList().forEach { sc -> pool.execute { val v = verdict(sc.channel); if (healthGen.get() == gen) health[sc.id] = v } }
+                pool.shutdown()
+                // Every probe has its own timeouts; this only guards against a hang. A scan that didn't finish isn't "done".
+                val finished = pool.awaitTermination(10, java.util.concurrent.TimeUnit.MINUTES)
+                if (!finished) pool.shutdownNow()
+                if (finished && healthGen.get() == gen) healthAt = System.currentTimeMillis()
+            } finally { healthRunning.set(false) }
+        }, "tahoe-health").apply { isDaemon = true }.start()
+    }
+
+    /** `?live=1` drops channels known to be recordings or dead; unchecked ones stay. */
+    private fun wanted(sc: ServerChannel, query: Map<String, String>) = query["live"] !in listOf("1", "true") || health[sc.id].let { it == null || it == "live" }
 
     fun lanIp(): String {
         try {
@@ -73,6 +117,7 @@ object IptvServer {
         server = s
         port.value = s.address.port
         isRunning.value = true
+        refreshHealth()
     }
 
     fun stop() {
@@ -82,6 +127,7 @@ object IptvServer {
     }
 
     private fun loadPlaylists(customFiles: List<String>) {
+        healthGen.incrementAndGet(); health.clear(); healthAt = 0L // new channel list: old verdicts no longer apply
         channels.clear()
         byId.clear()
         loadedSources.clear()
@@ -163,6 +209,7 @@ object IptvServer {
                 path == "/segment" -> serveSegment(ex, query["u"], query["cid"])
                 path == "/api/status" -> serveStatus(ex)
                 path == "/api/channels" -> serveChannels(ex, query)
+                path == "/api/health" -> serveHealth(ex, query)
                 else -> {
                     ex.sendResponseHeaders(404, -1)
                     ex.close()
@@ -197,6 +244,7 @@ object IptvServer {
         for (sc in channels) {
             if (sourceFilter != null && sc.source != sourceFilter) continue
             if (group != null && !sc.channel.group.equals(group, ignoreCase = true)) continue
+            if (!wanted(sc, query)) continue
 
             val isMpd = sc.channel.url.contains(".mpd", ignoreCase = true)
             if (!sc.drmType.isNullOrBlank() || !sc.drmKey.isNullOrBlank() || isMpd) {
@@ -312,18 +360,42 @@ object IptvServer {
         ex.responseBody.use { out -> con.inputStream.use { it.copyTo(out) } }
     }
 
+    /** Guide XML kept in memory for 6 h: every TV/phone/player asking used to download the whole file again. */
+    @Volatile private var epgCache: ByteArray? = null
+    @Volatile private var epgAt = 0L
+    private val epgLock = Any()
+
     private fun serveEpg(ex: HttpExchange) {
-        val epgStream = runCatching {
+        fun fresh() = epgCache?.takeIf { System.currentTimeMillis() - epgAt < 6 * 3600_000L }
+        // One download at a time: a burst of requests after the cache expires waits for it instead of each fetching the XML.
+        val data = fresh() ?: synchronized(epgLock) { fresh() ?: runCatching {
             val c = URI("https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml").toURL().openConnection() as HttpURLConnection
             c.connectTimeout = 10000; c.readTimeout = 15000; c.setRequestProperty("User-Agent", "TahoeIPTV")
-            c.inputStream
-        }.getOrNull()
+            c.inputStream.use { it.readBytes() }.also { epgCache = it; epgAt = System.currentTimeMillis() }
+        }.getOrNull() ?: epgCache } // a stale guide beats none
 
-        if (epgStream == null) { ex.sendResponseHeaders(502, -1); ex.close(); return }
+        if (data == null) { ex.sendResponseHeaders(502, -1); ex.close(); return }
         sendCors(ex)
         ex.responseHeaders.add("Content-Type", "application/xml; charset=utf-8")
-        ex.sendResponseHeaders(200, 0)
-        ex.responseBody.use { out -> epgStream.use { it.copyTo(out) } }
+        ex.sendResponseHeaders(200, data.size.toLong())
+        ex.responseBody.use { it.write(data) }
+    }
+
+    /** What the player can't tell from a plain "200 OK": which channels are live, which are recordings, which are down.
+     *  `?refresh=1` re-checks now. Checking runs in the background; call again in a minute for complete numbers. */
+    private fun serveHealth(ex: HttpExchange, query: Map<String, String>) {
+        refreshHealth(force = query["refresh"] in listOf("1", "true"))
+        val counts = health.values.groupingBy { it }.eachCount()
+        val j = JSONObject().apply {
+            put("checking", healthRunning.get()); put("checked_at", healthAt); put("total", channels.size); put("checked", health.size)
+            put("live", counts["live"] ?: 0); put("replay", counts["replay"] ?: 0); put("stale", counts["stale"] ?: 0); put("dead", counts["dead"] ?: 0)
+            put("channels", JSONObject(health.toMap()))
+        }
+        val body = j.toString(2).toByteArray(Charsets.UTF_8)
+        sendCors(ex)
+        ex.responseHeaders.add("Content-Type", "application/json; charset=utf-8")
+        ex.sendResponseHeaders(200, body.size.toLong())
+        ex.responseBody.use { it.write(body) }
     }
 
     private fun serveStatus(ex: HttpExchange) {
@@ -349,7 +421,7 @@ object IptvServer {
     private fun serveChannels(ex: HttpExchange, query: Map<String, String>) {
         val base = baseUrl(ex)
         val grp = query["group"]
-        val filtered = channels.filter { grp == null || it.channel.group.equals(grp, ignoreCase = true) }
+        val filtered = channels.filter { (grp == null || it.channel.group.equals(grp, ignoreCase = true)) && wanted(it, query) }
         val arr = JSONArray()
         for (sc in filtered) {
             val isMpd = sc.channel.url.contains(".mpd", ignoreCase = true)
@@ -371,6 +443,7 @@ object IptvServer {
                 put("tvg_id", sc.channel.tvgId)
                 put("has_headers", sc.channel.headers.isNotEmpty())
                 put("source", sc.source)
+                put("health", health[sc.id] ?: "unknown")
             })
         }
         val j = JSONObject().put("count", filtered.size).put("channels", arr)

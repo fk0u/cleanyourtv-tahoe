@@ -35,6 +35,7 @@ import kotlinx.coroutines.withContext
 import tech.kousozo.tahoetv.core.Epg
 import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.SourceHealth
+import tech.kousozo.tahoetv.core.Search
 import tech.kousozo.tahoetv.core.M3u
 import tech.kousozo.tahoetv.core.Sources
 import java.time.Instant
@@ -69,6 +70,7 @@ fun LiveScreen() {
 
         // Ensure local IPTV server is running for LAN & header relay
         withContext(Dispatchers.IO) {
+            runCatching { java.io.File(System.getProperty("user.home"), ".tahoetv").also { it.mkdirs() }.let { SourceHealth.init(java.io.File(it, "source-health.tsv")) } }
             if (!IptvServer.isRunning.value) {
                 runCatching { IptvServer.start(Settings.iptvPort) }
             }
@@ -101,8 +103,10 @@ fun LiveScreen() {
     val liveCount = entries.count { isChannelLive(it) == true }
     val offlineCount = entries.count { isChannelLive(it) == false }
     val cats = remember(entries) { LocalTv.Category.entries.filter { c -> entries.any { LocalTv.inCategory(it, c) } } }
-    val shown = entries
-        .filter { query.isBlank() || it.name.contains(query, true) || it.channel.group.orEmpty().contains(query, true) }
+    // Search covers names, groups and the guide: "bola" or a show's title finds the channel airing it.
+    val hits = remember(entries, epg, query, tick) { Search.run(entries, epg, query, tick) }
+    val matchedShow = remember(hits) { hits.mapNotNull { h -> h.programme?.let { h.entry.channel.url to it } }.toMap() }
+    val shown = hits.map { it.entry }
         .filter { e ->
             when (group) {
                 null -> true
@@ -117,7 +121,7 @@ fun LiveScreen() {
                 else -> true
             }
         }
-        .sortedByDescending { it.channel.url in favs }
+        .let { l -> if (query.isBlank()) l.sortedByDescending { it.channel.url in favs } else l } // searching: best match first
 
     var selected by remember { mutableStateOf<LocalTv.Entry?>(null) }   // focused card → detail panel
     var status by remember { mutableStateOf<String?>(null) }
@@ -139,6 +143,7 @@ fun LiveScreen() {
                     }
                 }
             ) { s ->
+                if (s == PlayerWindow.CLOSED) { playing = null; status = null; return@play } // window closed: clicks select again
                 status = s
                 if (s == null) statusMap = statusMap + (ch.url to true)
             }
@@ -159,7 +164,7 @@ fun LiveScreen() {
                     }
                 } ?: error ?: "Memuat saluran…"
             )
-            Field(query, { query = it }, "Cari saluran...", trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
+            Field(query, { query = it }, "Cari saluran atau acara…", trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
 
             // Status filter chips (All / Live / Offline)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -231,7 +236,7 @@ fun LiveScreen() {
                     Modifier.fillMaxWidth().scale(scale).alpha(if (on || live != false) 1f else 0.5f).clip(RoundedCornerShape(18.dp))
                         .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
                         .border(1.dp, if (focused) Color.White.copy(alpha = 0.35f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
-                        .clickable { if (focused) watch(e) else selected = e }.padding(12.dp),
+                        .clickable { if (focused || playing != null) watch(e) else selected = e }.padding(12.dp), // with a player open, one click switches channel
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.size(110.dp, 72.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center) {
@@ -241,7 +246,10 @@ fun LiveScreen() {
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(e.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(prog?.title ?: e.category.label, fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val found = matchedShow[ch.url]
+                        if (found != null) Text("${if (found.start <= tick) "Sedang tayang" else "Pukul " + HM.format(found.start)} · ${found.title}",
+                            fontSize = 13.sp, color = Tahoe.Accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        else Text(prog?.title ?: e.category.label, fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                             when {
                                 on -> Badge("DIPUTAR", Color(0xFF0A84FF), filled = true)

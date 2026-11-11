@@ -96,7 +96,7 @@ public class Live extends Activity {
     static void fetch(android.content.Context c, java.util.function.Consumer<List<LocalTv.Entry>> list,
                       java.util.function.Consumer<Epg> guide, Runnable failed) {
         Handler main = new Handler(Looper.getMainLooper());
-        SourceHealth.init(new java.io.File(c.getCacheDir(), "source-health.tsv"));
+        SourceHealth.init(new java.io.File(c.getCacheDir(), "source-health.tsv"), new java.io.File(c.getFilesDir(), "source-banned.txt")); // bans: durable
         boolean fresh = cached != null && System.currentTimeMillis() - cachedAt < 6 * 3600_000L;
         if (fresh) { probe(c, cached); list.accept(cached); if (epg != null) { guide.accept(epg); return; } }
         Net.bg.execute(() -> {

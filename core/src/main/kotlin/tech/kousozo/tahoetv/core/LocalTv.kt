@@ -107,6 +107,13 @@ object LocalTv {
         return ALIAS[n.lowercase()] ?: n
     }
 
+    /** Movies and on-demand files: a finished playlist is normal for these, unlike a live channel. */
+    fun isVod(c: M3u.Channel): Boolean {
+        val group = c.group?.lowercase().orEmpty(); val url = c.url.substringBefore('?').lowercase(); val l = cleanName(c.name).lowercase()
+        return group.contains("vod") || url.contains(".mp4") || url.contains(".mkv") || url.contains(".avi") ||
+            url.contains(".mov") || url.contains(".webm") || l.startsWith("vod ") || group.contains("film on demand")
+    }
+
     fun classify(c: M3u.Channel, near: List<String>): Entry {
         val name = cleanName(c.name)
         val l = name.lowercase()
@@ -115,8 +122,7 @@ object LocalTv {
         val nat = NATIONAL.indexOf(l).takeIf { it >= 0 }
         val isNear = near.any { it in l }
 
-        val isVod = group.contains("vod") || url.contains(".mp4") || url.contains(".mkv") || url.contains(".avi") ||
-                url.contains(".mov") || url.contains(".webm") || l.startsWith("vod ") || group.contains("film on demand")
+        val isVod = isVod(c)
 
         val isSports = group.contains("sport") || group.contains("worldcup") || group.contains("soccer") ||
                 group.contains("football") || group.contains("otomotif") || group.contains("motor") ||

@@ -134,7 +134,16 @@ object Sources {
         return result
     }
 
-    internal fun check(c: M3u.Channel, timeoutMs: Int): Boolean = runCatching {
+    /** One channel: answers with a playable playlist/stream and, for live HLS, is not a recording. Blocks. */
+    fun check(c: M3u.Channel, timeoutMs: Int): Boolean = runCatching {
+        // HLS: download the playlist once and judge it (a master playlist costs one more request for its variant).
+        // Answering is not enough: a finished playlist or a replayed old broadcast is a recording, not a live channel
+        // (Trans7 played yesterday's show on a loop). Movies/VOD are meant to be finished playlists.
+        if (c.url.substringBefore('?').endsWith(".m3u8", true)) {
+            val (text, finalUrl) = HlsProbe.fetch(c.url, c.headers, timeoutMs)
+            if (!text.trimStart().startsWith("#EXTM3U")) return@runCatching false
+            return@runCatching LocalTv.isVod(c) || HlsProbe.verdict(text, finalUrl, c.headers, timeoutMs).let { it != HlsProbe.Kind.REPLAY && it != HlsProbe.Kind.STALE }
+        }
         val con = URI(c.url).toURL().openConnection() as HttpURLConnection
         con.connectTimeout = timeoutMs; con.readTimeout = timeoutMs; con.instanceFollowRedirects = true
         con.setRequestProperty("User-Agent", "TahoeTV"); c.headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
