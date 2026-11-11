@@ -357,9 +357,17 @@ private fun Detail(
             // DVR: the show on now (until it ends, +2 min), or the next hour when the guide has nothing
             fun planned(start: Long) = Recordings.jobs.firstOrNull { it.active && it.channel == e.name && it.start == start }
             val nowStart = cur?.start?.toEpochMilli() ?: (now.toEpochMilli() / 60_000 * 60_000)
-            val rec = planned(nowStart)
-            if (rec != null) Text(if (rec.state == "recording") "⏺ Sedang merekam" else "⏺ Terjadwal", fontSize = 12.sp, color = Tahoe.Bad, fontWeight = FontWeight.SemiBold)
-            else GhostButton(if (cur != null) "Rekam acara ini" else "Rekam 1 jam", Icons.Rounded.FiberManualRecord, color = Tahoe.Bad) {
+            val nowMs = now.toEpochMilli()
+            // the show's own job, or any job of this channel running right now (one scheduled a minute early, "1 hour" from earlier)
+            val rec = planned(nowStart) ?: Recordings.jobs.firstOrNull { it.active && it.channel == e.name && nowMs in it.start until it.stop }
+            val recordable = (listOf(e.channel) + e.alternates).any(Recordings::recordable)
+            if (rec != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (rec.state == "recording") "⏺ Sedang merekam" else "⏺ Terjadwal", fontSize = 12.sp, color = Tahoe.Bad, fontWeight = FontWeight.SemiBold)
+                TextButton({ Recordings.cancel(rec.id) }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Text(if (rec.state == "recording") "Hentikan" else "Batalkan", fontSize = 12.sp, color = Tahoe.Dim)
+                }
+            }
+            else if (recordable) GhostButton(if (cur != null) "Rekam acara ini" else "Rekam 1 jam", Icons.Rounded.FiberManualRecord, color = Tahoe.Bad) {
                 if (cur != null) onRecord(e, cur.title, nowStart, cur.stop.toEpochMilli() + 120_000)
                 else onRecord(e, "Siaran ${e.name}", nowStart, nowStart + 3600_000)
             }
@@ -373,7 +381,7 @@ private fun Detail(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(HM.format(p.start), Modifier.width(52.dp), fontSize = 13.sp, color = Tahoe.Dim)
                         Text(p.title, Modifier.weight(1f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        IconButton({ if (job != null) Recordings.cancel(job.id) else onRecord(e, p.title, start, p.stop.toEpochMilli() + 120_000) }, Modifier.size(28.dp)) {
+                        if (job != null || recordable) IconButton({ if (job != null) Recordings.cancel(job.id) else onRecord(e, p.title, start, p.stop.toEpochMilli() + 120_000) }, Modifier.size(28.dp)) {
                             Icon(if (job != null) Icons.Rounded.FiberManualRecord else Icons.Rounded.RadioButtonUnchecked,
                                 if (job != null) "Batalkan rekaman ${p.title}" else "Rekam ${p.title}", tint = if (job != null) Tahoe.Bad else Tahoe.Faint, modifier = Modifier.size(16.dp))
                         }
