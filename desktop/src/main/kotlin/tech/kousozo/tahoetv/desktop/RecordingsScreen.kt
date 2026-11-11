@@ -28,29 +28,36 @@ import java.time.format.DateTimeFormatter
 fun RecordingsScreen() {
     LaunchedEffect(Unit) { Recordings.boot() }
     val jobs = Recordings.jobs.sortedByDescending { it.start }
+    var problem by remember { mutableStateOf<String?>(null) }
+    /** Opens a file or folder in the system's app; says so when that isn't possible instead of doing nothing. */
+    val open: (File) -> Unit = { f ->
+        problem = runCatching { java.awt.Desktop.getDesktop().open(f); null }.getOrElse { "Tidak bisa membuka ${f.name}: ${it.message ?: "tidak ada aplikasi untuk file ini"}" }
+    }
     Column(Modifier.fillMaxSize().padding(start = 12.dp, end = 28.dp, top = 24.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Title("Rekaman", "Disimpan di ${Recordings.dir.path}. Rekaman berjalan selama Tahoe TV terbuka di komputer ini.")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GhostButton("Buka folder", Icons.Rounded.FolderOpen) { runCatching { java.awt.Desktop.getDesktop().open(Recordings.dir) } }
+            GhostButton("Buka folder", Icons.Rounded.FolderOpen) { open(Recordings.dir) }
             GhostButton("Rekam dari TV Live", Icons.Rounded.LiveTv) { DeskNav.screen = Screen.Live }
         }
+        problem?.let { Text(it, color = Tahoe.Bad, fontSize = 13.sp) }
         if (jobs.isEmpty()) {
             Glass { Text("Belum ada rekaman. Di TV Live, pilih saluran lalu tekan ⏺ Rekam pada acara yang sedang atau akan tayang.", color = Tahoe.Dim, fontSize = 14.sp) }
             return@Column
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(jobs, key = { it.id }) { j -> RecordingRow(j) }
+            items(jobs, key = { it.id }) { j -> RecordingRow(j, open) }
         }
     }
 }
 
 @Composable
-private fun RecordingRow(j: Recordings.Job) = Glass(padding = 14) {
+private fun RecordingRow(j: Recordings.Job, open: (File) -> Unit) = Glass(padding = 14) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         val (label, color) = when (j.state) {
             "recording" -> "MEREKAM" to Tahoe.Bad
             "scheduled" -> "TERJADWAL" to Tahoe.Accent
             "done" -> "SELESAI" to Tahoe.Good
+            "partial" -> "TERPOTONG" to Color(0xFFFF9F0A)
             "cancelled" -> "DIBATALKAN" to Tahoe.Faint
             "missed" -> "TERLEWAT" to Tahoe.Faint
             else -> "GAGAL" to Tahoe.Bad
@@ -67,7 +74,7 @@ private fun RecordingRow(j: Recordings.Job) = Glass(padding = 14) {
             }
         }
         val f = File(j.file)
-        if (j.bytes > 0 && f.isFile) GhostButton("Putar", Icons.Rounded.PlayArrow) { runCatching { java.awt.Desktop.getDesktop().open(f) } }
+        if (j.bytes > 0 && f.isFile) GhostButton("Putar", Icons.Rounded.PlayArrow) { open(f) }
         when {
             j.state == "recording" -> GhostButton("Hentikan", Icons.Rounded.Stop, color = Tahoe.Bad) { Recordings.cancel(j.id) }
             j.state == "scheduled" -> GhostButton("Batalkan", Icons.Rounded.Close) { Recordings.cancel(j.id) }

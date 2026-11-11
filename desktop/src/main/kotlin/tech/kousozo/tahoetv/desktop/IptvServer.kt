@@ -395,27 +395,36 @@ object IptvServer {
     /** DVR. GET: every recording (with a /recordings/<id> URL once it has data), for any device on the LAN.
      *  POST ?cid=&start=&stop=&title= schedules (epoch ms; start/stop default to now / +1 h), POST ?cancel=<id> stops,
      *  DELETE ?id=<id> removes the file. Changes are accepted from this computer only: anyone on the Wi-Fi could
-     *  otherwise fill its disk. */
+     *  otherwise fill its disk. Browsers are refused too (any request with an Origin header): a web page open on this
+     *  computer could otherwise reach 127.0.0.1 and schedule or delete recordings. */
     private fun serveRecordings(ex: HttpExchange, query: Map<String, String>) {
         Recordings.boot()
-        val local = ex.remoteAddress.address.isLoopbackAddress
         when (ex.requestMethod.uppercase()) {
-            "GET" -> sendJson(ex, 200, JSONObject().put("dir", Recordings.dir.path)
+            "GET" -> sendJson(ex, 200, JSONObject()
                 .put("recordings", JSONArray(Recordings.jobs.toList().map { Recordings.json(it, baseUrl(ex)) })))
             "POST", "DELETE" -> {
-                if (!local) return sendJson(ex, 403, JSONObject().put("error", "rekaman hanya bisa diatur dari komputer ini"))
+                if (!fromThisComputer(ex) || ex.requestHeaders.containsKey("Origin"))
+                    return sendJson(ex, 403, JSONObject().put("error", "rekaman hanya bisa diatur dari komputer ini"))
                 if (ex.requestMethod.equals("DELETE", true)) { Recordings.delete(query["id"].orEmpty()); return sendJson(ex, 200, JSONObject().put("ok", true)) }
                 query["cancel"]?.let { Recordings.cancel(it); return sendJson(ex, 200, JSONObject().put("ok", true)) }
                 val sc = byId[query["cid"].orEmpty()] ?: return sendJson(ex, 404, JSONObject().put("error", "saluran tidak ditemukan"))
                 val now = System.currentTimeMillis()
-                val start = query["start"]?.toLongOrNull() ?: now
-                val stop = query["stop"]?.toLongOrNull() ?: (start + 3600_000L)
+                // a time that's there but unreadable is an error, not "now"
+                val start = query["start"]?.let { it.toLongOrNull() ?: return sendJson(ex, 400, JSONObject().put("error", "start bukan angka (epoch ms)")) } ?: now
+                val stop = query["stop"]?.let { it.toLongOrNull() ?: return sendJson(ex, 400, JSONObject().put("error", "stop bukan angka (epoch ms)")) } ?: (start + 3600_000L)
                 if (stop - start < 60_000L || stop - start > 6 * 3600_000L) return sendJson(ex, 400, JSONObject().put("error", "durasi 1 menit sampai 6 jam"))
                 val job = Recordings.schedule(sc.channel.name, query["title"]?.takeIf { it.isNotBlank() } ?: "Rekaman", listOf(sc.channel), start, stop)
+                    ?: return sendJson(ex, 400, JSONObject().put("error", "saluran ini (DRM/DASH) tidak bisa direkam"))
                 sendJson(ex, 200, Recordings.json(job, baseUrl(ex)))
             }
             else -> { ex.sendResponseHeaders(405, -1); ex.close() }
         }
+    }
+
+    /** Loopback, or one of this computer's own addresses (a request to its LAN IP from itself). */
+    private fun fromThisComputer(ex: HttpExchange): Boolean {
+        val a = ex.remoteAddress.address
+        return a.isLoopbackAddress || runCatching { java.net.NetworkInterface.getByInetAddress(a) != null }.getOrDefault(false)
     }
 
     private val RANGE = Regex("""bytes=(\d*)-(\d*)""")
@@ -430,8 +439,9 @@ object IptvServer {
         var to = len - 1
         if (range != null) {
             val (a, b) = range.destructured
-            if (a.isNotEmpty()) { from = a.toLong(); if (b.isNotEmpty()) to = minOf(b.toLong(), len - 1) }
-            else if (b.isNotEmpty()) from = maxOf(0L, len - b.toLong())
+            // numbers too big for a Long: a start past the end (416), an end clamped to the file
+            if (a.isNotEmpty()) { from = a.toLongOrNull() ?: Long.MAX_VALUE; if (b.isNotEmpty()) to = minOf(b.toLongOrNull() ?: Long.MAX_VALUE, len - 1) }
+            else if (b.isNotEmpty()) from = maxOf(0L, len - (b.toLongOrNull() ?: Long.MAX_VALUE))
             if (from > to || from >= len) { ex.responseHeaders.add("Content-Range", "bytes */$len"); ex.sendResponseHeaders(416, -1); ex.close(); return }
         }
         sendCors(ex)
@@ -439,7 +449,10 @@ object IptvServer {
         ex.responseHeaders.add("Accept-Ranges", "bytes")
         if (range != null) ex.responseHeaders.add("Content-Range", "bytes $from-$to/$len")
         val n = to - from + 1
-        if (ex.requestMethod.equals("HEAD", true)) { ex.sendResponseHeaders(if (range != null) 206 else 200, -1); ex.close(); return }
+        if (ex.requestMethod.equals("HEAD", true)) {
+            ex.responseHeaders.set("Content-Length", "$n") // the size players need to seek; HEAD sends no body
+            ex.sendResponseHeaders(if (range != null) 206 else 200, -1); ex.close(); return
+        }
         ex.sendResponseHeaders(if (range != null) 206 else 200, n)
         java.io.RandomAccessFile(f, "r").use { raf ->
             raf.seek(from)
