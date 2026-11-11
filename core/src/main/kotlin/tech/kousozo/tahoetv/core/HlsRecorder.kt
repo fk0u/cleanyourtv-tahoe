@@ -69,6 +69,9 @@ class HlsRecorder(
                 list.take(skip).forEach { done += it.first.key }
                 joined = true
             }
+            // a segment still failing when it drops out of the window is lost: stop waiting for it
+            val listed = list.mapTo(HashSet()) { it.first.key }
+            tries.keys.filter { it !in listed }.forEach { tries -= it; skipped++ }
             for ((seg, map) in list) {
                 if (seg.key in done) continue
                 if (cancelled || clock() >= stopAt) break

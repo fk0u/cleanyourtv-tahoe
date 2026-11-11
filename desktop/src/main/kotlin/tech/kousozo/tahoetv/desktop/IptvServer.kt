@@ -411,9 +411,12 @@ object IptvServer {
                 val now = System.currentTimeMillis()
                 // a time that's there but unreadable is an error, not "now"
                 val start = query["start"]?.let { it.toLongOrNull() ?: return sendJson(ex, 400, JSONObject().put("error", "start bukan angka (epoch ms)")) } ?: now
-                val stop = query["stop"]?.let { it.toLongOrNull() ?: return sendJson(ex, 400, JSONObject().put("error", "stop bukan angka (epoch ms)")) } ?: (start + 3600_000L)
-                if (stop - start < 60_000L || stop - start > 6 * 3600_000L) return sendJson(ex, 400, JSONObject().put("error", "durasi 1 menit sampai 6 jam"))
-                val job = Recordings.schedule(sc.channel.name, query["title"]?.takeIf { it.isNotBlank() } ?: "Rekaman", listOf(sc.channel), start, stop)
+                val stop = query["stop"]?.let { it.toLongOrNull() ?: return sendJson(ex, 400, JSONObject().put("error", "stop bukan angka (epoch ms)")) }
+                // exact arithmetic: absurd epoch values must not wrap around into a "valid" duration
+                val length = runCatching { Math.subtractExact(stop ?: Math.addExact(start, 3600_000L), start) }.getOrNull()
+                if (length == null || length < 60_000L || length > 6 * 3600_000L) return sendJson(ex, 400, JSONObject().put("error", "durasi 1 menit sampai 6 jam"))
+                val end = start + length
+                val job = Recordings.schedule(sc.channel.name, query["title"]?.takeIf { it.isNotBlank() } ?: "Rekaman", listOf(sc.channel), start, end)
                     ?: return sendJson(ex, 400, JSONObject().put("error", "saluran ini (DRM/DASH) tidak bisa direkam"))
                 sendJson(ex, 200, Recordings.json(job, baseUrl(ex)))
             }

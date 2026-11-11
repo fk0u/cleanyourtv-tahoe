@@ -100,6 +100,16 @@ class HlsRecorderTest {
         assertEquals(1, r.segments); assertEquals(1, r.skipped)
     }
 
+    @Test fun failingSegmentThatLeavesTheWindowDoesNotHoldUpTheEnd() {
+        var call = 0
+        val r = HlsRecorder("https://x/p.m3u8", emptyMap(), tmp(), Long.MAX_VALUE, sleep = {}, get = { u ->
+            (if (++call == 1) "#EXTM3U\n#EXTINF:2,\nbad.ts\n" else "#EXTM3U\n#EXTINF:2,\nok.ts\n#EXT-X-ENDLIST\n") to u
+        }, download = { u, _, _ -> if (u.endsWith("bad.ts")) error("404") else 1 })
+        assertTrue(r.run())
+        assertEquals(2, call) // ended right away, not polling until stopAt
+        assertEquals(1, r.segments); assertEquals(1, r.skipped)
+    }
+
     @Test fun byteRangesAreFetchedSeparately() {
         val got = mutableListOf<String?>()
         val pl = "#EXTM3U\n#EXT-X-BYTERANGE:100@0\n#EXTINF:2,\nall.ts\n#EXT-X-BYTERANGE:50\n#EXTINF:2,\nall.ts\n#EXT-X-ENDLIST\n"
