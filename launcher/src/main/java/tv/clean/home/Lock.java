@@ -158,14 +158,15 @@ public class Lock extends DreamService {
         }
     }
 
-    /** Boot screen: "Siapa yang menonton?" with the owner profile (photo, last app) and a guest profile. */
+    /** Boot screen: "Siapa yang menonton?" with the owner profile (photo, last app), a guest profile and the kids profile. */
     static class Profiles extends Backdrop {
         interface Pick { void pick(String profile); }
-        final LinearLayout[] cards = new LinearLayout[2];
+        static final String[] KEYS = {"main", "guest", Kids.PROFILE};
+        final LinearLayout[] cards = new LinearLayout[3];
         int sel = 0;
         final Pick onPick;
 
-        Profiles(Context c, String lastApp, android.graphics.drawable.Drawable lastIcon, Pick onPick) {
+        Profiles(Context c, String lastApp, android.graphics.drawable.Drawable lastIcon, String current, Pick onPick) {
             super(c, new int[]{0xB3000000, 0x8C000000, 0xB3000000});
             this.onPick = onPick;
             float d = Ui.dp(c, 1);
@@ -181,7 +182,16 @@ public class Lock extends DreamService {
             ImageView guest = Avatar.view(c, 132, false); // guest never shows the owner's photo
             guest.setPadding((int) (34 * d), (int) (34 * d), (int) (34 * d), (int) (34 * d));
             cards[1] = card(c, guest, "Tamu", null, null);
-            for (int i = 0; i < 2; i++) {
+            ImageView kid = new ImageView(c);
+            kid.setImageResource(R.drawable.ic_lock); kid.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+            kid.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+            GradientDrawable kb = new GradientDrawable(); kb.setShape(GradientDrawable.OVAL); kb.setColor(0xFF34C759);
+            kid.setBackground(kb); kid.setPadding((int) (40 * d), (int) (40 * d), (int) (40 * d), (int) (40 * d));
+            kid.setLayoutParams(new LinearLayout.LayoutParams((int) (132 * d), (int) (132 * d)));
+            cards[2] = card(c, kid, "Anak", null, null);
+            ((TextView) cards[2].getChildAt(2)).setText(Kids.hasPin(c) ? "DIKUNCI PIN" : "SALURAN ANAK");
+            for (int i = 0; i < KEYS.length; i++) if (KEYS[i].equals(current)) sel = i;
+            for (int i = 0; i < 3; i++) {
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int) (220 * d), -2);
                 if (i > 0) lp.leftMargin = (int) (48 * d);
                 row.addView(cards[i], lp);
@@ -222,7 +232,7 @@ public class Lock extends DreamService {
         }
 
         void render() {
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 3; i++) {
                 boolean f = i == sel;
                 cards[i].animate().scaleX(f ? 1f : 0.86f).scaleY(f ? 1f : 0.86f).alpha(f ? 1f : 0.55f).setDuration(Ui.MED).setInterpolator(Ui.spring()).start();
                 View p = cards[i].getChildAt(0);
@@ -234,8 +244,8 @@ public class Lock extends DreamService {
             int k = e.getKeyCode();
             if (e.getAction() == KeyEvent.ACTION_DOWN) {
                 if (k == KeyEvent.KEYCODE_DPAD_LEFT && sel > 0) { sel--; render(); }
-                if (k == KeyEvent.KEYCODE_DPAD_RIGHT && sel < 1) { sel++; render(); }
-            } else if (isOk(k)) onPick.pick(sel == 0 ? "main" : "guest");
+                if (k == KeyEvent.KEYCODE_DPAD_RIGHT && sel < 2) { sel++; render(); }
+            } else if (isOk(k)) onPick.pick(KEYS[sel]);
             return true;
         }
     }
