@@ -198,23 +198,60 @@ public class Home extends Activity implements Companion.Listener, Tools {
         padTileW = (W - 2 * M - (cols - 1) * padGap) / cols; padTileH = padTileW * 9 / 16;
         padStep = padTileH + dp(46);
 
-        // Boot: "Siapa yang menonton?" (owner with last app, or guest).
-        String[] last = recentApp();
-        Drawable lastIcon = null;
-        if (last != null) try { ApplicationInfo ai = getPackageManager().getApplicationInfo(last[0], 0); lastIcon = ai.loadBanner(getPackageManager()); if (lastIcon == null) lastIcon = ai.loadIcon(getPackageManager()); } catch (Exception ignored) {}
-        profiles = new Lock.Profiles(this, last == null ? null : last[1], lastIcon, p -> {
-            prefs.edit().putString("profile", p).apply();
-            Lock.Profiles v = profiles; profiles = null;
-            v.unlock(() -> root.removeView(v));
-            tick(); buildChips(); loadApps(); hero.loadWalls(); hero.showWall(true); render(false);
-        });
-        root.addView(profiles, new FrameLayout.LayoutParams(-1, -1));
-        profiles.start();
+        showProfiles(); // boot: "Siapa yang menonton?"
         buildChips();
         tick();
     }
 
+    /** "Siapa yang menonton?": owner (with last app), guest, kids. Leaving the kids profile takes its PIN; choosing it
+     *  the first time creates one. Also opened from Control Center ("Ganti profil"). */
+    void showProfiles() {
+        if (profiles != null) return;
+        closeSheet();
+        String[] last = recentApp();
+        Drawable lastIcon = null;
+        if (last != null) try { ApplicationInfo ai = getPackageManager().getApplicationInfo(last[0], 0); lastIcon = ai.loadBanner(getPackageManager()); if (lastIcon == null) lastIcon = ai.loadIcon(getPackageManager()); } catch (Exception ignored) {}
+        String current = prefs.getString("profile", "main");
+        profiles = new Lock.Profiles(this, last == null || kids() ? null : last[1], lastIcon, current, p -> {
+            Runnable go = () -> enterProfile(p);
+            if (kids() && !p.equals(Kids.PROFILE) && Kids.hasPin(this)) verifyPin("Keluar dari profil Anak", go);
+            else if (p.equals(Kids.PROFILE) && !Kids.hasPin(this)) createPin(go, this::closeSheet);
+            else go.run();
+        });
+        root.addView(profiles, new FrameLayout.LayoutParams(-1, -1));
+        profiles.start();
+    }
+
+    void enterProfile(String p) {
+        closeSheet();
+        prefs.edit().putString("profile", p).apply();
+        Lock.Profiles v = profiles; profiles = null;
+        if (v != null) v.unlock(() -> root.removeView(v));
+        row = 0; tick(); buildChips(); loadApps(); hero.loadWalls(); hero.showWall(true); render(false);
+    }
+
+    /** New PIN for the kids profile: type it, type it again. */
+    void createPin(Runnable ok, Runnable cancel) {
+        openSheet(new Sheets.PinPad(this, "Buat PIN Anak", "4 angka untuk keluar dari profil Anak", (pad, first) ->
+                openSheet(new Sheets.PinPad(this, "Ulangi PIN", "Ketik PIN yang sama sekali lagi", (pad2, again) -> {
+                    if (!again.equals(first)) { pad2.fail("PIN tidak sama. Ketik ulang PIN yang tadi."); return; }
+                    Kids.setPin(this, first);
+                    closeSheet(); ok.run();
+                }, () -> { closeSheet(); cancel.run(); })), () -> { closeSheet(); cancel.run(); }));
+    }
+
+    /** Asks for the kids PIN; [ok] runs only when it's right. A short pause after each wrong try slows guessing. */
+    void verifyPin(String title, Runnable ok) {
+        openSheet(new Sheets.PinPad(this, title, "Masukkan PIN orang tua", (pad, pin) -> {
+            if (Kids.checkPin(this, pin)) { closeSheet(); ok.run(); return; }
+            pad.fail("PIN salah. Coba lagi.");
+            pad.setEnabled(false); pad.setAlpha(0.6f);
+            ui.postDelayed(() -> { pad.setEnabled(true); pad.setAlpha(1f); }, 2000);
+        }, this::closeSheet));
+    }
+
     boolean guest() { return "guest".equals(prefs.getString("profile", "main")); }
+    boolean kids() { return Kids.PROFILE.equals(prefs.getString("profile", "main")); }
 
     /** Most recently used launchable app other than us: {package, label}. */
     String[] recentApp() {
@@ -240,13 +277,15 @@ public class Home extends Activity implements Companion.Listener, Tools {
         if (phoneMedia != null) addChip(R.drawable.ic_music, "", this::openControl);
         if (gamepad) addChip(R.drawable.ic_gamepad_2, null, () -> { if (row == 0) lastDockCol = col; openPad(); });
         addChip(R.drawable.ic_tv, "Jadwal TV", () -> start(new Intent(this, Live.class)));
-        addChip(R.drawable.ic_sparkles, "Tanya", this::openAssistant);
-        addChip(R.drawable.ic_smartphone, null, this::openPair);
+        if (!kids()) { // no assistant or phone pairing in the kids profile
+            addChip(R.drawable.ic_sparkles, "Tanya", this::openAssistant);
+            addChip(R.drawable.ic_smartphone, null, this::openPair);
+        }
         // Profile photo chip opens Control Center.
         LinearLayout av = new LinearLayout(this);
         av.setPadding((int) dp(3), (int) dp(3), (int) dp(3), (int) dp(3));
         av.setBackground(new GlassDrawable(dp(20), Ui.GLASS, dp(1)));
-        av.addView(Avatar.view(this, 30, !guest()));
+        av.addView(Avatar.view(this, 30, !guest() && !kids()));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = (int) dp(8);
         chips.addView(av, lp); chipViews.add(av); chipActions.add(this::openControl);
         updateChips();
@@ -304,7 +343,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         clock.setText(new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", Locale.getDefault()).format(now));
         int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         String g = h < 4 ? "Selamat malam" : h < 11 ? "Selamat pagi" : h < 15 ? "Selamat siang" : h < 18 ? "Selamat sore" : "Selamat malam";
-        String name = guest() ? "" : Cfg.s(this, "user_name", R.string.user_name);
+        String name = guest() || kids() ? "" : Cfg.s(this, "user_name", R.string.user_name);
         greeting.setText(name.isEmpty() ? g : g + ", " + name);
         updateChips();
         if (row != 0 || focusedApp() == null) renderHero();
@@ -316,6 +355,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
     String dockKey() { return guest() ? "dock_guest" : "dock"; }
 
     List<String> dockPackages() {
+        if (kids()) return new ArrayList<>(Kids.apps(this)); // the kids dock is exactly the allowed apps
         String saved = prefs.getString(dockKey(), null);
         List<String> defaults = new ArrayList<>(Arrays.asList(getResources().getStringArray(R.array.dock_apps)));
         defaults.add(0, LiveTv.PKG); // built-in Live TV leads every default dock
@@ -369,6 +409,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
             live.launch = new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             live.banner = LiveTv.banner(this); live.color = Ui.average(live.banner);
             found.put(live.pkg, live);
+            if (kids()) found.keySet().retainAll(Kids.apps(this)); // only what the owner allowed
             List<App> d = new ArrayList<>();
             for (String p : dockPackages()) { App a = found.get(p); if (a != null && d.size() < dockSize) d.add(a); }
             List<App> everything = new ArrayList<>(found.values());
@@ -683,8 +724,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
     void openWeather() { if (weather != null) openSheet(new Weather.Panel(this, weather)); else { toast("Memuat cuaca…"); refreshData(true); } }
     void openPrayer() { openSheet(new Prayer.Panel(this)); }
     void openControl() { openSheet(new Sheets.Control(this)); }
-    void openPair() { openSheet(new Sheets.Pair(this)); }
-    void openAssistant() { openSheet(new Assistant(this, this)); }
+    void openPair() { if (kids()) toast("Tidak tersedia di profil Anak"); else openSheet(new Sheets.Pair(this)); }
+    void openAssistant() { if (kids()) toast("Tidak tersedia di profil Anak"); else openSheet(new Assistant(this, this)); }
     void openAppMenu() { App a = focusedApp(); if (a != null) openSheet(new Sheets.AppMenu(this, a, focusedTile())); }
 
     // ---------------------------------------------------------------- keys (remote, gamepad, phone)
@@ -727,12 +768,13 @@ public class Home extends Activity implements Companion.Listener, Tools {
     @Override public boolean dispatchKeyEvent(KeyEvent e) {
         int k = gamepadToRemote(e.getKeyCode());
         if (k != e.getKeyCode()) e = new KeyEvent(e.getDownTime(), e.getEventTime(), e.getAction(), k, e.getRepeatCount(), e.getMetaState());
-        if (profiles != null && k != KeyEvent.KEYCODE_HOME) return profiles.key(e);
-        if (sheet != null && k != KeyEvent.KEYCODE_HOME) {
+        if (sheet != null && k != KeyEvent.KEYCODE_HOME) { // first: the PIN pad opens over the profile picker
+            if (sheetView instanceof Sheets.PinPad && !sheetView.isEnabled()) return true; // pause after a wrong PIN
             if (sheet.key(e)) return true;
             if (e.getAction() == KeyEvent.ACTION_DOWN && (k == KeyEvent.KEYCODE_BACK || k == KeyEvent.KEYCODE_MENU)) closeSheet();
             return true;
         }
+        if (profiles != null && k != KeyEvent.KEYCODE_HOME) return profiles.key(e);
         if (e.getAction() == KeyEvent.ACTION_DOWN) {
             switch (k) {
                 case KeyEvent.KEYCODE_BUTTON_X: openAppMenu(); return true;
@@ -855,7 +897,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
                 LiveTv d = LiveTv.live; // channel number entry in Live TV
                 if (d != null) d.ui.post(() -> d.digit(key.charAt(0) - '0'));
                 return true;
-            case "settings": start(new Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
+            case "settings": if (kids()) return true; start(new Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
             case "livetv": start(new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
             case "ch_up": case "ch_down":
                 LiveTv tv = LiveTv.live;
