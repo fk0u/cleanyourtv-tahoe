@@ -246,11 +246,7 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
             FilledTonalIconButton({ if (player.isPlaying) player.pause() else player.play(); paused = !player.playWhenReady }) {
                 Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (paused) "Putar" else "Jeda")
             }
-            FilledTonalIconButton({
-                val d = player.duration
-                if (d == C.TIME_UNSET || player.currentPosition + 30_000 >= d - 8_000) player.seekToDefaultPosition() else player.seekTo(player.currentPosition + 30_000)
-                player.play()
-            }) { Icon(Icons.Rounded.Forward30, "Maju 30 detik, atau kembali ke siaran langsung") }
+            FilledTonalIconButton({ seekForward(player, 30_000) }) { Icon(Icons.Rounded.Forward30, "Maju 30 detik, atau kembali ke siaran langsung") }
             FilledTonalIconButton({ zap(1) }) { Icon(Icons.Rounded.SkipNext, "Saluran berikutnya") }
         }
     }
@@ -266,6 +262,18 @@ internal fun isRecording(player: ExoPlayer, s: M3u.Channel?): Boolean {
     if (!w.isLive) return true
     val off = player.currentLiveOffset
     return off != C.TIME_UNSET && off > 15 * 60_000L
+}
+
+/** ⏩ within the live window: forward by [ms], or back to live when that would pass the usual ~20 s cushion.
+ *  Decided from the live offset (live streams often report no duration). Shared rule with the TV's seekRel. */
+internal fun seekForward(player: ExoPlayer, ms: Long) {
+    val off = player.currentLiveOffset
+    when {
+        player.isCurrentMediaItemLive && off != C.TIME_UNSET -> if (off - ms <= 28_000) player.seekToDefaultPosition() else player.seekTo(player.currentPosition + ms)
+        player.isCurrentMediaItemLive -> player.seekToDefaultPosition()
+        else -> player.seekTo(player.currentPosition + ms)
+    }
+    player.play()
 }
 
 internal fun nowOn(epg: Epg?, e: LocalTv.Entry, now: Instant) = epg?.schedule(e.name, now)?.firstOrNull()?.takeIf { it.start <= now }
@@ -286,7 +294,7 @@ object Channels {
             val setup = c.getSharedPreferences("setup", 0)
             val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
                 ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
-            SourceHealth.init(java.io.File(c.cacheDir, "source-health.tsv"))
+            SourceHealth.init(java.io.File(c.cacheDir, "source-health.tsv"), java.io.File(c.filesDir, "source-banned.txt")) // bans: durable
             runCatching { LocalTv.arrange(Sources.loadAll(), province) }.fold({ entries = it; SourceHealth.probeAll(SourceHealth.streamsOf(it)) }, { failed = true })
             epg = runCatching { Epg.load(Sources.EPG) }.getOrNull()
         }

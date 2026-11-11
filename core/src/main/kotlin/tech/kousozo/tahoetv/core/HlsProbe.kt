@@ -60,11 +60,20 @@ object HlsProbe {
     fun probe(url: String, headers: Map<String, String>, timeoutMs: Int = 4000, now: Instant = Instant.now()): Kind = runCatching {
         if (!url.substringBefore('?').endsWith(".m3u8", true)) return Kind.UNKNOWN
         val (text, finalUrl) = fetch(url, headers, timeoutMs)
+        verdict(text, finalUrl, headers, timeoutMs, now)
+    }.getOrDefault(Kind.UNKNOWN)
+
+    /** Like [probe] for a playlist already downloaded from [finalUrl]: only a master playlist costs one more request. */
+    fun verdict(text: String, finalUrl: String, headers: Map<String, String>, timeoutMs: Int = 4000, now: Instant = Instant.now()): Kind = runCatching {
         val variant = firstVariant(text, finalUrl)
         if (variant != null) analyze(fetch(variant, headers, timeoutMs).first, now) else analyze(text, now)
     }.getOrDefault(Kind.UNKNOWN)
 
-    /** The playlist text (at most 256 KB) and the URL it finally came from (after redirects). */
+    /** Live playlists are a few KB; one this big is a long finished video (its ENDLIST would be past the cut). */
+    private const val LIMIT = 4 * 1024 * 1024
+    private const val TRUNCATED = "\n#EXT-X-ENDLIST\n"
+
+    /** The playlist text (at most 4 MB; a bigger one is marked finished) and the URL it finally came from (after redirects). */
     fun fetch(url: String, headers: Map<String, String>, timeoutMs: Int): Pair<String, String> {
         val con = URI(url).toURL().openConnection() as HttpURLConnection
         con.connectTimeout = timeoutMs; con.readTimeout = timeoutMs; con.instanceFollowRedirects = true
@@ -75,9 +84,10 @@ object HlsProbe {
             val out = java.io.ByteArrayOutputStream()
             con.inputStream.use { s ->
                 val buf = ByteArray(8192)
-                while (out.size() < 256 * 1024) { val n = s.read(buf); if (n < 0) break; out.write(buf, 0, n) }
+                while (out.size() < LIMIT) { val n = s.read(buf); if (n < 0) break; out.write(buf, 0, n) }
             }
-            return out.toString("UTF-8") to con.url.toString()
+            val text = out.toString("UTF-8")
+            return (if (out.size() >= LIMIT) text + TRUNCATED else text) to con.url.toString()
         } finally { con.disconnect() }
     }
 

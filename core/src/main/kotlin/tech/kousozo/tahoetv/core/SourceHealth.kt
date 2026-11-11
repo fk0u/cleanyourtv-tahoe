@@ -21,11 +21,13 @@ object SourceHealth {
     private val banned = ConcurrentHashMap.newKeySet<String>()
     private var banFile: File? = null
 
-    /** Restores the last results (if still fresh) and saves new ones to [f]. Call once at start-up. */
-    @JvmStatic fun init(f: File) {
+    /** Restores the last results (if still fresh) and saves new ones to [f]. Call once at start-up.
+     *  [bans]: where sources marked "not live" are kept. Must be durable storage (Android: filesDir, not cacheDir, which
+     *  the system may clear); defaults to a file next to [f]. */
+    @JvmStatic @JvmOverloads fun init(f: File, bans: File? = null) {
         if (file != null) return
         file = f
-        banFile = File(f.parentFile, "source-banned.txt").also { b -> runCatching { b.readLines().filter { it.isNotBlank() }.forEach { banned += it } } }
+        banFile = (bans ?: File(f.parentFile, "source-banned.txt")).also { b -> runCatching { b.readLines().filter { it.isNotBlank() }.forEach { banned += it } } }
         val now = System.currentTimeMillis()
         runCatching {
             f.readLines().forEach { l ->
@@ -46,6 +48,12 @@ object SourceHealth {
     @JvmStatic fun ban(url: String) { banned += url; saveBans() }
     @JvmStatic fun unban(url: String) { banned -= url; saveBans() }
     @JvmStatic fun isBanned(url: String) = url in banned
+    /** Undo for "not live": every marked source of this channel (main + backups) is played again. Returns how many. */
+    @JvmStatic fun unbanAll(streams: List<M3u.Channel>): Int {
+        val n = streams.count { banned.remove(it.url) }
+        if (n > 0) saveBans()
+        return n
+    }
     private fun saveBans() { banFile?.let { f -> runCatching { f.writeText(banned.joinToString("\n")) } } }
 
     /** A player's verdict beats a probe: it really played (or really failed). */

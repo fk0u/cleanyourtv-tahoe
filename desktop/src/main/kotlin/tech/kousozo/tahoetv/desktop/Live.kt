@@ -143,6 +143,7 @@ fun LiveScreen() {
                     }
                 }
             ) { s ->
+                if (s == PlayerWindow.CLOSED) { playing = null; status = null; return@play } // window closed: clicks select again
                 status = s
                 if (s == null) statusMap = statusMap + (ch.url to true)
             }
