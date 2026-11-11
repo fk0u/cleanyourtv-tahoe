@@ -119,8 +119,10 @@ public class LiveTv extends Activity {
             }
         });
 
-        Live.fetch(this, l -> {
+        Live.fetch(this, all -> {
+            List<LocalTv.Entry> l = Kids.channels(this, all); // kids profile: kids' and documentary channels only
             list = l;
+            if (l.isEmpty()) { loading.setText(Kids.on(this) ? "Belum ada saluran anak yang bisa diputar." : "Tidak ada saluran."); return; }
             String want = getIntent().getStringExtra("url"), last = prefs.getString("last", null);
             int i = 0;
             for (int k = 0; k < l.size(); k++) if (l.get(k).getChannel().getUrl().equals(want != null ? want : last)) { i = k; break; }
@@ -165,7 +167,7 @@ public class LiveTv extends Activity {
         M3u.Channel c = s.get(source);
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(8000).setReadTimeoutMs(15000)
-                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/2.9.5");
+                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/3.0.0");
         java.util.HashMap<String, String> h = new java.util.HashMap<>(c.getHeaders()); h.remove("User-Agent");
         http.setDefaultRequestProperties(h);
         player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(new MediaItem.Builder().setUri(Uri.parse(c.getUrl()))

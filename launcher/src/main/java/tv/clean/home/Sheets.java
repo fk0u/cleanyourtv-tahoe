@@ -174,12 +174,13 @@ final class Sheets {
             String name = Cfg.s(h, "user_name", R.string.user_name);
             LinearLayout who = new LinearLayout(h); who.setGravity(Gravity.CENTER_VERTICAL);
             who.setPadding((int) (6 * d), 0, 0, (int) (8 * d));
-            who.addView(Avatar.view(h, 44, !h.guest()));
+            who.addView(Avatar.view(h, 44, !h.guest() && !h.kids()));
             LinearLayout names = new LinearLayout(h); names.setOrientation(LinearLayout.VERTICAL); names.setPadding((int) (14 * d), 0, 0, 0);
             TextView e = Ui.eyebrow(h, Ui.TEXT_3); e.setText("Pusat Kontrol");
-            TextView t = Ui.text(h, Ui.HEADLINE, 600, Ui.TEXT); t.setText(h.guest() ? "Tamu" : name.isEmpty() ? "Tahoe TV" : name);
+            TextView t = Ui.text(h, Ui.HEADLINE, 600, Ui.TEXT); t.setText(h.kids() ? "Anak" : h.guest() ? "Tamu" : name.isEmpty() ? "Tahoe TV" : name);
             names.addView(e); names.addView(t); who.addView(names);
             panel.addView(who);
+            Item switchProfile = new Item(R.drawable.ic_users, "Ganti profil", h.kids() ? "Perlu PIN" : "Saya · Tamu · Anak", () -> { h.closeSheet(); h.showProfiles(); });
             AudioManager am = (AudioManager) h.getSystemService(Context.AUDIO_SERVICE);
             int v = am.getStreamVolume(AudioManager.STREAM_MUSIC), max = Math.max(1, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
             add(new Item(R.drawable.ic_volume_2, "Volume", Math.round(100f * v / max) + "%   ◀ ▶", null).wide().level((float) v / max)
@@ -189,6 +190,13 @@ final class Sheets {
                 add(new Item(playing ? R.drawable.ic_pause : R.drawable.ic_play, h.phoneMedia.optString("title"), h.phoneMedia.optString("artist") + "  ·  di HP  ·  ◀ ▶ lagu", () -> {
                     h.phoneMediaCommand(playing ? "pause" : "play");
                 }).wide().on(playing).adjust(dir -> h.phoneMediaCommand(dir > 0 ? "next" : "prev")));
+            }
+            if (h.kids()) { // no settings, pairing, smart home or assistant: just the basics
+                int left = h.sleepLeft();
+                add(new Item(R.drawable.ic_moon, "Timer tidur", (left == 0 ? "Mati" : left + " menit lagi") + "  ·  ◀ ▶", () -> h.stepSleep(1)).adjust(h::stepSleep),
+                    new Item(R.drawable.ic_cloud_sun, "Cuaca", "Per jam & 7 hari", () -> { h.closeSheet(); h.openWeather(); }));
+                add(switchProfile.wide());
+                return;
             }
             add(new Item(R.drawable.ic_wifi, "Wi-Fi", ssid(h), () -> h.start(new Intent(Settings.ACTION_WIFI_SETTINGS))),
                 new Item(R.drawable.ic_bluetooth, "Bluetooth", "Remote & controller", () -> h.start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
@@ -208,6 +216,8 @@ final class Sheets {
             int left = h.sleepLeft();
             add(new Item(R.drawable.ic_moon, "Timer tidur", (left == 0 ? "Mati" : left + " menit lagi") + "  ·  ◀ ▶", () -> h.stepSleep(1)).adjust(h::stepSleep),
                 new Item(R.drawable.ic_info, "Tentang", "Versi " + About.version(h) + "  ·  Pembaruan", () -> { h.closeSheet(); h.openSheet(new About(h)); }));
+            if (h.guest()) add(switchProfile.wide());
+            else add(switchProfile, new Item(R.drawable.ic_lock, "Profil Anak", Kids.hasPin(h) ? "PIN & aplikasi" : "Belum diatur", () -> { h.closeSheet(); h.openSheet(new KidsSetup(h)); }));
         }
 
         static String ssid(Context c) {
@@ -232,6 +242,7 @@ final class Sheets {
             Home h = home;
             header(app.system ? "Aplikasi sistem" : "Aplikasi", app.label);
             add(new Item(R.drawable.ic_play, "Buka", null, () -> { h.closeSheet(); h.launch(app.launch, app, h.focusedTile()); }).wide());
+            if (h.kids()) return; // no dock editing, info or uninstall in the kids profile
             if (app.pkg.equals(Trending.YT) && !h.trending.isEmpty()) {
                 Trending.Video v = h.trending.get(h.trendIndex % h.trending.size());
                 add(new Item(R.drawable.ic_tv, "Putar trending", v.title, () -> { h.closeSheet(); h.start(Trending.watch(v.id)); }).wide());
@@ -255,6 +266,111 @@ final class Sheets {
         @Override public boolean key(KeyEvent e) {
             // still holding OK from the long-press that opened us
             if ((e.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER || e.getKeyCode() == KeyEvent.KEYCODE_ENTER) && e.getRepeatCount() > 0) return true;
+            return super.key(e);
+        }
+    }
+
+    // ---------------------------------------------------------------- Kids profile setup (owner only)
+
+    /** The owner's settings for the "Anak" profile: its PIN and which apps it may open (Live TV shows only kids' and
+     *  documentary channels there regardless). */
+    static final class KidsSetup extends Grid {
+        KidsSetup(Home h) { super(h, 520, Gravity.CENTER); rebuild(); }
+
+        @Override void fill() {
+            Home h = home;
+            header("Profil Anak", "PIN & aplikasi yang boleh dibuka");
+            add(new Item(R.drawable.ic_lock, Kids.hasPin(h) ? "Ubah PIN" : "Buat PIN", "Dipakai untuk keluar dari profil Anak",
+                    () -> h.createPin(() -> { h.openSheet(new KidsSetup(h)); h.toast("PIN Anak disimpan"); }, () -> h.openSheet(new KidsSetup(h)))).wide());
+            List<Item> row = new ArrayList<>();
+            for (Home.App a : h.all) {
+                boolean on = Kids.appAllowed(h, a.pkg);
+                row.add(new Item(on ? R.drawable.ic_play : R.drawable.ic_lock, a.label, on ? "Boleh dibuka" : "Dikunci", () -> {
+                    Kids.setApp(h, a.pkg, !Kids.appAllowed(h, a.pkg)); rebuild();
+                }).on(on));
+                if (row.size() == 2) { add(row.toArray(new Item[0])); row.clear(); }
+            }
+            if (!row.isEmpty()) add(row.toArray(new Item[0]));
+        }
+    }
+
+    // ---------------------------------------------------------------- PIN pad (kids profile)
+
+    /** A 4-digit PIN entered with the D-pad (the Mi remote has no number keys) or number keys. [done] gets the PIN once
+     *  four digits are in; it calls [fail] to clear and say why. Back runs [cancel]. */
+    static final class PinPad extends Grid {
+        interface Done { void done(PinPad pad, String pin); }
+        final String title; String hint; final Done done; final Runnable cancel;
+        String pin = "";
+
+        PinPad(Home h, String title, String hint, Done done, Runnable cancel) {
+            super(h, 400, Gravity.CENTER);
+            this.title = title; this.hint = hint; this.done = done; this.cancel = cancel;
+            setBackgroundColor(0xB3000000);
+            rebuild();
+        }
+
+        boolean error;
+
+        @Override void fill() {
+            TextView ti = Ui.text(getContext(), Ui.HEADLINE, 600, Ui.TEXT); ti.setText(title);
+            TextView hi = Ui.text(getContext(), 14, 500, error ? 0xFFFF6B6B : Ui.TEXT_2); hi.setText(hint);
+            ti.setPadding((int) (6 * d), 0, 0, 0); hi.setPadding((int) (6 * d), (int) (4 * d), 0, (int) (12 * d));
+            panel.addView(ti); panel.addView(hi);
+            StringBuilder dots = new StringBuilder();
+            for (int i = 0; i < 4; i++) dots.append(i < pin.length() ? "●" : "○").append(i < 3 ? "   " : "");
+            TextView t = Ui.text(getContext(), 30, 600, Ui.TEXT); t.setText(dots); t.setGravity(Gravity.CENTER);
+            t.setPadding(0, 0, 0, (int) (10 * d));
+            panel.addView(t, new LinearLayout.LayoutParams(-1, -2));
+            add(digit("1"), digit("2"), digit("3"));
+            add(digit("4"), digit("5"), digit("6"));
+            add(digit("7"), digit("8"), digit("9"));
+            add(new Item(0, "⌫", null, this::erase), digit("0"), new Item(0, "Batal", null, cancel));
+        }
+
+        Item digit(String n) { return new Item(0, n, null, () -> type(n)); }
+
+        void type(String n) {
+            if (pin.length() >= 4) return;
+            pin += n;
+            if (pin.length() < 4) { rebuild(); return; }
+            String p = pin; pin = ""; rebuild();
+            done.done(this, p);
+        }
+
+        void erase() { if (!pin.isEmpty()) { pin = pin.substring(0, pin.length() - 1); rebuild(); } }
+
+        /** Wrong or mismatched PIN: clear, say why, shake. */
+        void fail(String why) {
+            hint = why; error = true; pin = ""; rebuild();
+            scroll.animate().translationX(d * 14).setDuration(50).withEndAction(() -> scroll.animate().translationX(-d * 10).setDuration(60)
+                    .withEndAction(() -> scroll.animate().translationX(0).setDuration(60).start()).start()).start();
+        }
+
+        /** Keeps the title, message and dots in view: scroll only as far as the focused key needs (Grid scrolls it to the top). */
+        @Override void render() {
+            super.render();
+            View line = (View) views.get(r).get(c).getParent();
+            scroll.post(() -> scroll.smoothScrollTo(0, Math.max(0, line.getBottom() + (int) (16 * d) - scroll.getHeight())));
+        }
+
+        @Override View tile(Item it) {
+            if (it.icon != 0) return super.tile(it);
+            TextView t = Ui.text(getContext(), it.title.length() == 1 ? 24 : 15, 600, Ui.TEXT);
+            t.setText(it.title); t.setTag("t"); t.setGravity(Gravity.CENTER);
+            t.setMinHeight((int) (52 * d));
+            t.setPadding(0, (int) (8 * d), 0, (int) (8 * d));
+            t.setBackground(new GlassDrawable(Ui.dp(getContext(), 20), 0x1FFFFFFF, d));
+            return t;
+        }
+
+        @Override public boolean key(KeyEvent e) {
+            int k = e.getKeyCode();
+            if (e.getAction() == KeyEvent.ACTION_DOWN) {
+                if (k >= KeyEvent.KEYCODE_0 && k <= KeyEvent.KEYCODE_9) { type(String.valueOf(k - KeyEvent.KEYCODE_0)); return true; }
+                if (k == KeyEvent.KEYCODE_DEL) { erase(); return true; }
+                if (k == KeyEvent.KEYCODE_BACK) { cancel.run(); return true; }
+            }
             return super.key(e);
         }
     }

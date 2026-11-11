@@ -135,7 +135,7 @@ public class Live extends Activity {
     }
 
     void ready(List<LocalTv.Entry> l) {
-        all = l; list = l;
+        all = Kids.channels(this, l); list = all; // kids profile: kids' and documentary channels only
         if (sub.getText().toString().startsWith("Memuat")) sub.setText(subtitle(Cfg.p(this).getString("province", "")));
         buildCats(); buildRows();
         if (rows.getChildCount() > 0) rows.getChildAt(0).requestFocus();
