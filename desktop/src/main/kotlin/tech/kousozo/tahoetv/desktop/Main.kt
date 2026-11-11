@@ -35,6 +35,7 @@ import tech.kousozo.tahoetv.core.TvAdb
 enum class Screen(val label: String, val icon: ImageVector) {
     Home("Beranda", Icons.Rounded.Home),
     Live("TV Live", Icons.Rounded.LiveTv),
+    Recordings("Rekaman", Icons.Rounded.VideoLibrary),
     Tv("TV Rumah", Icons.Rounded.Tv),
     Remote("Remote", Icons.Rounded.SettingsRemote),
     Prefs("Setelan", Icons.Rounded.Settings),
@@ -47,6 +48,7 @@ object Session {
 
 fun main() = application {
     LaunchedEffect(Unit) {
+        Recordings.boot() // scheduled recordings start on time while the app is open
         if (Settings.iptvAutoStart) {
             runCatching { IptvServer.start(Settings.iptvPort) }
         }
@@ -85,6 +87,7 @@ fun App(initial: Screen = Screen.Home) {
                     when (s) {
                         Screen.Home -> HomeScreen(onLive = { DeskNav.screen = Screen.Live })
                         Screen.Live -> LiveScreen()
+                        Screen.Recordings -> RecordingsScreen()
                         Screen.Tv -> HomeTvScreen(onRemote = { DeskNav.screen = Screen.Remote })
                         Screen.Remote -> RemoteScreen(onSetup = { DeskNav.screen = Screen.Tv })
                         Screen.Prefs -> SettingsScreen()
