@@ -562,7 +562,7 @@ object IptvServer {
             val placeholderStyle = if (sc.channel.logo.isNullOrBlank()) "" else "style=\"display:none;\""
             val relayBadge = if (sc.channel.headers.isNotEmpty()) "<span class=\"tag relay\">Relay</span>" else ""
             val dashBadge = if (isMpd) "<span class=\"tag dash\">DASH</span>" else ""
-            val drmBadge = if (!sc.drmType.isNullOrBlank() || !sc.drmKey.isNullOrBlank() || sc.channel.drm) "<span class=\"tag drm\">DRM</span>" else ""
+            val drmBadge = if (sc.channel.drm) "<span class=\"tag drm\">DRM</span>" else ""
             val vodBadge = if (isVod) "<span class=\"tag vod\">VOD</span>" else ""
 
             val infoJson = JSONObject().apply {
