@@ -277,7 +277,7 @@ final class Sheets {
             TextView ti = Ui.text(h, Ui.TITLE, 600, Ui.TEXT); ti.setText("Pindai dengan kamera HP");
             TextView body = Ui.text(h, Ui.BODY, 400, Ui.TEXT_2);
             body.setSingleLine(false); body.setLineSpacing(0, 1.3f);
-            body.setText("Remote, kirim link & foto, tanya asisten pakai suara HP.\nApp Android Tahoe Companion juga meneruskan notifikasi dan musik dari HP.\nHP dan TV harus di Wi-Fi yang sama.");
+            body.setText("Remote, kirim link & foto, tanya asisten pakai suara HP.\nPunya app Tahoe TV di HP? Pindai QR dengan kamera, pilih Tahoe TV: langsung tersambung.\nHP dan TV harus di Wi-Fi yang sama.");
             code = Ui.text(h, 54, 300, Ui.TEXT); code.setLetterSpacing(0.25f);
             url = Ui.text(h, Ui.BODY, 500, Ui.ACCENT);
             count = Ui.text(h, Ui.CAPTION + 1, 500, Ui.TEXT_3);

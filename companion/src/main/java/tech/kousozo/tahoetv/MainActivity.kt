@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
+        if (b == null) pairFrom(intent)
         val dark = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         enableEdgeToEdge(dark, dark)
         setContent {
@@ -88,7 +89,30 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onResume() { super.onResume(); resumed.intValue++ }
+
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); pairFrom(intent) }
+
+    /** Opened from the TV's pairing QR (http://<tv-ip>:8765/?code=123456): pair with that TV right away. */
+    private fun pairFrom(i: Intent?) {
+        val u = i?.data ?: return
+        val host = u.host ?: return
+        val code = u.getQueryParameter("code")?.takeIf { it.length == 6 && it.all(Char::isDigit) } ?: return
+        if (u.port != 8765) return
+        Toast.makeText(this, "Menyambungkan ke TV $host…", Toast.LENGTH_SHORT).show()
+        Thread {
+            val err = runCatching { TvLink.pair(host, code) }.fold({ token ->
+                Sync.prefs(this).edit().putString("host", host).putString("token", token).apply(); null
+            }, { it.message ?: "gagal" })
+            runOnUiThread {
+                if (err == null) { Pairing.tick++; Sync.inst?.connect(); Nav.tab = 2 } // straight to the remote
+                Toast.makeText(this, if (err == null) "Tersambung ke TV" else "Gagal menyambung: $err. Minta kode baru di TV (OK).", Toast.LENGTH_LONG).show()
+            }
+        }.start()
+    }
 }
+
+/** Bumped when this phone gets paired from outside the Beranda card (QR link), so screens re-read host and token. */
+object Pairing { var tick by mutableIntStateOf(0) }
 
 /** Space for the floating tab bar (with its raised centre button) under scrolling content. */
 val TabInset = 104.dp
@@ -101,8 +125,8 @@ fun HomeScreen(resumeTick: Int) {
     val c = LocalContext.current
     val p = remember { Sync.prefs(c) }
     val scope = rememberCoroutineScope()
-    var host by remember { mutableStateOf(p.getString("host", "").orEmpty()) }
-    var paired by remember { mutableStateOf(p.getString("token", "").orEmpty().isNotEmpty()) }
+    var host by remember(Pairing.tick) { mutableStateOf(p.getString("host", "").orEmpty()) }
+    var paired by remember(Pairing.tick) { mutableStateOf(p.getString("token", "").orEmpty().isNotEmpty()) }
     var code by remember { mutableStateOf("") }
     var showPair by remember { mutableStateOf(false) }
     var notif by remember { mutableStateOf(p.getBoolean("notif", true)) }
@@ -203,7 +227,7 @@ fun HomeScreen(resumeTick: Int) {
                     TextButton({ showPair = !showPair }) { Text(if (showPair) "Tutup" else if (paired) "Ganti" else "Sambungkan", color = Tahoe.Accent) }
                 }
                 if (showPair) {
-                    Text("Di TV: Pusat Kontrol → HP, lalu masukkan kodenya.", color = Tahoe.Dim, fontSize = 12.sp)
+                    Text("Di TV: Pusat Kontrol → HP. Pindai QR-nya dengan kamera HP (tersambung otomatis), atau masukkan kodenya di sini.", color = Tahoe.Dim, fontSize = 12.sp)
                     Field(host, { host = it }, "Alamat TV (terdeteksi otomatis)", KeyboardType.Uri)
                     Field(code, { if (it.length <= 6) code = it.filter(Char::isDigit) }, "Kode 6 digit", KeyboardType.NumberPassword)
                     PrimaryButton("Sambungkan", enabled = host.isNotBlank() && code.length == 6, icon = Icons.Rounded.Link) {

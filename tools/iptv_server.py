@@ -17,6 +17,7 @@ import os
 import re
 import socket
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -195,6 +196,89 @@ def parse_playlist(file_path, existing_ids):
 
     return channels
 
+# ---------------------------------------------------------------- is a channel really live? (same rules as core/HlsProbe.kt)
+STALE_SECONDS = 15 * 60
+_VOD_TYPE = re.compile(r"#EXT-X-PLAYLIST-TYPE:\s*VOD", re.I)
+
+
+def _parse_pdt(value):
+    """ISO-8601 with or without an offset ("+0700" and "+07:00" both occur); no offset means UTC."""
+    from datetime import datetime, timezone
+    v = value.strip().replace("Z", "+00:00")
+    v = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", v)
+    try:
+        dt = datetime.fromisoformat(v)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+
+def hls_kind(text, now=None):
+    """'live', 'replay' (finished playlist), 'stale' (newest segment is old: a replayed broadcast) or 'unknown'."""
+    now = time.time() if now is None else now
+    if not text.lstrip().startswith("#EXTM3U") or "#EXT-X-STREAM-INF" in text:
+        return "unknown"
+    if "#EXT-X-ENDLIST" in text or _VOD_TYPE.search(text):
+        return "replay"
+    clock, dur = None, 0.0
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("#EXT-X-PROGRAM-DATE-TIME:"):
+            clock = _parse_pdt(line.split(":", 1)[1])
+        elif line.startswith("#EXTINF:"):
+            try:
+                dur = float(line[8:].split(",", 1)[0])
+            except ValueError:
+                dur = 0.0
+        elif line and not line.startswith("#") and clock is not None:
+            clock += dur
+    if clock is None:
+        return "live"
+    return "stale" if now - clock > STALE_SECONDS else "live"
+
+
+PLAYLIST_LIMIT = 4 * 1024 * 1024  # live playlists are a few KB; one this big is a long finished video
+
+
+def _fetch_text(url, headers, timeout):
+    req = urllib.request.Request(url, headers={"User-Agent": "TahoeTV", **(headers or {})})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = resp.read(PLAYLIST_LIMIT)
+        text = data.decode("utf-8", "replace")
+        if len(data) >= PLAYLIST_LIMIT:
+            text += "\n#EXT-X-ENDLIST\n"  # cut off: its ENDLIST would be past the limit
+        return text, resp.geturl()
+
+
+def channel_health(c, timeout=4):
+    """'live' | 'replay' | 'stale' | 'dead' for one channel. Movies/VOD may be finished playlists."""
+    try:
+        text, final = _fetch_text(c.url, c.headers, timeout)
+    except Exception:
+        return "dead"
+    if not urllib.parse.urlparse(c.url).path.lower().endswith(".m3u8"):
+        return "live"
+    if not text.lstrip().startswith("#EXTM3U"):
+        return "dead"
+    group = (c.group or "").lower()
+    path = urllib.parse.urlparse(c.url).path.lower()
+    if "vod" in group or "film on demand" in group or path.endswith((".mp4", ".mkv", ".avi", ".mov", ".webm")):
+        return "live"
+    if "#EXT-X-STREAM-INF" in text:
+        lines = [l.strip() for l in text.splitlines()]
+        i = next((k for k, l in enumerate(lines) if l.startswith("#EXT-X-STREAM-INF")), None)
+        uri = next((l for l in lines[i + 1:] if l and not l.startswith("#")), None) if i is not None else None
+        if uri:
+            try:
+                text, _ = _fetch_text(urllib.parse.urljoin(final, uri), c.headers, timeout)
+            except Exception:
+                return "dead"
+    kind = hls_kind(text)
+    return "live" if kind == "unknown" else kind
+
+
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
 
@@ -205,6 +289,11 @@ class IptvHandler(SimpleHTTPRequestHandler):
     sources = []
     epg_url = "https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml"
     start_time = time.time()
+    health = {}            # cid -> live | replay | stale | dead
+    health_at = 0.0
+    health_lock = threading.Lock()   # held for the whole scan: one scan at a time
+    epg_cache = None       # (bytes, fetched_at): the guide is kept 6 h instead of downloaded per request
+    epg_lock = threading.Lock()      # one guide download at a time
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -256,6 +345,8 @@ class IptvHandler(SimpleHTTPRequestHandler):
             self.serve_api_channels(query)
         elif path == "/api/status":
             self.serve_api_status()
+        elif path == "/api/health":
+            self.serve_api_health(query)
         else:
             self.send_error(404, "Not Found")
 
@@ -779,6 +870,8 @@ class IptvHandler(SimpleHTTPRequestHandler):
                 continue
             if group_filter and c.group.lower() != group_filter.lower():
                 continue
+            if not self.wanted(c, query):
+                continue
 
             # Output DRM tags for Kodi / TiviMate / ExoPlayer
             if c.drm_type or c.drm_key or c.is_mpd:
@@ -819,11 +912,26 @@ class IptvHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def fresh_epg(self):
+        cached = IptvHandler.epg_cache
+        return cached[0] if cached and time.time() - cached[1] < 6 * 3600 else None
+
     def serve_epg(self):
         try:
-            req = urllib.request.Request(self.epg_url, headers={"User-Agent": "TahoeIPTV"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                body = resp.read()
+            body = self.fresh_epg()
+            if body is None:
+                with IptvHandler.epg_lock:  # a burst after expiry waits for one download
+                    body = self.fresh_epg()
+                    if body is None:
+                        try:
+                            req = urllib.request.Request(self.epg_url, headers={"User-Agent": "TahoeIPTV"})
+                            with urllib.request.urlopen(req, timeout=15) as resp:
+                                body = resp.read()
+                            IptvHandler.epg_cache = (body, time.time())
+                        except Exception:
+                            if not IptvHandler.epg_cache:
+                                raise
+                            body = IptvHandler.epg_cache[0]  # a stale guide beats none
             self.send_response(200)
             self.send_header("Content-Type", "application/xml; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -974,8 +1082,8 @@ class IptvHandler(SimpleHTTPRequestHandler):
         base_url = self.get_base_url()
         group_filter = query.get("group", [None])[0]
         data = [
-            c.to_dict(base_url) for c in self.channels
-            if not group_filter or c.group.lower() == group_filter.lower()
+            {**c.to_dict(base_url), "health": self.health.get(c.cid, "unknown")} for c in self.channels
+            if (not group_filter or c.group.lower() == group_filter.lower()) and self.wanted(c, query)
         ]
         body = json.dumps({"count": len(data), "channels": data}, ensure_ascii=False, indent=2).encode("utf-8")
         self.send_response(200)
@@ -1000,6 +1108,53 @@ class IptvHandler(SimpleHTTPRequestHandler):
             "total_channels": len(self.channels),
             "relay_channels": sum(1 for c in self.channels if c.headers),
             "drm_channels": sum(1 for c in self.channels if c.drm_type or c.drm_key)
+        }
+        body = json.dumps(data, indent=2).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_cors_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def wanted(self, c, query):
+        """`?live=1` drops channels known to be recordings or dead; unchecked ones stay."""
+        if query.get("live", ["0"])[0] not in ("1", "true"):
+            return True
+        return self.health.get(c.cid, "live") == "live"
+
+    @classmethod
+    def refresh_health(cls, force=False):
+        """Checks every channel (16 at a time) in a background thread, at most every 15 min unless forced."""
+        if not force and time.time() - cls.health_at < 15 * 60:
+            return
+        if not cls.health_lock.acquire(blocking=False):
+            return  # a scan is already running
+
+        def run():
+            from concurrent.futures import ThreadPoolExecutor
+            try:
+                with ThreadPoolExecutor(max_workers=16) as pool:
+                    for c, kind in zip(cls.channels, pool.map(channel_health, cls.channels)):
+                        cls.health[c.cid] = kind
+                cls.health_at = time.time()
+            finally:
+                cls.health_lock.release()
+
+        threading.Thread(target=run, name="tahoe-health", daemon=True).start()
+
+    def serve_api_health(self, query):
+        """Which channels are live, which are recordings (finished/old playlists), which are down. ?refresh=1 re-checks."""
+        self.refresh_health(force=query.get("refresh", ["0"])[0] in ("1", "true"))
+        counts = {}
+        for v in self.health.values():
+            counts[v] = counts.get(v, 0) + 1
+        data = {
+            "checking": IptvHandler.health_lock.locked(), "checked_at": int(IptvHandler.health_at),
+            "total": len(self.channels), "checked": len(self.health),
+            "live": counts.get("live", 0), "replay": counts.get("replay", 0),
+            "stale": counts.get("stale", 0), "dead": counts.get("dead", 0),
+            "channels": self.health,
         }
         body = json.dumps(data, indent=2).encode("utf-8")
         self.send_response(200)
@@ -1043,6 +1198,7 @@ def main():
     IptvHandler.sources = loaded_sources
 
     server = ThreadedHTTPServer((args.host, args.port), IptvHandler)
+    IptvHandler.refresh_health()
     lan_ip = get_lan_ip()
     port = server.server_address[1]
 
@@ -1052,6 +1208,8 @@ def main():
     print(f"  Web Dashboard & Player: http://{lan_ip}:{port}/")
     print(f"  Master Playlist (M3U):  http://{lan_ip}:{port}/playlist.m3u")
     print(f"  EPG Guide (XML):        http://{lan_ip}:{port}/epg.xml")
+    print(f"  Live only (no replays): http://{lan_ip}:{port}/playlist.m3u?live=1")
+    print(f"  Channel health (JSON):  http://{lan_ip}:{port}/api/health")
     print(f"  Total Channels:         {len(all_channels)}")
     print(f"  Header Relays:          {sum(1 for c in all_channels if c.headers)}")
     print(f"  DRM Channels (Kodi):    {sum(1 for c in all_channels if c.drm_type or c.drm_key)}")
