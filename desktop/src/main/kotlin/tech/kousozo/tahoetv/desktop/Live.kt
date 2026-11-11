@@ -258,7 +258,7 @@ fun LiveScreen() {
                                 else -> Badge("CEK...", Tahoe.Dim)
                             }
                             if (e.category == LocalTv.Category.Vod) Badge("VOD", Color(0xFFFF2D55))
-                            if (e.channel.drm || !e.channel.drmType.isNullOrBlank()) Badge("DRM", Color(0xFFFF9F0A))
+                            if (e.channel.drm) Badge("DRM", Color(0xFFFF9F0A))
                             if (e.channel.url.contains(".mpd", true)) Badge("DASH", Color(0xFFBF5AF2))
                             if (e.channel.headers.isNotEmpty()) Badge("RELAY", Tahoe.Accent)
                             if (prog != null) Badge("EPG", Tahoe.Text)
@@ -327,7 +327,7 @@ private fun Detail(
                 Text(stText, fontSize = 12.sp, color = stColor, fontWeight = FontWeight.SemiBold)
 
                 if (e.category == LocalTv.Category.Vod) Badge("VOD", Color(0xFFFF2D55))
-                if (e.channel.drm || !e.channel.drmType.isNullOrBlank()) Badge("DRM", Color(0xFFFF9F0A))
+                if (e.channel.drm) Badge("DRM", Color(0xFFFF9F0A))
                 if (e.channel.url.contains(".mpd", true)) Badge("DASH", Color(0xFFBF5AF2))
                 if (e.channel.headers.isNotEmpty()) Badge("RELAY", Tahoe.Accent)
             }

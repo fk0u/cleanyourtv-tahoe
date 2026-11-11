@@ -69,7 +69,10 @@ object Recordings {
             jobs.firstOrNull { it.active && it.channel == channel && (it.start == start || start in it.start until it.stop) }?.let { return it }
             val stamp = DateTimeFormatter.ofPattern("yyyy-MM-dd HH.mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(start))
             val name = "$channel - $title - $stamp".replace(Regex("""[\\/:*?"<>|\n\r]"""), " ").replace(Regex("\\s+"), " ").trim().take(150)
-            Job(UUID.randomUUID().toString().take(8), channel, title, usable, start, stop, File(dir, "$name.ts").path, "scheduled").also { jobs += it; save() }
+            val id = UUID.randomUUID().toString().take(8)
+            // a path no other job uses and no file holds (a deleted recording may still be finishing on its old path)
+            val file = File(dir, "$name.ts").takeIf { f -> !f.exists() && jobs.none { it.file == f.path } } ?: File(dir, "$name ($id).ts")
+            Job(id, channel, title, usable, start, stop, file.path, "scheduled").also { jobs += it; save() }
         }
         Thread { runCatching { tick() } }.start() // start now if it's due
         return job
