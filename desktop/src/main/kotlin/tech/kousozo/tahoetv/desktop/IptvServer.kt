@@ -118,6 +118,7 @@ object IptvServer {
         port.value = s.address.port
         isRunning.value = true
         refreshHealth()
+        Recordings.boot() // scheduled recordings run while the server does
     }
 
     fun stop() {
@@ -210,6 +211,8 @@ object IptvServer {
                 path == "/api/status" -> serveStatus(ex)
                 path == "/api/channels" -> serveChannels(ex, query)
                 path == "/api/health" -> serveHealth(ex, query)
+                path == "/api/recordings" -> serveRecordings(ex, query)
+                path.startsWith("/recordings/") -> serveRecordingFile(ex, path.removePrefix("/recordings/"))
                 else -> {
                     ex.sendResponseHeaders(404, -1)
                     ex.close()
@@ -223,7 +226,7 @@ object IptvServer {
 
     private fun sendCors(ex: HttpExchange) {
         ex.responseHeaders.add("Access-Control-Allow-Origin", "*")
-        ex.responseHeaders.add("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+        ex.responseHeaders.add("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
         ex.responseHeaders.add("Access-Control-Allow-Headers", "Range, User-Agent, Referer, Accept, Content-Type")
         ex.responseHeaders.add("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
     }
@@ -381,6 +384,93 @@ object IptvServer {
         ex.responseBody.use { it.write(data) }
     }
 
+    private fun sendJson(ex: HttpExchange, code: Int, j: Any) {
+        val body = j.toString().toByteArray(Charsets.UTF_8)
+        sendCors(ex)
+        ex.responseHeaders.add("Content-Type", "application/json; charset=utf-8")
+        ex.sendResponseHeaders(code, body.size.toLong())
+        ex.responseBody.use { it.write(body) }
+    }
+
+    /** DVR. GET: every recording (with a /recordings/<id> URL once it has data), for any device on the LAN.
+     *  POST ?cid=&start=&stop=&title= schedules (epoch ms; start/stop default to now / +1 h), POST ?cancel=<id> stops,
+     *  DELETE ?id=<id> removes the file. Changes are accepted from this computer only: anyone on the Wi-Fi could
+     *  otherwise fill its disk. Browsers are refused too (any request with an Origin header): a web page open on this
+     *  computer could otherwise reach 127.0.0.1 and schedule or delete recordings. */
+    private fun serveRecordings(ex: HttpExchange, query: Map<String, String>) {
+        Recordings.boot()
+        when (ex.requestMethod.uppercase()) {
+            "GET" -> sendJson(ex, 200, JSONObject()
+                .put("recordings", JSONArray(Recordings.jobs.toList().map { Recordings.json(it, baseUrl(ex)) })))
+            "POST", "DELETE" -> {
+                if (!fromThisComputer(ex) || ex.requestHeaders.containsKey("Origin"))
+                    return sendJson(ex, 403, JSONObject().put("error", "rekaman hanya bisa diatur dari komputer ini"))
+                if (ex.requestMethod.equals("DELETE", true)) { Recordings.delete(query["id"].orEmpty()); return sendJson(ex, 200, JSONObject().put("ok", true)) }
+                query["cancel"]?.let { Recordings.cancel(it); return sendJson(ex, 200, JSONObject().put("ok", true)) }
+                val sc = byId[query["cid"].orEmpty()] ?: return sendJson(ex, 404, JSONObject().put("error", "saluran tidak ditemukan"))
+                val now = System.currentTimeMillis()
+                // a time that's there but unreadable is an error, not "now"
+                val start = query["start"]?.let { it.toLongOrNull() ?: return sendJson(ex, 400, JSONObject().put("error", "start bukan angka (epoch ms)")) } ?: now
+                val stop = query["stop"]?.let { it.toLongOrNull() ?: return sendJson(ex, 400, JSONObject().put("error", "stop bukan angka (epoch ms)")) }
+                // exact arithmetic: absurd epoch values must not wrap around into a "valid" duration
+                val length = runCatching { Math.subtractExact(stop ?: Math.addExact(start, 3600_000L), start) }.getOrNull()
+                if (length == null || length < 60_000L || length > 6 * 3600_000L) return sendJson(ex, 400, JSONObject().put("error", "durasi 1 menit sampai 6 jam"))
+                val end = start + length
+                val job = Recordings.schedule(sc.channel.name, query["title"]?.takeIf { it.isNotBlank() } ?: "Rekaman", listOf(sc.channel), start, end)
+                    ?: return sendJson(ex, 400, JSONObject().put("error", "saluran ini (DRM/DASH) tidak bisa direkam"))
+                sendJson(ex, 200, Recordings.json(job, baseUrl(ex)))
+            }
+            else -> { ex.sendResponseHeaders(405, -1); ex.close() }
+        }
+    }
+
+    /** Loopback, or one of this computer's own addresses (a request to its LAN IP from itself). */
+    private fun fromThisComputer(ex: HttpExchange): Boolean {
+        val a = ex.remoteAddress.address
+        return a.isLoopbackAddress || runCatching { java.net.NetworkInterface.getByInetAddress(a) != null }.getOrDefault(false)
+    }
+
+    private val RANGE = Regex("""bytes=(\d*)-(\d*)""")
+
+    /** A recording's file, with Range support so players (TV, VLC, browser) can seek in it. */
+    private fun serveRecordingFile(ex: HttpExchange, id: String) {
+        val f = Recordings.jobs.firstOrNull { it.id == id }?.let { File(it.file) }?.takeIf { it.isFile }
+            ?: run { ex.sendResponseHeaders(404, -1); ex.close(); return }
+        val len = f.length()
+        val range = RANGE.find(ex.requestHeaders.getFirst("Range").orEmpty())
+        var from = 0L
+        var to = len - 1
+        if (range != null) {
+            val (a, b) = range.destructured
+            // numbers too big for a Long: a start past the end (416), an end clamped to the file
+            if (a.isNotEmpty()) { from = a.toLongOrNull() ?: Long.MAX_VALUE; if (b.isNotEmpty()) to = minOf(b.toLongOrNull() ?: Long.MAX_VALUE, len - 1) }
+            else if (b.isNotEmpty()) from = maxOf(0L, len - (b.toLongOrNull() ?: Long.MAX_VALUE))
+            if (from > to || from >= len) { ex.responseHeaders.add("Content-Range", "bytes */$len"); ex.sendResponseHeaders(416, -1); ex.close(); return }
+        }
+        sendCors(ex)
+        ex.responseHeaders.add("Content-Type", if (f.name.endsWith(".mp4")) "video/mp4" else "video/mp2t")
+        ex.responseHeaders.add("Accept-Ranges", "bytes")
+        if (range != null) ex.responseHeaders.add("Content-Range", "bytes $from-$to/$len")
+        val n = to - from + 1
+        if (ex.requestMethod.equals("HEAD", true)) {
+            ex.responseHeaders.set("Content-Length", "$n") // the size players need to seek; HEAD sends no body
+            ex.sendResponseHeaders(if (range != null) 206 else 200, -1); ex.close(); return
+        }
+        ex.sendResponseHeaders(if (range != null) 206 else 200, n)
+        java.io.RandomAccessFile(f, "r").use { raf ->
+            raf.seek(from)
+            ex.responseBody.use { out ->
+                val buf = ByteArray(64 * 1024)
+                var left = n
+                while (left > 0) {
+                    val r = raf.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
+                    if (r < 0) break
+                    out.write(buf, 0, r); left -= r
+                }
+            }
+        }
+    }
+
     /** What the player can't tell from a plain "200 OK": which channels are live, which are recordings, which are down.
      *  `?refresh=1` re-checks now. Checking runs in the background; call again in a minute for complete numbers. */
     private fun serveHealth(ex: HttpExchange, query: Map<String, String>) {
@@ -472,7 +562,7 @@ object IptvServer {
             val placeholderStyle = if (sc.channel.logo.isNullOrBlank()) "" else "style=\"display:none;\""
             val relayBadge = if (sc.channel.headers.isNotEmpty()) "<span class=\"tag relay\">Relay</span>" else ""
             val dashBadge = if (isMpd) "<span class=\"tag dash\">DASH</span>" else ""
-            val drmBadge = if (!sc.drmType.isNullOrBlank() || !sc.drmKey.isNullOrBlank() || sc.channel.drm) "<span class=\"tag drm\">DRM</span>" else ""
+            val drmBadge = if (sc.channel.drm) "<span class=\"tag drm\">DRM</span>" else ""
             val vodBadge = if (isVod) "<span class=\"tag vod\">VOD</span>" else ""
 
             val infoJson = JSONObject().apply {

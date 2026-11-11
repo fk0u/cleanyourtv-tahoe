@@ -11,6 +11,8 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 - **Desktop, tidak bisa pindah saluran:** pemutar lama dilepas di latar sehingga tidak menahan saluran baru, dan satu klik pada kartu saluran langsung memindah saluran saat pemutar terbuka.
 
 ### Baru
+- **Rekaman acara (desktop):** di TV Live, tekan **Rekam acara ini** untuk acara yang sedang tayang (sampai selesai, +2 menit), atau ikon ○ di daftar "Berikutnya" untuk menjadwalkan acara nanti (mulai 1 menit lebih awal). Menu baru **Rekaman** berisi daftar terjadwal, sedang merekam, dan selesai, dengan tombol Putar, Hentikan, Batalkan, dan Hapus. File disimpan di `~/Movies/Tahoe TV` (Windows: `Videos`). Perekaman dimulai dari ujung live, mencoba sumber cadangan bila sumber gagal, dan menolak siaran terenkripsi. Rekaman berjalan selama app desktop terbuka.
+- **Server IPTV:** `GET /api/recordings` (daftar, untuk perangkat mana pun di LAN) dan `/recordings/<id>` (file rekaman dengan dukungan Range, jadi bisa ditonton dan di-seek dari TV/HP/VLC). Menjadwalkan, menghentikan, dan menghapus rekaman (`POST`/`DELETE /api/recordings`) hanya diterima dari komputer itu sendiri.
 - **Loading ala Apple TV / Netflix** di TV, HP, dan desktop: logo (HP: inisial) dan nama saluran dengan spinner 12 garis; tidak ada lagi teks "Mencoba sumber cadangan…".
 - **Tunda siaran langsung (TV & HP):** ⏪/⏩ 30 detik di dalam jendela siaran, jeda, dan kembali ke live. Di TV tombol media (Play/Pause, Rewind, Fast Forward) bekerja; label LIVE berubah jadi "⏪ -1 mnt" saat tertinggal.
 - **Dekoder cadangan** di TV dan HP: jika dekoder utama menolak sebuah stream, dekoder lain dicoba sebelum sumber dianggap gagal.
