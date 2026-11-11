@@ -21,3 +21,6 @@ keystore.properties
 *.apk
 
 .rnd/
+# Python bytecode
+__pycache__/
+*.pyc
