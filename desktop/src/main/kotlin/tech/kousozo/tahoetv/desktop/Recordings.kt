@@ -47,8 +47,9 @@ object Recordings {
         File(File(System.getProperty("user.home"), if (mac) "Movies" else "Videos"), "Tahoe TV").also { it.mkdirs() }
     }
 
-    /** What [HlsRecorder] can record: plain HLS, not DRM and not DASH. */
-    fun recordable(c: M3u.Channel) = !c.drm && c.drmType.isNullOrBlank() && !c.url.substringBefore('?').endsWith(".mpd", true)
+    /** What [HlsRecorder] can record: not DRM and not DASH. ([M3u] sets `drm` for real licences; a `drmType` copied onto a
+     *  plain HLS entry doesn't make it encrypted, and the recorder refuses encrypted segments anyway.) */
+    fun recordable(c: M3u.Channel) = !c.drm && !c.url.substringBefore('?').endsWith(".mpd", true)
 
     private var started = false
 
@@ -88,7 +89,8 @@ object Recordings {
         val j = synchronized(lock) { jobs.firstOrNull { it.id == id }?.also { it.stopRequested = true; it.recorder?.cancel(); jobs.remove(it); save() } } ?: return
         Thread {
             runCatching { j.thread?.join(60_000) } // the segment being downloaded finishes first (≤ its timeout)
-            runCatching { File(j.file).delete() }
+            // a job scheduled meanwhile can have the same file name (same channel, title and minute): leave its file alone
+            synchronized(lock) { if (jobs.none { it.file == j.file }) runCatching { File(j.file).delete() } }
         }.apply { isDaemon = true }.start()
     }
 
