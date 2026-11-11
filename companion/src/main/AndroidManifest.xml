@@ -12,6 +12,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- The pairing QR on the TV (http://<tv-ip>:8765/?code=123456): scanning it with the phone's camera offers
+                 this app, which pairs by itself instead of asking for the address and the code. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" android:host="*" android:port="8765" android:path="/" />
+            </intent-filter>
         </activity>
         <!-- Forwards phone notifications and now-playing to the TV; receives play/pause/next back. -->
         <service android:name=".Sync" android:exported="true"

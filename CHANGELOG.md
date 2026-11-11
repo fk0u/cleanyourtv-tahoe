@@ -14,7 +14,9 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 - **Loading ala Apple TV / Netflix** di TV, HP, dan desktop: logo dan nama saluran dengan spinner 12 garis; tidak ada lagi teks "Mencoba sumber cadangan…".
 - **Tunda siaran langsung (TV & HP):** ⏪/⏩ 30 detik di dalam jendela siaran, jeda, dan kembali ke live. Di TV tombol media (Play/Pause, Rewind, Fast Forward) bekerja; label LIVE berubah jadi "⏪ -1 mnt" saat tertinggal.
 - **Dekoder cadangan** di TV dan HP: jika dekoder utama menolak sebuah stream, dekoder lain dicoba sebelum sumber dianggap gagal.
-- **Server IPTV desktop:** `/api/health` (live / rekaman / basi / mati per saluran), `?live=1` pada playlist dan `/api/channels` untuk menyembunyikan rekaman dan saluran mati, serta cache EPG 6 jam.
+- **Server IPTV (desktop dan `tools/iptv_server.py`):** `/api/health` (live / rekaman / basi / mati per saluran), `?live=1` pada playlist dan `/api/channels` untuk menyembunyikan rekaman dan saluran mati, serta cache EPG 6 jam.
+- **Sambungkan HP lewat QR:** pindai QR di TV (Pusat Kontrol → HP) dengan kamera HP, pilih Tahoe TV, dan app langsung tersambung dan membuka Remote. Tidak perlu lagi mengetik alamat dan kode.
+- **Cari saluran atau acara** (HP & desktop): pencarian kini juga mencocokkan jadwal acara, misalnya "bola", "berita", atau judul acara, dan menampilkan acaranya sedang tayang atau pukul berapa.
 
 ## 2.9.5
 - **Remote HP tidak lagi force close** saat koneksi ke TV terputus (misalnya TV masuk standby atau Wi-Fi tersendat) ketika tombol ditekan, saat menyambung ulang, atau saat meneruskan notifikasi/musik.

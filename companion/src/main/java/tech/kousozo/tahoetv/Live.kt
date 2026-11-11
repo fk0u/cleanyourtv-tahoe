@@ -56,6 +56,7 @@ import tech.kousozo.tahoetv.core.Epg
 import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.M3u
 import tech.kousozo.tahoetv.core.Sources
+import tech.kousozo.tahoetv.core.Search
 import tech.kousozo.tahoetv.core.Web
 
 /** TV Live on the phone: same free channels and guide as the TV and desktop (national priority first, then near you).
@@ -67,6 +68,7 @@ fun LiveScreen() {
     val epg = Channels.epg
     val failed = Channels.failed
     var cat by remember { mutableStateOf(Nav.liveCategory) }
+    var query by remember { mutableStateOf("") }
     var playing by remember { mutableStateOf<LocalTv.Entry?>(null) }
     var full by Nav::full
     LaunchedEffect(Unit) { Channels.load(c) }
@@ -134,6 +136,10 @@ fun LiveScreen() {
                 else LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
                 return@Column
             }
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp),
+                placeholder = { Text("Cari saluran atau acara (mis. bola, berita)") },
+                leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                trailingIcon = { if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, "Hapus pencarian") } })
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 (listOf<LocalTv.Category?>(null) + LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }).forEach { k ->
                     val on = k == cat
@@ -144,9 +150,11 @@ fun LiveScreen() {
         }
         list?.let { l ->
             LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp), contentPadding = PaddingValues(bottom = TabInset)) {
-                items(l.filter { cat == null || LocalTv.inCategory(it, cat!!) }, key = { it.channel.url }) { e ->
+                val hits = Search.run(l, epg, query, now).filter { cat == null || LocalTv.inCategory(it.entry, cat!!) }
+                items(hits, key = { it.entry.channel.url }) { h ->
+                    val e = h.entry
                     val on = e == playing
-                    val prog = nowOn(epg, e, now)
+                    val prog = h.programme ?: nowOn(epg, e, now)
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(18.dp))
                         .background(if (on) Color.White.copy(alpha = 0.14f) else Tahoe.Glass).clickable { playing = e }.padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -157,7 +165,8 @@ fun LiveScreen() {
                                 Text(e.name, Modifier.weight(1f, fill = false), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 if (prog != null) { Spacer(Modifier.width(6.dp)); Pill("EPG", Tahoe.Faint) }
                             }
-                            Text(prog?.title ?: e.category.label, color = if (prog != null) Tahoe.Dim else Tahoe.Faint, fontSize = 12.sp,
+                            Text(prog?.let { pr -> if (pr.start > now) "Pukul ${HM.format(pr.start)} · ${pr.title}" else pr.title } ?: e.category.label,
+                                color = if (h.programme != null) Tahoe.Accent else if (prog != null) Tahoe.Dim else Tahoe.Faint, fontSize = 12.sp,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                             prog?.let { pr ->
                                 LinearProgressIndicator({ progress(pr, now) }, Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp).clip(RoundedCornerShape(2.dp)),

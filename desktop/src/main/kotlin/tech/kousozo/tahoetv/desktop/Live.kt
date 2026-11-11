@@ -35,6 +35,7 @@ import kotlinx.coroutines.withContext
 import tech.kousozo.tahoetv.core.Epg
 import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.SourceHealth
+import tech.kousozo.tahoetv.core.Search
 import tech.kousozo.tahoetv.core.M3u
 import tech.kousozo.tahoetv.core.Sources
 import java.time.Instant
@@ -102,8 +103,10 @@ fun LiveScreen() {
     val liveCount = entries.count { isChannelLive(it) == true }
     val offlineCount = entries.count { isChannelLive(it) == false }
     val cats = remember(entries) { LocalTv.Category.entries.filter { c -> entries.any { LocalTv.inCategory(it, c) } } }
-    val shown = entries
-        .filter { query.isBlank() || it.name.contains(query, true) || it.channel.group.orEmpty().contains(query, true) }
+    // Search covers names, groups and the guide: "bola" or a show's title finds the channel airing it.
+    val hits = remember(entries, epg, query, tick) { Search.run(entries, epg, query, tick) }
+    val matchedShow = remember(hits) { hits.mapNotNull { h -> h.programme?.let { h.entry.channel.url to it } }.toMap() }
+    val shown = hits.map { it.entry }
         .filter { e ->
             when (group) {
                 null -> true
@@ -118,7 +121,7 @@ fun LiveScreen() {
                 else -> true
             }
         }
-        .sortedByDescending { it.channel.url in favs }
+        .let { l -> if (query.isBlank()) l.sortedByDescending { it.channel.url in favs } else l } // searching: best match first
 
     var selected by remember { mutableStateOf<LocalTv.Entry?>(null) }   // focused card → detail panel
     var status by remember { mutableStateOf<String?>(null) }
@@ -160,7 +163,7 @@ fun LiveScreen() {
                     }
                 } ?: error ?: "Memuat saluran…"
             )
-            Field(query, { query = it }, "Cari saluran...", trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
+            Field(query, { query = it }, "Cari saluran atau acara…", trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
 
             // Status filter chips (All / Live / Offline)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -242,7 +245,10 @@ fun LiveScreen() {
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(e.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(prog?.title ?: e.category.label, fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val found = matchedShow[ch.url]
+                        if (found != null) Text("${if (found.start <= tick) "Sedang tayang" else "Pukul " + HM.format(found.start)} · ${found.title}",
+                            fontSize = 13.sp, color = Tahoe.Accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        else Text(prog?.title ?: e.category.label, fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                             when {
                                 on -> Badge("DIPUTAR", Color(0xFF0A84FF), filled = true)
