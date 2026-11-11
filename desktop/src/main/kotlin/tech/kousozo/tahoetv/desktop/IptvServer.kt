@@ -118,6 +118,7 @@ object IptvServer {
         port.value = s.address.port
         isRunning.value = true
         refreshHealth()
+        Recordings.boot() // scheduled recordings run while the server does
     }
 
     fun stop() {
@@ -210,6 +211,8 @@ object IptvServer {
                 path == "/api/status" -> serveStatus(ex)
                 path == "/api/channels" -> serveChannels(ex, query)
                 path == "/api/health" -> serveHealth(ex, query)
+                path == "/api/recordings" -> serveRecordings(ex, query)
+                path.startsWith("/recordings/") -> serveRecordingFile(ex, path.removePrefix("/recordings/"))
                 else -> {
                     ex.sendResponseHeaders(404, -1)
                     ex.close()
@@ -223,7 +226,7 @@ object IptvServer {
 
     private fun sendCors(ex: HttpExchange) {
         ex.responseHeaders.add("Access-Control-Allow-Origin", "*")
-        ex.responseHeaders.add("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+        ex.responseHeaders.add("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
         ex.responseHeaders.add("Access-Control-Allow-Headers", "Range, User-Agent, Referer, Accept, Content-Type")
         ex.responseHeaders.add("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
     }
@@ -379,6 +382,77 @@ object IptvServer {
         ex.responseHeaders.add("Content-Type", "application/xml; charset=utf-8")
         ex.sendResponseHeaders(200, data.size.toLong())
         ex.responseBody.use { it.write(data) }
+    }
+
+    private fun sendJson(ex: HttpExchange, code: Int, j: Any) {
+        val body = j.toString().toByteArray(Charsets.UTF_8)
+        sendCors(ex)
+        ex.responseHeaders.add("Content-Type", "application/json; charset=utf-8")
+        ex.sendResponseHeaders(code, body.size.toLong())
+        ex.responseBody.use { it.write(body) }
+    }
+
+    /** DVR. GET: every recording (with a /recordings/<id> URL once it has data), for any device on the LAN.
+     *  POST ?cid=&start=&stop=&title= schedules (epoch ms; start/stop default to now / +1 h), POST ?cancel=<id> stops,
+     *  DELETE ?id=<id> removes the file. Changes are accepted from this computer only: anyone on the Wi-Fi could
+     *  otherwise fill its disk. */
+    private fun serveRecordings(ex: HttpExchange, query: Map<String, String>) {
+        Recordings.boot()
+        val local = ex.remoteAddress.address.isLoopbackAddress
+        when (ex.requestMethod.uppercase()) {
+            "GET" -> sendJson(ex, 200, JSONObject().put("dir", Recordings.dir.path)
+                .put("recordings", JSONArray(Recordings.jobs.toList().map { Recordings.json(it, baseUrl(ex)) })))
+            "POST", "DELETE" -> {
+                if (!local) return sendJson(ex, 403, JSONObject().put("error", "rekaman hanya bisa diatur dari komputer ini"))
+                if (ex.requestMethod.equals("DELETE", true)) { Recordings.delete(query["id"].orEmpty()); return sendJson(ex, 200, JSONObject().put("ok", true)) }
+                query["cancel"]?.let { Recordings.cancel(it); return sendJson(ex, 200, JSONObject().put("ok", true)) }
+                val sc = byId[query["cid"].orEmpty()] ?: return sendJson(ex, 404, JSONObject().put("error", "saluran tidak ditemukan"))
+                val now = System.currentTimeMillis()
+                val start = query["start"]?.toLongOrNull() ?: now
+                val stop = query["stop"]?.toLongOrNull() ?: (start + 3600_000L)
+                if (stop - start < 60_000L || stop - start > 6 * 3600_000L) return sendJson(ex, 400, JSONObject().put("error", "durasi 1 menit sampai 6 jam"))
+                val job = Recordings.schedule(sc.channel.name, query["title"]?.takeIf { it.isNotBlank() } ?: "Rekaman", listOf(sc.channel), start, stop)
+                sendJson(ex, 200, Recordings.json(job, baseUrl(ex)))
+            }
+            else -> { ex.sendResponseHeaders(405, -1); ex.close() }
+        }
+    }
+
+    private val RANGE = Regex("""bytes=(\d*)-(\d*)""")
+
+    /** A recording's file, with Range support so players (TV, VLC, browser) can seek in it. */
+    private fun serveRecordingFile(ex: HttpExchange, id: String) {
+        val f = Recordings.jobs.firstOrNull { it.id == id }?.let { File(it.file) }?.takeIf { it.isFile }
+            ?: run { ex.sendResponseHeaders(404, -1); ex.close(); return }
+        val len = f.length()
+        val range = RANGE.find(ex.requestHeaders.getFirst("Range").orEmpty())
+        var from = 0L
+        var to = len - 1
+        if (range != null) {
+            val (a, b) = range.destructured
+            if (a.isNotEmpty()) { from = a.toLong(); if (b.isNotEmpty()) to = minOf(b.toLong(), len - 1) }
+            else if (b.isNotEmpty()) from = maxOf(0L, len - b.toLong())
+            if (from > to || from >= len) { ex.responseHeaders.add("Content-Range", "bytes */$len"); ex.sendResponseHeaders(416, -1); ex.close(); return }
+        }
+        sendCors(ex)
+        ex.responseHeaders.add("Content-Type", if (f.name.endsWith(".mp4")) "video/mp4" else "video/mp2t")
+        ex.responseHeaders.add("Accept-Ranges", "bytes")
+        if (range != null) ex.responseHeaders.add("Content-Range", "bytes $from-$to/$len")
+        val n = to - from + 1
+        if (ex.requestMethod.equals("HEAD", true)) { ex.sendResponseHeaders(if (range != null) 206 else 200, -1); ex.close(); return }
+        ex.sendResponseHeaders(if (range != null) 206 else 200, n)
+        java.io.RandomAccessFile(f, "r").use { raf ->
+            raf.seek(from)
+            ex.responseBody.use { out ->
+                val buf = ByteArray(64 * 1024)
+                var left = n
+                while (left > 0) {
+                    val r = raf.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
+                    if (r < 0) break
+                    out.write(buf, 0, r); left -= r
+                }
+            }
+        }
     }
 
     /** What the player can't tell from a plain "200 OK": which channels are live, which are recordings, which are down.

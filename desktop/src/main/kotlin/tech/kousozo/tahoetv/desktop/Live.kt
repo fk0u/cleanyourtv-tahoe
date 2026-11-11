@@ -285,7 +285,8 @@ fun LiveScreen() {
             status = status,
             isLive = curSelected?.let { isChannelLive(it) },
             onWatch = ::watch,
-            onStop = { PlayerWindow.stop(); playing = null }
+            onStop = { PlayerWindow.stop(); playing = null },
+            onRecord = { e, title, start, stop -> Recordings.schedule(e.name, title, listOf(e.channel) + e.alternates, start, stop) }
         )
     }
 }
@@ -300,7 +301,8 @@ private fun Detail(
     status: String?,
     isLive: Boolean?,
     onWatch: (LocalTv.Entry) -> Unit,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    onRecord: (LocalTv.Entry, String, Long, Long) -> Unit,
 ) {
     Box(Modifier.width(400.dp).fillMaxHeight().clip(RoundedCornerShape(26.dp)).background(Color(0xFF111118)).border(1.dp, Tahoe.Stroke, RoundedCornerShape(26.dp))) {
         if (e == null) { Text("Pilih saluran", Modifier.align(Alignment.Center), color = Tahoe.Dim); return@Box }
@@ -352,11 +354,31 @@ private fun Detail(
                 }
             }
             if (isPlaying && status != null) Text(status, fontSize = 12.sp, color = Tahoe.Bad)
+            // DVR: the show on now (until it ends, +2 min), or the next hour when the guide has nothing
+            fun planned(start: Long) = Recordings.jobs.firstOrNull { it.active && it.channel == e.name && it.start == start }
+            val nowStart = cur?.start?.toEpochMilli() ?: (now.toEpochMilli() / 60_000 * 60_000)
+            val rec = planned(nowStart)
+            if (rec != null) Text(if (rec.state == "recording") "⏺ Sedang merekam" else "⏺ Terjadwal", fontSize = 12.sp, color = Tahoe.Bad, fontWeight = FontWeight.SemiBold)
+            else GhostButton(if (cur != null) "Rekam acara ini" else "Rekam 1 jam", Icons.Rounded.FiberManualRecord, color = Tahoe.Bad) {
+                if (cur != null) onRecord(e, cur.title, nowStart, cur.stop.toEpochMilli() + 120_000)
+                else onRecord(e, "Siaran ${e.name}", nowStart, nowStart + 3600_000)
+            }
             val next = s.filter { it.start > now }.take(4)
             if (next.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Text("BERIKUTNYA", fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold)
-                next.forEach { p -> Row { Text(HM.format(p.start), Modifier.width(52.dp), fontSize = 13.sp, color = Tahoe.Dim); Text(p.title, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) } }
+                next.forEach { p ->
+                    val start = p.start.toEpochMilli() - 60_000 // a minute early: guides are rarely exact
+                    val job = planned(start)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(HM.format(p.start), Modifier.width(52.dp), fontSize = 13.sp, color = Tahoe.Dim)
+                        Text(p.title, Modifier.weight(1f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        IconButton({ if (job != null) Recordings.cancel(job.id) else onRecord(e, p.title, start, p.stop.toEpochMilli() + 120_000) }, Modifier.size(28.dp)) {
+                            Icon(if (job != null) Icons.Rounded.FiberManualRecord else Icons.Rounded.RadioButtonUnchecked,
+                                if (job != null) "Batalkan rekaman ${p.title}" else "Rekam ${p.title}", tint = if (job != null) Tahoe.Bad else Tahoe.Faint, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
             }
         }
     }
