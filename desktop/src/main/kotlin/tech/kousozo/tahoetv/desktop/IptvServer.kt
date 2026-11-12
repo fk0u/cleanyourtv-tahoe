@@ -84,6 +84,7 @@ object IptvServer {
             HlsProbe.Kind.REPLAY -> "replay"
             HlsProbe.Kind.STALE -> "stale"
             HlsProbe.Kind.LIVE -> "live"
+            HlsProbe.Kind.DEAD -> "dead"
             HlsProbe.Kind.UNKNOWN -> if (Sources.check(c, 4000)) "live" else "dead"
         }
     }
@@ -342,9 +343,14 @@ object IptvServer {
         }
 
         val con = open(targetUrl, sc.channel.headers)
-        val type = con.contentType.orEmpty()
-        val text = tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+        if (con.responseCode !in 200..299) { con.disconnect(); ex.sendResponseHeaders(502, -1); ex.close(); return } // source refused: next source
+        val fetched = tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }
         val finalUrl = con.url.toString()
+        // an HTML page with "200 OK", or a variant list whose variants all fail: tell the player now (it moves on to the
+        // next source) instead of letting it time out; dead variants are dropped so it doesn't stop at the first one
+        val text = fetched.takeIf { it.trimStart().startsWith("#EXTM3U") }
+            ?.let { if (subUrlB64.isNullOrEmpty()) tech.kousozo.tahoetv.core.HlsProbe.dropDeadVariants(it, finalUrl, sc.channel.headers) else it }
+            ?: run { ex.sendResponseHeaders(502, -1); ex.close(); return }
 
         val base = baseUrl(ex)
         val lines = text.lineSequence().map { line ->
@@ -955,7 +961,7 @@ setInterval(poll, 1500);
         repeat(5) {
             val c = URI(u).toURL().openConnection() as HttpURLConnection
             c.connectTimeout = 10000; c.readTimeout = 18000; c.instanceFollowRedirects = false
-            c.setRequestProperty("User-Agent", "TahoeTV/3.1.0")
+            c.setRequestProperty("User-Agent", tech.kousozo.tahoetv.core.Web.STREAM_UA)
             headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
             if (!range.isNullOrEmpty()) c.setRequestProperty("Range", range)
             if (c.responseCode in 300..399) {

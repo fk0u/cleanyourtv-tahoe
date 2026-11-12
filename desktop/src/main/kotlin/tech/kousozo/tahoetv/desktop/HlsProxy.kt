@@ -29,11 +29,16 @@ object HlsProxy {
                     val type = con.contentType.orEmpty()
                     val playlist = url.substringBefore('?').endsWith(".m3u8", true) || "mpegurl" in type.lowercase()
                     if (playlist) {
-                        // a master playlist keeps only the variants within the chosen quality: JavaFX can't pick one itself
-                        val text = tech.kousozo.tahoetv.core.PlayPrefs.capVariants(tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }, Settings.quality.maxHeight)
+                        if (con.responseCode !in 200..299) { con.disconnect(); ex.sendResponseHeaders(502, -1); return@createContext }
+                        val raw = tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+                        // "200 OK" with an HTML page: fail now, so the player moves on instead of waiting out its timeout
+                        if (!raw.trimStart().startsWith("#EXTM3U")) { ex.sendResponseHeaders(502, -1); return@createContext }
+                        val text = playable(raw, con.url.toString(), headers) ?: run { ex.sendResponseHeaders(502, -1); return@createContext }
                         val body = rewrite(text, con.url.toString(), headers).toByteArray()
                         ex.responseHeaders.add("Content-Type", "application/vnd.apple.mpegurl")
                         ex.sendResponseHeaders(200, body.size.toLong()); ex.responseBody.use { it.write(body) }
+                    } else if ("text/html" in type.lowercase() || con.responseCode >= 400) {
+                        con.disconnect(); ex.sendResponseHeaders(502, -1) // an error page or a refused segment: the player moves on
                     } else {
                         if (type.isNotEmpty()) ex.responseHeaders.add("Content-Type", type)
                         // decoded here, so no Content-Encoding goes to the player
@@ -52,13 +57,20 @@ object HlsProxy {
         repeat(5) { // follow redirects by hand: HttpURLConnection won't cross http↔https, which CDNs do
             val c = URI(u).toURL().openConnection() as HttpURLConnection
             c.connectTimeout = 8000; c.readTimeout = 15000; c.instanceFollowRedirects = false
-            c.setRequestProperty("User-Agent", "TahoeTV"); headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+            c.setRequestProperty("User-Agent", tech.kousozo.tahoetv.core.Web.STREAM_UA); headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
             if (c.responseCode in 300..399) { u = URI(u).resolve(c.getHeaderField("Location")).toString(); c.disconnect() } else return c
         }
         error("too many redirects")
     }
 
     private val URI_ATTR = Regex("""URI="([^"]+)"""")
+
+    /** What JavaFX gets instead of the source's playlist: a master playlist without its dead variants (JavaFX plays the
+     *  first variant and never switches; sources often keep the master up while a variant gives 403/404), capped to the
+     *  chosen quality. Null when no variant answers. */
+    internal fun playable(text: String, base: String, headers: Map<String, String>): String? =
+        tech.kousozo.tahoetv.core.HlsProbe.dropDeadVariants(text, base, headers, 5000)
+            ?.let { tech.kousozo.tahoetv.core.PlayPrefs.capVariants(it, Settings.quality.maxHeight) }
 
     /** Absolute-ise every URL in a playlist and point it back at the relay. */
     fun rewrite(text: String, base: String, headers: Map<String, String>): String = text.lineSequence().joinToString("\n") { line ->
@@ -69,10 +81,12 @@ object HlsProxy {
         }
     }
 
-    /** URL the player should open. Streams without special headers are played directly. */
-    fun wrap(url: String, headers: Map<String, String>): String {
-        // straight to the source unless headers are needed or a quality cap has to be applied to the playlist
-        if (headers.isEmpty() && Settings.quality.maxHeight == 0) return url
+    /** URL the player should open. Streams without special headers are played directly (measured: going through the
+     *  relay made ad-supported channels that play directly time out in JavaFX). */
+    fun wrap(url: String, headers: Map<String, String>, force: Boolean = false): String {
+        // straight to the source unless headers are needed, a quality cap has to be applied, or [force] (its first
+        // variant is dead: the relay hands JavaFX a master without it)
+        if (!force && headers.isEmpty() && Settings.quality.maxHeight == 0) return url
         val enc = Base64.getUrlEncoder().withoutPadding()
         val h = enc.encodeToString(JSONObject(headers).toString().toByteArray())
         return "http://127.0.0.1:${server.address.port}/s?u=" + enc.encodeToString(url.toByteArray()) +

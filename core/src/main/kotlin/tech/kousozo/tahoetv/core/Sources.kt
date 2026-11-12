@@ -122,9 +122,9 @@ object Sources {
     /** How long a parallel check of [n] channels may take: every channel gets its turn. The old fixed limit
      *  (3 × timeout ≈ 10 s) stopped after roughly the first 250 of ~1000 channels, so on the desktop three in four
      *  channels never got a status ("Memeriksa koneksi…" forever, missing from the LIVE filter). One check is at most
-     *  ~3 requests (master playlist, variant, retry), each bounded by [timeoutMs]. */
+     *  ~4 timeouts: the master playlist, one parallel round over its variants (up to 2 × timeout), and a retry. */
     internal fun budget(n: Int, timeoutMs: Int, threads: Int = 32): Long =
-        ((n + threads - 1) / threads).coerceAtLeast(1) * timeoutMs * 3L + 10_000L
+        ((n + threads - 1) / threads).coerceAtLeast(1) * timeoutMs * 4L + 10_000L
 
     /** Detailed status check returning Map of url -> isLive (true=LIVE, false=OFFLINE).
      *  Calls [onProgress] on each checked channel so UI updates in real time. */
@@ -155,11 +155,11 @@ object Sources {
         if (c.url.substringBefore('?').endsWith(".m3u8", true)) {
             val (text, finalUrl) = HlsProbe.fetch(c.url, c.headers, timeoutMs)
             if (!text.trimStart().startsWith("#EXTM3U")) return@runCatching false
-            return@runCatching LocalTv.isVod(c) || HlsProbe.verdict(text, finalUrl, c.headers, timeoutMs).let { it != HlsProbe.Kind.REPLAY && it != HlsProbe.Kind.STALE }
+            return@runCatching LocalTv.isVod(c) || HlsProbe.verdict(text, finalUrl, c.headers, timeoutMs).let { it == HlsProbe.Kind.LIVE || it == HlsProbe.Kind.UNKNOWN }
         }
         val con = URI(c.url).toURL().openConnection() as HttpURLConnection
         con.connectTimeout = timeoutMs; con.readTimeout = timeoutMs; con.instanceFollowRedirects = true
-        con.setRequestProperty("User-Agent", "TahoeTV"); c.headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
+        con.setRequestProperty("User-Agent", Web.STREAM_UA); c.headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
         try {
             if (con.responseCode !in 200..299) return@runCatching false
             val head = Web.body(con)!!.use { s -> ByteArray(16).let { b -> String(b, 0, s.read(b).coerceAtLeast(0)) } }
