@@ -73,6 +73,7 @@ class MainActivity : ComponentActivity() {
         val dark = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         enableEdgeToEdge(dark, dark)
         Channels.loadFavs(this)
+        Playback.loadPrefs(this)
         setContent {
             TahoeTheme {
                 Box(Modifier.fillMaxSize()) {

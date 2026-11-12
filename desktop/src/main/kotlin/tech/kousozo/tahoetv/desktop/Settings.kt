@@ -18,6 +18,9 @@ object Settings {
     private fun pref(key: String, default: String = "") = prefs.getOrPut(key) { Pref(key, default) }
 
     var name get() = pref("name").state.value; set(v) = pref("name").set(v)
+    /** Live TV: highest video quality, and distance from live (shared options with the TV and phone). */
+    var quality get() = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(pref("quality", "auto").state.value); set(v) = pref("quality").set(v.key)
+    var latency get() = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(pref("latency", "standard").state.value); set(v) = pref("latency").set(v.key)
     var city get() = pref("city", "Samarinda").state.value; set(v) = pref("city").set(v)
     var province get() = pref("province", "Kalimantan Timur").state.value; set(v) = pref("province").set(v)
     var lat get() = pref("lat", "-0.5022").state.value.toDoubleOrNull() ?: -0.5022; set(v) = pref("lat").set("$v")

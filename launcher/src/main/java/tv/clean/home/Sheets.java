@@ -213,6 +213,14 @@ final class Sheets {
             add(new Item(R.drawable.ic_house, "Rumah", HomeControl.enabled() ? "Home Assistant" : "Hey Google", () -> { h.closeSheet(); h.openSheet(new Devices(h)); }),
                 new Item(R.drawable.ic_smartphone, "HP", h.companion == null || h.companion.pairedCount() == 0 ? "Pairing" : h.companion.pairedCount() + " HP", () -> { h.closeSheet(); h.openPair(); }),
                 new Item(R.drawable.ic_settings, "Setelan", "Sistem", () -> h.start(new Intent(Settings.ACTION_SETTINGS))));
+            // Live TV: highest quality and distance from live (◀ ▶); stored where LiveTv reads them
+            android.content.SharedPreferences lp = h.getSharedPreferences("live", Context.MODE_PRIVATE);
+            tech.kousozo.tahoetv.core.PlayPrefs.Quality q = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(lp.getString("quality", null));
+            tech.kousozo.tahoetv.core.PlayPrefs.Latency lat = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(lp.getString("latency", null));
+            add(new Item(R.drawable.ic_tv, "Kualitas video", q.getLabel() + "  ·  ◀ ▶", null)
+                    .adjust(dir -> lp.edit().putString("quality", tech.kousozo.tahoetv.core.PlayPrefs.next(q, dir).getKey()).apply()),
+                new Item(R.drawable.ic_clock, "Latensi siaran", lat.getLabel() + "  ·  ◀ ▶", null)
+                    .adjust(dir -> lp.edit().putString("latency", tech.kousozo.tahoetv.core.PlayPrefs.next(lat, dir).getKey()).apply()));
             int left = h.sleepLeft();
             add(new Item(R.drawable.ic_moon, "Timer tidur", (left == 0 ? "Mati" : left + " menit lagi") + "  ·  ◀ ▶", () -> h.stepSleep(1)).adjust(h::stepSleep),
                 new Item(R.drawable.ic_info, "Tentang", "Versi " + About.version(h) + "  ·  Pembaruan", () -> { h.closeSheet(); h.openSheet(new About(h)); }));
