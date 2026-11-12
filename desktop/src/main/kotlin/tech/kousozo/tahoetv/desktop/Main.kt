@@ -46,8 +46,14 @@ object Session {
     var tv by mutableStateOf<TvAdb?>(null)
 }
 
-fun main() = application {
-    remember { tech.kousozo.tahoetv.core.DiagLog.install(java.io.File(System.getProperty("user.home"), ".tahoetv/diag.log")) }
+fun main(args: Array<String>) {
+    tech.kousozo.tahoetv.core.DiagLog.install(java.io.File(System.getProperty("user.home"), ".tahoetv/diag.log"))
+    // `Tahoe TV --selftest [report]`: check the core paths without a window (CI on Windows/macOS, support)
+    if (args.firstOrNull() == "--selftest") kotlin.system.exitProcess(if (SelfTest.run(args.getOrNull(1)) == 0) 0 else 1)
+    app()
+}
+
+private fun app() = application {
     LaunchedEffect(Unit) {
         Recordings.boot() // scheduled recordings start on time while the app is open
         if (Settings.iptvAutoStart) {
