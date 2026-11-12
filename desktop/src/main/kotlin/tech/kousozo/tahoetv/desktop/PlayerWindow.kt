@@ -134,8 +134,9 @@ object PlayerWindow {
     fun play(streams: List<M3u.Channel>, title: String, schedule: List<tech.kousozo.tahoetv.core.Epg.Programme>,
              onSwitch: (Int) -> Unit, onStatus: (String?) -> Unit) {
         // Windows: JavaFX can't play HLS there (every channel failed with "Could not create player!"); use the web player
+        // (the page reports back when video really plays, or fails, and its ◀ ▶ call onSwitch)
         if (WebPlayer.preferred) {
-            Thread { val err = WebPlayer.open(streams, title); javax.swing.SwingUtilities.invokeLater { onStatus(err) } }.start()
+            Thread { WebPlayer.open(streams, title, onSwitch, onStatus)?.let { err -> javax.swing.SwingUtilities.invokeLater { onStatus(err) } } }.start()
             return
         }
         playFx(streams, title, schedule, onSwitch, onStatus)
@@ -370,8 +371,8 @@ object PlayerWindow {
     }
 
     fun show() { if (WebPlayer.preferred) { Thread { WebPlayer.reopen() }.start(); return }; fx { stage?.let { it.show(); it.toFront(); reveal() } } }
-    fun stop() { if (WebPlayer.preferred) return; fx { generation++; watchdog?.stop(); release(); stage?.hide() } }
-    fun close() { if (started) Platform.runLater { watchdog?.stop(); release(); stage?.close(); Platform.exit() } }
+    fun stop() { if (WebPlayer.preferred) { WebPlayer.stop(); return }; fx { generation++; watchdog?.stop(); release(); stage?.hide() } }
+    fun close() { WebPlayer.stop(); if (started) Platform.runLater { watchdog?.stop(); release(); stage?.close(); Platform.exit() } }
 
     /** "This isn't live": the current source plays a recording. Skip it now and never start it first again. */
     private fun reportRecording() {

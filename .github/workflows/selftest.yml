@@ -34,15 +34,17 @@ jobs:
           $exe = Get-ChildItem -Recurse "desktop/build/compose/binaries/main/app" -Filter "Tahoe TV.exe" | Select-Object -First 1
           Write-Host "exe: $($exe.FullName)"
           $p = Start-Process -FilePath $exe.FullName -ArgumentList "--selftest", "$env:RUNNER_TEMP\selftest.txt" -Wait -PassThru
-          Write-Host "exit: $($p.ExitCode)"
           Get-Content "$env:RUNNER_TEMP\selftest.txt"
+          Write-Host "exit: $($p.ExitCode)"
+          exit $p.ExitCode
       - name: Selftest (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           app=$(find desktop/build/compose/binaries/main/app -maxdepth 1 -name "*.app" | head -1)
-          "$app/Contents/MacOS/Tahoe TV" --selftest "$RUNNER_TEMP/selftest.txt" || echo "exit $?"
+          code=0; "$app/Contents/MacOS/Tahoe TV" --selftest "$RUNNER_TEMP/selftest.txt" || code=$?
           cat "$RUNNER_TEMP/selftest.txt"
+          exit $code
       - uses: actions/upload-artifact@v4
         if: always()
         with:
