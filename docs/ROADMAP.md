@@ -1,62 +1,69 @@
 # Roadmap
 
-[← README](../README.md) · Status terkini selalu ada di [issue berlabel roadmap](https://github.com/fk0u/cleanyourtv-tahoe/issues?q=is%3Aopen+label%3Aroadmap) dan [semua issue terbuka](https://github.com/fk0u/cleanyourtv-tahoe/issues).
+[← README](../README.md) · [Bahasa Indonesia](id/ROADMAP.md) · The live status is always in the [issues labelled roadmap](https://github.com/fk0u/cleanyourtv-tahoe/issues?q=is%3Aopen+label%3Aroadmap) and [all open issues](https://github.com/fk0u/cleanyourtv-tahoe/issues).
 
-## Sudah dirilis
+## Released
 
-| Versi | Isi utama |
+| Version | Highlights |
 |---|---|
-| **3.0.1** (stabil) | Profil Anak + PIN, rekam acara di desktop, deteksi siaran rekaman/basi, loader ala Apple TV, tunda siaran, QR pairing, dekoder FFmpeg, Kirim log, reset PIN dari HP |
-| **3.0.2** (di `main`, belum dirilis) | Desktop: semua saluran dicek (sebelumnya ±¾ tidak pernah dicek), playlist gzip dibuka dengan benar |
+| **3.0.1** | Kids profile + PIN, desktop recording, recorded/stale broadcast detection, Apple TV-style loader, live pause, QR pairing, FFmpeg decoder, Send log, PIN reset from the phone |
+| **3.0.2** (stable) | Desktop checks every channel, gzip playlists, security fixes |
+| **Next** (on `main`) | Windows Live TV through the web player, quality (Auto/1080p/720p/480p) and latency options on every device, phone app redesign |
 
-Detail per rilis: [CHANGELOG.md](../CHANGELOG.md).
+Per-release details: [CHANGELOG.md](../CHANGELOG.md).
 
-## Berikutnya
+## Next
 
-### Perbaikan siaran
-- [#32](https://github.com/fk0u/cleanyourtv-tahoe/issues/32) Trans TV (dan kadang Trans7) jeda ±2 detik berulang
-- [#33](https://github.com/fk0u/cleanyourtv-tahoe/issues/33) SCTV tidak bisa diakses, Indosiar menayangkan Moji TV
+### 🌍 International ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71))
+- Channels and program guides for **every country** (iptv-org country packs), Indonesia keeps its curated sources.
+- **First-run setup on every device:** language first, then country/region (suggested from the system, always editable).
+- Apps translated (English first, [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)), then community translations; RTL ready.
+- Region-specific features (prayer times/adhan, "near you") become regional options.
 
-### HP sebagai pusat kendali
-- [#34](https://github.com/fk0u/cleanyourtv-tahoe/issues/34) Kontrol pemutar auto-hide
-- [#35](https://github.com/fk0u/cleanyourtv-tahoe/issues/35) Pusat pengaturan TV lengkap (dock, wallpaper, profil, akun, PIN)
-- [#36](https://github.com/fk0u/cleanyourtv-tahoe/issues/36) Setup awal TV tanpa HP (web lokal / scan QR) + scanner QR di app
-- [#37](https://github.com/fk0u/cleanyourtv-tahoe/issues/37) Satu HP kelola banyak TV, banyak perangkat ke satu TV
+### Broadcast fixes
+- [#32](https://github.com/fk0u/cleanyourtv-tahoe/issues/32) Trans TV (sometimes Trans7) pauses for about 2 seconds, repeatedly
+- [#33](https://github.com/fk0u/cleanyourtv-tahoe/issues/33) SCTV unreachable, Indosiar shows Moji TV
 
-### Performa & tampilan
-- [#38](https://github.com/fk0u/cleanyourtv-tahoe/issues/38) Deteksi spesifikasi TV saat init, optimisasi dan caching adaptif
-- [#39](https://github.com/fk0u/cleanyourtv-tahoe/issues/39) Wallpaper bawaan dari API foto gratis
-- [#41](https://github.com/fk0u/cleanyourtv-tahoe/issues/41) UI/UX lanjutan untuk HP, TV, dan desktop
+### Phone as the control center
+- [#34](https://github.com/fk0u/cleanyourtv-tahoe/issues/34) Auto-hiding player controls
+- [#35](https://github.com/fk0u/cleanyourtv-tahoe/issues/35) Full TV settings (dock, wallpaper, profiles, accounts, PIN)
+- [#36](https://github.com/fk0u/cleanyourtv-tahoe/issues/36) First TV setup without a phone (local web / QR) + a QR scanner in the app
+- [#37](https://github.com/fk0u/cleanyourtv-tahoe/issues/37) One phone manages many TVs, many devices to one TV
 
-### Bug dari audit (12 Nov 2026)
-- [#43](https://github.com/fk0u/cleanyourtv-tahoe/issues/43) Adzan Subuh tidak bunyi saat TV standby; rantai alarm bisa putus
-- [#44](https://github.com/fk0u/cleanyourtv-tahoe/issues/44) CHANGELOG & temuan review dokumentasi
-- [#45](https://github.com/fk0u/cleanyourtv-tahoe/issues/45) Unduhan pembaruan yang terputus dianggap lengkap
-- [#46](https://github.com/fk0u/cleanyourtv-tahoe/issues/46) Pengerasan profil Anak dan privasi data
-- Tiga temuan keamanan dilaporkan secara privat (lihat [SECURITY.md](../SECURITY.md)).
+### Performance & look
+- [#38](https://github.com/fk0u/cleanyourtv-tahoe/issues/38) Detect TV specs at startup, adaptive optimization and caching
+- [#39](https://github.com/fk0u/cleanyourtv-tahoe/issues/39) Built-in wallpapers from a free photo API
+- [#41](https://github.com/fk0u/cleanyourtv-tahoe/issues/41) Advanced UI/UX for phone, TV and desktop
 
-### Profil Anak & adzan
-- [#47](https://github.com/fk0u/cleanyourtv-tahoe/issues/47) Verifikasi orang dewasa lewat soal matematika
-- [#54](https://github.com/fk0u/cleanyourtv-tahoe/issues/54) Profil Anak lanjutan: batas waktu, jam tayang, laporan
-- [#48](https://github.com/fk0u/cleanyourtv-tahoe/issues/48) Adzan lanjutan: lokasi kelurahan, onboarding, nyalakan layar
+### Bugs from the audit (12 Nov 2026)
+- [#43](https://github.com/fk0u/cleanyourtv-tahoe/issues/43) Fajr adhan doesn't sound in TV standby; the alarm chain can break
+- [#44](https://github.com/fk0u/cleanyourtv-tahoe/issues/44) CHANGELOG & documentation review findings
+- [#45](https://github.com/fk0u/cleanyourtv-tahoe/issues/45) An interrupted update download is treated as complete
+- [#46](https://github.com/fk0u/cleanyourtv-tahoe/issues/46) Kids profile hardening and data privacy
+- Three security findings were reported privately (see [SECURITY.md](../SECURITY.md)).
 
-### Menonton
-- [#49](https://github.com/fk0u/cleanyourtv-tahoe/issues/49) Desktop imersif: pemutar menyatu, mini-player, pintasan, EPG timeline
+### Kids profile & adhan
+- [#47](https://github.com/fk0u/cleanyourtv-tahoe/issues/47) Adult check with a math question
+- [#54](https://github.com/fk0u/cleanyourtv-tahoe/issues/54) Advanced Kids profile: time limits, viewing hours, reports
+- [#48](https://github.com/fk0u/cleanyourtv-tahoe/issues/48) Advanced adhan: village-level location, onboarding, wake the screen
+
+### Watching
+- [#49](https://github.com/fk0u/cleanyourtv-tahoe/issues/49) Immersive desktop: integrated player, mini player, shortcuts, EPG timeline
 - [#50](https://github.com/fk0u/cleanyourtv-tahoe/issues/50) Multi-view
-- [#51](https://github.com/fk0u/cleanyourtv-tahoe/issues/51) Pilih trek audio/subtitle, subtitle ASS/SSA
-- [#52](https://github.com/fk0u/cleanyourtv-tahoe/issues/52) Notifikasi dari TV ke HP
-- [#53](https://github.com/fk0u/cleanyourtv-tahoe/issues/53) Rekam di TV/HP, rekaman terjadwal tanpa app desktop terbuka
+- [#51](https://github.com/fk0u/cleanyourtv-tahoe/issues/51) Audio/subtitle track selection, ASS/SSA subtitles
+- [#52](https://github.com/fk0u/cleanyourtv-tahoe/issues/52) Notifications from the TV to the phone
+- [#53](https://github.com/fk0u/cleanyourtv-tahoe/issues/53) Record on the TV/phone, scheduled recording without the desktop app open
 
-### Kualitas & distribusi
-- [#55](https://github.com/fk0u/cleanyourtv-tahoe/issues/55) Tanda tangan & notarisasi app macOS dan Windows
-- [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56) Bahasa Inggris di dalam app
-- [#57](https://github.com/fk0u/cleanyourtv-tahoe/issues/57) Tes otomatis untuk launcher TV dan app HP, CI untuk PR
+### Quality & distribution
+- [#55](https://github.com/fk0u/cleanyourtv-tahoe/issues/55) Signed & notarized macOS and Windows apps
+- [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56) English inside the apps
+- [#57](https://github.com/fk0u/cleanyourtv-tahoe/issues/57) Automated tests for the TV launcher and phone app
 
-### Platform baru
-- [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26) Tahoe sebagai app mandiri (TV box tanpa root/ADB)
-- [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) Google TV dan webOS (Tizen nanti)
+### New platforms
+- [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26) Tahoe as a standalone app (TV boxes without root/ADB)
+- [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) Google TV and webOS (Tizen later)
 
-## Arsip rencana
+## Plan archive
 
-- [ROADMAP-3.0.md](ROADMAP-3.0.md): rencana 2.9.3 → 3.0.0 (sebagian besar sudah dirilis).
-- [../PLAN.md](../PLAN.md): rencana awal v2 (gaya tvOS 26).
+- [ROADMAP-3.0.md](ROADMAP-3.0.md): the 2.9.3 → 3.0.0 plan (mostly released, Indonesian).
+- [../PLAN.md](../PLAN.md): the original v2 plan (tvOS 26 style).

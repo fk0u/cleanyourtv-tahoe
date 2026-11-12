@@ -1,0 +1,55 @@
+name: Website
+
+# Builds website/ (+ screenshots from docs/) and uploads it to the web server behind tahoe.kousozo.tech over SSH.
+# Needs repository secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST     server address (IP or hostname)
+#   DEPLOY_USER     SSH user allowed to write DEPLOY_PATH
+#   DEPLOY_SSH_KEY  private key for that user (its public key in ~/.ssh/authorized_keys on the server)
+#   DEPLOY_PATH     optional, default /var/www/tahoe.kousozo.tech
+#   DEPLOY_PORT     optional, default 22
+#   DEPLOY_KNOWN_HOSTS  recommended: the server's host key line(s) from `ssh-keyscan <host>`
+# Without them the job only builds and uploads the site as an artifact.
+on:
+  push:
+    branches: [main]
+    paths: ["website/**", "docs/screenshots/**", "docs/readme/**", "docs/brand/**", ".github/workflows/website.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website
+  cancel-in-progress: false # never stop a deploy halfway through
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: sh website/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: website
+          path: website/_site
+      - name: Deploy over SSH
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEST: ${{ secrets.DEPLOY_PATH }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$KEY" ]; then
+            echo "::notice::DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY not set: built only, not deployed."
+            exit 0
+          fi
+          DEST="${DEST:-/var/www/tahoe.kousozo.tech}"; PORT="${PORT:-22}"
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          # pin the server key when DEPLOY_KNOWN_HOSTS is set (output of `ssh-keyscan <host>`), else trust on first use
+          if [ -n "$KNOWN" ]; then printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts; else ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null; fi
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy -p $PORT" website/_site/ "$USER@$HOST:$DEST/"
+          echo "Deployed to https://tahoe.kousozo.tech"
