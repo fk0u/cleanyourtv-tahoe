@@ -35,6 +35,13 @@ Per-release details: [CHANGELOG.md](../CHANGELOG.md).
 - [#39](https://github.com/fk0u/cleanyourtv-tahoe/issues/39) Built-in wallpapers from a free photo API
 - [#41](https://github.com/fk0u/cleanyourtv-tahoe/issues/41) Advanced UI/UX for phone, TV and desktop
 
+### Bugs from the audit (12 Nov 2026)
+- [#43](https://github.com/fk0u/cleanyourtv-tahoe/issues/43) Fajr adhan doesn't sound in TV standby; the alarm chain can break
+- [#44](https://github.com/fk0u/cleanyourtv-tahoe/issues/44) CHANGELOG & documentation review findings
+- [#45](https://github.com/fk0u/cleanyourtv-tahoe/issues/45) An interrupted update download is treated as complete
+- [#46](https://github.com/fk0u/cleanyourtv-tahoe/issues/46) Kids profile hardening and data privacy
+- Three security findings were reported privately (see [SECURITY.md](../SECURITY.md)).
+
 ### Kids profile & adhan
 - [#47](https://github.com/fk0u/cleanyourtv-tahoe/issues/47) Adult check with a math question
 - [#54](https://github.com/fk0u/cleanyourtv-tahoe/issues/54) Advanced Kids profile: time limits, viewing hours, reports
@@ -49,6 +56,7 @@ Per-release details: [CHANGELOG.md](../CHANGELOG.md).
 
 ### Quality & distribution
 - [#55](https://github.com/fk0u/cleanyourtv-tahoe/issues/55) Signed & notarized macOS and Windows apps
+- [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56) English inside the apps
 - [#57](https://github.com/fk0u/cleanyourtv-tahoe/issues/57) Automated tests for the TV launcher and phone app
 
 ### New platforms

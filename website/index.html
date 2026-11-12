@@ -15,10 +15,12 @@
 <link rel="apple-touch-icon" href="assets/app-icon-1024.png">
 <link rel="alternate" hreflang="en" href="https://tahoe.kousozo.tech/?lang=en">
 <link rel="alternate" hreflang="id" href="https://tahoe.kousozo.tech/?lang=id">
+<link rel="alternate" hreflang="x-default" href="https://tahoe.kousozo.tech/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<script src="assets/js-on.js"></script>
 </head>
 <body>
 <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -80,11 +82,11 @@
   <h2 class="reveal" data-i18n="features.title">One home for everything you watch</h2>
   <p class="sub reveal" data-i18n="features.sub">The same smart live TV engine on every screen, with a look that feels like a real Apple TV.</p>
   <div class="tabs reveal" role="tablist">
-    <button role="tab" class="on" data-tab="tv">📺 <span data-i18n="tab.tv">TV</span></button>
-    <button role="tab" data-tab="phone">📱 <span data-i18n="tab.phone">Phone</span></button>
-    <button role="tab" data-tab="desktop">💻 <span data-i18n="tab.desktop">Desktop</span></button>
+    <button role="tab" class="on" aria-selected="true" aria-controls="panel-tv" data-tab="tv">📺 <span data-i18n="tab.tv">TV</span></button>
+    <button role="tab" aria-selected="false" aria-controls="panel-phone" data-tab="phone">📱 <span data-i18n="tab.phone">Phone</span></button>
+    <button role="tab" aria-selected="false" aria-controls="panel-desktop" data-tab="desktop">💻 <span data-i18n="tab.desktop">Desktop</span></button>
   </div>
-  <div class="grid features" data-panel="tv">
+  <div class="grid features" role="tabpanel" id="panel-tv" data-panel="tv">
     <article class="card reveal"><i>✨</i><h3 data-i18n="f.tv1.t">tvOS-style glass</h3><p data-i18n="f.tv1.d">Glass tiles with lift and shine, a macOS-style dock, Launchpad and an editorial hero — smooth on cheap hardware.</p></article>
     <article class="card reveal"><i>📡</i><h3 data-i18n="f.tv2.t">Smart live TV</h3><p data-i18n="f.tv2.d">Working sources play first; reruns and dead links are skipped. Guide, favorites, channel numbers, pause & skip.</p></article>
     <article class="card reveal"><i>🎚️</i><h3 data-i18n="f.tv3.t">Quality & latency</h3><p data-i18n="f.tv3.d">Auto, 1080p, 720p or 480p, and how close to live you want to be: low, standard or stable.</p></article>
@@ -92,7 +94,7 @@
     <article class="card reveal"><i>🎛️</i><h3 data-i18n="f.tv5.t">Control Center</h3><p data-i18n="f.tv5.d">Volume, Wi-Fi, Bluetooth, wallpaper, weather, sleep timer, assistant and updates in one place.</p></article>
     <article class="card reveal"><i>🕌</i><h3 data-i18n="f.tv6.t">Prayer times & more</h3><p data-i18n="f.tv6.d">Prayer times with adhan, weather, a Gemini assistant, Home Assistant and gamepad support.</p></article>
   </div>
-  <div class="grid features" data-panel="phone" hidden>
+  <div class="grid features" role="tabpanel" id="panel-phone" data-panel="phone" hidden>
     <article class="card reveal"><i>🪄</i><h3 data-i18n="f.ph1.t">Install without a computer</h3><p data-i18n="f.ph1.d">Set up Tahoe on your TV over Wi-Fi: debloat, name, city, dock and keys. Restore the TV any time.</p></article>
     <article class="card reveal"><i>🕹️</i><h3 data-i18n="f.ph2.t">The remote you wanted</h3><p data-i18n="f.ph2.d">Swipe pad, volume slider, numbers, media keys, power, sleep timer, and typing straight onto the TV.</p></article>
     <article class="card reveal"><i>📺</i><h3 data-i18n="f.ph3.t">Live TV in your pocket</h3><p data-i18n="f.ph3.d">Mini player, channel pages, favorites and search, with colors that follow the channel you watch.</p></article>
@@ -100,7 +102,7 @@
     <article class="card reveal"><i>🔐</i><h3 data-i18n="f.ph5.t">QR pairing</h3><p data-i18n="f.ph5.d">Scan the code on the TV and you're connected. Each phone gets its own token.</p></article>
     <article class="card reveal"><i>🧾</i><h3 data-i18n="f.ph6.t">Send log</h3><p data-i18n="f.ph6.d">One tap collects phone + TV logs for a bug report, without tokens or passwords.</p></article>
   </div>
-  <div class="grid features" data-panel="desktop" hidden>
+  <div class="grid features" role="tabpanel" id="panel-desktop" data-panel="desktop" hidden>
     <article class="card reveal"><i>🖥️</i><h3 data-i18n="f.pc1.t">Live TV on macOS & Windows</h3><p data-i18n="f.pc1.d">Live/offline status per channel, categories and search by channel or show.</p></article>
     <article class="card reveal"><i>⏺️</i><h3 data-i18n="f.pc2.t">Record shows</h3><p data-i18n="f.pc2.d">Schedule from the guide and watch the recordings on any TV or phone at home.</p></article>
     <article class="card reveal"><i>🏠</i><h3 data-i18n="f.pc3.t">IPTV server for the home</h3><p data-i18n="f.pc3.d">One playlist and guide for TVs, phones, VLC, Kodi and TiviMate, with a header relay.</p></article>

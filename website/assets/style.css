@@ -7,6 +7,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; scroll-padding-top: 80px; }
 body { margin: 0; background: var(--night); color: var(--text); font: 400 16px/1.6 Outfit, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 a { color: inherit; }
@@ -147,10 +148,11 @@ details p { color: var(--text2); margin: 10px 0 0; }
 .footer .fine { font-size: 12px; max-width: 40em; margin: 16px auto 0; }
 
 /* scroll reveal */
-.reveal { opacity: 0; transform: translateY(24px); transition: opacity .8s var(--ease), transform .8s var(--ease); }
-.reveal.in { opacity: 1; transform: none; }
-.no-js .reveal { opacity: 1; transform: none; }
+/* hidden until scrolled into view, only when JS runs (no JS = everything visible) */
+.js .reveal { transition: opacity .8s var(--ease), transform .8s var(--ease); }
+.js .reveal:not(.in) { opacity: 0; transform: translateY(24px); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
-  .reveal { opacity: 1; transform: none; }
+  .js .reveal:not(.in) { opacity: 1; transform: none; }
+  html { scroll-behavior: auto; }
 }

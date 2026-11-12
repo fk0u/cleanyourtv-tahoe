@@ -30,6 +30,7 @@ Pick one.
 1. DNS: an `A` record `tahoe.kousozo.tech` → the server's IP.
 2. On the server:
    ```bash
+   sudo apt install -y nginx rsync certbot python3-certbot-nginx
    sudo mkdir -p /var/www/tahoe.kousozo.tech && sudo chown deploy: /var/www/tahoe.kousozo.tech
    ```
    nginx site (`/etc/nginx/sites-available/tahoe.kousozo.tech`, then link it into `sites-enabled`):
@@ -39,6 +40,9 @@ Pick one.
        server_name tahoe.kousozo.tech;
        root /var/www/tahoe.kousozo.tech;
        index index.html;
+       add_header X-Content-Type-Options nosniff always;
+       add_header Referrer-Policy strict-origin-when-cross-origin always;
+       add_header X-Frame-Options DENY always;
        location /assets/ { expires 7d; }
        location / { try_files $uri $uri/ /index.html; }
    }
@@ -48,7 +52,8 @@ Pick one.
    sudo certbot --nginx -d tahoe.kousozo.tech      # HTTPS
    ```
 3. Create an SSH key just for deploys, put the public key in `~deploy/.ssh/authorized_keys`, and add the repository
-   secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` (and optionally `DEPLOY_PATH`, `DEPLOY_PORT`).
+   secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` (the output of `ssh-keyscan <host>`, so the
+   workflow only talks to your server); optionally `DEPLOY_PATH`, `DEPLOY_PORT`.
 4. Run the **Website** workflow (Actions → Website → Run workflow). After that it deploys on every change.
 
 ### B. Docker

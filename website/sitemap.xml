@@ -4,5 +4,18 @@
     <loc>https://tahoe.kousozo.tech/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://tahoe.kousozo.tech/?lang=en"/>
     <xhtml:link rel="alternate" hreflang="id" href="https://tahoe.kousozo.tech/?lang=id"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://tahoe.kousozo.tech/"/>
+  </url>
+  <url>
+    <loc>https://tahoe.kousozo.tech/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://tahoe.kousozo.tech/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://tahoe.kousozo.tech/?lang=id"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://tahoe.kousozo.tech/"/>
+  </url>
+  <url>
+    <loc>https://tahoe.kousozo.tech/?lang=id</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://tahoe.kousozo.tech/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://tahoe.kousozo.tech/?lang=id"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://tahoe.kousozo.tech/"/>
   </url>
 </urlset>

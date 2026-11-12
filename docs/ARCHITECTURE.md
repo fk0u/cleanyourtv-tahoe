@@ -17,7 +17,7 @@ All three apps use the same `:core`, so playback fixes (for example detecting re
 
 ## Live TV flow
 
-1. **Load channels** (`Sources.loadAll`): public playlists (iptv-org, dhanytv, yositapjani), the user's playlists and local files. Filtered to "free TV" (no DRM, no paid restreams).
+1. **Load channels** (`Sources.loadAll`): public playlists (iptv-org, dhanytv, yositapjani), the user's playlists and local files. The built-in sources are trimmed to free TV (`Sources.load`); DRM channels from the user's own playlists are kept and only play where a DRM player exists (the server dashboard's Shaka player).
 2. **Arrange** (`LocalTv.arrange`): merge sources with the same name into one channel + backups, assign categories, and sort "near you" (province) first.
 3. **Check sources** (`Sources.check` / `HlsProbe`) in parallel in the background:
    - `ENDLIST`/VOD playlist → **REPLAY**;

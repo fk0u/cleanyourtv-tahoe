@@ -64,7 +64,7 @@ BG_CSS = (".b1{animation:drift 14s ease-in-out infinite alternate}.b2{animation:
           "@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(40px,-24px)}}"
           ".float{animation:float 6s ease-in-out infinite}.float2{animation:float 7s ease-in-out infinite reverse}"
           "@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}"
-          "@media (prefers-reduced-motion:reduce){*{animation:none!important}.in{opacity:1}}")
+          "@media (prefers-reduced-motion:reduce){*{animation:none!important}.in{opacity:1}.t:first-of-type,.p:first-of-type{opacity:1}}")
 
 
 def tv(x, y, w, images, cls, clip):
@@ -95,7 +95,7 @@ def phone(x, y, w, images, cls, clip):
 def chip(x, y, text, dot=None, cls="float"):
     """A floating glass pill, like the app's notifications."""
     w = 26 + len(text) * 8.6 + (16 if dot else 0)
-    d = f'<circle cx="{x + 18}" cy="{y + 18}" r="5" fill="{dot}"><animate attributeName="opacity" values="1;.3;1" dur="1.6s" repeatCount="indefinite"/></circle>' if dot else ""
+    d = f'<circle cx="{x + 18}" cy="{y + 18}" r="5" fill="{dot}"></circle>' if dot else ""
     tx = x + (32 if dot else 14)
     return (f'<g class="{cls}"><rect x="{x}" y="{y}" width="{w:.0f}" height="36" rx="18" fill="url(#glass)" stroke="#fff" stroke-opacity=".22"/>'
             f'{d}<text x="{tx}" y="{y + 23.5}" {FONT} font-size="15" font-weight="600" fill="#F5F5F7">{text}</text></g>')
@@ -143,7 +143,8 @@ def showcase_tv(lang):
                  f'<image href="{src}" x="{x}" y="{y}" width="{w}" height="{h}" clip-path="url(#s{i})" preserveAspectRatio="xMidYMid slice"/>'
                  f'<text x="{x + 4}" y="{y + h + 36}" {FONT} font-size="17" font-weight="600" fill="#F5F5F7">{cap[i]}</text></g></g>')
         css += f".i{i}{{animation-delay:{i * 0.12:.2f}s}}"
-    css += ".in{opacity:0;animation:in .8s ease-out forwards}@keyframes in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}"
+    # the shorthand first, so the per-panel delays after it win (staggered fade-in)
+    css = ".in{opacity:0;animation:in .8s ease-out forwards}@keyframes in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}" + css
     return svg(1280, 660, css, clips, body, "Tahoe TV screens")
 
 
@@ -162,7 +163,8 @@ def showcase_phone(lang):
                  f'<circle cx="{x + w / 2}" cy="{y + 14}" r="5" fill="#000"/>'
                  f'<text x="{x + w / 2}" y="{y + h + 48}" text-anchor="middle" {FONT} font-size="17" font-weight="600" fill="#F5F5F7">{cap[i]}</text></g></g>')
         css += f".i{i}{{animation-delay:{i * 0.15:.2f}s}}"
-    css += ".in{opacity:0;animation:in .8s ease-out forwards}@keyframes in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}"
+    # the shorthand first, so the per-panel delays after it win (staggered fade-in)
+    css = ".in{opacity:0;animation:in .8s ease-out forwards}@keyframes in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}" + css
     return svg(1280, 720, css, clips, body, "Tahoe TV phone app")
 
 
