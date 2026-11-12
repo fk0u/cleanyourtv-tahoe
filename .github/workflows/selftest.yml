@@ -5,7 +5,7 @@ name: Desktop selftest
 on:
   workflow_dispatch:
   push:
-    branches: ["claude/windows-fix"]
+    branches: ["claude/windows-*"]
 
 permissions:
   contents: read

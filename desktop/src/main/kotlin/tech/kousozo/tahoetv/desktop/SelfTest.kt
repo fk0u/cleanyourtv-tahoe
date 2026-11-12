@@ -56,9 +56,24 @@ object SelfTest {
         step("HlsProxy fetch") { (URI(proxied).toURL().openConnection() as HttpURLConnection).run { connectTimeout = 8000; readTimeout = 15000; "HTTP $responseCode, ${inputStream.readBytes().decodeToString().lineSequence().first()}" } }
         step("IptvServer start + playlist") {
             IptvServer.start(0)
+            check(IptvServer.channelCount.value > 0) { "server has 0 channels" }
             val p = IptvServer.port.value
             val (code, size) = (URI("http://127.0.0.1:$p/playlist.m3u").toURL().openConnection() as HttpURLConnection).run { responseCode to inputStream.readBytes().size }
             "port=$p HTTP $code $size bytes, channels=${IptvServer.channelCount.value}"
+        }
+        step("web player page") {
+            val p = IptvServer.port.value
+            val id = all?.firstNotNullOfOrNull { IptvServer.idFor(it.url) } ?: error("no channel id")
+            val (code, body) = (URI("http://127.0.0.1:$p/watch?t=Test&ids=$id").toURL().openConnection() as HttpURLConnection).run { responseCode to inputStream.readBytes().decodeToString() }
+            check("hls" in body && id in body) { "watch page incomplete" }
+            "HTTP $code, ${body.length} chars, preferred on this OS=${WebPlayer.preferred}"
+        }
+        step("relay playlist (first live channel)") {
+            val p = IptvServer.port.value
+            val ok = all?.take(80)?.firstOrNull { Sources.check(it, 3500) } ?: error("no live channel")
+            val id = IptvServer.idFor(ok.url) ?: error("no id for ${ok.name}")
+            val (code, first) = (URI("http://127.0.0.1:$p/live/$id.m3u8").toURL().openConnection() as HttpURLConnection).run { responseCode to inputStream.readBytes().decodeToString().lineSequence().first() }
+            "${ok.name}: HTTP $code $first"
         }
         step("JavaFX startup") { val f = CompletableFuture<String>(); Platform.setImplicitExit(false); Platform.startup { f.complete(System.getProperty("javafx.runtime.version") ?: "?") }; f.get(20, TimeUnit.SECONDS) }
         fun play(label: String, url: String) = step("JavaFX play $label") {
