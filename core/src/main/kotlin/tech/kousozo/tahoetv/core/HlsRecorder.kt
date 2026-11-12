@@ -177,7 +177,7 @@ class HlsRecorder(
                     // A server that ignores Range sends the whole file: cut the requested part out of it.
                     if (range != null && c.responseCode == 200) {
                         val a = range.substringBefore('-').toLong(); val n = range.substringAfter('-').toLong() - a + 1
-                        return c.inputStream.use { s ->
+                        return Web.body(c)!!.use { s ->
                             var pos = 0L; var left = n; val buf = ByteArray(64 * 1024)
                             while (left > 0) {
                                 val r = s.read(buf); if (r < 0) break
@@ -189,7 +189,7 @@ class HlsRecorder(
                             n - left
                         }
                     }
-                    return c.inputStream.use { it.copyTo(o) }
+                    return Web.body(c)!!.use { it.copyTo(o) }
                 } finally { c.disconnect() }
             }
             error("too many redirects")

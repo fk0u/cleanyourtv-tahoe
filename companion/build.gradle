@@ -17,8 +17,8 @@ android {
         applicationId "tech.kousozo.tahoetv"
         minSdk 26
         targetSdk 34
-        versionCode 22
-        versionName "3.0.1"
+        versionCode 23
+        versionName "3.0.2"
     }
     buildFeatures { compose true }
     signingConfigs {
