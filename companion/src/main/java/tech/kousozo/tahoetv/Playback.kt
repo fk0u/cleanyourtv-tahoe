@@ -63,6 +63,34 @@ object Playback {
     /** "1080p · H.264 · AAC", once known. */
     var format by mutableStateOf<String?>(null); private set
 
+    /** Viewer choices (Setelan pemutar), kept in the "live" prefs. */
+    var quality by mutableStateOf(tech.kousozo.tahoetv.core.PlayPrefs.Quality.Auto); private set
+    var latency by mutableStateOf(tech.kousozo.tahoetv.core.PlayPrefs.Latency.Standard); private set
+
+    fun loadPrefs(c: Context) {
+        val p = c.getSharedPreferences("live", 0)
+        quality = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(p.getString("quality", null))
+        latency = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(p.getString("latency", null))
+    }
+
+    /** Applies right away: the player switches to a variant at or under the cap. */
+    fun setQuality(c: Context, q: tech.kousozo.tahoetv.core.PlayPrefs.Quality) {
+        quality = q; c.getSharedPreferences("live", 0).edit().putString("quality", q.key).apply()
+        player?.let { applyQuality(it) }
+    }
+
+    /** Applies by restarting the current source at the new distance from live. */
+    fun setLatency(c: Context, l: tech.kousozo.tahoetv.core.PlayPrefs.Latency) {
+        latency = l; c.getSharedPreferences("live", 0).edit().putString("latency", l.key).apply()
+        if (entry != null && player != null) start(c.applicationContext)
+    }
+
+    private fun applyQuality(p: ExoPlayer) {
+        val b = p.trackSelectionParameters.buildUpon()
+        if (quality.maxHeight > 0) b.setMaxVideoSize(Int.MAX_VALUE, quality.maxHeight) else b.clearVideoSizeConstraints()
+        p.trackSelectionParameters = b.build()
+    }
+
     private var player: ExoPlayer? = null
     private val ui = Handler(Looper.getMainLooper())
     private var streams: List<M3u.Channel> = emptyList()
@@ -103,6 +131,7 @@ object Playback {
             override fun onRenderedFirstFrame() { format = describe(p) }
         })
         player = p
+        applyQuality(p)
     } }
 
     /** Start [e] (from its best source), or carry on if it's already the channel playing. */
@@ -151,8 +180,8 @@ object Playback {
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
             .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/3.0.2").setDefaultRequestProperties(s.headers - "User-Agent")
         p.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.Builder().setUri(Uri.parse(s.url))
-            // ~20 s behind live: a cushion against slow pieces; clamped to what the stream keeps
-            .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(20_000).build()).build()))
+            // behind live by the chosen latency (default ~20 s): a cushion against slow pieces; clamped to what the stream keeps
+            .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(latency.offsetMs).build()).build()))
         p.prepare(); p.play()
         ui.postDelayed({ // never started → next source
             if (my == attempt && !everReady) { DiagLog.add("live", "tidak mulai dalam 20 dtk → sumber berikutnya"); next(c) }
