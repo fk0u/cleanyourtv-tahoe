@@ -71,9 +71,10 @@ object Playback {
     private var retries = 0
     private var attempt = 0 // bumped per source start: a late 20 s timeout of an old attempt does nothing
 
-    fun player(c: Context): ExoPlayer = player ?: ExoPlayer.Builder(c.applicationContext,
+    /** Built with, and its callbacks keep, the application context only: this object outlives activities (rotation). */
+    fun player(ctx: Context): ExoPlayer = player ?: ctx.applicationContext.let { c -> ExoPlayer.Builder(c,
         // decoder fallback + FFmpeg (AC-3, E-AC-3, DTS, MP2…) after the phone's own decoders
-        DefaultRenderersFactory(c.applicationContext).setEnableDecoderFallback(true)
+        DefaultRenderersFactory(c).setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)).build().also { p ->
         p.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
             override fun onAudioDecoderInitialized(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, name: String, a: Long, b: Long) = DiagLog.add("live", "audio decoder $name")
@@ -102,7 +103,7 @@ object Playback {
             override fun onRenderedFirstFrame() { format = describe(p) }
         })
         player = p
-    }
+    } }
 
     /** Start [e] (from its best source), or carry on if it's already the channel playing. */
     fun play(c: Context, e: LocalTv.Entry) {
@@ -111,7 +112,7 @@ object Playback {
         Channels.remember(c, e)
         streams = SourceHealth.order(listOf(e.channel) + e.alternates) // known-live first
         source = 0
-        start(c)
+        start(c.applicationContext)
     }
 
     /** Previous/next channel in [list] (what the TV Live screen shows). */
@@ -184,7 +185,7 @@ fun MiniPlayer(visible: Boolean, modifier: Modifier = Modifier) {
         val tint = logo?.let { dominantColor(it) } ?: Tahoe.Accent
         val show = nowOn(Channels.epg, ch, Instant.now())?.title
         Surface(
-            Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(64.dp).clickable { Nav.tab = 1 },
+            Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(64.dp).clickable { Nav.tab = 1; Nav.detail = null },
             shape = RoundedCornerShape(20.dp), color = Color(0xFF1C1A1F).copy(alpha = 0.96f),
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), shadowElevation = 14.dp,
         ) {

@@ -39,12 +39,16 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val logo = rememberNetImage(e.channel.logo)
     val tint = logo?.let { dominantColor(it) } ?: categoryTint(e.category)
-    val now = remember { Instant.now() }
-    val schedule = remember(Channels.epg, e) { Channels.epg?.schedule(e.name, now).orEmpty() }
+    // the clock ticks (the show on now, its progress and "Berikutnya" roll over), and source checks that finish later show up
+    var now by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(5_000); now = Instant.now() } }
+    val schedule = remember(Channels.epg, e, now) { Channels.epg?.schedule(e.name, now).orEmpty() }
     val cur = schedule.firstOrNull()?.takeIf { it.start <= now }
-    val later = schedule.filter { it.start > now }.take(8)
+    val today = java.time.LocalDate.now()
+    val later = schedule.filter { it.start > now && it.start.atZone(java.time.ZoneId.systemDefault()).toLocalDate() == today }.take(8)
     val sources = listOf(e.channel) + e.alternates
-    val live = sources.count { SourceHealth.status(it.url)?.live == true }
+    val live = remember(now, e) { sources.count { SourceHealth.status(it.url)?.live == true } }
+    val checked = remember(now, e) { sources.any { SourceHealth.status(it.url) != null } }
 
     Box(Modifier.fillMaxSize().background(Tahoe.Bg)) {
         // header wash: the logo blown up and blurred (Android 12+) under the channel colour, fading into the page
@@ -95,7 +99,7 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
 
                 // later today
                 if (later.isNotEmpty()) {
-                    Text("Berikutnya", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+                    Text("Berikutnya hari ini", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
                     later.forEach { p ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(HM.format(p.start), Modifier.width(56.dp), color = Tahoe.Dim, fontSize = 13.sp, fontFamily = Mono)
@@ -112,7 +116,7 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
                         sources.size == 1 -> "Saluran ini punya 1 siaran."
                         else -> "Saluran ini punya ${sources.size} siaran: kalau satu bermasalah, Tahoe pindah ke cadangan sendiri."
                     }, fontSize = 14.sp, color = Tahoe.Dim)
-                    if (live > 0 || sources.any { SourceHealth.status(it.url) != null })
+                    if (checked)
                         Text("$live dari ${sources.size} terdeteksi aktif saat terakhir dicek.", fontSize = 13.sp, color = Tahoe.Faint)
                 }
             }

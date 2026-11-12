@@ -160,7 +160,8 @@ fun HomeScreen(resumeTick: Int) {
     }
     LaunchedEffect(Unit) { Channels.load(c) }
     val entries = Channels.entries
-    val now = Instant.now()
+    var now by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(Unit) { while (true) { delay(30_000); now = Instant.now() } } // shows on now roll over at their end
     val recentWatched = Channels.recent(c)
     val hero = Playback.entry ?: recentWatched.firstOrNull() ?: entries?.firstOrNull()
     LaunchedEffect(hero) { Nav.hero = hero }
@@ -209,7 +210,7 @@ fun HomeScreen(resumeTick: Int) {
         val recent = recentWatched.ifEmpty { entries.orEmpty().take(8) }
         if (recent.isNotEmpty()) Shelf(if (recentWatched.isEmpty()) "Saluran utama" else "Terakhir ditonton", recent, now) { Nav.category(null) }
         val favs = entries.orEmpty().filter { it.channel.url in Channels.favs }
-        if (favs.isNotEmpty()) Shelf("Favorit", favs, now) { Nav.favOnly = true; Nav.category(null) }
+        if (favs.isNotEmpty()) Shelf("Favorit", favs, now) { Nav.category(null, favourites = true) }
 
         entries?.let { all ->
             val cats = LocalTv.Category.entries.map { k -> k to all.count { LocalTv.inCategory(it, k) } }.filter { it.second > 0 }
