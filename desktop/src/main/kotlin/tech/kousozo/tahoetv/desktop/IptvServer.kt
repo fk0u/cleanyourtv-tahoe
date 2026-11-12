@@ -343,7 +343,7 @@ object IptvServer {
         }
 
         val con = open(targetUrl, sc.channel.headers)
-        val type = con.contentType.orEmpty()
+        if (con.responseCode !in 200..299) { con.disconnect(); ex.sendResponseHeaders(502, -1); ex.close(); return } // source refused: next source
         val fetched = tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }
         val finalUrl = con.url.toString()
         // an HTML page with "200 OK", or a variant list whose variants all fail: tell the player now (it moves on to the

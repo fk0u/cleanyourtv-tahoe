@@ -29,7 +29,7 @@ object HlsProxy {
                     val type = con.contentType.orEmpty()
                     val playlist = url.substringBefore('?').endsWith(".m3u8", true) || "mpegurl" in type.lowercase()
                     if (playlist) {
-                        if (con.responseCode !in 200..299) { ex.sendResponseHeaders(502, -1); return@createContext }
+                        if (con.responseCode !in 200..299) { con.disconnect(); ex.sendResponseHeaders(502, -1); return@createContext }
                         val raw = tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }
                         // "200 OK" with an HTML page: fail now, so the player moves on instead of waiting out its timeout
                         if (!raw.trimStart().startsWith("#EXTM3U")) { ex.sendResponseHeaders(502, -1); return@createContext }
@@ -37,6 +37,8 @@ object HlsProxy {
                         val body = rewrite(text, con.url.toString(), headers).toByteArray()
                         ex.responseHeaders.add("Content-Type", "application/vnd.apple.mpegurl")
                         ex.sendResponseHeaders(200, body.size.toLong()); ex.responseBody.use { it.write(body) }
+                    } else if ("text/html" in type.lowercase()) {
+                        con.disconnect(); ex.sendResponseHeaders(502, -1) // an error page, whatever the URL looks like
                     } else {
                         if (type.isNotEmpty()) ex.responseHeaders.add("Content-Type", type)
                         // decoded here, so no Content-Encoding goes to the player
@@ -81,9 +83,10 @@ object HlsProxy {
 
     /** URL the player should open. Streams without special headers are played directly (measured: going through the
      *  relay made ad-supported channels that play directly time out in JavaFX). */
-    fun wrap(url: String, headers: Map<String, String>): String {
-        // straight to the source unless headers are needed or a quality cap has to be applied to the playlist
-        if (headers.isEmpty() && Settings.quality.maxHeight == 0) return url
+    fun wrap(url: String, headers: Map<String, String>, force: Boolean = false): String {
+        // straight to the source unless headers are needed, a quality cap has to be applied, or [force] (its first
+        // variant is dead: the relay hands JavaFX a master without it)
+        if (!force && headers.isEmpty() && Settings.quality.maxHeight == 0) return url
         val enc = Base64.getUrlEncoder().withoutPadding()
         val h = enc.encodeToString(JSONObject(headers).toString().toByteArray())
         return "http://127.0.0.1:${server.address.port}/s?u=" + enc.encodeToString(url.toByteArray()) +
