@@ -52,6 +52,9 @@ object IptvServer {
     /** The server's id for a stream URL (for the web player), or null if it isn't in the list. */
     fun idFor(url: String): String? = idByUrl[url]
 
+    /** Playlist + country the list was loaded for: a change to either reloads it. */
+    private fun loadKey() = Settings.playlist + "|" + Settings.countryCode
+
     /** The playlist setting the channel list was loaded for (null = custom files, e.g. tests). */
     @Volatile private var loadedFor: String? = null
 
@@ -59,7 +62,7 @@ object IptvServer {
      *  channel list if the playlist setting changed since; returns the port. Blocks: call off the UI thread. */
     @Synchronized fun ensureRunning(): Int {
         if (!isRunning.value) runCatching { start(Settings.iptvPort) }.onFailure { runCatching { start(0) } }
-        else if (loadedFor != null && loadedFor != Settings.playlist) loadPlaylists(emptyList())
+        else if (loadedFor != null && loadedFor != loadKey()) loadPlaylists(emptyList())
         return port.value
     }
     private val executor = Executors.newFixedThreadPool(16)
@@ -177,7 +180,7 @@ object IptvServer {
         // (no koutv.m3u) the server, the dashboard, the LAN playlist and the web player had 0 channels.
         val groups: List<Pair<String, List<M3u.Channel>>> =
             if (customFiles.isNotEmpty()) filesToLoad.filter { it.isFile }.map { f -> f.name to runCatching { M3u.load(f.absolutePath) }.getOrDefault(emptyList()) }
-            else listOf("Tahoe" to runCatching { Sources.loadAll(Settings.playlist) }.getOrDefault(emptyList())).also { loadedFor = Settings.playlist }
+            else listOf("Tahoe" to runCatching { Sources.loadFor(Settings.playlist, Settings.countryCode) }.getOrDefault(emptyList())).also { loadedFor = loadKey() }
         for ((sourceName, list) in groups) {
             if (list.isEmpty()) continue
 

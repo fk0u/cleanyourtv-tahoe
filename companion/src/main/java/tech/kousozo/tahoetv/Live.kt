@@ -308,16 +308,20 @@ object Channels {
     var failed by mutableStateOf(false); private set
     private var loading = false
 
+    /** Country changed: forget the list; the next screen that shows loads the new one. */
+    fun reload(@Suppress("UNUSED_PARAMETER") c: android.content.Context) { if (!loading) { entries = null; epg = null; failed = false } }
+
     suspend fun load(c: android.content.Context) {
         if (entries != null || loading) return
         loading = true
         withContext(Dispatchers.IO) {
             val setup = c.getSharedPreferences("setup", 0)
-            val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
+            val country = PhoneRegion.code
+            val province = if (country != tech.kousozo.tahoetv.core.Region.HOME) null else setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
                 ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
             SourceHealth.init(java.io.File(c.cacheDir, "source-health.tsv"), java.io.File(c.filesDir, "source-banned.txt")) // bans: durable
-            runCatching { LocalTv.arrange(Sources.loadAll(), province) }.fold({ entries = it; SourceHealth.probeAll(SourceHealth.streamsOf(it)) }, { failed = true })
-            epg = runCatching { Epg.load(Sources.EPG) }.getOrNull()
+            runCatching { LocalTv.arrange(Sources.loadFor(null, country), province) }.fold({ entries = it; SourceHealth.probeAll(SourceHealth.streamsOf(it)) }, { failed = true })
+            epg = runCatching { Epg.load(tech.kousozo.tahoetv.core.Region.guides(country)) }.getOrNull()
         }
         loading = false
     }
