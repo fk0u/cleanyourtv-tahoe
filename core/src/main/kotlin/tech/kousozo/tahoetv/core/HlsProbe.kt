@@ -20,7 +20,10 @@ object HlsProbe {
         /** Looks live, but the newest segment is old: a replayed broadcast. */
         STALE,
         /** Not an HLS playlist, or not reachable. */
-        UNKNOWN
+        UNKNOWN,
+        /** Answers, but isn't playable: an HTML page instead of a playlist, or a variant list whose variants all fail
+         *  (the master playlist was up while its 720p/1080p playlists gave 403/404, so the channel looked LIVE). */
+        DEAD
     }
 
     /** A live window whose newest segment is older than this is not "now". */
@@ -56,17 +59,75 @@ object HlsProbe {
         return runCatching { URI(base).resolve(uri).toString() }.getOrNull()
     }
 
-    /** Fetches [url] (and its first variant if it is a master playlist) and says what kind of stream it is. Blocks. */
+    data class Variant(val url: String, val height: Int, val inf: String)
+
+    private val HEIGHT = Regex("""RESOLUTION=\d+x(\d+)""")
+
+    /** Variants of a master playlist (in playlist order), resolved against [base]; empty for a media playlist. */
+    fun variants(text: String, base: String): List<Variant> {
+        val lines = text.lines().map { it.trim() }
+        return lines.indices.filter { lines[it].startsWith("#EXT-X-STREAM-INF") }.mapNotNull { i ->
+            val uri = lines.drop(i + 1).firstOrNull { it.isNotEmpty() && !it.startsWith("#") } ?: return@mapNotNull null
+            val url = runCatching { URI(base).resolve(uri.replace(" ", "%20")).toString() }.getOrNull() ?: return@mapNotNull null
+            Variant(url, HEIGHT.find(lines[i])?.groupValues?.get(1)?.toIntOrNull() ?: 0, lines[i])
+        }
+    }
+
+    /** Order to try variants in: with a cap, the best one at or under it first; then the rest, smallest first. */
+    fun preferred(variants: List<Variant>, maxHeight: Int = 0): List<Variant> {
+        if (maxHeight <= 0) return variants
+        val (fit, over) = variants.partition { it.height in 1..maxHeight }
+        return fit.sortedByDescending { it.height } + (over + variants.filter { it.height == 0 && it !in fit }).distinct().sortedBy { if (it.height == 0) Int.MAX_VALUE else it.height }
+    }
+
+    /** The first variant (in [preferred] order, at most [tries]) whose playlist really answers, with that playlist's
+     *  text and final URL. Null if none does. Blocks. */
+    fun liveVariant(text: String, base: String, headers: Map<String, String>, timeoutMs: Int = 4000, maxHeight: Int = 0, tries: Int = 4): Pair<Variant, Pair<String, String>>? =
+        preferred(variants(text, base), maxHeight).take(tries).firstNotNullOfOrNull { v ->
+            runCatching { fetch(v.url, headers, timeoutMs) }.getOrNull()?.takeIf { it.first.trimStart().startsWith("#EXTM3U") }?.let { v to it }
+        }
+
+    /** A master playlist without its dead variants (checked in parallel), for adaptive players that would otherwise
+     *  give up on the first variant that fails (hls.js, LAN players). Media playlists come back unchanged; null when
+     *  no variant answers. Blocks for about one [timeoutMs]. */
+    fun dropDeadVariants(text: String, base: String, headers: Map<String, String>, timeoutMs: Int = 4000): String? {
+        val all = variants(text, base)
+        if (all.isEmpty()) return text
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(all.size.coerceAtMost(8))
+        val alive = try {
+            all.map { v -> pool.submit<Boolean> { runCatching { fetch(v.url, headers, timeoutMs).first.trimStart().startsWith("#EXTM3U") }.getOrDefault(false) } }
+                .map { runCatching { it.get(timeoutMs * 2L, java.util.concurrent.TimeUnit.MILLISECONDS) }.getOrDefault(false) }
+        } finally { pool.shutdownNow() }
+        if (alive.none { it }) return null
+        if (alive.all { it }) return text
+        val dead = all.filterIndexed { i, _ -> !alive[i] }.map { it.inf }.toSet()
+        val lines = text.lines()
+        val out = ArrayList<String>()
+        var skipUri = false
+        for (l in lines) {
+            when {
+                l.trim() in dead -> skipUri = true // this variant's #EXT-X-STREAM-INF … and its URI line below
+                skipUri && l.isNotBlank() && !l.startsWith("#") -> skipUri = false
+                !skipUri -> out += l
+            }
+        }
+        return out.joinToString("\n")
+    }
+
+    /** Fetches [url] (and a working variant if it is a master playlist) and says what kind of stream it is. Blocks. */
     fun probe(url: String, headers: Map<String, String>, timeoutMs: Int = 4000, now: Instant = Instant.now()): Kind = runCatching {
         if (!url.substringBefore('?').endsWith(".m3u8", true)) return Kind.UNKNOWN
         val (text, finalUrl) = fetch(url, headers, timeoutMs)
         verdict(text, finalUrl, headers, timeoutMs, now)
     }.getOrDefault(Kind.UNKNOWN)
 
-    /** Like [probe] for a playlist already downloaded from [finalUrl]: only a master playlist costs one more request. */
+    /** Like [probe] for a playlist already downloaded from [finalUrl]: a master playlist costs a request per variant
+     *  tried (the first that answers decides). */
     fun verdict(text: String, finalUrl: String, headers: Map<String, String>, timeoutMs: Int = 4000, now: Instant = Instant.now()): Kind = runCatching {
-        val variant = firstVariant(text, finalUrl)
-        if (variant != null) analyze(fetch(variant, headers, timeoutMs).first, now) else analyze(text, now)
+        if (!text.trimStart().startsWith("#EXTM3U")) return Kind.DEAD // e.g. a server's HTML page with "200 OK"
+        if (!text.contains("#EXT-X-STREAM-INF")) return analyze(text, now)
+        val live = liveVariant(text, finalUrl, headers, timeoutMs) ?: return Kind.DEAD
+        analyze(live.second.first, now)
     }.getOrDefault(Kind.UNKNOWN)
 
     /** Live playlists are a few KB; one this big is a long finished video (its ENDLIST would be past the cut). */
@@ -77,7 +138,7 @@ object HlsProbe {
     fun fetch(url: String, headers: Map<String, String>, timeoutMs: Int): Pair<String, String> {
         val con = URI(url).toURL().openConnection() as HttpURLConnection
         con.connectTimeout = timeoutMs; con.readTimeout = timeoutMs; con.instanceFollowRedirects = true
-        con.setRequestProperty("User-Agent", "TahoeTV"); headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
+        con.setRequestProperty("User-Agent", Web.STREAM_UA); headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
         try {
             if (con.responseCode !in 200..299) error("HTTP ${con.responseCode}")
             // manual read: InputStream.readNBytes(int) needs Android 13, and this runs on Android 9 TVs too

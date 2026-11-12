@@ -169,7 +169,7 @@ class HlsRecorder(
             repeat(5) {
                 val c = URI(u).toURL().openConnection() as HttpURLConnection
                 c.connectTimeout = 8000; c.readTimeout = 20_000; c.instanceFollowRedirects = false
-                c.setRequestProperty("User-Agent", "TahoeTV"); headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+                c.setRequestProperty("User-Agent", Web.STREAM_UA); headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
                 if (range != null) c.setRequestProperty("Range", "bytes=$range")
                 try {
                     if (c.responseCode in 300..399) { u = URI(u).resolve(c.getHeaderField("Location")).toString(); return@repeat }

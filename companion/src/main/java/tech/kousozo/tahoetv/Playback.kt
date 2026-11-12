@@ -178,7 +178,7 @@ object Playback {
         DiagLog.add("live", "${e.name} sumber ${source + 1}/${streams.size} ${s.url}")
         everReady = false; retries = 0; message = ""; format = null; paused = false
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
-            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/3.1.0").setDefaultRequestProperties(s.headers - "User-Agent")
+            .setUserAgent(s.headers["User-Agent"] ?: tech.kousozo.tahoetv.core.Web.STREAM_UA).setDefaultRequestProperties(s.headers - "User-Agent")
         p.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.Builder().setUri(Uri.parse(s.url))
             // behind live by the chosen latency (default ~20 s): a cushion against slow pieces; clamped to what the stream keeps
             .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(latency.offsetMs).build()).build()))
