@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -48,8 +49,9 @@ import androidx.compose.ui.unit.sp
 
 /** Same palette as the TV launcher: near-black, glass surfaces, SF-like system blue. */
 /** Colours come from core [Brand] (the one source shared with the TV launcher and desktop); see docs/brand/BRAND.md. */
-/** Phone redesign (#60, inspired by Mochy Music's look, own code): a warm charcoal instead of blue-black, quieter glass,
- *  and colour coming from what's on screen (the channel's logo tints the backdrop) rather than a fixed glow. */
+/** Phone palette. Text, accent and status colours come from core [Brand] (shared with the TV and desktop); the
+ *  background, surface, glass and hairline are phone-only overrides for the redesign (#60, inspired by Mochy Music's
+ *  look, own code): a warm charcoal instead of blue-black, quieter glass, and colour coming from what's on screen. */
 object Tahoe {
     val Bg = Color(0xFF141216)
     val Surface = Color(0xFF1E1B21)
@@ -155,7 +157,9 @@ private object DominantCache {
 @Composable
 fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
     val bg by animateColorAsState(if (selected) Tahoe.Text else Tahoe.Glass, label = "chip")
-    Text(text, Modifier.clip(RoundedCornerShape(50)).background(bg).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+    Text(text, Modifier.clip(RoundedCornerShape(50)).background(bg)
+        .selectable(selected = selected, onClick = onClick, role = androidx.compose.ui.semantics.Role.RadioButton) // TalkBack: "dipilih"
+        .padding(horizontal = 14.dp, vertical = 8.dp),
         color = if (selected) Color(0xFF141216) else Tahoe.Text, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
 }
 
@@ -278,9 +282,11 @@ fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) = Ro
 
 /** Floating pill tab bar (Mochy-style): icons only, the selected tab grows into a pill with its label. */
 @Composable
-fun TabBar(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun TabBar(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) = BoxWithConstraints(modifier) {
+    // narrow phones (< 360 dp): icons only, so the selected label never pushes the last tab off the bar
+    val labels = maxWidth >= 360.dp
     Surface(
-        modifier.navigationBarsPadding().padding(horizontal = 22.dp, vertical = 10.dp).fillMaxWidth().height(62.dp),
+        Modifier.navigationBarsPadding().padding(horizontal = if (labels) 22.dp else 12.dp, vertical = 10.dp).fillMaxWidth().height(62.dp),
         shape = RoundedCornerShape(31.dp), color = Color(0xFF1C1A1F).copy(alpha = 0.94f),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), shadowElevation = 18.dp,
     ) {
@@ -289,12 +295,13 @@ fun TabBar(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int)
                 val on = i == selected
                 val bg by animateColorAsState(if (on) Color.White.copy(alpha = 0.14f) else Color.Transparent, label = "tab")
                 Row(
-                    Modifier.height(48.dp).clip(RoundedCornerShape(24.dp)).background(bg).clickable { onSelect(i) }
-                        .padding(horizontal = if (on) 16.dp else 13.dp).animateContentSize(),
+                    Modifier.height(48.dp).clip(RoundedCornerShape(24.dp)).background(bg)
+                        .selectable(selected = on, onClick = { onSelect(i) }, role = androidx.compose.ui.semantics.Role.Tab) // TalkBack: tab, dipilih
+                        .padding(horizontal = if (on && labels) 16.dp else 13.dp).animateContentSize(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(icon, label, tint = if (on) Tahoe.Text else Tahoe.Faint, modifier = Modifier.size(22.dp))
-                    if (on) { Spacer(Modifier.width(8.dp)); Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }
+                    if (on && labels) { Spacer(Modifier.width(8.dp)); Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }
                 }
             }
         }

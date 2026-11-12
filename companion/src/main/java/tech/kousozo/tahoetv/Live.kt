@@ -104,7 +104,7 @@ fun LiveScreen() {
     BackHandler(full) { full = false }
 
     val list = entries
-    val shown = list?.let { l -> Search.run(l, epg, query, now).filter { cat == null || LocalTv.inCategory(it.entry, cat!!) } }
+    val shown = list?.let { l -> Search.run(l, epg, query, now).filter { (cat == null || LocalTv.inCategory(it.entry, cat!!)) && (!Nav.favOnly || it.entry.channel.url in Channels.favs) } }
     Column(Modifier.fillMaxSize().then(if (full) Modifier.background(Color.Black) else Modifier.systemBarsPadding())) {
         playing?.let { e ->
             Box(Modifier.fillMaxWidth().then(if (full) Modifier.fillMaxHeight() else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -131,7 +131,8 @@ fun LiveScreen() {
                 Icon(Icons.Rounded.Search, null, tint = Tahoe.Dim, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
                     if (query.isEmpty()) Text("Cari saluran atau acara…", color = Tahoe.Faint, fontSize = 15.sp)
-                    androidx.compose.foundation.text.BasicTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    androidx.compose.foundation.text.BasicTextField(query, { query = it }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Cari saluran atau acara" },
                         textStyle = androidx.compose.ui.text.TextStyle(color = Tahoe.Text, fontSize = 15.sp, fontFamily = Outfit),
                         cursorBrush = androidx.compose.ui.graphics.SolidColor(Tahoe.Text))
                 }
@@ -146,7 +147,7 @@ fun LiveScreen() {
             }
         }
         shown?.let { hits ->
-            val rows = if (Nav.favOnly) hits.filter { it.entry.channel.url in Channels.favs } else hits
+            val rows = hits
             LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp), contentPadding = PaddingValues(top = 4.dp, bottom = TabInset)) {
                 items(rows, key = { it.entry.channel.url }) { h -> ChannelRow(h.entry, h.programme, epg, now, on = h.entry == playing) }
             }
@@ -352,7 +353,7 @@ object Nav {
     /** TV Live list shows favourites only. */
     var favOnly by mutableStateOf(false)
     fun play(e: LocalTv.Entry) { playUrl = e.channel.url; tab = 1; detail = null }
-    fun category(k: LocalTv.Category?) { liveCategory = k; tab = 1 }
+    fun category(k: LocalTv.Category?, favourites: Boolean = false) { liveCategory = k; favOnly = favourites; tab = 1; detail = null }
 }
 
 /** The TV launcher's built-in Live TV (its pseudo package in the app list). */
