@@ -1,0 +1,23 @@
+name: 📡 Saluran bermasalah
+description: Saluran tidak tayang, salah siaran, atau ingin menambah saluran gratis
+labels: [bug, live-tv]
+body:
+  - type: input
+    id: channel
+    attributes:
+      label: Nama saluran
+      placeholder: "Indosiar"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Masalahnya
+      options: [Tidak tayang sama sekali, Salah siaran (saluran lain yang tayang), Sering buffering / jeda, Tayangan lama diulang, Usul saluran / sumber baru]
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: Detail
+      description: Platform, jam kejadian, dan log (Kirim log) bila ada. Untuk usul sumber, sertakan link sumber resmi/publik saja.

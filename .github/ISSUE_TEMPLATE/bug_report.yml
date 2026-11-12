@@ -1,0 +1,55 @@
+name: 🐞 Laporan bug
+description: Ada yang tidak berjalan semestinya (saluran gagal, app tertutup, tampilan rusak…)
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Terima kasih sudah melapor! Lampiran **log** sangat membantu: di app pilih **Kirim log**
+        (HP: Remote → Kirim log · TV: Pusat Kontrol → Kirim log · Desktop: Setelan → Bantuan). Alamat siaran di log sudah tanpa token/kunci.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options: [TV (launcher), HP (Android), Desktop macOS, Desktop Windows]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versi Tahoe TV
+      description: Pusat Kontrol → Tentang (TV), atau Setelan → Tentang (desktop)
+      placeholder: "3.0.1"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Perangkat
+      placeholder: "Mi TV Stick (Android 9) / Samsung A54 / MacBook Air M2 macOS 15"
+  - type: textarea
+    id: what
+    attributes:
+      label: Apa yang terjadi?
+      description: Untuk saluran, sebutkan nama salurannya dan jam kejadian.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Yang diharapkan
+  - type: textarea
+    id: steps
+    attributes:
+      label: Langkah untuk mengulang
+      placeholder: |
+        1. Buka Live TV
+        2. Pilih Trans TV
+        3. …
+  - type: textarea
+    id: log
+    attributes:
+      label: Log (Kirim log)
+      description: Tempel isi log atau lampirkan filenya.
+      render: text
