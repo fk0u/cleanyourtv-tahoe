@@ -79,11 +79,15 @@ private fun app() = application {
 object DeskNav {
     var screen by mutableStateOf(Screen.Home)
     var query by mutableStateOf("")
+    /** Settings → Wilayah & bahasa → Ubah: the first-run setup again (the saved country stays preselected). */
+    var regionSetup by mutableStateOf(false)
 }
 
 @Composable
-fun App(initial: Screen = Screen.Home) {
+fun App(initial: Screen = Screen.Home, askRegion: Boolean = true) { // askRegion = false: snapshots skip the first-run setup
     LaunchedEffect(initial) { DeskNav.screen = initial }
+    // first run (or "Ubah wilayah" in Settings): language + country before anything else
+    if (askRegion && (Settings.country.isBlank() || DeskNav.regionSetup)) { SetupScreen(onDone = { DeskNav.regionSetup = false; DeskNav.screen = Screen.Live }); return }
     Box(Modifier.fillMaxSize()) {
         Aurora()
         Row(Modifier.fillMaxSize()) {

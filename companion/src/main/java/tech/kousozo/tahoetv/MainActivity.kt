@@ -74,8 +74,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge(dark, dark)
         Channels.loadFavs(this)
         Playback.loadPrefs(this)
+        PhoneRegion.load(this)
         setContent {
             TahoeTheme {
+                if (PhoneRegion.needsSetup) { Box(Modifier.fillMaxSize()) { Backdrop(null); WelcomeScreen() }; return@TahoeTheme }
                 Box(Modifier.fillMaxSize()) {
                     // the playing channel (or the hero channel on Beranda) tints the whole app, like album art in a music app
                     val tintLogo = rememberNetImage((Playback.entry ?: Nav.hero)?.channel?.logo)
@@ -243,6 +245,19 @@ fun HomeScreen(resumeTick: Int) {
                         Text("$host · ${Sync.status.value}", color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     PillButton("Remote", Icons.Rounded.SettingsRemote) { Nav.tab = 2 }
+                }
+            }
+        }
+        Box(Modifier.padding(horizontal = 20.dp)) {
+            GlassCard(onClick = { Playback.stop(); PhoneRegion.reset() }) { // reopens the first-run setup
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text(tech.kousozo.tahoetv.core.Region.flag(PhoneRegion.code), fontSize = 26.sp)
+                    Column(Modifier.weight(1f)) {
+                        Text("Wilayah & bahasa", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(tech.kousozo.tahoetv.core.Region.name(PhoneRegion.code, PhoneRegion.language) + " · " +
+                            (if (PhoneRegion.language == "id") "Bahasa Indonesia" else "English"), color = Tahoe.Dim, fontSize = 12.sp)
+                    }
+                    PillButton("Ubah") { Playback.stop(); PhoneRegion.reset() }
                 }
             }
         }
