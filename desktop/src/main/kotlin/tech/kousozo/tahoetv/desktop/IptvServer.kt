@@ -180,7 +180,8 @@ object IptvServer {
         // (no koutv.m3u) the server, the dashboard, the LAN playlist and the web player had 0 channels.
         val groups: List<Pair<String, List<M3u.Channel>>> =
             if (customFiles.isNotEmpty()) filesToLoad.filter { it.isFile }.map { f -> f.name to runCatching { M3u.load(f.absolutePath) }.getOrDefault(emptyList()) }
-            else listOf("Tahoe" to runCatching { Sources.loadFor(Settings.playlist, Settings.countryCode) }.getOrDefault(emptyList())).also { loadedFor = loadKey() }
+            else loadKey().let { key -> // taken before the slow load: a change meanwhile still triggers the next reload
+                listOf("Tahoe" to runCatching { Sources.loadFor(Settings.playlist, Settings.countryCode) }.getOrDefault(emptyList())).also { loadedFor = key } }
         for ((sourceName, list) in groups) {
             if (list.isEmpty()) continue
 
@@ -405,17 +406,20 @@ object IptvServer {
 
     /** Guide XML kept in memory for 6 h: every TV/phone/player asking used to download the whole file again. */
     @Volatile private var epgCache: ByteArray? = null
+    @Volatile private var epgFor = "" // the country the cached guide is for
     @Volatile private var epgAt = 0L
     private val epgLock = Any()
 
     private fun serveEpg(ex: HttpExchange) {
-        fun fresh() = epgCache?.takeIf { System.currentTimeMillis() - epgAt < 6 * 3600_000L }
+        val country = Settings.countryCode
+        fun fresh() = epgCache?.takeIf { epgFor == country && System.currentTimeMillis() - epgAt < 6 * 3600_000L }
         // One download at a time: a burst of requests after the cache expires waits for it instead of each fetching the XML.
-        val data = fresh() ?: synchronized(epgLock) { fresh() ?: runCatching {
-            val c = URI("https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml").toURL().openConnection() as HttpURLConnection
+        // the country's first guide that answers (Indonesia: dhanytv, then epg.pw)
+        val data = fresh() ?: synchronized(epgLock) { fresh() ?: tech.kousozo.tahoetv.core.Region.guides(country).firstNotNullOfOrNull { url -> runCatching {
+            val c = URI(url).toURL().openConnection() as HttpURLConnection
             c.connectTimeout = 10000; c.readTimeout = 15000; c.setRequestProperty("User-Agent", "TahoeIPTV")
-            tech.kousozo.tahoetv.core.Web.body(c)!!.use { it.readBytes() }.also { epgCache = it; epgAt = System.currentTimeMillis() }
-        }.getOrNull() ?: epgCache } // a stale guide beats none
+            tech.kousozo.tahoetv.core.Web.body(c)!!.use { it.readBytes() }.also { epgCache = it; epgAt = System.currentTimeMillis(); epgFor = country }
+        }.getOrNull() } ?: epgCache?.takeIf { epgFor == country } } // a stale guide of the same country beats none
 
         if (data == null) { ex.sendResponseHeaders(502, -1); ex.close(); return }
         sendCors(ex)

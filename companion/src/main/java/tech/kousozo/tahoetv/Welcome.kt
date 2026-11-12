@@ -36,11 +36,14 @@ object PhoneRegion {
     fun save(c: Context, country: String, language: String) {
         p(c).edit().putString("country", country).putString("language", language).apply()
         val changed = country != this.country
-        this.country = country; this.language = language
+        this.country = country; this.language = language; editing = false
         if (changed) Channels.reload(c) // a new country = a new channel list and guide
     }
+    /** The setup is open again from Beranda (the saved country stays, so it's preselected). */
+    var editing by mutableStateOf(false)
     /** Reopen the setup (Beranda → Wilayah). */
-    fun reset() { country = "" }
+    fun reset() { editing = true }
+    val needsSetup get() = country.isBlank() || editing
     val code get() = country.ifBlank { Region.HOME }
 }
 
@@ -52,6 +55,7 @@ fun WelcomeScreen() {
     var lang by remember { mutableStateOf(if (PhoneRegion.country.isBlank()) suggestedLang else PhoneRegion.language) }
     var country by remember { mutableStateOf(Region.country(PhoneRegion.country) ?: suggestedCountry) }
     var step by remember { mutableStateOf(0) }
+    val startCountry = remember { country } // list order fixed while open: picking a row doesn't make it jump
     val t = WELCOME.getValue(lang)
 
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 20.dp, vertical = 24.dp),
@@ -69,10 +73,10 @@ fun WelcomeScreen() {
         } else {
             var query by remember { mutableStateOf("") }
             val all = remember(lang) { Region.countries(lang) }
-            val shown = remember(all, query, country) {
+            val shown = remember(all, query) {
                 val q = query.trim().lowercase()
                 all.filter { q.isEmpty() || it.name.lowercase().contains(q) || it.code.lowercase() == q }
-                    .sortedBy { if (it.code == country) 0 else if (it.code == suggestedCountry) 1 else 2 }
+                    .sortedBy { if (it.code == startCountry) 0 else if (it.code == suggestedCountry) 1 else 2 }
             }
             Field(query, { query = it }, t.getValue("search"))
             Spacer(Modifier.height(10.dp))

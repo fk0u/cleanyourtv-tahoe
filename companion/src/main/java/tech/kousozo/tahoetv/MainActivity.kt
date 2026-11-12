@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
         PhoneRegion.load(this)
         setContent {
             TahoeTheme {
-                if (PhoneRegion.country.isBlank()) { Box(Modifier.fillMaxSize()) { Backdrop(null); WelcomeScreen() }; return@TahoeTheme }
+                if (PhoneRegion.needsSetup) { Box(Modifier.fillMaxSize()) { Backdrop(null); WelcomeScreen() }; return@TahoeTheme }
                 Box(Modifier.fillMaxSize()) {
                     // the playing channel (or the hero channel on Beranda) tints the whole app, like album art in a music app
                     val tintLogo = rememberNetImage((Playback.entry ?: Nav.hero)?.channel?.logo)

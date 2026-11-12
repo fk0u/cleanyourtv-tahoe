@@ -17,8 +17,9 @@ object Region {
     /** Every country, named in [language] (the system's own country names), sorted by that name. */
     @JvmStatic fun countries(language: String = "en"): List<Country> {
         val inLang = Locale.forLanguageTag(language)
+        val order = java.text.Collator.getInstance(inLang) // "Åland" sorts with A, not after Z
         return Locale.getISOCountries().map { cc -> Country(cc, Locale("", cc).getDisplayCountry(inLang).ifBlank { cc }, flag(cc)) }
-            .sortedBy { it.name.lowercase(inLang) }
+            .sortedWith(compareBy(order) { it.name })
     }
 
     /** The country's name in [language], e.g. name("ID", "en") = "Indonesia". */
@@ -48,7 +49,7 @@ object Region {
 
     /** Prayer times / adhan shown without asking: on in Muslim-majority countries, opt-in elsewhere. */
     private val MUSLIM_MAJORITY = setOf(
-        "AF", "AL", "AZ", "BH", "BD", "BN", "BF", "TD", "KM", "DJ", "EG", "GM", "GN", "ID", "IR", "IQ", "JO", "KZ", "XK", "KW", "KG",
+        "AF", "AL", "DZ", "AZ", "BH", "BD", "BN", "BF", "TD", "KM", "DJ", "EG", "GM", "GN", "ID", "IR", "IQ", "JO", "KZ", "XK", "KW", "KG",
         "LB", "LY", "MY", "MV", "ML", "MR", "MA", "NE", "NG", "OM", "PK", "PS", "QA", "SA", "SN", "SL", "SO", "SD", "SY", "TJ",
         "TN", "TR", "TM", "AE", "UZ", "EH", "YE")
     @JvmStatic fun prayerByDefault(country: String) = country.uppercase() in MUSLIM_MAJORITY
@@ -59,7 +60,7 @@ object Region {
     @JvmStatic fun countryPlaylist(country: String) = "https://iptv-org.github.io/iptv/countries/${country.lowercase()}.m3u"
 
     /** The built-in channel sources for [country]: Indonesia keeps its curated extra sources; everywhere else uses
-     *  iptv-org's country list. All go through the same free-TV filter. */
+     *  iptv-org's country list, which [Sources.loadAll] passes through the free-TV filter. */
     @JvmStatic fun sources(country: String): List<Sources.Source> =
         if (country.equals(HOME, true)) Sources.DEFAULT else listOf(Sources.Source("iptv-org", countryPlaylist(country)))
 
