@@ -7,8 +7,8 @@
 | Versi | Isi utama |
 |---|---|
 | **3.0.1** | Profil Anak + PIN, rekam acara di desktop, deteksi siaran rekaman/basi, loader ala Apple TV, tunda siaran, QR pairing, dekoder FFmpeg, Kirim log, reset PIN dari HP |
-| **3.0.2** (stabil) | Desktop: semua saluran dicek, playlist gzip, perbaikan keamanan |
-| **Berikutnya** (di `main`) | Live TV Windows lewat web player, pilihan kualitas (Otomatis/1080p/720p/480p) dan latensi di semua perangkat, desain baru app HP |
+| **3.0.2** | Desktop: semua saluran dicek, playlist gzip, perbaikan keamanan |
+| **3.1.0** (stabil) | Live TV Windows lewat web player, pilihan kualitas (Otomatis/1080p/720p/480p) dan latensi di semua perangkat, desain baru app HP |
 
 Detail per rilis: [CHANGELOG.md](../../CHANGELOG.md).
 

@@ -3,7 +3,7 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
-## Belum dirilis
+## 3.1.0
 
 ### Perbaikan
 - **Windows: siaran tidak bisa ditonton sama sekali.** Pemutar desktop (JavaFX) gagal memutar siaran HLS di Windows 10/11 ("Could not create player!"), jadi tidak ada satu saluran pun yang tayang, dan jendela pemutar bisa macet. Di Windows, saluran sekarang diputar di **Web Player** dalam satu jendela Edge mode aplikasi (tanpa tab dan address bar; bila Edge tidak ada, di browser bawaan) memakai hls.js lewat relay server Tahoe, yang ikut mengirim header yang dibutuhkan sumber dan pindah ke sumber cadangan sendiri. Jendela itu mengikuti app: ganti saluran memakai jendela yang sama, **Stop** menghentikannya, dan tombol ◀ ▶ (atau ↑ ↓) di pemutar mengganti saluran. Saluran DASH/DRM tetap lewat Web Player di dashboard server. macOS tetap memakai pemutar bawaan.
@@ -26,8 +26,10 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
     - kontrol besar ⏪30 ⏯ ⏩30 yang tersembunyi sendiri setelah 3 detik (ketuk untuk menampilkan);
     - badge format siaran (mis. "720p · H.264 · AAC");
     - kolom cari berbentuk pil.
+- **Proyek internasional (#71):** README, dokumentasi, dan situs [tahoe.kousozo.tech](https://tahoe.kousozo.tech) kini dalam bahasa Inggris dan Indonesia, lengkap dengan screenshot beranimasi dan daftar kontributor. Saluran untuk semua negara serta pilihan bahasa + negara saat setup awal sedang dikerjakan.
 - **Saluran favorit di HP:** tekan ♥ di pemutar atau halaman saluran; muncul di Beranda dan sebagai chip "♥ Favorit" di Live.
 
+## 3.0.2
 
 ### Keamanan
 - **Pairing HP ↔ TV lebih aman:** kode 6 digit kini kedaluwarsa setelah 10 menit, dan beberapa kode salah berturut-turut membuat pairing dikunci sementara (waktunya bertambah tiap kali). Tekan **OK** di layar Hubungkan HP untuk kode baru dan membuka kunci.
