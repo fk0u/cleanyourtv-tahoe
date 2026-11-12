@@ -307,19 +307,29 @@ object Channels {
     var epg by mutableStateOf<Epg?>(null); private set
     var failed by mutableStateOf(false); private set
     private var loading = false
+    /** Bumped on a country change: a load still running for the old country throws its result away. */
+    private var generation = 0
+
+    /** Country changed: forget the list; the next screen that shows loads the new one. */
+    fun reload(@Suppress("UNUSED_PARAMETER") c: android.content.Context) { generation++; loading = false; entries = null; epg = null; failed = false }
 
     suspend fun load(c: android.content.Context) {
         if (entries != null || loading) return
         loading = true
-        withContext(Dispatchers.IO) {
+        val mine = generation
+        try { withContext(Dispatchers.IO) {
             val setup = c.getSharedPreferences("setup", 0)
-            val province = setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
+            val country = PhoneRegion.code
+            val province = if (country != tech.kousozo.tahoetv.core.Region.HOME) null else setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
                 ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
             SourceHealth.init(java.io.File(c.cacheDir, "source-health.tsv"), java.io.File(c.filesDir, "source-banned.txt")) // bans: durable
-            runCatching { LocalTv.arrange(Sources.loadAll(), province) }.fold({ entries = it; SourceHealth.probeAll(SourceHealth.streamsOf(it)) }, { failed = true })
-            epg = runCatching { Epg.load(Sources.EPG) }.getOrNull()
-        }
-        loading = false
+            val list = runCatching { LocalTv.arrange(Sources.loadFor(null, country), province) }.getOrNull()
+            val guide = runCatching { Epg.load(tech.kousozo.tahoetv.core.Region.guides(country)) }.getOrNull()
+            if (mine != generation) return@withContext // the country changed meanwhile
+            if (list.isNullOrEmpty()) failed = true // no playlist for this country, or no internet: show the note, not a blank list
+            else { entries = list; SourceHealth.probeAll(SourceHealth.streamsOf(list)) }
+            epg = guide
+        } } finally { if (mine == generation) loading = false } // also when the screen leaves mid-load: the next one retries
     }
 
     /** Recently watched (newest first, max 10), by stream URL. */

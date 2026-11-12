@@ -57,13 +57,14 @@ fun LiveScreen() {
     var tick by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { delay(30_000); tick = Instant.now() } }
     val epgUrl = Settings.epg
-    LaunchedEffect(epgUrl) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: Sources.EPG) }.getOrNull() } }
+    val country = Settings.countryCode
+    LaunchedEffect(epgUrl, country) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: tech.kousozo.tahoetv.core.Region.guides(country)) }.getOrNull() } }
     val playlist = Settings.playlist
     var statusMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var checkingDone by remember { mutableStateOf(false) }
     var statusFilter by remember { mutableStateOf<String?>(null) } // null = all, "live", "offline"
 
-    LaunchedEffect(playlist) {
+    LaunchedEffect(playlist, country) {
         channels = null; error = null
         statusMap = emptyMap()
         checkingDone = false
@@ -74,7 +75,8 @@ fun LiveScreen() {
             if (!IptvServer.isRunning.value) {
                 runCatching { IptvServer.start(Settings.iptvPort) }
             }
-            runCatching { Sources.loadAll(playlist) }
+            if (IptvServer.isRunning.value) runCatching { IptvServer.ensureRunning() } // LAN clients get the new country too
+            runCatching { Sources.loadFor(playlist, country) }
         }.fold(
             { loaded ->
                 channels = loaded
@@ -92,7 +94,7 @@ fun LiveScreen() {
             { error = "Playlist tidak bisa dimuat: ${it.message}" }
         )
     }
-    val province = Settings.province
+    val province = Settings.nearProvince
     val entries = remember(channels, province) { LocalTv.arrange(channels.orEmpty(), province) }
     val names = remember(entries) { entries.associate { it.channel.url to it.name } }
     val byUrl = remember(entries) { entries.associateBy { it.channel.url } }

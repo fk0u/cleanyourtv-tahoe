@@ -76,6 +76,15 @@ fun SettingsScreen() {
             "Latensi ${Settings.latency.label}: ${Settings.latency.note}." + if (WebPlayer.preferred) "" else " Di macOS, latensi diatur otomatis oleh pemutar bawaan.",
             color = Tahoe.Faint, fontSize = 12.sp)
 
+        Section("Wilayah & bahasa")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("${tech.kousozo.tahoetv.core.Region.flag(Settings.countryCode)}  ${tech.kousozo.tahoetv.core.Region.name(Settings.countryCode, Settings.lang)} · " +
+                (if (Settings.lang == "id") "Bahasa Indonesia" else "English"), color = Tahoe.Text, fontSize = 14.sp)
+            GhostButton("Ubah", Icons.Rounded.Public) { PlayerWindow.stop(); DeskNav.regionSetup = true } // the old country's channel stops
+        }
+        Text("Menentukan daftar saluran dan jadwal acara. Teks aplikasi lainnya masih berbahasa Indonesia; terjemahan sedang dikerjakan (#56).",
+            color = Tahoe.Faint, fontSize = 12.sp)
+
         Section("Server IPTV (LAN)")
         Text("Relay streaming IPTV lokal dengan injeksi header HTTP (Referer/User-Agent). Berbagi siaran dari koutv.m3u dan anotheriptv.m3u ke Android TV, HP, atau VLC di jaringan Wi-Fi rumah.", color = Tahoe.Dim, fontSize = 13.sp)
 
