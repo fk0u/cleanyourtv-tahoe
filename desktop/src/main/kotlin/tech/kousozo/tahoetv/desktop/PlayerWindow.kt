@@ -222,7 +222,7 @@ object PlayerWindow {
                     if (gen != generation) return@runLater
                     if (kind == HlsProbe.Kind.REPLAY || kind == HlsProbe.Kind.STALE) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; next() }
                     else if (kind == HlsProbe.Kind.DEAD) { failReason = "Server saluran ini sedang tidak mengirim siaran."; next() } // don't wait 20 s for it
-                    else { relayFirst = fix; begin(streams, i, gen, retry, c, next) }
+                    else { if (fix) relayed += c.url; begin(streams, i, gen, retry, c, next) }
                 }
             }, "tahoe-probe").apply { isDaemon = true }.start()
             return
@@ -230,8 +230,8 @@ object PlayerWindow {
         begin(streams, i, gen, retry, c, next)
     }
 
-    /** Set by the probe for the next [begin]: this source's first variant is dead, so it goes through the relay. */
-    private var relayFirst = false
+    /** Sources whose first variant is dead (found by the probe): they go through the relay, retries included. */
+    private val relayed = java.util.Collections.synchronizedSet(HashSet<String>())
 
     private fun begin(streams: List<M3u.Channel>, i: Int, gen: Int, retry: Int, c: M3u.Channel, next: () -> Unit) {
         if (gen != generation) return
@@ -240,8 +240,7 @@ object PlayerWindow {
         val isVod = LocalTv.isVod(c)
         // A source that already played and then errors/freezes reconnects (up to 3×) before moving to the backup.
         val recover = { if (lastTime >= 0 && retry < 3 && gen == generation) start(streams, i, gen, if (lastTime > 60) 1 else retry + 1) else next() } // a minute of good playback earns fresh retries
-        val p = try { MediaPlayer(Media(HlsProxy.wrap(c.url, c.headers, force = relayFirst))) } catch (e: Exception) { return next() }
-        relayFirst = false
+        val p = try { MediaPlayer(Media(HlsProxy.wrap(c.url, c.headers, force = c.url in relayed))) } catch (e: Exception) { return next() }
         player = p; view.mediaPlayer = p
         // "Playing" means a picture: sound alone, or tracks that never draw, no longer end the loader (that was the black screen).
         // Events from a player that was already replaced (disposal runs in the background) must not touch the new one.
