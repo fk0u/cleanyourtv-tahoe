@@ -41,6 +41,8 @@ object PhoneRegion {
     }
     /** The setup is open again from Beranda (the saved country stays, so it's preselected). */
     var editing by mutableStateOf(false)
+    /** Close a reopened setup without changes. */
+    fun cancel() { editing = false }
     /** Reopen the setup (Beranda → Wilayah). */
     fun reset() { editing = true }
     val needsSetup get() = country.isBlank() || editing
@@ -57,6 +59,8 @@ fun WelcomeScreen() {
     var step by remember { mutableStateOf(0) }
     val startCountry = remember { country } // list order fixed while open: picking a row doesn't make it jump
     val t = WELCOME.getValue(lang)
+    // reopened from Beranda: back closes it (first run has nothing to go back to)
+    androidx.activity.compose.BackHandler(enabled = PhoneRegion.country.isNotBlank()) { if (step == 1) step = 0 else PhoneRegion.cancel() }
 
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 20.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {

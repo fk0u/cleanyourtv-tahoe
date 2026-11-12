@@ -45,9 +45,10 @@ object Sources {
     fun load(extra: String?): List<M3u.Channel> =
         load(DEFAULT + extra.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.map { Source("extra", it) })
 
-    /** Loads ALL channels unfiltered: local files (koutv.m3u, anotheriptv.m3u, ~/.tahoetv/playlists/),
+    /** Loads channels from local files (koutv.m3u, anotheriptv.m3u, ~/.tahoetv/playlists/),
      *  plus user extra sources and built-in playlists. Preserves all premium, sports, movies, VOD & DRM channels.
-     *  With nothing local, the built-in sources of [country] are used (see [Region.sources]). */
+     *  With nothing local, the built-in sources of [country] are used (see [Region.sources]): Indonesia's taken whole,
+     *  another country's iptv-org list through the free-TV filter [free]. */
     @JvmOverloads
     fun loadAll(extra: String? = null, localFiles: List<String> = listOf("koutv.m3u", "anotheriptv.m3u"), country: String = Region.HOME): List<M3u.Channel> {
         val out = mutableListOf<M3u.Channel>()

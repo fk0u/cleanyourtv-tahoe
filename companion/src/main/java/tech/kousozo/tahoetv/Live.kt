@@ -317,7 +317,7 @@ object Channels {
         if (entries != null || loading) return
         loading = true
         val mine = generation
-        withContext(Dispatchers.IO) {
+        try { withContext(Dispatchers.IO) {
             val setup = c.getSharedPreferences("setup", 0)
             val country = PhoneRegion.code
             val province = if (country != tech.kousozo.tahoetv.core.Region.HOME) null else setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
@@ -329,8 +329,7 @@ object Channels {
             if (list.isNullOrEmpty()) failed = true // no playlist for this country, or no internet: show the note, not a blank list
             else { entries = list; SourceHealth.probeAll(SourceHealth.streamsOf(list)) }
             epg = guide
-        }
-        if (mine == generation) loading = false
+        } } finally { if (mine == generation) loading = false } // also when the screen leaves mid-load: the next one retries
     }
 
     /** Recently watched (newest first, max 10), by stream URL. */
