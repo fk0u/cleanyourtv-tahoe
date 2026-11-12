@@ -1,8 +1,14 @@
 blank_issues_enabled: true
 contact_links:
-  - name: 📖 Panduan instalasi
+  - name: 📖 Install guide / Panduan instalasi
     url: https://github.com/fk0u/cleanyourtv-tahoe/blob/main/docs/INSTALL.md
-    about: Cara memasang di TV, HP, dan desktop
-  - name: ⬇️ Unduh rilis terbaru
+    about: Install on a TV, phone and desktop (Bahasa Indonesia — docs/id/INSTALL.md)
+  - name: ⬇️ Latest release / Unduh rilis terbaru
     url: https://github.com/fk0u/cleanyourtv-tahoe/releases/latest
-    about: APK TV/HP, DMG macOS, MSI Windows
+    about: TV/phone APK, macOS DMG, Windows MSI
+  - name: 🌐 Website
+    url: https://tahoe.kousozo.tech
+    about: What Tahoe TV is, how to use it, FAQ
+  - name: 🔒 Security issue / Celah keamanan
+    url: https://github.com/fk0u/cleanyourtv-tahoe/security/advisories/new
+    about: Report privately, never in a public issue

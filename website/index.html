@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tahoe TV</title>
+<meta name="description" content="Tahoe TV: a free, open-source, tvOS-style home screen for Android TV with free live TV, plus apps for Android phones, macOS and Windows.">
+<meta name="theme-color" content="#07080D">
+<meta property="og:title" content="Tahoe TV">
+<meta property="og:description" content="A free, open-source, tvOS-style home screen for Android TV with free live TV. Phone, macOS and Windows apps included.">
+<meta property="og:image" content="https://tahoe.kousozo.tech/assets/shots/v2/02-beranda.jpg">
+<meta property="og:url" content="https://tahoe.kousozo.tech/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/logo-mark.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/app-icon-1024.png">
+<link rel="alternate" hreflang="en" href="https://tahoe.kousozo.tech/?lang=en">
+<link rel="alternate" hreflang="id" href="https://tahoe.kousozo.tech/?lang=id">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+<header class="nav" id="top">
+  <a class="brand" href="#top"><img src="assets/logo-mark.svg" alt="" width="28" height="28"><span>Tahoe TV</span></a>
+  <nav class="links">
+    <a href="#features" data-i18n="nav.features">Features</a>
+    <a href="#screens" data-i18n="nav.screens">Screenshots</a>
+    <a href="#start" data-i18n="nav.start">Get started</a>
+    <a href="#community" data-i18n="nav.community">Community</a>
+    <a href="#faq" data-i18n="nav.faq">FAQ</a>
+  </nav>
+  <div class="nav-right">
+    <div class="lang" role="group" aria-label="Language">
+      <button data-lang="en">EN</button><button data-lang="id">ID</button>
+    </div>
+    <a class="gh" href="https://github.com/fk0u/cleanyourtv-tahoe" aria-label="GitHub">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+      <span id="stars">★</span>
+    </a>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="hero-text reveal">
+    <a class="pill" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest"><span class="dot"></span><span data-i18n="hero.badge">Open source · MIT</span> <b id="version"></b></a>
+    <h1 data-i18n="hero.title">Your TV, beautifully simple.</h1>
+    <p class="lead" data-i18n="hero.lead">A free, open-source, tvOS-style home screen for Android TV with free live TV, plus apps for your phone, Mac and Windows PC. Light enough for a 1 GB TV stick.</p>
+    <div class="cta">
+      <a class="btn primary" id="cta-download" href="#start"><span data-i18n="hero.download">Download</span> <small id="cta-os"></small></a>
+      <a class="btn ghost" href="https://github.com/fk0u/cleanyourtv-tahoe"><span data-i18n="hero.source">View source</span></a>
+    </div>
+    <ul class="stats">
+      <li><b>1,000+</b><span data-i18n="stats.channels">free channels</span></li>
+      <li><b>4</b><span data-i18n="stats.platforms">platforms</span></li>
+      <li><b>1 GB</b><span data-i18n="stats.ram">RAM is enough</span></li>
+      <li><b>0</b><span data-i18n="stats.ads">ads, no root</span></li>
+    </ul>
+  </div>
+  <div class="hero-art reveal">
+    <img src="assets/hero.svg" alt="Tahoe TV on a TV and a phone" width="1280" height="720">
+  </div>
+</section>
+
+<section class="intl reveal">
+  <div class="intl-card">
+    <span class="globe" aria-hidden="true">🌍</span>
+    <div>
+      <h3 data-i18n="intl.title">Going international</h3>
+      <p data-i18n="intl.body">Channels for every country, more languages, and a first-run language + country setup on every device are being built in the open.</p>
+    </div>
+    <a class="btn small" href="https://github.com/fk0u/cleanyourtv-tahoe/issues/71" data-i18n="intl.cta">Follow #71</a>
+  </div>
+</section>
+
+<section id="features" class="section">
+  <h2 class="reveal" data-i18n="features.title">One home for everything you watch</h2>
+  <p class="sub reveal" data-i18n="features.sub">The same smart live TV engine on every screen, with a look that feels like a real Apple TV.</p>
+  <div class="tabs reveal" role="tablist">
+    <button role="tab" class="on" data-tab="tv">📺 <span data-i18n="tab.tv">TV</span></button>
+    <button role="tab" data-tab="phone">📱 <span data-i18n="tab.phone">Phone</span></button>
+    <button role="tab" data-tab="desktop">💻 <span data-i18n="tab.desktop">Desktop</span></button>
+  </div>
+  <div class="grid features" data-panel="tv">
+    <article class="card reveal"><i>✨</i><h3 data-i18n="f.tv1.t">tvOS-style glass</h3><p data-i18n="f.tv1.d">Glass tiles with lift and shine, a macOS-style dock, Launchpad and an editorial hero — smooth on cheap hardware.</p></article>
+    <article class="card reveal"><i>📡</i><h3 data-i18n="f.tv2.t">Smart live TV</h3><p data-i18n="f.tv2.d">Working sources play first; reruns and dead links are skipped. Guide, favorites, channel numbers, pause & skip.</p></article>
+    <article class="card reveal"><i>🎚️</i><h3 data-i18n="f.tv3.t">Quality & latency</h3><p data-i18n="f.tv3.d">Auto, 1080p, 720p or 480p, and how close to live you want to be: low, standard or stable.</p></article>
+    <article class="card reveal"><i>👨‍👩‍👧</i><h3 data-i18n="f.tv4.t">Family profiles</h3><p data-i18n="f.tv4.d">Me, Guest and a PIN-locked Kids profile with only kids' channels and allowed apps.</p></article>
+    <article class="card reveal"><i>🎛️</i><h3 data-i18n="f.tv5.t">Control Center</h3><p data-i18n="f.tv5.d">Volume, Wi-Fi, Bluetooth, wallpaper, weather, sleep timer, assistant and updates in one place.</p></article>
+    <article class="card reveal"><i>🕌</i><h3 data-i18n="f.tv6.t">Prayer times & more</h3><p data-i18n="f.tv6.d">Prayer times with adhan, weather, a Gemini assistant, Home Assistant and gamepad support.</p></article>
+  </div>
+  <div class="grid features" data-panel="phone" hidden>
+    <article class="card reveal"><i>🪄</i><h3 data-i18n="f.ph1.t">Install without a computer</h3><p data-i18n="f.ph1.d">Set up Tahoe on your TV over Wi-Fi: debloat, name, city, dock and keys. Restore the TV any time.</p></article>
+    <article class="card reveal"><i>🕹️</i><h3 data-i18n="f.ph2.t">The remote you wanted</h3><p data-i18n="f.ph2.d">Swipe pad, volume slider, numbers, media keys, power, sleep timer, and typing straight onto the TV.</p></article>
+    <article class="card reveal"><i>📺</i><h3 data-i18n="f.ph3.t">Live TV in your pocket</h3><p data-i18n="f.ph3.d">Mini player, channel pages, favorites and search, with colors that follow the channel you watch.</p></article>
+    <article class="card reveal"><i>🔔</i><h3 data-i18n="f.ph4.t">Phone on the TV</h3><p data-i18n="f.ph4.d">Your notifications and music show up on the TV, with play/pause from the couch.</p></article>
+    <article class="card reveal"><i>🔐</i><h3 data-i18n="f.ph5.t">QR pairing</h3><p data-i18n="f.ph5.d">Scan the code on the TV and you're connected. Each phone gets its own token.</p></article>
+    <article class="card reveal"><i>🧾</i><h3 data-i18n="f.ph6.t">Send log</h3><p data-i18n="f.ph6.d">One tap collects phone + TV logs for a bug report, without tokens or passwords.</p></article>
+  </div>
+  <div class="grid features" data-panel="desktop" hidden>
+    <article class="card reveal"><i>🖥️</i><h3 data-i18n="f.pc1.t">Live TV on macOS & Windows</h3><p data-i18n="f.pc1.d">Live/offline status per channel, categories and search by channel or show.</p></article>
+    <article class="card reveal"><i>⏺️</i><h3 data-i18n="f.pc2.t">Record shows</h3><p data-i18n="f.pc2.d">Schedule from the guide and watch the recordings on any TV or phone at home.</p></article>
+    <article class="card reveal"><i>🏠</i><h3 data-i18n="f.pc3.t">IPTV server for the home</h3><p data-i18n="f.pc3.d">One playlist and guide for TVs, phones, VLC, Kodi and TiviMate, with a header relay.</p></article>
+    <article class="card reveal"><i>🪞</i><h3 data-i18n="f.pc4.t">Remote + mirroring</h3><p data-i18n="f.pc4.d">Find Android TVs on the network, install Tahoe, and control or mirror them from your computer.</p></article>
+  </div>
+</section>
+
+<section id="screens" class="section">
+  <h2 class="reveal" data-i18n="screens.title">See it in action</h2>
+  <p class="sub reveal" data-i18n="screens.sub">Real screenshots from a Mi TV Stick and an Android phone.</p>
+  <div class="tv-frame reveal">
+    <div class="tv-screen">
+      <img class="slide on" src="assets/shots/v2/02-beranda.jpg" alt="" data-cap="cap.home">
+      <img class="slide" src="assets/shots/v2/03-hero-aksi.jpg" alt="" data-cap="cap.hero" loading="lazy">
+      <img class="slide" src="assets/shots/v2/04-launchpad.jpg" alt="" data-cap="cap.launchpad" loading="lazy">
+      <img class="slide" src="assets/shots/v2/06-pusat-kontrol.jpg" alt="" data-cap="cap.cc" loading="lazy">
+      <img class="slide" src="assets/shots/v2/07-asisten.jpg" alt="" data-cap="cap.assistant" loading="lazy">
+      <img class="slide" src="assets/shots/v2/05-jadwal-shalat.jpg" alt="" data-cap="cap.prayer" loading="lazy">
+      <img class="slide" src="assets/shots/v2/09-hubungkan-hp.jpg" alt="" data-cap="cap.pair" loading="lazy">
+      <img class="slide" src="assets/shots/v2/01-profil.jpg" alt="" data-cap="cap.profiles" loading="lazy">
+    </div>
+    <div class="tv-stand"></div>
+  </div>
+  <div class="dots reveal" id="dots"></div>
+  <p class="caption reveal" id="caption"></p>
+  <div class="phones">
+    <figure class="phone reveal"><img src="assets/shots/mobile-v4/01-beranda.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.phome">Home</figcaption></figure>
+    <figure class="phone reveal"><img src="assets/shots/mobile-v4/04-tv-live.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.plive">Live TV</figcaption></figure>
+    <figure class="phone reveal"><img src="assets/shots/mobile-v4/03-halaman-saluran.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.pchannel">Channel page</figcaption></figure>
+    <figure class="phone reveal"><img src="assets/shots/mobile-v4/02-mini-player.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.pmini">Mini player</figcaption></figure>
+  </div>
+</section>
+
+<section id="start" class="section">
+  <h2 class="reveal" data-i18n="start.title">Get started in 5 minutes</h2>
+  <p class="sub reveal" data-i18n="start.sub">Pick your device. Updates arrive by themselves after that.</p>
+  <div class="grid downloads">
+    <article class="card dl reveal" data-os="android">
+      <h3>📺 <span data-i18n="dl.tv.t">Android TV / TV box</span></h3>
+      <ol>
+        <li data-i18n="dl.tv.1">On the TV: Settings → About → press “Build” 7×, then turn on USB debugging.</li>
+        <li data-i18n="dl.tv.2">Install the phone app on an Android phone on the same Wi-Fi.</li>
+        <li data-i18n="dl.tv.3">Open Install, pick your TV, allow debugging on the TV, tap Install to TV.</li>
+      </ol>
+      <a class="btn primary small" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk">tahoe-tv.apk</a>
+    </article>
+    <article class="card dl reveal" data-os="android">
+      <h3>📱 <span data-i18n="dl.ph.t">Android phone</span></h3>
+      <ol>
+        <li data-i18n="dl.ph.1">Download and install the APK (allow installs from your browser).</li>
+        <li data-i18n="dl.ph.2">Watch live TV, or pair with your TV by scanning its QR code.</li>
+      </ol>
+      <a class="btn primary small" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk">tahoe-tv.apk</a>
+    </article>
+    <article class="card dl reveal" data-os="mac">
+      <h3>🍎 macOS 13+</h3>
+      <ol>
+        <li data-i18n="dl.mac.1">Download the DMG for your Mac and drag Tahoe TV to Applications.</li>
+        <li data-i18n="dl.mac.2">First time: right-click the app → Open (it isn't notarized yet).</li>
+      </ol>
+      <div class="row">
+        <a class="btn primary small" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg">Apple Silicon</a>
+        <a class="btn ghost small" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg">Intel</a>
+      </div>
+    </article>
+    <article class="card dl reveal" data-os="windows">
+      <h3>🪟 Windows 10/11</h3>
+      <ol>
+        <li data-i18n="dl.win.1">Download and run the MSI. If SmartScreen warns: More info → Run anyway.</li>
+        <li data-i18n="dl.win.2">Open Live TV. Channels play in a light Edge window.</li>
+      </ol>
+      <a class="btn primary small" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi">TahoeTV-windows.msi</a>
+    </article>
+  </div>
+  <p class="note reveal"><span data-i18n="start.more">Full guide, remote keys, API keys and how to restore your TV:</span>
+    <a id="install-link" href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/docs/INSTALL.md">INSTALL.md</a></p>
+</section>
+
+<section class="section how reveal">
+  <h2 data-i18n="how.title">How it works</h2>
+  <div class="flow">
+    <div class="node"><b data-i18n="how.src">Public sources</b><small>iptv-org · EPG</small></div>
+    <div class="arrow">→</div>
+    <div class="node core"><b>:core</b><small data-i18n="how.core">playlists · guide · source checks</small></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>📺 📱 💻</b><small data-i18n="how.apps">TV · phone · desktop</small></div>
+  </div>
+  <p class="sub" data-i18n="how.body">Tahoe hosts no streams. It reads free, public playlists, checks which sources are really live, and plays the best one. Paid and DRM channels are never included.</p>
+</section>
+
+<section id="community" class="section">
+  <h2 class="reveal" data-i18n="com.title">Free, open source, and yours to build on</h2>
+  <p class="sub reveal" data-i18n="com.sub">Tahoe TV is MIT-licensed. Use it, fork it, ship your own version, or send improvements back — everyone is welcome.</p>
+  <div class="grid ways">
+    <a class="card way reveal" href="https://github.com/fk0u/cleanyourtv-tahoe"><i>⭐</i><h3 data-i18n="com.star.t">Star the repo</h3><p data-i18n="com.star.d">It helps more people find Tahoe TV.</p></a>
+    <a class="card way reveal" href="https://github.com/fk0u/cleanyourtv-tahoe/labels/i18n"><i>🌍</i><h3 data-i18n="com.tr.t">Translate & add countries</h3><p data-i18n="com.tr.d">Bring your language and your country's channels.</p></a>
+    <a class="card way reveal" href="https://github.com/fk0u/cleanyourtv-tahoe/labels/good%20first%20issue"><i>🛠️</i><h3 data-i18n="com.code.t">Pick a first issue</h3><p data-i18n="com.code.d">Kotlin, Java, Compose, web — there's something for you.</p></a>
+    <a class="card way reveal" href="https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose"><i>🐞</i><h3 data-i18n="com.bug.t">Report a bug</h3><p data-i18n="com.bug.d">Use Send log in the app, then open an issue.</p></a>
+  </div>
+  <h3 class="center reveal" data-i18n="com.contributors">Contributors</h3>
+  <div class="contributors reveal" id="contributors">
+    <a href="https://github.com/fk0u/cleanyourtv-tahoe/graphs/contributors"><img src="https://contrib.rocks/image?repo=fk0u/cleanyourtv-tahoe" alt="Contributors" loading="lazy"></a>
+  </div>
+  <p class="center reveal"><a class="btn ghost small" href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/CONTRIBUTING.md" id="contrib-link" data-i18n="com.guide">Contributing guide</a></p>
+</section>
+
+<section id="faq" class="section narrow">
+  <h2 class="reveal" data-i18n="faq.title">Questions</h2>
+  <details class="reveal"><summary data-i18n="faq.q1">Is it really free?</summary><p data-i18n="faq.a1">Yes. No ads, no account, no subscription. The code is MIT-licensed open source.</p></details>
+  <details class="reveal"><summary data-i18n="faq.q2">Which TVs work?</summary><p data-i18n="faq.a2">Android TV 8.0 or newer, including cheap sticks like the Mi TV Stick (1 GB RAM). Google TV and webOS are on the roadmap.</p></details>
+  <details class="reveal"><summary data-i18n="faq.q3">Do I need root?</summary><p data-i18n="faq.a3">No. The phone app installs Tahoe over Wi-Fi using the TV's own debugging switch, and can restore the TV.</p></details>
+  <details class="reveal"><summary data-i18n="faq.q4">Where do the channels come from?</summary><p data-i18n="faq.a4">From free, public playlists such as iptv-org. Tahoe hosts nothing and never includes paid or DRM channels. You can add your own playlist too.</p></details>
+  <details class="reveal"><summary data-i18n="faq.q5">Is my country supported?</summary><p data-i18n="faq.a5">Indonesia has the most channels today. Every country is coming (#71); meanwhile you can add an iptv-org country playlist as your own playlist.</p></details>
+  <details class="reveal"><summary data-i18n="faq.q6">Is it safe?</summary><p data-i18n="faq.a6">Phone ↔ TV control works only on your home network, and each phone needs a one-time pairing code. Security reports go through private GitHub advisories.</p></details>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="brand"><img src="assets/logo-mark.svg" alt="" width="22" height="22"><span>Tahoe TV</span></div>
+  <p data-i18n="foot.made">Made in Indonesia, for everyone. MIT license.</p>
+  <p class="links">
+    <a href="https://github.com/fk0u/cleanyourtv-tahoe">GitHub</a> ·
+    <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases">Releases</a> ·
+    <a href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/CHANGELOG.md">Changelog</a> ·
+    <a href="https://github.com/fk0u/cleanyourtv-tahoe/security/advisories/new" data-i18n="foot.security">Report a security issue</a>
+  </p>
+  <p class="fine" data-i18n="foot.fine">Not an Apple product. “tvOS”, “macOS” and “Liquid Glass” are trademarks of Apple Inc. Tahoe hosts no streams.</p>
+</footer>
+
+<script src="assets/i18n.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
