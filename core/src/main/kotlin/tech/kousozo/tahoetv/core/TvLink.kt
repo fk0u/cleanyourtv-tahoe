@@ -60,7 +60,11 @@ class TvLink(val host: String, private val token: String, private val onState: (
         /** POST /pair with the 6-digit code shown on the TV. Returns the token, or throws with the TV's error. Blocks. */
         fun pair(host: String, code: String): String {
             val res = JSONObject(runCatching { Web.request("POST", "http://$host:8765/pair", JSONObject().put("code", code).toString(), 5000) }
-                .getOrElse { throw java.io.IOException(if ("HTTP 4" in "${it.message}") "Kode salah atau kedaluwarsa" else "Tidak bisa menghubungi TV") })
+                .getOrElse { throw java.io.IOException(when {
+                    "HTTP 429" in "${it.message}" -> "Terlalu banyak percobaan. Tunggu sebentar, atau tekan OK di layar Hubungkan HP di TV untuk kode baru"
+                    "HTTP 4" in "${it.message}" -> "Kode salah atau kedaluwarsa"
+                    else -> "Tidak bisa menghubungi TV"
+                }) })
             return res.optString("token").ifEmpty { throw java.io.IOException(res.optString("error", "Gagal")) }
         }
 

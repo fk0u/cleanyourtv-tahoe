@@ -5,7 +5,12 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## 3.0.2
 
+### Keamanan
+- **Pairing HP ↔ TV lebih aman:** kode 6 digit kini kedaluwarsa setelah 10 menit, dan beberapa kode salah berturut-turut membuat pairing dikunci sementara (waktunya bertambah tiap kali). Tekan **OK** di layar Hubungkan HP untuk kode baru dan membuka kunci.
+- **Server IPTV desktop** (aplikasi dan `tools/iptv_server.py`) hanya meneruskan alamat siaran yang ia tulis sendiri ke playlist, dan dashboard web tidak lagi menampilkan teks dari playlist sebagai HTML.
+
 ### Perbaikan
+- `tools/iptv_server.py`: setiap respons error (404/403/502) dulu membuat server memutus koneksi tanpa jawaban; sekarang dijawab dengan benar.
 - **Desktop: hanya sekitar seperempat saluran yang terdeteksi LIVE.** Pengecekan status semua saluran dihentikan paksa setelah ±10 detik, padahal butuh sekitar setengah menit. Sekitar tiga perempat saluran tidak pernah mendapat status: tertahan di "Memeriksa koneksi…", hilang dari filter LIVE, dan pemutar tidak tahu sumber mana yang hidup. Sebagian hasil juga hilang karena ditulis bersamaan dari banyak thread. Sekarang setiap saluran selesai dicek: di Mac uji, saluran dengan sumber LIVE naik dari 240 menjadi 732 dari 942.
 - **Desktop: playlist terkompresi.** Beberapa server siaran, di antaranya CNBC/detik untuk Trans TV dan Trans7, mengirim playlist dalam bentuk terkompresi (gzip) walau tidak diminta. Pemutar TV dan HP membukanya otomatis, tetapi app desktop membacanya mentah. Akibatnya playlist rusak: saluran gagal diputar dan ditandai OFFLINE. Sekarang playlist dibuka dengan benar di pemutar desktop, pengecek status, server IPTV LAN, dan perekam.
 - **Header Referer/Origin bertanda kutip** dari playlist (misalnya `"https://20.detik.com/"`) kini dikirim tanpa tanda kutip, sehingga server tidak lagi menolak sumber tersebut.
