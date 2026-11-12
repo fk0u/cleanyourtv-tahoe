@@ -51,9 +51,14 @@ object IptvServer {
     /** The server's id for a stream URL (for the web player), or null if it isn't in the list. */
     fun idFor(url: String): String? = idByUrl[url]
 
-    /** Starts the server if needed (on the configured port, or any free port if that one is taken); returns the port. */
+    /** The playlist setting the channel list was loaded for (null = custom files, e.g. tests). */
+    @Volatile private var loadedFor: String? = null
+
+    /** Starts the server if needed (on the configured port, or any free port if that one is taken), and reloads the
+     *  channel list if the playlist setting changed since; returns the port. Blocks: call off the UI thread. */
     @Synchronized fun ensureRunning(): Int {
         if (!isRunning.value) runCatching { start(Settings.iptvPort) }.onFailure { runCatching { start(0) } }
+        else if (loadedFor != null && loadedFor != Settings.playlist) loadPlaylists(emptyList())
         return port.value
     }
     private val executor = Executors.newFixedThreadPool(16)
@@ -170,7 +175,7 @@ object IptvServer {
         // (no koutv.m3u) the server, the dashboard, the LAN playlist and the web player had 0 channels.
         val groups: List<Pair<String, List<M3u.Channel>>> =
             if (customFiles.isNotEmpty()) filesToLoad.filter { it.isFile }.map { f -> f.name to runCatching { M3u.load(f.absolutePath) }.getOrDefault(emptyList()) }
-            else listOf("Tahoe" to runCatching { Sources.loadAll(Settings.playlist) }.getOrDefault(emptyList()))
+            else listOf("Tahoe" to runCatching { Sources.loadAll(Settings.playlist) }.getOrDefault(emptyList())).also { loadedFor = Settings.playlist }
         for ((sourceName, list) in groups) {
             if (list.isEmpty()) continue
 
@@ -213,6 +218,7 @@ object IptvServer {
             when {
                 path == "/" || path == "/index.html" -> serveDashboard(ex)
                 path == "/watch" -> serveWatch(ex, query)
+                path == "/api/watch" -> serveWatchApi(ex, query)
                 path == "/playlist.m3u" || path == "/all.m3u" -> servePlaylist(ex, query)
                 path.endsWith(".m3u") && loadedSources.any { path == "/$it" } -> servePlaylist(ex, query, path.removePrefix("/"))
                 path == "/epg.xml" -> serveEpg(ex)
@@ -572,13 +578,28 @@ object IptvServer {
         ex.responseBody.use { it.write(body) }
     }
 
+    /** The web player's session with the app (see [WebPlayer]): GET = what to play now; POST = the page's reports
+     *  (event=playing|failed|closed for session s, or zap=±1). This computer only, and only from this server's own page
+     *  (or no Origin): another site in the browser can't drive it. */
+    private fun serveWatchApi(ex: HttpExchange, query: Map<String, String>) {
+        val origin = ex.requestHeaders.getFirst("Origin")
+        val ownPage = origin == null || origin == "http://127.0.0.1:${port.value}" || origin == "http://localhost:${port.value}"
+        if (!fromThisComputer(ex) || !ownPage) return sendJson(ex, 403, JSONObject().put("error", "forbidden"))
+        if (ex.requestMethod.equals("POST", true)) {
+            query["zap"]?.toIntOrNull()?.let { WebPlayer.zap(it.coerceIn(-1, 1)) }
+            query["event"]?.let { WebPlayer.report(query["s"]?.toIntOrNull() ?: -1, it, query["msg"]) }
+            return sendJson(ex, 200, JSONObject().put("ok", true))
+        }
+        sendJson(ex, 200, WebPlayer.state())
+    }
+
     /** One channel, full window, for the web player (Windows, where JavaFX can't play HLS): hls.js plays the server's
-     *  relay of each source in turn (`ids`, main stream first), moving on when one fails or doesn't start in 20 s. */
+     *  relay of each source in turn, moving on when one fails or doesn't start in 20 s; follows the app's session. */
     private fun serveWatch(ex: HttpExchange, query: Map<String, String>) {
         val ids = query["ids"].orEmpty().split(",").map { it.trim() }.filter { byId.containsKey(it) }
         val title = query["t"].orEmpty().ifBlank { ids.firstOrNull()?.let { byId[it]?.channel?.name } ?: "Tahoe TV" }
-        val idsJson = JSONArray(ids).toString()
-        val html = WATCH_HTML.replace("__TITLE__", esc(title)).replace("__IDS__", esc(idsJson))
+        val html = WATCH_HTML.replace("__TITLE__", esc(title)).replace("__IDS__", esc(JSONArray(ids).toString()))
+            .replace("__SEQ__", (query["s"]?.toIntOrNull() ?: -1).toString())
         val body = html.toByteArray(Charsets.UTF_8)
         ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
         ex.responseHeaders.add("Cache-Control", "no-store")
@@ -593,65 +614,86 @@ object IptvServer {
 <style>
   html,body{margin:0;height:100%;background:#000;color:#f5f5f7;font-family:"Segoe UI",-apple-system,system-ui,sans-serif;overflow:hidden}
   video{position:fixed;inset:0;width:100%;height:100%;background:#000}
-  #top{position:fixed;left:0;right:0;top:0;padding:18px 22px;display:flex;align-items:center;gap:10px;background:linear-gradient(#000a,#0000);transition:opacity .4s}
+  #top{position:fixed;left:0;right:0;top:0;padding:14px 18px;display:flex;align-items:center;gap:10px;background:linear-gradient(#000b,#0000);transition:opacity .4s;z-index:2}
   .live{background:#ff453a;color:#fff;font-weight:700;font-size:12px;padding:2px 7px;border-radius:5px}
   #name{font-weight:600;font-size:17px}
   #fmt{margin-left:auto;font:12px ui-monospace,Consolas,monospace;opacity:.75}
-  #veil{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#07080dcc;transition:opacity .3s}
-  #veil.hide{opacity:0;pointer-events:none}
+  .btn{background:#ffffff26;color:#fff;border:0;border-radius:99px;padding:7px 13px;font-size:14px;cursor:pointer}
+  .btn:hover{background:#ffffff40}
+  #veil{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#07080dcc;transition:opacity .3s;z-index:1;pointer-events:none}
+  #veil.hide{opacity:0}
   .spin{width:34px;height:34px;border:3px solid #fff3;border-top-color:#fff;border-radius:50%;animation:s 1s linear infinite}
   @keyframes s{to{transform:rotate(360deg)}}
   #msg{max-width:520px;text-align:center;font-size:15px;line-height:1.5;opacity:.9}
-  #sound{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:none;background:#f5f5f7;color:#111;border:0;border-radius:99px;padding:10px 18px;font-weight:600;cursor:pointer}
+  #sound{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);display:none;background:#f5f5f7;color:#111;border:0;border-radius:99px;padding:10px 18px;font-weight:600;cursor:pointer;z-index:3}
   .idle #top{opacity:0}
 </style></head><body>
-<video id="v" playsinline></video>
-<div id="top"><span class="live">LIVE</span><span id="name">__TITLE__</span><span id="fmt"></span></div>
+<video id="v" playsinline controls></video>
+<div id="top"><span class="live">LIVE</span><span id="name">__TITLE__</span>
+  <button class="btn" id="prev" title="Saluran sebelumnya (↑)">◀</button><button class="btn" id="next" title="Saluran berikutnya (↓)">▶</button>
+  <span id="fmt"></span></div>
 <div id="veil"><div class="spin" id="spin"></div><div id="msg">Memuat __TITLE__…</div></div>
 <button id="sound">🔊 Klik untuk menyalakan suara</button>
 <script>
-const ids = JSON.parse("__IDS__".replace(/&quot;/g,'"'));
-const qs = new URLSearchParams(location.search);
-const maxH = parseInt(qs.get('q') || '0', 10) || 0;          // quality cap (0 = automatic)
-const lat = Math.min(60, Math.max(4, parseInt(qs.get('lat') || '20', 10) || 20)); // seconds behind live
 const v = document.getElementById('v'), veil = document.getElementById('veil'), msg = document.getElementById('msg'), spin = document.getElementById('spin');
-let i = 0, hls = null, timer = null;
-function fail(t){ spin.style.display='none'; msg.textContent=t; veil.classList.remove('hide'); }
+let ids = JSON.parse("__IDS__".replace(/&quot;/g,'"')), seq = __SEQ__, maxH = 0, lat = 20, i = 0, hls = null, timer = null, reported = false, session = false;
+function post(q){ return fetch('/api/watch?' + q, { method: 'POST' }).catch(() => {}); }
+function fail(t){ spin.style.display='none'; msg.textContent=t; veil.classList.remove('hide'); post('event=failed&s=' + seq + '&msg=' + encodeURIComponent(t)); }
 function next(){ i++; start(); }
+function tryPlay(){
+  v.play().catch(() => { v.muted = true; v.play().catch(()=>{}); document.getElementById('sound').style.display='block'; });
+}
 function start(){
-  clearTimeout(timer);
-  if (i >= ids.length) { fail('Saluran ini sedang tidak bisa diputar. Tutup jendela ini dan coba saluran lain.'); return; }
+  clearTimeout(timer); reported = false;
+  if (hls) { hls.destroy(); hls = null; }
+  if (i >= ids.length) { fail('Saluran ini sedang tidak bisa diputar. Coba saluran lain (◀ ▶).'); return; }
   spin.style.display=''; msg.textContent='Memuat…'; veil.classList.remove('hide');
   const src = '/live/' + encodeURIComponent(ids[i]) + '.m3u8';
-  if (hls) { hls.destroy(); hls = null; }
   if (window.Hls && Hls.isSupported()) {
     hls = new Hls({ liveSyncDuration: lat, liveMaxLatencyDuration: lat * 3, enableWorker: true });
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      if (!maxH) return;
-      let cap = -1, smallest = 0;
-      hls.levels.forEach((l, k) => { if (l.height && l.height <= maxH && (cap < 0 || l.height >= hls.levels[cap].height)) cap = k;
-                                     if ((l.height || 1e9) < (hls.levels[smallest].height || 1e9)) smallest = k; });
-      hls.autoLevelCapping = cap >= 0 ? cap : smallest;
-    });
     hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) { if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError(); else next(); } });
+    // start playing once the manifest is in (calling play() earlier can be rejected before there's a source)
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      if (maxH) {
+        let cap = -1, smallest = 0;
+        hls.levels.forEach((l, k) => { if (l.height && l.height <= maxH && (cap < 0 || l.height >= hls.levels[cap].height)) cap = k;
+                                       if ((l.height || 1e9) < (hls.levels[smallest].height || 1e9)) smallest = k; });
+        hls.autoLevelCapping = cap >= 0 ? cap : smallest;
+      }
+      tryPlay();
+    });
     hls.on(Hls.Events.LEVEL_SWITCHED, (e, d) => { const l = hls.levels[d.level]; if (l) document.getElementById('fmt').textContent = (l.height ? l.height + 'p · ' : '') + (l.videoCodec || '').split('.')[0].replace('avc1','H.264').replace('hvc1','H.265'); });
     hls.loadSource(src); hls.attachMedia(v);
-  } else { v.src = src; }
-  const p = v.play();
-  if (p) p.catch(() => { v.muted = true; v.play().catch(()=>{}); document.getElementById('sound').style.display='block'; });
+  } else { v.src = src; v.addEventListener('loadedmetadata', tryPlay, { once: true }); }
   timer = setTimeout(() => { if (v.readyState < 3) next(); }, 20000);
 }
-v.addEventListener('playing', () => { clearTimeout(timer); veil.classList.add('hide'); });
-v.addEventListener('error', () => next());
+function load(s){ session = true; seq = s.seq; ids = s.ids; maxH = s.q || 0; lat = Math.min(60, Math.max(4, s.lat || 20)); i = 0;
+  document.getElementById('name').textContent = s.title; document.title = s.title + ' — Tahoe TV'; start(); }
+// follow the app: a new channel replaces this one; Stop stops and closes the window
+async function poll(){
+  try {
+    const s = await (await fetch('/api/watch', { cache: 'no-store' })).json();
+    if (s.stopped && session) { if (hls) { hls.destroy(); hls = null; } v.pause(); v.removeAttribute('src'); fail('Pemutar dihentikan.'); window.close(); }
+    else if (!s.stopped && s.seq !== seq && s.ids.length) load(s);
+  } catch (e) {}
+}
+v.addEventListener('playing', () => { clearTimeout(timer); veil.classList.add('hide'); if (!reported) { reported = true; post('event=playing&s=' + seq); } });
+v.addEventListener('error', () => { if (!hls) next(); });
 document.getElementById('sound').onclick = (e) => { v.muted = false; e.target.style.display='none'; };
+document.getElementById('prev').onclick = () => post('zap=-1');
+document.getElementById('next').onclick = () => post('zap=1');
 let idle; document.addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idle); idle = setTimeout(()=>document.body.classList.add('idle'), 3000); });
 document.addEventListener('keydown', (e) => {
   if (e.key === ' ') { v.paused ? v.play() : v.pause(); e.preventDefault(); }
   if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
   if (e.key === 'm' || e.key === 'M') { v.muted = !v.muted; }
+  if (e.key === 'ArrowUp' || e.key === 'PageUp') { post('zap=-1'); e.preventDefault(); }
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') { post('zap=1'); e.preventDefault(); }
 });
-v.addEventListener('dblclick', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); });
-start();
+window.addEventListener('pagehide', () => navigator.sendBeacon('/api/watch?event=closed&s=' + seq));
+fetch('/api/watch', { cache: 'no-store' }).then(r => r.json()).then(s => { if (s.ids && s.ids.length && !s.stopped) load(s); else if (ids.length) start(); else fail('Tidak ada saluran yang dipilih.'); })
+  .catch(() => { if (ids.length) start(); });
+setInterval(poll, 1500);
 </script></body></html>"""
 
     /** Text from playlists (third-party files) goes into this page: escaped, never trusted as HTML. */

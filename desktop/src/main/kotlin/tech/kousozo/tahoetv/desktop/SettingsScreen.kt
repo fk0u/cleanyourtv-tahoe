@@ -86,7 +86,7 @@ fun SettingsScreen() {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (!isRunning) {
                 GhostButton("Nyalakan Server IPTV", Icons.Rounded.PlayArrow, color = Tahoe.Good) {
-                    IptvServer.start(Settings.iptvPort)
+                    Thread { runCatching { IptvServer.start(Settings.iptvPort) } }.start() // network load: off the UI thread
                 }
             } else {
                 GhostButton("Matikan Server", Icons.Rounded.Stop, color = Tahoe.Bad) {
