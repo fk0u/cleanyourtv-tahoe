@@ -10,8 +10,14 @@ import org.json.JSONObject
 class IptvServerTest {
     @Test
     fun testServerLifecycleAndEndpoints() {
+        // Its own small playlist, so the test doesn't depend on a koutv.m3u lying around in the working directory
+        val playlist = java.io.File.createTempFile("test-channels", ".m3u").apply {
+            deleteOnExit()
+            writeText("#EXTM3U\n#EXTINF:-1 group-title=\"Nasional\",Test Satu\nhttp://127.0.0.1:9/satu/index.m3u8\n" +
+                "#EXTINF:-1 group-title=\"Berita\",Test Dua\nhttp://127.0.0.1:9/dua/index.m3u8\n")
+        }
         // Start server on an open port
-        IptvServer.start(bindPort = 8997)
+        IptvServer.start(bindPort = 8997, customFiles = listOf(playlist.path))
         assertTrue(IptvServer.isRunning.value)
         assertTrue(IptvServer.channelCount.value > 0)
 

@@ -148,6 +148,7 @@ object PlayerWindow {
 
     /** Playing: hide the loader and any error. Only real failures ever reach the app window (no "loading…" chatter). */
     private fun playingNow() {
+        tech.kousozo.tahoetv.core.DiagLog.add("live", "gambar tampil")
         loading(false); statusLabel.isVisible = false; nextBtn.isVisible = false; nextBtn.isManaged = false; webBtn.isVisible = false; webBtn.isManaged = false
         restoreBtn.isVisible = false; restoreBtn.isManaged = false
         SwingUtilities.invokeLater { onStatus(null) }
@@ -155,6 +156,7 @@ object PlayerWindow {
 
     /** Dead end: say why, offer the next channel and the browser Web Player. */
     private fun fail(msg: String, offerWeb: Boolean = true) {
+        tech.kousozo.tahoetv.core.DiagLog.add("live", "${titleLabel.text} gagal: $msg")
         loading(false)
         statusLabel.text = msg; statusLabel.isVisible = true
         nextBtn.isVisible = true; nextBtn.isManaged = true; webBtn.isVisible = offerWeb; webBtn.isManaged = offerWeb
@@ -216,6 +218,7 @@ object PlayerWindow {
 
     private fun begin(streams: List<M3u.Channel>, i: Int, gen: Int, retry: Int, c: M3u.Channel, next: () -> Unit) {
         if (gen != generation) return
+        tech.kousozo.tahoetv.core.DiagLog.add("live", "${titleLabel.text} sumber ${i + 1}/${streams.size}" + (if (retry > 0) " (ulang $retry)" else "") + " ${c.url}")
         var lastTime = -1.0
         val isVod = LocalTv.isVod(c)
         // A source that already played and then errors/freezes reconnects (up to 3×) before moving to the backup.
@@ -226,7 +229,7 @@ object PlayerWindow {
         // Events from a player that was already replaced (disposal runs in the background) must not touch the new one.
         val current = { gen == generation && player === p }
         p.setOnPlaying { if (current() && (p.media.width > 0 || p.media.tracks.any { it is javafx.scene.media.VideoTrack })) { SourceHealth.report(c.url, true); playingNow() } }
-        p.setOnError { if (current()) recover() }
+        p.setOnError { if (current()) { tech.kousozo.tahoetv.core.DiagLog.error("live", "JavaFX: ${p.error?.type} ${p.error?.message}"); recover() } }
         // A live channel that reaches its end is a finished recording: restarting it just plays it from the top again.
         p.setOnEndOfMedia { if (!isVod && current()) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; next() } }
         p.play()
