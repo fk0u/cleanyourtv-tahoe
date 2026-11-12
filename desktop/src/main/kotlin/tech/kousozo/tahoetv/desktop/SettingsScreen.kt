@@ -136,7 +136,9 @@ private fun SendLog() {
             }.getOrElse { "Gagal menyimpan log: ${it.message}" }
         }
         GhostButton("Laporkan di GitHub", Icons.Rounded.OpenInBrowser) {
-            runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI("https://github.com/${tech.kousozo.tahoetv.core.Updates.REPO}/issues/new")) }
+            val url = "https://github.com/${tech.kousozo.tahoetv.core.Updates.REPO}/issues/new"
+            runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
+                .onFailure { saved = "Browser tidak bisa dibuka. Buka sendiri: $url" }
         }
     }
     saved?.let { Text(it, color = Tahoe.Dim, fontSize = 13.sp) }

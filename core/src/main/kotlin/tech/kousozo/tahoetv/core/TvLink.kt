@@ -71,7 +71,8 @@ class TvLink(val host: String, private val token: String, private val onState: (
         /** Sets a new 4-digit PIN for the TV's kids profile (forgotten PIN). Only a paired phone holds the token. Blocks. */
         fun setKidsPin(host: String, token: String, pin: String) {
             require(pin.matches(Regex("\\d{4}"))) { "PIN harus 4 angka" }
-            runCatching { Web.request("POST", "http://${host.trim()}:8765/kids_pin?token=" + java.net.URLEncoder.encode(token, "UTF-8") + "&pin=$pin", "", 8000) }
+            // the PIN goes in the body, not the URL (URLs end up in logs)
+            runCatching { Web.request("POST", "http://${host.trim()}:8765/kids_pin?token=" + java.net.URLEncoder.encode(token, "UTF-8"), JSONObject().put("pin", pin).toString(), 8000) }
                 .getOrElse { throw java.io.IOException(if ("HTTP 401" in "${it.message}") "HP ini belum dipasangkan dengan TV" else "Tidak bisa menghubungi TV") }
         }
     }

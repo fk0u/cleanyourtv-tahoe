@@ -16,7 +16,9 @@ object DiagLog {
     private val lines = ArrayDeque<String>()
     private var file: File? = null
     private val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-    private val URL = Regex("""(https?|rtmp|rtsp|wss?)://([^\s/?#@]*@)?([^\s/?#]+)([^\s?#]*)(\?[^\s#]*)?(#\S*)?""")
+    /** Any URI scheme (RFC 3986: letter, then letters/digits/+/./-), any case. */
+    private val URL = Regex("""([A-Za-z][A-Za-z0-9+.\-]*)://([^\s/?#@]*@)?([^\s/?#]+)([^\s?#]*)(\?[^\s#]*)?(#\S*)?""")
+    private var savedAt = 0L
 
     /** Loads what the previous run left (so a crash report survives the restart) and logs uncaught exceptions. */
     @JvmStatic @Synchronized fun install(f: File) {
@@ -35,20 +37,25 @@ object DiagLog {
     @JvmStatic @Synchronized fun add(tag: String, msg: String) {
         lines.addLast("${time.format(Date())} [$tag] ${redact(msg).replace('\n', ' ').take(600)}")
         while (lines.size > MAX) lines.removeFirst()
-        if (tag == "error" || tag == "crash") save() // the ones worth keeping across a crash
+        // errors and crashes are written at once; ordinary events at most every 10 s, so a restart keeps them too
+        val now = System.currentTimeMillis()
+        if (tag == "error" || tag == "crash" || now - savedAt > 10_000) save()
     }
 
     @JvmStatic fun error(tag: String, msg: String, e: Throwable? = null) =
         add("error", "$tag: $msg" + (e?.let { " — ${it.javaClass.simpleName}: ${it.message}" } ?: ""))
 
-    @JvmStatic @Synchronized fun save() { file?.let { f -> runCatching { f.parentFile?.mkdirs(); f.writeText(lines.joinToString("\n")) } } }
+    @JvmStatic @Synchronized fun save() {
+        savedAt = System.currentTimeMillis()
+        file?.let { f -> runCatching { f.parentFile?.mkdirs(); f.writeText(lines.joinToString("\n")) } }
+    }
 
     @JvmStatic @Synchronized fun text(): String = lines.joinToString("\n")
 
     @JvmStatic @Synchronized fun clear() { lines.clear(); save() }
 
     /** The text to send: a header with the app and device, then the log (newest last). */
-    @JvmStatic fun report(app: String, version: String, device: Map<String, String> = emptyMap(), extra: String = ""): String = buildString {
+    @JvmStatic @Synchronized fun report(app: String, version: String, device: Map<String, String> = emptyMap(), extra: String = ""): String = buildString {
         appendLine("== $app $version ==")
         appendLine("Waktu: ${time.format(Date())} (${java.util.TimeZone.getDefault().id})")
         device.forEach { (k, v) -> appendLine("$k: $v") }

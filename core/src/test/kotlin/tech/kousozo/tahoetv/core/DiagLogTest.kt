@@ -31,10 +31,17 @@ class DiagLogTest {
         assertTrue("Perangkat: Test" in r && "[live] hello" in r)
     }
 
-    @Test fun errorsSurviveARestart() {
+    @Test fun previousRunSurvivesARestartAndNewEventsAreSaved() {
         val f = File.createTempFile("diag", ".log").apply { deleteOnExit() }
         f.writeText("2026-01-01 00:00:00 [error] earlier crash")
-        // install() only runs once per process; read the file the way it does
-        assertTrue(f.readLines().last().contains("earlier crash"))
+        DiagLog.install(f)                       // the only install in this test JVM
+        assertTrue("earlier crash" in DiagLog.text())
+        DiagLog.error("live", "boom")            // errors are written right away
+        assertTrue("boom" in f.readText())
+    }
+
+    @Test fun redactsAnySchemeInAnyCase() {
+        assertEquals("HTTPS://cdn.example/a.m3u8?…", DiagLog.redact("HTTPS://cdn.example/a.m3u8?token=x"))
+        assertEquals("srt://relay.example:9000?…", DiagLog.redact("srt://user:pw@relay.example:9000?passphrase=x"))
     }
 }

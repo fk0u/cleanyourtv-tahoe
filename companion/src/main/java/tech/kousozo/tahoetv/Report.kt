@@ -23,6 +23,13 @@ object Report {
         "TV dipasangkan" to if (Sync.prefs(c).getString("token", "").isNullOrEmpty()) "tidak" else "ya",
     ))
 
+    /** Keeps the header (first lines up to the log) and the newest part of the log. */
+    private fun cap(r: String, max: Int): String {
+        if (r.length <= max) return r
+        val head = r.substringBefore("-- log", r.take(2000)).take(4000)
+        return head + "-- log (dipotong, baris terbaru saja) --\n" + r.takeLast(max - head.length - 60)
+    }
+
     fun ffmpeg(): String = runCatching {
         if (androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable()) "tersedia (${androidx.media3.decoder.ffmpeg.FfmpegLibrary.getVersion()})" else "tidak tersedia"
     }.getOrDefault("tidak tersedia")
@@ -39,7 +46,8 @@ object Report {
             val tv = if (host.isEmpty() || token.isEmpty()) { note = "HP belum dipasangkan dengan TV: hanya log HP yang dikirim."; "" }
                 else runCatching { TvLink.fetchLog(host, token) }.getOrElse { note = "TV tidak bisa dihubungi: hanya log HP yang dikirim."; "" }
             // the share sheet carries text; keep it well under Android's ~1 MB limit for an intent
-            val text = (phone(app) + (if (tv.isNotEmpty()) "\n\n$tv" else "")).takeLast(200_000)
+            // each report capped on its own (keeping its header), so a long TV log can't push the phone's out
+            val text = cap(phone(app), 80_000) + (if (tv.isNotEmpty()) "\n\n" + cap(tv, 120_000) else "")
             Handler(Looper.getMainLooper()).post {
                 val send = Intent(Intent.ACTION_SEND).setType("text/plain")
                     .putExtra(Intent.EXTRA_SUBJECT, "Log Tahoe TV")

@@ -156,7 +156,7 @@ object PlayerWindow {
 
     /** Dead end: say why, offer the next channel and the browser Web Player. */
     private fun fail(msg: String, offerWeb: Boolean = true) {
-        tech.kousozo.tahoetv.core.DiagLog.add("live", "gagal: $msg")
+        tech.kousozo.tahoetv.core.DiagLog.add("live", "${titleLabel.text} gagal: $msg")
         loading(false)
         statusLabel.text = msg; statusLabel.isVisible = true
         nextBtn.isVisible = true; nextBtn.isManaged = true; webBtn.isVisible = offerWeb; webBtn.isManaged = offerWeb
@@ -218,7 +218,7 @@ object PlayerWindow {
 
     private fun begin(streams: List<M3u.Channel>, i: Int, gen: Int, retry: Int, c: M3u.Channel, next: () -> Unit) {
         if (gen != generation) return
-        tech.kousozo.tahoetv.core.DiagLog.add("live", "sumber ${i + 1}/${streams.size}" + (if (retry > 0) " (ulang $retry)" else "") + " ${c.url}")
+        tech.kousozo.tahoetv.core.DiagLog.add("live", "${titleLabel.text} sumber ${i + 1}/${streams.size}" + (if (retry > 0) " (ulang $retry)" else "") + " ${c.url}")
         var lastTime = -1.0
         val isVod = LocalTv.isVod(c)
         // A source that already played and then errors/freezes reconnects (up to 3×) before moving to the backup.
