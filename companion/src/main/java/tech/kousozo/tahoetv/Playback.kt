@@ -180,7 +180,7 @@ object Playback {
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
             .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/3.0.2").setDefaultRequestProperties(s.headers - "User-Agent")
         p.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.Builder().setUri(Uri.parse(s.url))
-            // ~20 s behind live: a cushion against slow pieces; clamped to what the stream keeps
+            // behind live by the chosen latency (default ~20 s): a cushion against slow pieces; clamped to what the stream keeps
             .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(latency.offsetMs).build()).build()))
         p.prepare(); p.play()
         ui.postDelayed({ // never started → next source

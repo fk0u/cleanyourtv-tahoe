@@ -26,6 +26,12 @@ object PlayPrefs {
     @JvmStatic fun next(q: Quality, dir: Int) = Quality.entries[((q.ordinal + dir) % Quality.entries.size + Quality.entries.size) % Quality.entries.size]
     @JvmStatic fun next(l: Latency, dir: Int) = Latency.entries[((l.ordinal + dir) % Latency.entries.size + Latency.entries.size) % Latency.entries.size]
 
+    private val CODECS = Regex("""CODECS="([^"]*)"""")
+    private val VIDEO = Regex("""^(avc|hvc|hev|vp0?[89]|av01|mp4v|dvh)""")
+    private fun isAudioOnly(inf: String): Boolean {
+        val codecs = CODECS.find(inf)?.groupValues?.get(1)?.split(',')?.map { it.trim().lowercase() } ?: return false
+        return codecs.isNotEmpty() && codecs.none { VIDEO.containsMatchIn(it) }
+    }
     private val RES = Regex("""RESOLUTION=\d+x(\d+)""")
 
     /** A master playlist limited to [maxHeight]: keeps the variants at or under it (or the smallest one if none fit), so
@@ -41,8 +47,10 @@ object PlayPrefs {
         if (variants.isEmpty()) return text
         val known = variants.filter { it.h > 0 }
         if (known.isEmpty()) return text // no resolutions given: can't tell, leave it to the player
-        // variants without a resolution are dropped too once others have one: they could be any size
-        val keep = known.filter { it.h <= maxHeight }.ifEmpty { listOf(known.minBy { it.h }) }.toSet()
+        // variants without a resolution are dropped too once others have one (they could be any size), except
+        // audio-only ones (CODECS without a video codec): those have no size to cap
+        val audioOnly = variants.filter { it.h == 0 && isAudioOnly(lines[it.inf]) }
+        val keep = (known.filter { it.h <= maxHeight }.ifEmpty { listOf(known.minBy { it.h }) } + audioOnly).toSet()
         val drop = (variants - keep).flatMap { listOf(it.inf, it.uri) }.toSet()
         return lines.filterIndexed { i, _ -> i !in drop }.joinToString("\n")
     }

@@ -24,6 +24,8 @@ object WebPlayer {
     @Volatile private var title = ""
     @Volatile private var stopped = true
     @Volatile private var lastPoll = 0L
+    /** Bumped by every open and Stop: an open still starting the server when Stop is pressed sees it and gives up. */
+    private val request = java.util.concurrent.atomic.AtomicInteger()
     private var onSwitch: (Int) -> Unit = {}
     private var onStatus: (String?) -> Unit = {}
 
@@ -32,13 +34,21 @@ object WebPlayer {
 
     /** Plays [streams] (main stream first, then backups) in the web player. HLS only: DASH/DRM sources are skipped (the
      *  dashboard's Shaka player handles those). Returns an error text, or null when the page has it. Blocks (server start). */
-    @Synchronized fun open(streams: List<M3u.Channel>, title: String, onSwitch: (Int) -> Unit, onStatus: (String?) -> Unit): String? {
+    fun open(streams: List<M3u.Channel>, title: String, onSwitch: (Int) -> Unit, onStatus: (String?) -> Unit): String? {
+        val mine = request.incrementAndGet()
         val hls = streams.filter { !it.drm && !it.url.substringBefore('?').endsWith(".mpd", true) }
-        if (hls.isEmpty()) return "Saluran ini memakai DASH/DRM. Tonton di Web Player server (Setelan → Server IPTV)."
-        val port = IptvServer.ensureRunning()
-        if (!IptvServer.isRunning.value) return "Server pemutar tidak bisa dijalankan."
-        val found = hls.mapNotNull { IptvServer.idFor(it.url) }.distinct()
-        if (found.isEmpty()) return "Saluran ini tidak ada di daftar server."
+        if (hls.isEmpty()) { stop(); return "Saluran ini memakai DASH/DRM. Tonton di Web Player server (Setelan → Server IPTV)." }
+        val port = IptvServer.ensureRunning() // slow the first time (loads the channel list): not under this object's lock
+        return synchronized(this) {
+            if (request.get() != mine) return null // Stop (or another channel) came while the server was starting
+            if (!IptvServer.isRunning.value) { stop(); return "Server pemutar tidak bisa dijalankan." }
+            val found = hls.mapNotNull { IptvServer.idFor(it.url) }.distinct()
+            if (found.isEmpty()) { stop(); return "Saluran ini tidak ada di daftar server." }
+            show(found, title, onSwitch, onStatus, port)
+        }
+    }
+
+    private fun show(found: List<String>, title: String, onSwitch: (Int) -> Unit, onStatus: (String?) -> Unit, port: Int): String? {
         this.onSwitch = onSwitch; this.onStatus = onStatus
         ids = found; this.title = title; stopped = false; seq++
         DiagLog.add("live", "$title → web player (${found.size} sumber)")
@@ -54,7 +64,7 @@ object WebPlayer {
     }
 
     /** Stop: the page stops playing and closes itself. */
-    fun stop() { if (!stopped) { stopped = true; seq++ } }
+    @Synchronized fun stop() { request.incrementAndGet(); if (!stopped) { stopped = true; seq++ } }
 
     // ------------------------------------------------------------------ the page's side (via IptvServer /api/watch)
 
@@ -66,16 +76,19 @@ object WebPlayer {
 
     /** The page reports for session [s]: "playing", "failed" (with [msg]) or "closed". Older sessions are ignored. */
     fun report(s: Int, event: String, msg: String?) {
-        if (s != seq) return
-        when (event) {
-            "playing" -> SwingUtilities.invokeLater { onStatus(null) }
-            "failed" -> SwingUtilities.invokeLater { onStatus(msg?.take(200) ?: "Saluran ini sedang tidak bisa diputar.") }
-            "closed" -> { stopped = true; lastPoll = 0; SwingUtilities.invokeLater { onStatus(PlayerWindow.CLOSED) } }
+        if (event == "closed") synchronized(this) { if (s == seq) { stopped = true; lastPoll = 0 } }
+        val status = when (event) {
+            "playing" -> null
+            "failed" -> msg?.take(200) ?: "Saluran ini sedang tidak bisa diputar."
+            "closed" -> PlayerWindow.CLOSED
+            else -> return
         }
+        // checked again when it runs: a report for a session that ended meanwhile must not reach the new channel
+        SwingUtilities.invokeLater { if (s == seq) onStatus(status) }
     }
 
     /** ◀ ▶ in the page: the app picks the previous/next channel and opens it here. */
-    fun zap(dir: Int) { SwingUtilities.invokeLater { onSwitch(dir) } }
+    fun zap(s: Int, dir: Int) { SwingUtilities.invokeLater { if (s == seq && !stopped) onSwitch(dir) } }
 
     private fun url(port: Int) = "http://127.0.0.1:$port/watch?t=" + URLEncoder.encode(title, "UTF-8") +
         "&ids=" + URLEncoder.encode(ids.joinToString(","), "UTF-8") + "&s=$seq"
