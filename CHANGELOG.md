@@ -3,7 +3,21 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
-## 3.0.2
+## Belum dirilis
+
+### Baru
+- **Tampilan baru app HP** (terinspirasi Mochy Music, #60):
+  - **Warna:** latar gelap hangat, dan warna aplikasi mengikuti logo saluran yang sedang ditonton.
+  - **Navigasi:** tab bar berbentuk pil yang melayang.
+  - **Beranda:** hero besar "Lanjut nonton", rak kartu persegi (Terakhir ditonton, Favorit), chip kategori, dan kartu angka.
+  - **Mini-player:** siaran tetap jalan saat pindah tab; ⏯, saluran berikutnya, dan ✕ ada di mini-player di atas tab bar.
+  - **Halaman saluran:** logo bulat, nama besar, Tonton + ♥, acara yang sedang tayang, jadwal berikutnya, dan status siaran dalam bahasa sehari-hari.
+  - **Pemutar:**
+    - kontrol besar ⏪30 ⏯ ⏩30 yang tersembunyi sendiri setelah 3 detik (ketuk untuk menampilkan);
+    - badge format siaran (mis. "720p · H.264 · AAC");
+    - kolom cari berbentuk pil.
+- **Saluran favorit di HP:** tekan ♥ di pemutar atau halaman saluran; muncul di Beranda dan sebagai chip "♥ Favorit" di Live.
+
 
 ### Keamanan
 - **Pairing HP ↔ TV lebih aman:** kode 6 digit kini kedaluwarsa setelah 10 menit, dan beberapa kode salah berturut-turut membuat pairing dikunci sementara (waktunya bertambah tiap kali). Tekan **OK** di layar Hubungkan HP untuk kode baru dan membuka kunci.
