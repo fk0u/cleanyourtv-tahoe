@@ -155,11 +155,11 @@ object Sources {
         if (c.url.substringBefore('?').endsWith(".m3u8", true)) {
             val (text, finalUrl) = HlsProbe.fetch(c.url, c.headers, timeoutMs)
             if (!text.trimStart().startsWith("#EXTM3U")) return@runCatching false
-            return@runCatching LocalTv.isVod(c) || HlsProbe.verdict(text, finalUrl, c.headers, timeoutMs).let { it != HlsProbe.Kind.REPLAY && it != HlsProbe.Kind.STALE }
+            return@runCatching LocalTv.isVod(c) || HlsProbe.verdict(text, finalUrl, c.headers, timeoutMs).let { it == HlsProbe.Kind.LIVE || it == HlsProbe.Kind.UNKNOWN }
         }
         val con = URI(c.url).toURL().openConnection() as HttpURLConnection
         con.connectTimeout = timeoutMs; con.readTimeout = timeoutMs; con.instanceFollowRedirects = true
-        con.setRequestProperty("User-Agent", "TahoeTV"); c.headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
+        con.setRequestProperty("User-Agent", Web.STREAM_UA); c.headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
         try {
             if (con.responseCode !in 200..299) return@runCatching false
             val head = Web.body(con)!!.use { s -> ByteArray(16).let { b -> String(b, 0, s.read(b).coerceAtLeast(0)) } }

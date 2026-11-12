@@ -219,6 +219,7 @@ object PlayerWindow {
                 Platform.runLater {
                     if (gen != generation) return@runLater
                     if (kind == HlsProbe.Kind.REPLAY || kind == HlsProbe.Kind.STALE) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; next() }
+                    else if (kind == HlsProbe.Kind.DEAD) { failReason = "Server saluran ini sedang tidak mengirim siaran."; next() } // don't wait 20 s for it
                     else begin(streams, i, gen, retry, c, next)
                 }
             }, "tahoe-probe").apply { isDaemon = true }.start()
