@@ -11,6 +11,11 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 - **Uji mandiri desktop** (`Tahoe TV --selftest`) dijalankan otomatis di Windows dan macOS memakai app yang sudah dipaketkan, supaya masalah khusus satu OS ketahuan sebelum rilis.
 
 ### Baru
+- **Kualitas video dan latensi siaran** di HP, TV, dan desktop:
+  - **Kualitas:** Otomatis, 1080p, 720p, 480p (batas tertinggi; kalau siaran tidak punya, dipakai yang terdekat di bawahnya).
+  - **Latensi:** Rendah (±8 detik di belakang siaran), Standar (±20 detik), atau Stabil (±35 detik, paling sedikit jeda).
+  - Tempat mengatur: HP lewat ⚙ di pemutar, TV lewat Pusat Kontrol (◀ ▶), desktop lewat Setelan → TV Live.
+  - Di macOS kualitas diterapkan lewat proxy pemutar; latensi diatur otomatis oleh pemutar bawaan.
 - **Tampilan baru app HP** (terinspirasi Mochy Music, #60):
   - **Warna:** latar gelap hangat, dan warna aplikasi mengikuti logo saluran yang sedang ditonton.
   - **Navigasi:** tab bar berbentuk pil yang melayang.

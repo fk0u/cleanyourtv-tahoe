@@ -23,14 +23,15 @@ object SelfTest {
 
     private fun line(s: String) { out.appendLine(s); println(s) }
 
-    private fun <T> step(name: String, block: () -> T): T? {
+    /** [optional]: reported, but not counted as a failure (JavaFX playback on Windows, where the web player is used). */
+    private fun <T> step(name: String, optional: Boolean = false, block: () -> T): T? {
         val t = System.currentTimeMillis()
         return try {
             val r = block()
             line("OK   $name (${System.currentTimeMillis() - t} ms): $r"); r
         } catch (e: Throwable) {
-            failed++
-            line("FAIL $name (${System.currentTimeMillis() - t} ms): ${e.javaClass.name}: ${e.message}")
+            if (!optional) failed++
+            line("${if (optional) "INFO" else "FAIL"} $name (${System.currentTimeMillis() - t} ms): ${e.javaClass.name}: ${e.message}")
             e.stackTrace.take(6).forEach { line("       at $it") }
             null
         }
@@ -76,7 +77,7 @@ object SelfTest {
             "${ok.name}: HTTP $code $first"
         }
         step("JavaFX startup") { val f = CompletableFuture<String>(); Platform.setImplicitExit(false); Platform.startup { f.complete(System.getProperty("javafx.runtime.version") ?: "?") }; f.get(20, TimeUnit.SECONDS) }
-        fun play(label: String, url: String) = step("JavaFX play $label") {
+        fun play(label: String, url: String) = step("JavaFX play $label", optional = WebPlayer.preferred) {
             val f = CompletableFuture<String>()
             var mp: MediaPlayer? = null
             Platform.runLater {
