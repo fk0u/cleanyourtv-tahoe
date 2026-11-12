@@ -11,7 +11,10 @@ Usage:
 
 import argparse
 import base64
+import hashlib
+import hmac
 import html
+import secrets
 import json
 import os
 import re
@@ -24,6 +27,30 @@ import urllib.parse
 import urllib.request
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
+
+
+# ---------------------------------------------------------------- signed relay URLs
+# The relay only fetches URLs it wrote into a playlist itself (HMAC, key random per run). Without this,
+# /segment?u=<any URL> fetched anything for anyone on the LAN, and with CORS * any web page could read it.
+_RELAY_KEY = secrets.token_bytes(32)
+
+
+def _sign(cid, url):
+    d = hmac.new(_RELAY_KEY, f"{cid}\n{url}".encode("utf-8"), hashlib.sha256).digest()[:16]
+    return base64.urlsafe_b64encode(d).decode("ascii").rstrip("=")
+
+
+def _verify(cid, url, sig):
+    return bool(sig) and hmac.compare_digest(_sign(cid, url), sig)
+
+
+def _relay_params(cid, url):
+    enc = base64.urlsafe_b64encode(url.encode("utf-8")).decode("ascii")
+    return f"cid={urllib.parse.quote(cid)}&u={enc}&s={_sign(cid, url)}"
+
+
+def _b64d(value):
+    return base64.urlsafe_b64decode((value + "=" * (-len(value) % 4)).encode("ascii")).decode("utf-8")
 
 URI_ATTR = re.compile(r'URI="([^"]+)"')
 EXTINF_ATTR = re.compile(r'([\w-]+)="([^"]*)"')
@@ -336,11 +363,11 @@ class IptvHandler(SimpleHTTPRequestHandler):
             else:
                 cid = path[len("/live/"): -len(".m3u8")]
                 sub_url = query.get("sub", [None])[0]
-                self.serve_live_stream(cid, sub_url)
+                self.serve_live_stream(cid, sub_url, query.get("s", [None])[0])
         elif path == "/segment":
             encoded_url = query.get("u", [None])[0]
             cid = query.get("cid", [None])[0]
-            self.serve_segment(encoded_url, cid)
+            self.serve_segment(encoded_url, cid, query.get("s", [None])[0])
         elif path == "/api/channels":
             self.serve_api_channels(query)
         elif path == "/api/status":
@@ -979,7 +1006,7 @@ class IptvHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_error(502, f"DASH proxy error: {e}")
 
-    def serve_live_stream(self, cid, sub_url_b64=None):
+    def serve_live_stream(self, cid, sub_url_b64=None, sig=None):
         ch = self.by_id.get(cid)
         if not ch:
             self.send_error(404, "Channel Not Found")
@@ -988,9 +1015,13 @@ class IptvHandler(SimpleHTTPRequestHandler):
         target_url = ch.url
         if sub_url_b64:
             try:
-                target_url = base64.urlsafe_b64decode(sub_url_b64.encode("ascii")).decode("utf-8")
+                target_url = _b64d(sub_url_b64)
             except Exception:
-                pass
+                self.send_error(400, "Invalid playlist URL")
+                return
+            if not _verify(cid, target_url, sig):
+                self.send_error(403, "Unsigned URL")
+                return
 
         try:
             resp, final_url = self.fetch_upstream(target_url, ch.headers)
@@ -1009,8 +1040,7 @@ class IptvHandler(SimpleHTTPRequestHandler):
                     if sline.startswith("#EXT-X-KEY"):
                         def rep_key(m):
                             key_uri = urllib.parse.urljoin(final_url, m.group(1))
-                            enc = base64.urlsafe_b64encode(key_uri.encode("utf-8")).decode("ascii")
-                            return f'URI="{base_url}/segment?cid={cid}&u={enc}"'
+                            return f'URI="{base_url}/segment?{_relay_params(cid, key_uri)}"'
                         rewritten_lines.append(URI_ATTR.sub(rep_key, sline))
                     else:
                         rewritten_lines.append(line)
@@ -1019,9 +1049,9 @@ class IptvHandler(SimpleHTTPRequestHandler):
                     enc = base64.urlsafe_b64encode(resolved.encode("utf-8")).decode("ascii")
                     clean_path = resolved.split("?")[0].lower()
                     if clean_path.endswith(".m3u8"):
-                        rewritten_lines.append(f"{base_url}/live/{cid}.m3u8?sub={enc}")
+                        rewritten_lines.append(f"{base_url}/live/{cid}.m3u8?sub={enc}&s={_sign(cid, resolved)}")
                     else:
-                        rewritten_lines.append(f"{base_url}/segment?cid={cid}&u={enc}")
+                        rewritten_lines.append(f"{base_url}/segment?{_relay_params(cid, resolved)}")
 
             out_bytes = "\n".join(rewritten_lines).encode("utf-8")
             self.send_response(200)
@@ -1035,15 +1065,19 @@ class IptvHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_error(502, f"Stream relay error: {e}")
 
-    def serve_segment(self, encoded_url, cid):
-        if not encoded_url:
+    def serve_segment(self, encoded_url, cid, sig=None):
+        if not encoded_url or not cid:
             self.send_error(400, "Missing segment URL")
             return
 
         try:
-            target_url = base64.urlsafe_b64decode(encoded_url.encode("ascii")).decode("utf-8")
+            target_url = _b64d(encoded_url)
         except Exception:
             self.send_error(400, "Invalid segment URL")
+            return
+        # only URLs this server wrote into a playlist: not an open proxy for the LAN or for web pages
+        if not _verify(cid, target_url, sig):
+            self.send_error(403, "Unsigned URL")
             return
 
         headers = {}
@@ -1165,8 +1199,11 @@ class IptvHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format, *args):
-        if "segment" not in args[0]:
-            sys.stderr.write(f"[{time.strftime('%H:%M:%S')}] {args[0]} - {args[1]}\n")
+        # send_error() logs ("code %d, message %s", code, msg): args[0] is then an int, which used to raise here
+        # and drop every error response (404/403/502) without an answer.
+        msg = format % args if args else format
+        if "segment" not in msg:
+            sys.stderr.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
 
 def main():
     parser = argparse.ArgumentParser(description="Tahoe IPTV Server & Streaming Relay with DRM")

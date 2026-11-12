@@ -419,7 +419,7 @@ final class Sheets {
         void refresh() {
             Companion c = home.companion;
             if (c == null) { code.setText("—"); return; }
-            code.setText(c.code);
+            code.setText(c.code());
             url.setText("http://" + Companion.ip() + ":" + Companion.PORT);
             count.setText(c.pairedCount() + " HP tersambung");
             qr.setImageBitmap(qr(c.pairUrl(), 512));
@@ -445,6 +445,15 @@ final class Sheets {
             }
             return true;
         }
+
+        /** The code expires after a while and changes after a lockout: keep what's shown current while open. */
+        final Runnable tick = new Runnable() { @Override public void run() {
+            Companion c = home.companion;
+            if (c != null && !c.code().equals(code.getText().toString())) refresh();
+            postDelayed(this, 5000);
+        } };
+        @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); postDelayed(tick, 5000); }
+        @Override protected void onDetachedFromWindow() { removeCallbacks(tick); super.onDetachedFromWindow(); }
 
         @Override public void onClose() {}
     }

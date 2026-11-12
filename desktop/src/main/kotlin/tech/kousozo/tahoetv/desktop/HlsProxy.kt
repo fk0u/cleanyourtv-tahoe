@@ -14,6 +14,7 @@ import org.json.JSONObject
  *  User-Agent…): JavaFX's media stack can't send them. Playlists are rewritten so every segment/sub-playlist
  *  also goes through the relay with the same headers. */
 object HlsProxy {
+    private val signer = tech.kousozo.tahoetv.core.UrlSigner()
     private val server: HttpServer by lazy {
         HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
             executor = Executors.newFixedThreadPool(8)
@@ -21,6 +22,8 @@ object HlsProxy {
                 try {
                     val q = ex.requestURI.rawQuery.orEmpty().split('&').associate { it.substringBefore('=') to URLDecoder.decode(it.substringAfter('='), "UTF-8") }
                     val url = String(Base64.getUrlDecoder().decode(q.getValue("u")))
+                    // only URLs this proxy handed out: a web page can't use it to reach other addresses
+                    if (!signer.verify(q["h"].orEmpty(), url, q["s"])) { ex.sendResponseHeaders(403, -1); return@createContext }
                     val headers = q["h"]?.let { JSONObject(String(Base64.getUrlDecoder().decode(it))).toMap().mapValues { (_, v) -> "$v" } }.orEmpty()
                     val con = open(url, headers)
                     val type = con.contentType.orEmpty()
@@ -68,7 +71,8 @@ object HlsProxy {
     fun wrap(url: String, headers: Map<String, String>): String {
         if (headers.isEmpty()) return url
         val enc = Base64.getUrlEncoder().withoutPadding()
+        val h = enc.encodeToString(JSONObject(headers).toString().toByteArray())
         return "http://127.0.0.1:${server.address.port}/s?u=" + enc.encodeToString(url.toByteArray()) +
-            "&h=" + URLEncoder.encode(enc.encodeToString(JSONObject(headers).toString().toByteArray()), "UTF-8")
+            "&h=" + URLEncoder.encode(h, "UTF-8") + "&s=" + signer.sign(h, url)
     }
 }
