@@ -65,6 +65,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Diag.install(this);
         live = this;
         Cfg.p(this); // runtime settings from the phone setup app
         prefs = getSharedPreferences("home", MODE_PRIVATE);
@@ -964,6 +965,22 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     /** Minutes left, 0 = off. */
     int sleepLeft() { return sleepAt == 0 ? 0 : (int) Math.max(1, Math.ceil((sleepAt - System.currentTimeMillis()) / 60000.0)); }
+
+    /** "Kirim log": the TV can't share files itself, so a paired phone does it. Marks the moment in the log, asks
+     *  phones with the Remote open to send it, and says how otherwise. */
+    void sendLog() {
+        tech.kousozo.tahoetv.core.DiagLog.add("user", "--- pengguna menekan Kirim log ---");
+        tech.kousozo.tahoetv.core.DiagLog.save();
+        if (companion == null || companion.pairedCount() == 0) {
+            Toast.makeText(this, "Sambungkan HP dulu (Pusat Kontrol → HP), lalu di HP: Tahoe → Remote → Kirim log.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        // a phone with the Remote open offers to share right away; otherwise the user starts it there
+        try { companion.broadcast(new org.json.JSONObject().put("t", "send_log")); } catch (Exception ignored) {}
+        Toast.makeText(this, "Di HP: buka Tahoe → Remote → Kirim log (jika Remote sudah terbuka, HP langsung menawarkannya). Log TV ikut terkirim.", Toast.LENGTH_LONG).show();
+    }
+
+    @Override public void onKidsPin() { toast("PIN profil Anak diubah dari HP"); }
 
     @Override public void onSleep(int minutes) {
         root.removeCallbacks(sleepNow); root.removeCallbacks(sleepWarn);

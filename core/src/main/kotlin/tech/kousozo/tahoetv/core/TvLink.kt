@@ -10,6 +10,8 @@ import org.json.JSONObject
 class TvLink(val host: String, private val token: String, private val onState: (Boolean) -> Unit = {}) {
     /** Latest {"t":"state"} from the TV: volume (0–100), muted, channel, number. */
     @Volatile var onTvState: (JSONObject) -> Unit = {}
+    /** Other messages from the TV, e.g. {"t":"send_log"} when "Kirim log" is pressed on the TV. */
+    @Volatile var onCommand: (JSONObject) -> Unit = {}
     @Volatile private var ws: WebSocketClient? = null
     @Volatile private var wanted = false
     val connected get() = ws?.isOpen == true
@@ -27,7 +29,10 @@ class TvLink(val host: String, private val token: String, private val onState: (
 
     private fun client() = object : WebSocketClient(URI("ws://${host.trim()}:8765/ws?token=$token")) {
             override fun onOpen(h: ServerHandshake) = onState(true)
-            override fun onMessage(m: String) { runCatching { JSONObject(m) }.getOrNull()?.takeIf { it.optString("t") == "state" }?.let { onTvState(it) } }
+            override fun onMessage(m: String) {
+                val o = runCatching { JSONObject(m) }.getOrNull() ?: return
+                if (o.optString("t") == "state") onTvState(o) else onCommand(o)
+            }
             override fun onClose(code: Int, reason: String, remote: Boolean) { onState(false); retry() }
             override fun onError(e: Exception) {}
         }
@@ -57,6 +62,18 @@ class TvLink(val host: String, private val token: String, private val onState: (
             val res = JSONObject(runCatching { Web.request("POST", "http://$host:8765/pair", JSONObject().put("code", code).toString(), 5000) }
                 .getOrElse { throw java.io.IOException(if ("HTTP 4" in "${it.message}") "Kode salah atau kedaluwarsa" else "Tidak bisa menghubungi TV") })
             return res.optString("token").ifEmpty { throw java.io.IOException(res.optString("error", "Gagal")) }
+        }
+
+        /** The TV's diagnostic report for "Kirim log" (GET /log). Blocks; throws when the TV can't be reached. */
+        fun fetchLog(host: String, token: String): String =
+            Web.get("http://${host.trim()}:8765/log?token=" + java.net.URLEncoder.encode(token, "UTF-8"), 8000)
+
+        /** Sets a new 4-digit PIN for the TV's kids profile (forgotten PIN). Only a paired phone holds the token. Blocks. */
+        fun setKidsPin(host: String, token: String, pin: String) {
+            require(pin.matches(Regex("\\d{4}"))) { "PIN harus 4 angka" }
+            // the PIN goes in the body, not the URL (URLs end up in logs)
+            runCatching { Web.request("POST", "http://${host.trim()}:8765/kids_pin?token=" + java.net.URLEncoder.encode(token, "UTF-8"), JSONObject().put("pin", pin).toString(), 8000) }
+                .getOrElse { throw java.io.IOException(if ("HTTP 401" in "${it.message}") "HP ini belum dipasangkan dengan TV" else "Tidak bisa menghubungi TV") }
         }
     }
 }

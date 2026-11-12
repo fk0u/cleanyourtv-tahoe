@@ -47,6 +47,7 @@ object Session {
 }
 
 fun main() = application {
+    remember { tech.kousozo.tahoetv.core.DiagLog.install(java.io.File(System.getProperty("user.home"), ".tahoetv/diag.log")) }
     LaunchedEffect(Unit) {
         Recordings.boot() // scheduled recordings start on time while the app is open
         if (Settings.iptvAutoStart) {
