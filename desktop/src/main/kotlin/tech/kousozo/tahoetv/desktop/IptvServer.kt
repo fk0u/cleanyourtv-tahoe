@@ -948,7 +948,7 @@ setInterval(poll, 1500);
         repeat(5) {
             val c = URI(u).toURL().openConnection() as HttpURLConnection
             c.connectTimeout = 10000; c.readTimeout = 18000; c.instanceFollowRedirects = false
-            c.setRequestProperty("User-Agent", "TahoeTV/3.0.2")
+            c.setRequestProperty("User-Agent", "TahoeTV/3.1.0")
             headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
             if (!range.isNullOrEmpty()) c.setRequestProperty("Range", range)
             if (c.responseCode in 300..399) {

@@ -184,7 +184,7 @@ public class LiveTv extends Activity {
         tech.kousozo.tahoetv.core.DiagLog.add("live", list.get(index).getName() + " sumber " + (source + 1) + "/" + s.size() + " " + c.getUrl());
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(8000).setReadTimeoutMs(15000)
-                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/3.0.2");
+                .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/3.1.0");
         java.util.HashMap<String, String> h = new java.util.HashMap<>(c.getHeaders()); h.remove("User-Agent");
         http.setDefaultRequestProperties(h);
         player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(new MediaItem.Builder().setUri(Uri.parse(c.getUrl()))
