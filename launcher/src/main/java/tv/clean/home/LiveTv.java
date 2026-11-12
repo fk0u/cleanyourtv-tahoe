@@ -175,6 +175,12 @@ public class LiveTv extends Activity {
             bStatus.setVisibility(View.VISIBLE); loading.setVisibility(View.GONE); showBanner(); return;
         }
         M3u.Channel c = s.get(source);
+        // viewer choices from Pusat Kontrol (read on every start, so a change applies from the next channel/source)
+        tech.kousozo.tahoetv.core.PlayPrefs.Quality q = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(prefs.getString("quality", null));
+        tech.kousozo.tahoetv.core.PlayPrefs.Latency lat = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(prefs.getString("latency", null));
+        androidx.media3.common.TrackSelectionParameters.Builder tsp = player.getTrackSelectionParameters().buildUpon();
+        if (q.getMaxHeight() > 0) tsp.setMaxVideoSize(Integer.MAX_VALUE, q.getMaxHeight()); else tsp.clearVideoSizeConstraints();
+        player.setTrackSelectionParameters(tsp.build());
         tech.kousozo.tahoetv.core.DiagLog.add("live", list.get(index).getName() + " sumber " + (source + 1) + "/" + s.size() + " " + c.getUrl());
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(8000).setReadTimeoutMs(15000)
@@ -182,9 +188,10 @@ public class LiveTv extends Activity {
         java.util.HashMap<String, String> h = new java.util.HashMap<>(c.getHeaders()); h.remove("User-Agent");
         http.setDefaultRequestProperties(h);
         player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(new MediaItem.Builder().setUri(Uri.parse(c.getUrl()))
-                // Play ~20 s behind live (default ~12 s) so a slow piece from the server doesn't empty the buffer;
-                // ExoPlayer clamps this to what the stream keeps available.
-                .setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(20_000).build()).build()));
+                // Play behind live by the chosen latency (default ~20 s; ExoPlayer's own is ~12 s) so a slow piece from
+                // the server doesn't empty the buffer. ExoPlayer clamps this to what the stream keeps available.
+                .setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(lat.getOffsetMs()).build()).build()));
+        targetOffsetMs = lat.getOffsetMs();
         player.prepare(); player.play();
         sourceStarted = System.currentTimeMillis(); everReady = false; retries = 0; lastPos = -1; stuckSince = System.currentTimeMillis();
         loading.channel(list.get(index).getChannel().getLogo(), list.get(index).getName());
@@ -222,18 +229,21 @@ public class LiveTv extends Activity {
         if (player == null || index < 0) return;
         long pos = player.getCurrentPosition(), off = player.getCurrentLiveOffset();
         boolean live = player.isCurrentMediaItemLive();
-        // forward: decided by the live offset (live streams often report no duration); past the ~20 s cushion = live again
-        if (ms > 0 && live && (off == C.TIME_UNSET || off - ms <= 28_000)) player.seekToDefaultPosition();
+        // forward: decided by the live offset (live streams often report no duration); back within the cushion = live again
+        if (ms > 0 && live && (off == C.TIME_UNSET || off - ms <= targetOffsetMs + 8_000)) player.seekToDefaultPosition();
         else player.seekTo(Math.max(0, pos + ms));
         player.play(); showBanner();
     }
+
+    /** How far behind live the current source aims to play (the chosen latency). */
+    private long targetOffsetMs = 20_000;
 
     /** "● LIVE", or how far behind the live point we are (after ⏪ or a pause). */
     String liveLabel() {
         if (player == null || !player.getPlayWhenReady()) return "⏸ JEDA";
         long off = player.getCurrentLiveOffset();
-        if (off == C.TIME_UNSET || off < 40_000) return "● LIVE";
-        long sec = Math.max(0, off - 20_000) / 1000; // ~20 s behind is the normal cushion
+        if (off == C.TIME_UNSET || off < targetOffsetMs + 20_000) return "● LIVE";
+        long sec = Math.max(0, off - targetOffsetMs) / 1000; // the chosen latency is the normal cushion
         return "⏪ -" + (sec >= 60 ? (sec / 60) + " mnt " + (sec % 60) + " dtk" : sec + " dtk");
     }
 

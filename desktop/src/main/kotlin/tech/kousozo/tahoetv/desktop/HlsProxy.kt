@@ -29,7 +29,9 @@ object HlsProxy {
                     val type = con.contentType.orEmpty()
                     val playlist = url.substringBefore('?').endsWith(".m3u8", true) || "mpegurl" in type.lowercase()
                     if (playlist) {
-                        val body = rewrite(tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }, con.url.toString(), headers).toByteArray()
+                        // a master playlist keeps only the variants within the chosen quality: JavaFX can't pick one itself
+                        val text = tech.kousozo.tahoetv.core.PlayPrefs.capVariants(tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }, Settings.quality.maxHeight)
+                        val body = rewrite(text, con.url.toString(), headers).toByteArray()
                         ex.responseHeaders.add("Content-Type", "application/vnd.apple.mpegurl")
                         ex.sendResponseHeaders(200, body.size.toLong()); ex.responseBody.use { it.write(body) }
                     } else {
@@ -69,7 +71,8 @@ object HlsProxy {
 
     /** URL the player should open. Streams without special headers are played directly. */
     fun wrap(url: String, headers: Map<String, String>): String {
-        if (headers.isEmpty()) return url
+        // straight to the source unless headers are needed or a quality cap has to be applied to the playlist
+        if (headers.isEmpty() && Settings.quality.maxHeight == 0) return url
         val enc = Base64.getUrlEncoder().withoutPadding()
         val h = enc.encodeToString(JSONObject(headers).toString().toByteArray())
         return "http://127.0.0.1:${server.address.port}/s?u=" + enc.encodeToString(url.toByteArray()) +

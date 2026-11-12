@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,17 +64,39 @@ fun SettingsScreen() {
         Text("Selalu dipakai: TV gratis Indonesia dari iptv-org dan dhanytv; jadwal dari dhanytv + epg.pw. Playlist tambahan digabung ke situ. " +
             "Semua sumber disaring: saluran ber-DRM, restream layanan berbayar, dan merek pay-TV tidak ditampilkan.", color = Tahoe.Faint, fontSize = 12.sp)
 
+        Text("Kualitas video", color = Tahoe.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            tech.kousozo.tahoetv.core.PlayPrefs.Quality.entries.forEach { q -> Choice(q.label, Settings.quality == q) { Settings.quality = q } }
+        }
+        Text("Latensi siaran", color = Tahoe.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            tech.kousozo.tahoetv.core.PlayPrefs.Latency.entries.forEach { l -> Choice(l.label, Settings.latency == l) { Settings.latency = l } }
+        }
+        Text((if (Settings.quality.maxHeight > 0) "Kualitas paling tinggi ${Settings.quality.label} (atau yang terdekat di bawahnya). " else "Kualitas menyesuaikan internet. ") +
+            "Latensi ${Settings.latency.label}: ${Settings.latency.note}." + if (WebPlayer.preferred) "" else " Di macOS, latensi diatur otomatis oleh pemutar bawaan.",
+            color = Tahoe.Faint, fontSize = 12.sp)
+
         Section("Server IPTV (LAN)")
         Text("Relay streaming IPTV lokal dengan injeksi header HTTP (Referer/User-Agent). Berbagi siaran dari koutv.m3u dan anotheriptv.m3u ke Android TV, HP, atau VLC di jaringan Wi-Fi rumah.", color = Tahoe.Dim, fontSize = 13.sp)
 
         val isRunning by remember { IptvServer.isRunning }
         val chCount by remember { IptvServer.channelCount }
         val relCount by remember { IptvServer.relayCount }
+        var serverStarting by remember { mutableStateOf(false) }
+        var serverError by remember { mutableStateOf<String?>(null) }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (!isRunning) {
-                GhostButton("Nyalakan Server IPTV", Icons.Rounded.PlayArrow, color = Tahoe.Good) {
-                    IptvServer.start(Settings.iptvPort)
+                GhostButton(if (serverStarting) "Menyalakan…" else "Nyalakan Server IPTV", Icons.Rounded.PlayArrow, color = Tahoe.Good) {
+                    if (serverStarting) return@GhostButton // one start at a time
+                    serverStarting = true; serverError = null
+                    Thread { // network load: off the UI thread; daemon so it never keeps a closing app alive
+                        val err = runCatching { IptvServer.start(Settings.iptvPort) }.exceptionOrNull()
+                        javax.swing.SwingUtilities.invokeLater {
+                            serverStarting = false
+                            serverError = err?.let { "Server tidak bisa dinyalakan: ${it.message ?: it.javaClass.simpleName} (port ${Settings.iptvPort} dipakai app lain?)" }
+                        }
+                    }.apply { isDaemon = true }.start()
                 }
             } else {
                 GhostButton("Matikan Server", Icons.Rounded.Stop, color = Tahoe.Bad) {
@@ -84,6 +107,7 @@ fun SettingsScreen() {
                 }
             }
         }
+        serverError?.let { Text(it, color = Tahoe.Bad, fontSize = 12.sp) }
 
         if (isRunning) {
             Column(
@@ -193,3 +217,13 @@ private fun pickPlaylist(): String? {
     val dir = java.io.File(System.getProperty("user.home"), ".tahoetv/playlists").apply { mkdirs() }
     return java.io.File(dir, f.name).also { f.copyTo(it, overwrite = true) }.path
 }
+
+
+/** A selectable pill for a short list of options. */
+@Composable
+private fun Choice(text: String, selected: Boolean, onClick: () -> Unit) = Text(text,
+    Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+        .background(if (selected) Tahoe.Accent else Tahoe.Glass)
+        .selectable(selected = selected, onClick = onClick, role = androidx.compose.ui.semantics.Role.RadioButton)
+        .padding(horizontal = 14.dp, vertical = 7.dp),
+    color = if (selected) androidx.compose.ui.graphics.Color(0xFF0B0B0F) else Tahoe.Text, fontSize = 13.sp)
