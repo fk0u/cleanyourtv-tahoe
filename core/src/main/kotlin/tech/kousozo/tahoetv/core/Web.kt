@@ -10,6 +10,18 @@ import org.json.JSONObject
 
 /** The same public web APIs the TV launcher uses, for the phone and desktop apps. All calls block. */
 object Web {
+    /** The response body as sent before compression. Some stream servers (CNBC/detik for Trans TV and Trans7) gzip
+     *  playlists even when the request never asked for it; the JDK's HttpURLConnection doesn't undo that (Android's
+     *  does, ExoPlayer does), so on the desktop the playlist came out as binary and the channel failed. */
+    @JvmStatic fun body(c: HttpURLConnection, error: Boolean = false): java.io.InputStream? {
+        val raw = (if (error) c.errorStream else c.inputStream) ?: return null
+        return when (c.contentEncoding?.trim()?.lowercase()) {
+            "gzip", "x-gzip" -> java.util.zip.GZIPInputStream(raw)
+            "deflate" -> java.util.zip.InflaterInputStream(raw)
+            else -> raw
+        }
+    }
+
     fun get(url: String, timeoutMs: Int = 10_000): String = request("GET", url, null, timeoutMs)
 
     fun request(method: String, url: String, body: String?, timeoutMs: Int = 20_000): String {
@@ -21,7 +33,7 @@ object Web {
             c.outputStream.use { it.write(body.toByteArray()) }
         }
         val code = c.responseCode
-        val text = (if (code >= 400) c.errorStream else c.inputStream)?.bufferedReader()?.readText().orEmpty()
+        val text = body(c, code >= 400)?.bufferedReader()?.readText().orEmpty()
         if (code >= 400) throw java.io.IOException("HTTP $code")
         return text
     }
