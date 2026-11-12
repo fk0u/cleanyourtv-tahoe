@@ -46,6 +46,16 @@ object IptvServer {
     private var server: HttpServer? = null
     private val channels = ArrayList<ServerChannel>()
     private val byId = ConcurrentHashMap<String, ServerChannel>()
+    private val idByUrl = ConcurrentHashMap<String, String>()
+
+    /** The server's id for a stream URL (for the web player), or null if it isn't in the list. */
+    fun idFor(url: String): String? = idByUrl[url]
+
+    /** Starts the server if needed (on the configured port, or any free port if that one is taken); returns the port. */
+    @Synchronized fun ensureRunning(): Int {
+        if (!isRunning.value) runCatching { start(Settings.iptvPort) }.onFailure { runCatching { start(0) } }
+        return port.value
+    }
     private val executor = Executors.newFixedThreadPool(16)
     private val URI_ATTR = Regex("""URI="([^"]+)"""")
 
@@ -132,6 +142,7 @@ object IptvServer {
         healthGen.incrementAndGet(); health.clear(); healthAt = 0L // new channel list: old verdicts no longer apply
         channels.clear()
         byId.clear()
+        idByUrl.clear()
         loadedSources.clear()
 
         val filesToLoad = LinkedHashSet<File>()
@@ -154,12 +165,16 @@ object IptvServer {
         val existingIds = HashSet<String>()
         var relays = 0
 
-        for (file in filesToLoad) {
-            if (!file.exists() || !file.isFile) continue
-            val list = runCatching { M3u.load(file.absolutePath) }.getOrDefault(emptyList())
+        // The same channels as the app's TV Live: local files, ~/.tahoetv/playlists, the user's playlists, and the
+        // built-in free-TV sources when there's nothing local. Before, only local files were read, so for almost everyone
+        // (no koutv.m3u) the server, the dashboard, the LAN playlist and the web player had 0 channels.
+        val groups: List<Pair<String, List<M3u.Channel>>> =
+            if (customFiles.isNotEmpty()) filesToLoad.filter { it.isFile }.map { f -> f.name to runCatching { M3u.load(f.absolutePath) }.getOrDefault(emptyList()) }
+            else listOf("Tahoe" to runCatching { Sources.loadAll(Settings.playlist) }.getOrDefault(emptyList()))
+        for ((sourceName, list) in groups) {
             if (list.isEmpty()) continue
 
-            loadedSources.add(file.name)
+            loadedSources.add(sourceName)
             for (ch in list) {
                 val clean = ch.name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "ch" }
                 var id = clean
@@ -170,9 +185,10 @@ object IptvServer {
                 }
                 existingIds.add(id)
 
-                val sc = ServerChannel(id, ch, file.name, ch.drmType, ch.drmKey)
+                val sc = ServerChannel(id, ch, sourceName, ch.drmType, ch.drmKey)
                 channels.add(sc)
                 byId[id] = sc
+                idByUrl.putIfAbsent(ch.url, id)
                 if (ch.headers.isNotEmpty()) relays++
             }
         }
@@ -196,6 +212,7 @@ object IptvServer {
         try {
             when {
                 path == "/" || path == "/index.html" -> serveDashboard(ex)
+                path == "/watch" -> serveWatch(ex, query)
                 path == "/playlist.m3u" || path == "/all.m3u" -> servePlaylist(ex, query)
                 path.endsWith(".m3u") && loadedSources.any { path == "/$it" } -> servePlaylist(ex, query, path.removePrefix("/"))
                 path == "/epg.xml" -> serveEpg(ex)
@@ -554,6 +571,78 @@ object IptvServer {
         ex.sendResponseHeaders(200, body.size.toLong())
         ex.responseBody.use { it.write(body) }
     }
+
+    /** One channel, full window, for the web player (Windows, where JavaFX can't play HLS): hls.js plays the server's
+     *  relay of each source in turn (`ids`, main stream first), moving on when one fails or doesn't start in 20 s. */
+    private fun serveWatch(ex: HttpExchange, query: Map<String, String>) {
+        val ids = query["ids"].orEmpty().split(",").map { it.trim() }.filter { byId.containsKey(it) }
+        val title = query["t"].orEmpty().ifBlank { ids.firstOrNull()?.let { byId[it]?.channel?.name } ?: "Tahoe TV" }
+        val idsJson = JSONArray(ids).toString()
+        val html = WATCH_HTML.replace("__TITLE__", esc(title)).replace("__IDS__", esc(idsJson))
+        val body = html.toByteArray(Charsets.UTF_8)
+        ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
+        ex.responseHeaders.add("Cache-Control", "no-store")
+        ex.sendResponseHeaders(200, body.size.toLong())
+        ex.responseBody.use { it.write(body) }
+    }
+
+    private val WATCH_HTML = """<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__ — Tahoe TV</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<style>
+  html,body{margin:0;height:100%;background:#000;color:#f5f5f7;font-family:"Segoe UI",-apple-system,system-ui,sans-serif;overflow:hidden}
+  video{position:fixed;inset:0;width:100%;height:100%;background:#000}
+  #top{position:fixed;left:0;right:0;top:0;padding:18px 22px;display:flex;align-items:center;gap:10px;background:linear-gradient(#000a,#0000);transition:opacity .4s}
+  .live{background:#ff453a;color:#fff;font-weight:700;font-size:12px;padding:2px 7px;border-radius:5px}
+  #name{font-weight:600;font-size:17px}
+  #fmt{margin-left:auto;font:12px ui-monospace,Consolas,monospace;opacity:.75}
+  #veil{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#07080dcc;transition:opacity .3s}
+  #veil.hide{opacity:0;pointer-events:none}
+  .spin{width:34px;height:34px;border:3px solid #fff3;border-top-color:#fff;border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  #msg{max-width:520px;text-align:center;font-size:15px;line-height:1.5;opacity:.9}
+  #sound{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:none;background:#f5f5f7;color:#111;border:0;border-radius:99px;padding:10px 18px;font-weight:600;cursor:pointer}
+  .idle #top{opacity:0}
+</style></head><body>
+<video id="v" playsinline></video>
+<div id="top"><span class="live">LIVE</span><span id="name">__TITLE__</span><span id="fmt"></span></div>
+<div id="veil"><div class="spin" id="spin"></div><div id="msg">Memuat __TITLE__…</div></div>
+<button id="sound">🔊 Klik untuk menyalakan suara</button>
+<script>
+const ids = JSON.parse("__IDS__".replace(/&quot;/g,'"'));
+const v = document.getElementById('v'), veil = document.getElementById('veil'), msg = document.getElementById('msg'), spin = document.getElementById('spin');
+let i = 0, hls = null, timer = null;
+function fail(t){ spin.style.display='none'; msg.textContent=t; veil.classList.remove('hide'); }
+function next(){ i++; start(); }
+function start(){
+  clearTimeout(timer);
+  if (i >= ids.length) { fail('Saluran ini sedang tidak bisa diputar. Tutup jendela ini dan coba saluran lain.'); return; }
+  spin.style.display=''; msg.textContent='Memuat…'; veil.classList.remove('hide');
+  const src = '/live/' + encodeURIComponent(ids[i]) + '.m3u8';
+  if (hls) { hls.destroy(); hls = null; }
+  if (window.Hls && Hls.isSupported()) {
+    hls = new Hls({ liveSyncDuration: 20, liveMaxLatencyDuration: 60, enableWorker: true });
+    hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) { if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError(); else next(); } });
+    hls.on(Hls.Events.LEVEL_SWITCHED, (e, d) => { const l = hls.levels[d.level]; if (l) document.getElementById('fmt').textContent = (l.height ? l.height + 'p · ' : '') + (l.videoCodec || '').split('.')[0].replace('avc1','H.264').replace('hvc1','H.265'); });
+    hls.loadSource(src); hls.attachMedia(v);
+  } else { v.src = src; }
+  const p = v.play();
+  if (p) p.catch(() => { v.muted = true; v.play().catch(()=>{}); document.getElementById('sound').style.display='block'; });
+  timer = setTimeout(() => { if (v.readyState < 3) next(); }, 20000);
+}
+v.addEventListener('playing', () => { clearTimeout(timer); veil.classList.add('hide'); });
+v.addEventListener('error', () => next());
+document.getElementById('sound').onclick = (e) => { v.muted = false; e.target.style.display='none'; };
+let idle; document.addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idle); idle = setTimeout(()=>document.body.classList.add('idle'), 3000); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ') { v.paused ? v.play() : v.pause(); e.preventDefault(); }
+  if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  if (e.key === 'm' || e.key === 'M') { v.muted = !v.muted; }
+});
+v.addEventListener('dblclick', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); });
+start();
+</script></body></html>"""
 
     /** Text from playlists (third-party files) goes into this page: escaped, never trusted as HTML. */
     internal fun esc(s: String?): String = s.orEmpty().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

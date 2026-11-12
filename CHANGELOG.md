@@ -5,6 +5,11 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+### Perbaikan
+- **Windows: siaran tidak bisa ditonton sama sekali.** Pemutar desktop (JavaFX) gagal memutar siaran HLS di Windows 10/11 ("Could not create player!"), jadi tidak ada satu saluran pun yang tayang, dan jendela pemutar bisa macet. Di Windows, saluran sekarang diputar di **Web Player** dalam jendela Edge mode aplikasi (tanpa tab dan address bar) memakai hls.js lewat relay server Tahoe, yang ikut mengirim header yang dibutuhkan sumber dan pindah ke sumber cadangan sendiri. macOS tetap memakai pemutar bawaan.
+- **Server IPTV desktop berisi 0 saluran.** Server dulu hanya membaca file playlist lokal, sehingga dashboard web, playlist LAN untuk TV/HP/VLC, dan Web Player kosong bagi hampir semua pengguna. Sekarang server memuat saluran yang sama dengan TV Live (±1.000 saluran bawaan + playlist sendiri).
+- **Uji mandiri desktop** (`Tahoe TV --selftest`) dijalankan otomatis di Windows dan macOS memakai app yang sudah dipaketkan, supaya masalah khusus satu OS ketahuan sebelum rilis.
+
 ### Baru
 - **Tampilan baru app HP** (terinspirasi Mochy Music, #60):
   - **Warna:** latar gelap hangat, dan warna aplikasi mengikuti logo saluran yang sedang ditonton.
