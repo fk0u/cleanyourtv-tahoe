@@ -18,6 +18,14 @@ object Settings {
     private fun pref(key: String, default: String = "") = prefs.getOrPut(key) { Pref(key, default) }
 
     var name get() = pref("name").state.value; set(v) = pref("name").set(v)
+    /** Region (#71): ISO country ("ID") and app language ("id"/"en"). Blank country = first-run setup not done yet. */
+    var country get() = pref("country").state.value; set(v) = pref("country").set(v)
+    var language get() = pref("language").state.value; set(v) = pref("language").set(v)
+    /** The country to load channels for: the chosen one, or Indonesia until it's chosen. */
+    val countryCode get() = tech.kousozo.tahoetv.core.Region.country(country) ?: tech.kousozo.tahoetv.core.Region.HOME
+    val lang get() = tech.kousozo.tahoetv.core.Region.language(language.ifBlank { null } ?: java.util.Locale.getDefault().language)
+    /** Province for "near you": only Indonesia's channel lists are tagged by province. */
+    val nearProvince get() = if (countryCode == tech.kousozo.tahoetv.core.Region.HOME) province else ""
     /** Live TV: highest video quality, and distance from live (shared options with the TV and phone). */
     var quality get() = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(pref("quality", "auto").state.value); set(v) = pref("quality").set(v.key)
     var latency get() = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(pref("latency", "standard").state.value); set(v) = pref("latency").set(v.key)

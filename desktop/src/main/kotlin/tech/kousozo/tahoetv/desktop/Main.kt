@@ -84,6 +84,8 @@ object DeskNav {
 @Composable
 fun App(initial: Screen = Screen.Home) {
     LaunchedEffect(initial) { DeskNav.screen = initial }
+    // first run (or "Ubah wilayah" in Settings): language + country before anything else
+    if (Settings.country.isBlank()) { SetupScreen(onDone = { DeskNav.screen = Screen.Live }); return }
     Box(Modifier.fillMaxSize()) {
         Aurora()
         Row(Modifier.fillMaxSize()) {
