@@ -35,7 +35,7 @@ fun CategoriesScreen() {
     Box(Modifier.fillMaxSize().systemBarsPadding()) {
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             Text("JELAJAHI", Modifier.padding(top = 12.dp), color = Tahoe.Faint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-            Text("Pilih kategori", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text("Pilih kategori", fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
             Text("Saluran disusun dari TV nasional, daerah, sampai lokal.", color = Tahoe.Dim, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp))
             if (all == null) { LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass); return@Column }
             val cats = listOf<LocalTv.Category?>(null) + LocalTv.Category.entries.filter { k -> all.any { LocalTv.inCategory(it, k) } }
@@ -47,17 +47,17 @@ fun CategoriesScreen() {
                     val bg by animateColorAsState(if (on) Color.White.copy(alpha = 0.16f) else Tahoe.Glass, label = "tile")
                     Column(
                         Modifier.height(112.dp).clip(RoundedCornerShape(22.dp)).background(bg)
-                            .border(1.dp, if (on) Tahoe.Accent.copy(alpha = 0.7f) else Tahoe.Stroke, RoundedCornerShape(22.dp))
+                            .border(1.dp, if (on) Tahoe.Text.copy(alpha = 0.6f) else Tahoe.Stroke, RoundedCornerShape(22.dp))
                             .clickable { picked = k }.padding(14.dp),
                         verticalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Box(Modifier.size(38.dp).clip(CircleShape).background(if (on) Tahoe.Accent else Color.White.copy(alpha = 0.08f)),
+                        Box(Modifier.size(38.dp).clip(CircleShape).background(if (on) Tahoe.Text else Color.White.copy(alpha = 0.08f)),
                             contentAlignment = Alignment.Center) {
-                            Icon(categoryIcon(k), null, tint = if (on) Tahoe.OnAccent else Tahoe.Text, modifier = Modifier.size(20.dp))
+                            Icon(categoryIcon(k), null, tint = if (on) Tahoe.Bg else Tahoe.Text, modifier = Modifier.size(20.dp))
                         }
                         Column {
                             Text(k?.label ?: "Semua saluran", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                            Text("$n saluran", fontSize = 12.sp, color = if (on) Tahoe.Accent else Tahoe.Faint)
+                            Text("$n saluran", fontSize = 12.sp, color = if (on) Tahoe.Text else Tahoe.Faint)
                         }
                     }
                 }

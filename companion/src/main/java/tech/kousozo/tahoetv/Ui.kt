@@ -26,6 +26,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.animateContentSize
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -46,14 +48,16 @@ import androidx.compose.ui.unit.sp
 
 /** Same palette as the TV launcher: near-black, glass surfaces, SF-like system blue. */
 /** Colours come from core [Brand] (the one source shared with the TV launcher and desktop); see docs/brand/BRAND.md. */
+/** Phone redesign (#60, inspired by Mochy Music's look, own code): a warm charcoal instead of blue-black, quieter glass,
+ *  and colour coming from what's on screen (the channel's logo tints the backdrop) rather than a fixed glow. */
 object Tahoe {
-    val Bg = Color(Brand.NIGHT)
-    val Surface = Color(Brand.SURFACE)
+    val Bg = Color(0xFF141216)
+    val Surface = Color(0xFF1E1B21)
     val Text = Color(Brand.SNOW)
     val Dim = Color(Brand.TEXT_2)
     val Faint = Color(Brand.TEXT_3)
-    val Glass = Color(Brand.GLASS)
-    val Stroke = Color(Brand.STROKE)
+    val Glass = Color(0x14FFFFFF)
+    val Stroke = Color(0x1AFFFFFF)
     val Accent = Color(Brand.CYAN)
     val OnAccent = Color(Brand.ON_CYAN)
     val Lake = Color(Brand.LAKE)
@@ -109,22 +113,71 @@ fun TahoeTheme(content: @Composable () -> Unit) = MaterialTheme(
     content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = Outfit), content = content) }, // light text outside Surfaces too
 )
 
-/** Ambient accent glow behind everything: a soft cyan light from the top that breathes slowly, fading into near-black.
- *  The brand accent does the lighting, so screens feel lit rather than flat. GPU-cheap (two radial gradients). */
+/** Backdrop behind every screen: warm charcoal, lit from the top by [tint] (the playing channel's colour, like a music
+ *  app tinting itself with the album cover). The tint cross-fades when it changes. GPU-cheap: two gradients. */
 @Composable
-fun Aurora(modifier: Modifier = Modifier) {
-    val t by rememberInfiniteTransition(label = "glow").animateFloat(0f, 1f,
-        infiniteRepeatable(tween(9_000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "t")
+fun Backdrop(tint: Color?, modifier: Modifier = Modifier) {
+    val t by animateColorAsState(tint ?: Color(0xFF3A3340), tween(900), label = "tint")
     Canvas(modifier.fillMaxSize().background(Tahoe.Bg)) {
-        fun glow(c: Color, x: Float, y: Float, r: Float) {
-            val center = Offset(size.width * x, size.height * y); val radius = size.maxDimension * r
-            drawCircle(Brush.radialGradient(listOf(c, Color.Transparent), center, radius), radius, center)
-        }
-        glow(Tahoe.Accent.copy(alpha = 0.30f + 0.08f * t), 0.5f, -0.05f, 0.62f + 0.04f * t)   // top light
-        glow(Tahoe.Lake.copy(alpha = 0.22f), 0.05f + 0.1f * t, 0.55f, 0.45f)          // deep blue side fill
-        glow(Tahoe.Accent.copy(alpha = 0.10f), 0.95f, 1.0f, 0.5f)                             // faint bottom rim
+        drawRect(Brush.verticalGradient(0f to t.copy(alpha = 0.42f), 0.45f to t.copy(alpha = 0.10f), 0.75f to Color.Transparent))
+        val c = Offset(size.width * 0.15f, size.height * 0.08f); val r = size.maxDimension * 0.55f
+        drawCircle(Brush.radialGradient(listOf(t.copy(alpha = 0.25f), Color.Transparent), c, r), r, c)
     }
 }
+
+/** The colour a logo "feels" like: the average of its saturated, mid-bright pixels (logos sit on white, so white,
+ *  black and greys are skipped). Null for a logo that's all grey. Cached per bitmap. */
+fun dominantColor(img: androidx.compose.ui.graphics.ImageBitmap): Color? = DominantCache.get(img) {
+    val b = android.graphics.Bitmap.createScaledBitmap(img.asAndroidBitmap(), 24, 24, true)
+    var r = 0f; var g = 0f; var bl = 0f; var w = 0f
+    val hsv = FloatArray(3)
+    for (y in 0 until 24) for (x in 0 until 24) {
+        val p = b.getPixel(x, y)
+        if (android.graphics.Color.alpha(p) < 128) continue
+        android.graphics.Color.colorToHSV(p, hsv)
+        if (hsv[1] < 0.25f || hsv[2] < 0.2f) continue
+        val weight = hsv[1] * hsv[2]
+        r += android.graphics.Color.red(p) * weight; g += android.graphics.Color.green(p) * weight; bl += android.graphics.Color.blue(p) * weight; w += weight
+    }
+    if (w < 1f) null else Color((r / w).toInt(), (g / w).toInt(), (bl / w).toInt())
+}
+
+private object DominantCache {
+    private val map = java.util.WeakHashMap<androidx.compose.ui.graphics.ImageBitmap, Any>()
+    private val NONE = Any()
+    @Synchronized fun get(k: androidx.compose.ui.graphics.ImageBitmap, f: () -> Color?): Color? {
+        map[k]?.let { return if (it === NONE) null else it as Color }
+        val v = runCatching(f).getOrNull(); map[k] = v ?: NONE; return v
+    }
+}
+
+/** Filter chip (Mochy-style): glass pill, white when selected. */
+@Composable
+fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val bg by animateColorAsState(if (selected) Tahoe.Text else Tahoe.Glass, label = "chip")
+    Text(text, Modifier.clip(RoundedCornerShape(50)).background(bg).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        color = if (selected) Color(0xFF141216) else Tahoe.Text, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+}
+
+/** Light pill button ("Tonton", "View →"). */
+@Composable
+fun PillButton(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) = Row(
+    modifier.clip(RoundedCornerShape(50)).background(Tahoe.Text.copy(alpha = 0.92f)).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 9.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    icon?.let { Icon(it, null, tint = Color(0xFF141216), modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)) }
+    Text(text, color = Color(0xFF141216), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+}
+
+/** Round glass icon button (♥, ⌄, info). */
+@Composable
+fun RoundGlass(icon: ImageVector, label: String, size: Dp = 40.dp, tint: Color = Tahoe.Text, onClick: () -> Unit) = Box(
+    Modifier.size(size).clip(RoundedCornerShape(50)).background(Tahoe.Glass).clickable(onClick = onClick),
+    contentAlignment = Alignment.Center,
+) { Icon(icon, label, tint = tint, modifier = Modifier.size(size * 0.5f)) }
+
+/** Small monospace caption (times, channel numbers, formats): the "spec sheet" voice. */
+val Mono = FontFamily.Monospace
 
 /** Scrolling page with an eyebrow, large title and subtitle (HIG large-title layout). "Langkah N dari 5" adds a step bar. */
 @Composable
@@ -150,11 +203,10 @@ fun Page(eyebrow: String?, title: String, sub: String? = null, bottomInset: Dp =
 
 @Composable
 fun GlassCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(24.dp)
     Surface(
         modifier = modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = shape, color = Tahoe.Glass,
-        border = BorderStroke(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.06f)))),
+        shape = shape, color = Tahoe.Glass, border = BorderStroke(1.dp, Tahoe.Stroke),
     ) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content) }
 }
 
@@ -224,44 +276,27 @@ fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) = Ro
     Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Tahoe.Good, checkedThumbColor = Color.White))
 }
 
-/** Floating glass tab bar with a raised accent button in the middle (the primary action). `tabs` has an odd count;
- *  the middle entry is the raised one. */
+/** Floating pill tab bar (Mochy-style): icons only, the selected tab grows into a pill with its label. */
 @Composable
 fun TabBar(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
-    val mid = tabs.size / 2
-    Box(modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth().height(78.dp)) {
-        Surface(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(64.dp),
-            shape = RoundedCornerShape(32.dp), color = Color(0xFF12141A).copy(alpha = 0.88f),
-            border = BorderStroke(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.04f)))),
-            shadowElevation = 16.dp,
-        ) {
-            Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                tabs.forEachIndexed { i, (label, icon) ->
-                    if (i == mid) { Spacer(Modifier.weight(1.2f)); return@forEachIndexed }
-                    val on = i == selected
-                    val tint by animateColorAsState(if (on) Tahoe.Accent else Tahoe.Faint, label = "tab")
-                    Column(
-                        Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(26.dp)).clickable { onSelect(i) },
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-                    ) {
-                        Icon(icon, label, tint = tint, modifier = Modifier.size(22.dp))
-                        Text(label, fontSize = 10.sp, color = if (on) Tahoe.Text else Tahoe.Faint, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
-                        Box(Modifier.padding(top = 3.dp).size(if (on) 4.dp else 0.dp).clip(RoundedCornerShape(50)).background(Tahoe.Accent))
-                    }
+    Surface(
+        modifier.navigationBarsPadding().padding(horizontal = 22.dp, vertical = 10.dp).fillMaxWidth().height(62.dp),
+        shape = RoundedCornerShape(31.dp), color = Color(0xFF1C1A1F).copy(alpha = 0.94f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), shadowElevation = 18.dp,
+    ) {
+        Row(Modifier.padding(horizontal = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            tabs.forEachIndexed { i, (label, icon) ->
+                val on = i == selected
+                val bg by animateColorAsState(if (on) Color.White.copy(alpha = 0.14f) else Color.Transparent, label = "tab")
+                Row(
+                    Modifier.height(48.dp).clip(RoundedCornerShape(24.dp)).background(bg).clickable { onSelect(i) }
+                        .padding(horizontal = if (on) 16.dp else 13.dp).animateContentSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(icon, label, tint = if (on) Tahoe.Text else Tahoe.Faint, modifier = Modifier.size(22.dp))
+                    if (on) { Spacer(Modifier.width(8.dp)); Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }
                 }
             }
-        }
-        // raised centre button with an accent glow
-        val (label, icon) = tabs[mid]
-        val on = selected == mid
-        val scale by animateFloatAsState(if (on) 1.06f else 1f, label = "fab")
-        Box(Modifier.align(Alignment.TopCenter).size(64.dp).scale(scale)
-            .shadow(18.dp, RoundedCornerShape(50), ambientColor = Tahoe.Accent, spotColor = Tahoe.Accent)
-            .clip(RoundedCornerShape(50))
-            .background(Brush.verticalGradient(listOf(Color(Brand.CYAN_LIGHT), Tahoe.Accent, Color(Brand.CYAN_DEEP))))
-            .clickable { onSelect(mid) }, contentAlignment = Alignment.Center) {
-            Icon(icon, label, tint = Tahoe.OnAccent, modifier = Modifier.size(28.dp))
         }
     }
 }
