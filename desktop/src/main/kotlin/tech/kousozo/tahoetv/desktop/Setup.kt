@@ -29,6 +29,7 @@ fun SetupScreen(onDone: () -> Unit) {
     var lang by remember { mutableStateOf(Region.language(Settings.language.ifBlank { suggestedLang })) }
     var country by remember { mutableStateOf(Region.country(Settings.country) ?: suggestedCountry) }
     var step by remember { mutableStateOf(0) }
+    val startCountry = remember { country } // list order fixed while open: a clicked row doesn't jump under the cursor
     val t = TEXT.getValue(lang)
 
     Box(Modifier.fillMaxSize()) {
@@ -49,11 +50,11 @@ fun SetupScreen(onDone: () -> Unit) {
             } else {
                 var query by remember { mutableStateOf("") }
                 val all = remember(lang) { Region.countries(lang) }
-                val shown = remember(all, query, country) {
+                val shown = remember(all, query) {
                     val q = query.trim().lowercase()
                     val match = all.filter { q.isEmpty() || it.name.lowercase().contains(q) || it.code.lowercase() == q }
                     // the chosen / suggested country first, so it's visible without searching
-                    match.sortedBy { if (it.code == country) 0 else if (it.code == suggestedCountry) 1 else 2 }
+                    match.sortedBy { if (it.code == startCountry) 0 else if (it.code == suggestedCountry) 1 else 2 }
                 }
                 Field(query, { query = it }, t.getValue("search"))
                 Spacer(Modifier.height(10.dp))

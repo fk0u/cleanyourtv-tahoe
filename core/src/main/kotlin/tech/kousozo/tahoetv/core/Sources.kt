@@ -48,10 +48,6 @@ object Sources {
     /** Loads ALL channels unfiltered: local files (koutv.m3u, anotheriptv.m3u, ~/.tahoetv/playlists/),
      *  plus user extra sources and built-in playlists. Preserves all premium, sports, movies, VOD & DRM channels.
      *  With nothing local, the built-in sources of [country] are used (see [Region.sources]). */
-    /** [loadAll] for the viewer's [country] (the usual call from the apps). */
-    @JvmStatic fun loadFor(extra: String?, country: String?): List<M3u.Channel> =
-        loadAll(extra, country = Region.country(country) ?: Region.HOME)
-
     @JvmOverloads
     fun loadAll(extra: String? = null, localFiles: List<String> = listOf("koutv.m3u", "anotheriptv.m3u"), country: String = Region.HOME): List<M3u.Channel> {
         val out = mutableListOf<M3u.Channel>()
@@ -94,17 +90,21 @@ object Sources {
             }
         }
 
-        // 4. Fallback to the country's built-in sources if no local channels found
+        // 4. Fallback to the country's built-in sources if no local channels found. Indonesia's are taken whole, as
+        // before; another country's iptv-org list goes through the free-TV filter (it also lists paid/DRM/VOD entries).
         if (out.isEmpty()) {
-            Region.sources(country).forEach { s ->
-                runCatching { M3u.load(s.url) }.getOrNull()?.forEach { ch ->
-                    if (seenUrls.add(ch.url)) out += ch
-                }
-            }
+            val home = country.equals(Region.HOME, true)
+            val builtIn = if (home) Region.sources(country).flatMap { s -> runCatching { M3u.load(s.url) }.getOrDefault(emptyList()) }
+                          else load(Region.sources(country))
+            builtIn.forEach { ch -> if (seenUrls.add(ch.url)) out += ch }
         }
 
         return out
     }
+
+    /** [loadAll] for the viewer's [country] (the usual call from the apps). */
+    @JvmStatic fun loadFor(extra: String?, country: String?): List<M3u.Channel> =
+        loadAll(extra, country = Region.country(country) ?: Region.HOME)
 
     // ------------------------------------------------------------------ is it on air?
 

@@ -75,6 +75,7 @@ fun LiveScreen() {
             if (!IptvServer.isRunning.value) {
                 runCatching { IptvServer.start(Settings.iptvPort) }
             }
+            if (IptvServer.isRunning.value) runCatching { IptvServer.ensureRunning() } // LAN clients get the new country too
             runCatching { Sources.loadFor(playlist, country) }
         }.fold(
             { loaded ->
