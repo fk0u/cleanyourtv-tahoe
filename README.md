@@ -1,243 +1,152 @@
-<p align="center"><img src="docs/banner.svg" alt="Tahoe TV — tvOS-style launcher for Android TV" width="100%"></p>
+<p align="center"><img src="docs/banner.svg" alt="Tahoe TV: launcher ala tvOS untuk Android TV, plus app HP dan desktop" width="100%"></p>
+
+<h1 align="center">Tahoe TV</h1>
 
 <p align="center">
-  <b>Launcher ala tvOS 26 (Liquid Glass) + debloat untuk Android TV</b><br>
-  Dibuat dan diuji di <b>Xiaomi Mi TV Stick (MiTV-AESP0, Android 9, 1 GB RAM)</b>.
+  <b>Launcher Android TV bergaya tvOS (Liquid Glass) + Live TV Indonesia gratis, untuk TV, HP, dan desktop.</b><br>
+  Ringan untuk TV murah: dibuat dan diuji di <b>Xiaomi Mi TV Stick (Android 9, RAM 1 GB)</b>.
 </p>
 
 <p align="center">
-  <img alt="Android 8+" src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white">
-  <img alt="Gradle" src="https://img.shields.io/badge/build-Gradle%208.14-02303A?logo=gradle">
-  <img alt="APK" src="https://img.shields.io/badge/APK-~200%20KB-blue">
-  <img alt="Icons" src="https://img.shields.io/badge/icons-Lucide-F56565">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-lightgrey">
+  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest"><img alt="Rilis terbaru" src="https://img.shields.io/github/v/release/fk0u/cleanyourtv-tahoe?label=rilis&color=00B8D9"></a>
+  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases"><img alt="Unduhan" src="https://img.shields.io/github/downloads/fk0u/cleanyourtv-tahoe/total?label=unduhan&color=3DDC84"></a>
+  <a href="https://github.com/fk0u/cleanyourtv-tahoe/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/fk0u/cleanyourtv-tahoe?style=flat&color=F5B301"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Android%20TV%20%7C%20Android%20%7C%20macOS%20%7C%20Windows-555">
+  <a href="LICENSE"><img alt="Lisensi MIT" src="https://img.shields.io/badge/lisensi-MIT-lightgrey"></a>
+  <a href="https://github.com/fk0u/cleanyourtv-tahoe/actions/workflows/desktop.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/fk0u/cleanyourtv-tahoe/desktop.yml?label=build"></a>
 </p>
 
-> Roadmap & status per fitur: [PLAN.md](PLAN.md) · [issues](https://github.com/fk0u/cleanyourtv-tahoe/issues?q=label%3Aroadmap)
+<p align="center">
+  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest"><b>⬇️ Unduh</b></a> ·
+  <a href="#mulai-dalam-5-menit">Mulai</a> ·
+  <a href="#fitur">Fitur</a> ·
+  <a href="#screenshot">Screenshot</a> ·
+  <a href="docs/ROADMAP.md">Roadmap</a> ·
+  <a href="CONTRIBUTING.md">Kontribusi</a>
+</p>
 
-## Daftar isi
-[Screenshot](#screenshot) · [Fitur](#fitur) · [Kontrol](#kontrol) · [Pasang dari HP](#pasang-dari-hp-tanpa-laptop) · [Desktop](#tahoe-tv-untuk-desktop-macos-13-dan-windows) · [Instalasi](#instalasi-dari-komputer) · [Konfigurasi](#konfigurasi) ·
-[API key](#api-key-opsional) · [HP ↔ TV](#hp--tv) · [Wallpaper & foto](#wallpaper--foto) · [Debloat](#debloat) ·
-[Batasan perangkat](#batasan-perangkat) · [Mengembalikan semuanya](#mengembalikan-semuanya) · [Struktur proyek](#struktur-proyek) · [Kredit](#kredit--lisensi)
+> **English:** Tahoe TV is a free, open-source, tvOS-style (Liquid Glass) home screen for Android TV, plus companion apps for Android phones and macOS/Windows. It plays 900+ free Indonesian live TV channels with a guide (EPG), picks working sources automatically, records shows on the desktop, and runs smoothly on a 1 GB Mi TV Stick. No root needed. UI is in Indonesian; contributions for English are welcome.
+
+---
+
+## Kenapa Tahoe TV?
+
+- 📺 **Beranda TV yang cantik dan ringan.** Gaya tvOS 26 tanpa blur berat, jadi tetap lancar di TV stick 1 GB.
+- 🇮🇩 **Live TV Indonesia gratis.** 900+ saluran (nasional, TVRI daerah, TV lokal "dekat kamu", berita, olahraga…) dengan jadwal acara, dari sumber publik.
+- ⚡ **Langsung tayang.** Sumber yang hidup diputar duluan; siaran "kemarin yang diulang" dan sumber mati dilewati otomatis.
+- 📱 **HP jadi remote dan pusat kendali.** Remote lengkap, ketik ke TV, kirim foto, nonton Live TV di HP, pasang Tahoe ke TV lewat Wi-Fi tanpa laptop.
+- 💻 **App desktop (macOS & Windows).** Live TV, rekam acara (DVR), server IPTV untuk seluruh rumah, dan remote + cermin layar TV.
+- 👨‍👩‍👧 **Profil keluarga.** Saya, Tamu, dan **Anak** (dikunci PIN, hanya saluran anak).
+- 🕌 **Jadwal shalat & adzan**, cuaca, asisten Gemini, Home Assistant.
+- 🔓 **Gratis, open source (MIT), tanpa iklan, tanpa root.**
+
+## Mulai dalam 5 menit
+
+| Saya punya… | Unduh | Lalu |
+|---|---|---|
+| **Android TV / TV box** (Mi TV Stick, Chromecast, dll.) | [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) di HP Android | Buka app HP → **Pasang** → pilih TV di Wi-Fi yang sama. Launcher terpasang otomatis ([langkah lengkap](docs/INSTALL.md#pasang-dari-hp-tanpa-laptop)) |
+| **HP Android** saja | [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) | Nonton Live TV di HP, atau jadi remote TV |
+| **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | Buka → TV Live. Pertama kali: klik kanan → **Buka** (app belum dinotarisasi) |
+| **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | Pasang → TV Live |
+| Sudah ada launcher, mau pasang manual | [`tahoe-launcher.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-launcher.apk) | Lihat [docs/INSTALL.md](docs/INSTALL.md) |
+
+Pembaruan berikutnya datang sendiri: TV, HP, dan desktop memeriksa rilis GitHub (Pusat Kontrol → **Tentang**).
 
 ## Screenshot
 
-| Siapa yang menonton? | Beranda (profil Tamu, wallpaper default) |
+| Siapa yang menonton? | Beranda |
 |---|---|
-| ![](docs/screenshots/v2/01-profil.jpg) | ![](docs/screenshots/v2/02-beranda.jpg) |
+| ![Layar profil](docs/screenshots/v2/01-profil.jpg) | ![Beranda](docs/screenshots/v2/02-beranda.jpg) |
 | **Hero + tombol aksi** | **Launchpad** |
-| ![](docs/screenshots/v2/03-hero-aksi.jpg) | ![](docs/screenshots/v2/04-launchpad.jpg) |
+| ![Hero](docs/screenshots/v2/03-hero-aksi.jpg) | ![Launchpad](docs/screenshots/v2/04-launchpad.jpg) |
 | **Jadwal shalat & adzan** | **Pusat Kontrol** |
-| ![](docs/screenshots/v2/05-jadwal-shalat.jpg) | ![](docs/screenshots/v2/06-pusat-kontrol.jpg) |
+| ![Jadwal shalat](docs/screenshots/v2/05-jadwal-shalat.jpg) | ![Pusat Kontrol](docs/screenshots/v2/06-pusat-kontrol.jpg) |
 | **Asisten (Gemini)** | **Notifikasi & musik dari HP** |
-| ![](docs/screenshots/v2/07-asisten.jpg) | ![](docs/screenshots/v2/08-notifikasi-hp.jpg) |
+| ![Asisten](docs/screenshots/v2/07-asisten.jpg) | ![Notifikasi HP](docs/screenshots/v2/08-notifikasi-hp.jpg) |
 | **Hubungkan HP (QR + kode)** | **Screensaver hemat energi** |
-| ![](docs/screenshots/v2/09-hubungkan-hp.jpg) | ![](docs/screenshots/v2/10-screensaver.jpg) |
+| ![Hubungkan HP](docs/screenshots/v2/09-hubungkan-hp.jpg) | ![Screensaver](docs/screenshots/v2/10-screensaver.jpg) |
 
-> Wallpaper NewJeans di sebagian screenshot adalah foto pribadi pemilik perangkat dan **tidak** ada di repo ini.
+> Wallpaper pada sebagian screenshot adalah foto pribadi pemilik perangkat dan tidak ada di repo ini.
 
 ## Fitur
 
-**Tampilan (Apple HIG, tvOS 26)**
-- UI digambar sendiri, tanpa widget bawaan: material kaca (`GlassDrawable`), tile dengan efek lift dan kilau, skala tipografi tvOS, dan safe area 60/80 px.
-- Ikon **Lucide** (SVG → VectorDrawable lewat `tools/lucide.py`), tanpa emoji.
-- **Siapa yang menonton?** saat boot: profil pemilik (foto, aplikasi terakhir dibuka) dan **Tamu**. Tiap profil punya dock sendiri.
-- **Hero editorial full-bleed**: tanggal, cuaca, dan shalat berikutnya. Saat aplikasi difokus muncul tombol aksi ("Buka YouTube").
-  - **YouTube**: thumbnail trending Indonesia (butuh `youtube.apiKey`).
-  - **Netflix**: "Populer di Netflix" dari TMDB (butuh `tmdb.apiKey`).
-  - Gambar kontekstual bergerak pelan (Ken Burns).
-- **Dock ala macOS** (default 6 aplikasi): magnifikasi tetangga, tooltip, dan titik "baru dipakai".
-- **Transisi buka aplikasi**: tile membesar ke layar penuh dengan warna aplikasinya.
-- **Launchpad**: rak **Game** (Moonlight, Steam Link, Chiaki-ng/PS Remote Play, GeForce NOW) dan semua aplikasi.
-- **Pusat Kontrol**: volume, musik dari HP, Wi-Fi, Bluetooth, wallpaper (Pribadi/Default), cuaca, shalat, asisten, rumah, HP, dan setelan.
+### 📺 TV (launcher Android TV)
+- **Tampilan tvOS 26:** material kaca, tile dengan efek lift dan kilau, dock ala macOS, Launchpad dengan rak Game, hero editorial (trending YouTube, populer di Netflix), dan transisi buka aplikasi.
+- **Profil:** Saya, Tamu, dan **Anak**. Profil Anak dikunci PIN 4 angka, hanya menampilkan saluran Anak & Dokumenter dan aplikasi yang diizinkan. PIN bisa diatur ulang dari HP yang sudah dipasangkan.
+- **Live TV:** daftar saluran per kategori, jadwal acara, saluran favorit dan terakhir ditonton, nomor saluran, tunda/maju 30 detik, serta loading ala Apple TV.
+- **Pintar memilih sumber:** sumber hidup diputar duluan; siaran rekaman/basi dilewati; tahan **OK** untuk menandai sumber "bukan live". Dekoder cadangan + **FFmpeg** untuk audio AC-3/E-AC-3/DTS/MP2.
+- **Pusat Kontrol:** volume, musik dari HP, Wi-Fi, Bluetooth, wallpaper, cuaca, shalat, asisten, rumah, timer tidur, **Kirim log**, dan pembaruan.
+- **Jadwal shalat & adzan** (Kemenag RI lewat Aladhan, alarm tahan reboot), **cuaca** per jam/7 hari (Open-Meteo), **asisten Gemini**, **Home Assistant**, **gamepad**, dan **screensaver** hemat energi.
 
-**Fitur hidup**
-- **Cuaca interaktif** (Open-Meteo, tanpa key): pilih jam, prakiraan per jam dan 7 hari, langit beranimasi ringan.
-- **Jadwal shalat** (Aladhan, metode Kemenag RI): Imsak–Isya, tanggal Hijriah, timeline, dan **adzan** per waktu dengan `AlarmManager` (tahan reboot), plus banner di atas aplikasi apa pun.
-- **Asisten suara Gemini**: mic TV atau ketik/dikte dari HP. Tools untuk buka aplikasi, cari di YouTube, cuaca, shalat, volume, wallpaper, dan rumah. Memakai **Google Search grounding** bila kuota tersedia.
-- **Rumah**: Home Assistant (REST lokal), atau "Hey Google" lewat tombol mic remote.
-- **Gamepad**: controller Bluetooth (stik, A/B/X/Y, L1/R1, Start/Select) **atau HP sebagai gamepad**.
-- **Screensaver hemat energi**: layar diredupkan, slideshow pelan, jam besar, dan foto profil. Tekan OK untuk membuka.
+### 📱 HP (Android)
+- **Pasang Tahoe ke TV lewat Wi-Fi** (ADB) tanpa laptop: debloat, nama, kota, dock, API key, pulihkan TV.
+- **Remote lengkap:** D-pad/swipe, volume dengan slider, CH, nomor saluran, media, power, timer tidur, ketik ke TV, tanya asisten.
+- **Pairing lewat QR** dari layar TV.
+- **Live TV di HP** dengan pencarian, tunda/maju, dan dekoder FFmpeg.
+- **Notifikasi & musik HP tampil di TV.**
+- **Kirim log** (HP + TV sekaligus) dan **atur ulang PIN Anak**.
 
-## Kontrol
+### 💻 Desktop (macOS 13+ & Windows)
+- **TV Live** dengan status LIVE/OFFLINE per saluran, filter kategori, dan pencarian nama/acara.
+- **Rekam acara (DVR)** dari jadwal, file di `~/Movies/Tahoe TV`, bisa ditonton dari TV/HP lewat LAN.
+- **Server IPTV LAN:** `http://<ip>:8088/playlist.m3u` dan `/epg.xml` untuk TV, HP, VLC, Kodi, TiviMate, plus relay header.
+- **TV Rumah:** temukan Android TV di Wi-Fi, pasang dan atur Tahoe. **Remote + cermin layar** lewat ADB.
+- **Kirim log** ke Downloads/clipboard, langsung ke GitHub Issues.
 
-| Tombol (remote / gamepad) | Aksi |
+## Bagaimana cara kerjanya
+
+```mermaid
+flowchart LR
+  subgraph Sumber publik
+    A[iptv-org] --- B[dhanytv] --- C[yositapjani]
+    E[EPG: dhanytv, epg.pw]
+  end
+  A & B & C --> Core[":core<br/>M3U · EPG · cek sumber · HLS"]
+  E --> Core
+  Core --> TV["📺 Launcher TV<br/>ExoPlayer + FFmpeg"]
+  Core --> HP["📱 App HP<br/>Compose + ExoPlayer"]
+  Core --> PC["💻 Desktop<br/>Compose + JavaFX"]
+  HP <-- "Wi-Fi: WebSocket :8765 / ADB" --> TV
+  PC -- "Server IPTV :8088" --> TV
+```
+
+Semua logika bersama (playlist, EPG, pengecekan sumber, perekam HLS, log diagnostik) ada di modul `:core` dan dipakai ketiga aplikasi. Detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Dokumentasi
+
+| Dokumen | Isi |
 |---|---|
-| ◀ ▶ ▲ ▼ / stik | Pindah tepat satu langkah. Urutan baris: top bar → tombol hero → dock → Launchpad |
-| OK / A | Buka · pilih |
-| Tahan OK / X | Menu aplikasi: sematkan/lepas, geser posisi, info, uninstall |
-| Back / B | Tutup panel → kembali ke dock |
-| Apps / Start | Launchpad |
-| Menu / Y | Pusat Kontrol |
-| Select | Asisten |
-| L1 / R1 | Lompat 3 baris di Launchpad |
+| [docs/INSTALL.md](docs/INSTALL.md) | Pasang dari HP, dari komputer (ADB), izin, konfigurasi, API key, debloat, wallpaper, mengembalikan TV |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modul, alur Live TV, protokol HP ↔ TV, server IPTV, build & rilis |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Rencana berikutnya dan issue terkait |
+| [CHANGELOG.md](CHANGELOG.md) | Catatan setiap rilis (juga tampil di dalam app) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Cara melapor bug, mengusulkan fitur, dan mengirim PR |
+| [docs/brand/BRAND.md](docs/brand/BRAND.md) | Logo, warna, tipografi |
 
-## Pasang dari HP (tanpa laptop)
+## Batasan
 
-1. Di TV: **Settings → Device Preferences → About → tekan "Build" 7×**, lalu **Developer options → USB debugging: ON**.
-2. Di HP Android (Wi-Fi yang sama): pasang `tahoe-tv.apk` (paket `tech.kousozo.tahoetv`) dari [Releases](../../releases), buka, lalu **Pasang / kelola Tahoe di TV**.
-3. App memindai Wi-Fi dan menampilkan TV yang ditemukan (port ADB 5555, dan TV yang sudah memakai Tahoe lewat `/info`). Bisa juga ketik IP.
-4. Di TV muncul **"Izinkan debugging USB?"**: centang *Selalu izinkan*, lalu **OKE**.
-5. Pilih aplikasi bawaan yang dimatikan, isi nama, kota (dicari otomatis), foto, dock, dan API key (opsional), lalu **Pasang ke TV**.
-6. Selesai: launcher terpasang dan jadi Home, screensaver aktif, dan HP otomatis tersambung. Tekan **Matikan debugging di TV**.
+- **Tanpa root:** Assistant, popup volume, dan Settings sistem tidak bisa diganti; tombol tidak bisa disuntik ke aplikasi lain (Back/Home tetap bisa).
+- **Notifikasi dari TV sendiri** diblokir firmware low-RAM. Solusinya app HP.
+- **Saluran berbayar/DRM tidak diputar** di TV dan HP; Tahoe hanya memakai siaran gratis dari sumber publik dan tidak meng-host siaran apa pun.
+- **Google TV dan webOS** belum didukung penuh: lihat [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) dan [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26).
 
-Ubah setelan kapan saja dengan menyalakan debugging lagi, lalu buka app. **Pulihkan TV** mengembalikan semuanya ke bawaan.
-Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb)) dengan kunci milik HP; setelan dikirim ke receiver `tech.kousozo.tahoetv.launcher/tv.clean.home.Config` yang hanya bisa dipanggil shell ADB.
+## Ikut membantu
 
-## Tahoe TV untuk desktop (macOS 13+ dan Windows)
+- ⭐ **Beri bintang** repo ini kalau Tahoe TV berguna. Itu membantu orang lain menemukannya.
+- 🐞 **Lapor bug:** pakai **Kirim log** di app (TV/HP/desktop), lalu buka [issue baru](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose).
+- 💡 **Usul fitur** atau ambil issue berlabel [`good first issue`](https://github.com/fk0u/cleanyourtv-tahoe/labels/good%20first%20issue) / [`help wanted`](https://github.com/fk0u/cleanyourtv-tahoe/labels/help%20wanted).
+- 💬 **Tanya atau diskusi** di [Discussions](https://github.com/fk0u/cleanyourtv-tahoe/discussions).
+- 📣 **Bagikan** ke grup Android TV, STB, atau komunitas IPTV Indonesia.
 
-App desktop (Kotlin + Compose Multiplatform) dengan gaya yang sama:
-- **Beranda**: jam, cuaca, jadwal shalat, rekomendasi trending YouTube/Netflix, pintasan layanan streaming (dibuka di browser, tempat DRM seperti Netflix memang jalan), dan asisten Gemini.
-- **TV Live & VOD**: fokus TV nasional, saluran olahraga, film, dan VOD dengan 14 kategori lengkap:
-  - Kategori: **Nasional**, **Olahraga / Sports** (beIN, SPOTV, Champions TV, Bola, MotoGP, F1), **Film & Sinema** (HBO, Cinemax, Fox Movies, Celestial), **VOD & Film** (VOD INDO, file .mp4/.mkv), **Hiburan**, **Berita**, **Anak**, **Dokumenter**, **Musik**, **Gaya Hidup**, **Religi**, **TVRI Daerah**, **TV Daerah**, dan **Dekat kamu**.
-  - Pengecekan server otomatis secara paralel di latar belakang: badge status visual **LIVE** (hijau), **OFFLINE** (merah), dan **CEK...** (abu-abu), dilengkapi tombol filter status cepat.
-  - Saluran: menggabungkan 980+ saluran dari playlist lokal (`koutv.m3u`, `anotheriptv.m3u`, `~/.tahoetv/playlists/`) dan playlist kustom, lengkap dengan dukungan DRM ClearKey dan Widevine.
-  - Jadwal acara (EPG): dhanytv + [epg.pw](https://epg.pw).
-  - Pemutar di jendela sendiri (layar penuh) dengan fallback cerdas ke Web Player (Shaka DRM) untuk siaran DASH/DRM.
-- **Server IPTV (LAN)**: relay streaming lokal terintegrasi dengan injeksi header HTTP (`Referer`, `Origin`, `User-Agent`).
-  - Menggabungkan playlist `koutv.m3u` dan `anotheriptv.m3u` (980+ saluran, 200 dengan relay header).
-  - Menyediakan endpoint M3U Master (`http://<ip>:8088/playlist.m3u`) dan EPG (`http://<ip>:8088/epg.xml`) untuk TV, HP, VLC, Kodi, atau TiviMate.
-  - Web Dashboard + Shaka Player interaktif dengan dekripsi otomatis ClearKey DRM di `http://<ip>:8088/`.
-  - Otomatis aktif saat aplikasi desktop dibuka, dan dapat dikontrol dari Setelan → Server IPTV atau via terminal: `./tools/start-iptv-server.sh`.
-- **TV Rumah**: cari Android TV di Wi-Fi, debloat, pasang dan atur Tahoe (sama seperti app HP).
-- **Remote**: cermin layar TV lewat ADB (klik gambar = ketuk di TV), D-pad, keyboard, volume, media.
-
-Unduh dari [Releases](../../releases): `TahoeTV-macos-intel.dmg`, `TahoeTV-macos-arm64.dmg`, `TahoeTV-windows.msi` (dibuat oleh GitHub Actions di tiap OS).
-Build sendiri: `./gradlew -PpublicBuild :desktop:packageDmg` (atau `packageMsi` di Windows), jalankan langsung: `./gradlew :desktop:run`.
-Logika bersama HP dan desktop ada di modul `:core` (penemuan TV, ADB, remote, API web, M3U, EPG).
-
-## Instalasi (dari komputer)
-
-Butuh: Python 3, JDK 17, Android SDK (platform 36, build-tools 34+). Gradle diunduh otomatis oleh wrapper.
-Di TV: **Settings → Device Preferences → About → tekan "Build" 7×**, lalu **Developer options → USB debugging: ON**.
-
-```bash
-git clone https://github.com/fk0u/cleanyourtv-tahoe.git && cd cleanyourtv-tahoe
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp secrets.example.properties secrets.properties     # opsional: isi API key
-export TV_HOST=192.168.1.50                           # IP TV kamu
-./build-and-install.sh                                # build APK (Gradle) + pasang
-```
-
-Izin satu kali:
-```bash
-T=".venv/bin/python tools/tv.py"
-$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.ACCESS_FINE_LOCATION'    # nama Wi-Fi
-$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.WRITE_SECURE_SETTINGS'   # tombol Apps tetap aktif setelah reboot
-$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.RECORD_AUDIO'            # mic untuk asisten
-$T 'appops set tech.kousozo.tahoetv.launcher SYSTEM_ALERT_WINDOW allow'                # banner shalat & notifikasi HP
-$T 'appops set tech.kousozo.tahoetv.launcher GET_USAGE_STATS allow'                    # titik "baru dipakai", aplikasi terakhir
-$T 'cmd package set-home-activity tech.kousozo.tahoetv.launcher/tv.clean.home.Home'
-$T 'settings put secure screensaver_components tech.kousozo.tahoetv.launcher/tv.clean.home.Lock'
-tools/disable.sh com.google.android.tvlauncher                         # matikan launcher bawaan (bisa dikembalikan)
-```
-
-## Konfigurasi
-
-Build publik tanpa key: `./gradlew -PpublicBuild assembleRelease` (key lalu diisi dari app HP).
-
-[`launcher/src/main/res/values/config.xml`](launcher/src/main/res/values/config.xml), lalu `./build-and-install.sh`:
-
-| Kunci | Default | Fungsi |
-|---|---|---|
-| `dock_size` | `6` | Slot dock (4–7) |
-| `columns` | `5` | Kolom Launchpad |
-| `dock_apps` | YouTube, Netflix, BitTV, Spotify, TikTok, Vidio | Isi dock awal (nama paket). Yang tidak terpasang dilewati |
-| `user_name` | `Al-Ghani` | Nama di sapaan, profil, dan layar kunci |
-| `avatar_url` | foto GitHub | Foto profil (di-cache di TV) |
-| `city`, `latitude`, `longitude` | Samarinda | Cuaca & jadwal shalat |
-| `wallpaper_minutes` | `10` | Interval ganti wallpaper |
-
-Susunan dock yang diubah lewat menu tahan-OK disimpan di TV per profil.
-
-## API key (opsional)
-
-Isi di `secrets.properties` (gitignored, tidak pernah ikut ke repo). Kosong = fitur disembunyikan.
-
-| Kunci | Untuk | Dapatkan di |
-|---|---|---|
-| `gemini.apiKey`, `gemini.model` | Asisten (default `gemini-3.5-flash-lite`) | [Google AI Studio](https://aistudio.google.com/apikey) |
-| `youtube.apiKey` | Hero "Trending di YouTube" | Google Cloud → YouTube Data API v3 |
-| `tmdb.apiKey` | Hero "Populer di Netflix" | [TMDB](https://www.themoviedb.org/settings/api) |
-| `homeassistant.url`, `homeassistant.token` | Panel Rumah | Home Assistant → Profil → Long-lived token |
-
-Catatan Gemini: pencarian Google (grounding) memakai kuota tersendiri. Kalau kuotanya habis (429), asisten otomatis menjawab tanpa pencarian dan menandai "tanpa pencarian Google".
-
-## HP ↔ TV
-
-- **Web (semua HP)**: Pusat Kontrol → **HP** di TV menampilkan QR dan kode 6 digit. Pindai, dan selesai. Isinya:
-  - Remote dan **Gamepad**.
-  - Daftar aplikasi.
-  - Kirim link YouTube/web.
-  - Tanya asisten (ketik atau mic keyboard).
-  - **Kirim foto** (pilih dari Google Photos lewat picker HP).
-  - Unggah suara adzan.
-- **App Android “Tahoe Companion”** (`companion/`): meneruskan **notifikasi** dan **musik yang diputar** dari HP ke TV, dan menerima play/pause/next dari Pusat Kontrol TV.
-  ```bash
-  ./gradlew :companion:assembleRelease   # → companion/build/outputs/apk/release/companion-release.apk
-  ```
-  Pasang di HP, buka, lalu sambungkan (TV terdeteksi otomatis lewat mDNS). Setelah itu izinkan akses notifikasi.
-- Keamanan: hanya di LAN (port 8765). Setiap HP butuh token dari kode yang hanya bisa dipakai sekali. **Menu** di layar HP melupakan semua HP.
-
-## Wallpaper & foto
-
-- **Pribadi** (pemilik): `files/wallpapers` + `files/photos` (foto kiriman HP). **Default**: gradien Tahoe bawaan. Profil **Tamu** selalu memakai Default.
-- Ganti mode: Pusat Kontrol → Wallpaper → ◀ ▶. OK = wallpaper berikutnya.
-- Dari komputer: `sips -s format jpeg -z 1080 1920 foto.jpg --out wallpapers/01.jpg` lalu
-  `.venv/bin/python tools/tv.py --push /sdcard/Android/data/tech.kousozo.tahoetv.launcher/files/wallpapers wallpapers/01.jpg`.
-
-## Debloat
-
-Daftar: [`debloat-list.txt`](debloat-list.txt). Jalankan dalam batch kecil dan cek layar di antaranya:
-```bash
-tools/disable.sh com.miui.tv.analytics tv.alphonso.alphonso_eula
-```
-`tools/disable.sh` **menolak** paket inti Android (permission controller, package installer, providers, systemui, settings, dll.).
-Sengaja dibiarkan: Assistant, Chromecast, Miracast, update firmware, Play Store/Services, setup wizard.
-
-DNS AdGuard pernah dipasang lalu **dimatikan**. Kalau mau lagi: `settings put global private_dns_specifier dns.adguard-dns.com` + `private_dns_mode hostname`.
-
-## Batasan perangkat
-
-- **Notifikasi/Now Playing dari TV sendiri tidak bisa**: firmware low-RAM memblokir notification-listener. Solusinya **App Companion di HP**.
-- **Assistant, popup volume, Settings** milik sistem dan tidak bisa didesain ulang tanpa root.
-- **Remote/gamepad dari HP** mengontrol launcher Tahoe. Di dalam aplikasi lain, tombol tidak bisa disuntik tanpa root (Back/Home tetap bisa lewat layanan aksesibilitas). Untuk game, pakai controller Bluetooth.
-- **Trailer/video latar** tidak diputar: terlalu berat untuk 1 GB RAM dan melanggar ketentuan YouTube/Netflix. Sebagai gantinya ada gambar kontekstual dengan efek Ken Burns.
-- **Firmware mematikan layanan aksesibilitas tiap boot**: launcher menyalakannya lagi (butuh `WRITE_SECURE_SETTINGS`).
-
-## Mengembalikan semuanya
-
-```bash
-./restore.sh
-.venv/bin/python tools/tv.py 'pm enable com.google.android.tvlauncher'
-.venv/bin/python tools/tv.py 'pm uninstall tech.kousozo.tahoetv.launcher'
-.venv/bin/python tools/tv.py 'settings put secure screensaver_components com.mitv.dream/com.mitv.dream.MiDream'
-```
-
-## Struktur proyek
-
-```
-launcher/src/main/java/tv/clean/home/
-  Home.java        beranda: top bar, hero, dock, Launchpad, fokus, keys, companion & asisten tools
-  Ui.java          token desain HIG (warna, tipe, safe area, motion) + helper ikon/breadcrumb
-  GlassDrawable    material Liquid Glass tanpa blur      Tile.java   tile dengan lift + kilau
-  Hero.java        latar full-bleed, wallpaper/default, Ken Burns, teks editorial
-  Lock.java        screensaver (DreamService) + layar profil "Siapa yang menonton?"
-  Sheets.java      Pusat Kontrol, menu aplikasi, pairing HP, perangkat rumah
-  Weather.java     Open-Meteo + sheet cuaca     Prayer.java  Aladhan + adzan + timeline
-  Assistant.java   Gemini + function calling + Google Search grounding + TTS
-  Companion.java   server HTTP/WebSocket + mDNS untuk HP     Avatar.java  foto profil
-  Trending.java / Netflix.java   hero YouTube (Data API) / Netflix (TMDB)
-  Keys.java        tombol Apps + Back/Home dari HP     HomeControl.java  Home Assistant
-launcher/src/main/assets/web/   web client (remote, gamepad, foto, asisten)
-companion/                       app Android HP (notifikasi + musik)
-tools/  tv.py (ADB) · disable.sh · adb-closed.py · lucide.py (ikon)
-```
+<a href="https://star-history.com/#fk0u/cleanyourtv-tahoe&Date">
+  <img alt="Star History" src="https://api.star-history.com/svg?repos=fk0u/cleanyourtv-tahoe&type=Date" width="600">
+</a>
 
 ## Kredit & lisensi
 
 - Kode: [MIT](LICENSE) © Al-Ghani ([@fk0u](https://github.com/fk0u)).
-- Ikon [Lucide](https://lucide.dev) (ISC). Font [Outfit](https://github.com/Outfitio/Outfit-Fonts) (SIL OFL 1.1, [`OFL.txt`](launcher/src/main/assets/OFL.txt)).
+- Ikon [Lucide](https://lucide.dev) (ISC). Font [Outfit](https://github.com/Outfitio/Outfit-Fonts) (SIL OFL 1.1).
+- Pemutar: [Media3/ExoPlayer](https://github.com/androidx/media) (Apache 2.0), dekoder FFmpeg dari [Jellyfin media3-ffmpeg-decoder](https://github.com/jellyfin/jellyfin-androidx-media) (FFmpeg: LGPL 2.1+). Server HP: [NanoHTTPD](https://github.com/NanoHttpd/nanohttpd). ADB: [dadb](https://github.com/mobile-dev-inc/dadb). QR: [ZXing](https://github.com/zxing/zxing).
 - Saluran & jadwal TV: [iptv-org](https://github.com/iptv-org/iptv), [yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia), [dhanytv](https://github.com/dhasap/dhanytv) oleh @dhasap (hanya bagian TV gratis Indonesia), [epg.pw](https://epg.pw). Tahoe tidak meng-host siaran apa pun.
 - Data: [Open-Meteo](https://open-meteo.com/) · [Aladhan](https://aladhan.com/prayer-times-api) · [TMDB](https://www.themoviedb.org/) (produk ini tidak didukung atau disertifikasi TMDB) · YouTube Data API · Gemini API.
-- Terinspirasi dari prompt [cleanyourtv](https://github.com/Gathin23/cleanyourtv). Bukan produk Apple; "tvOS", "macOS", dan "Liquid Glass" adalah merek Apple Inc.
+- Terinspirasi dari [cleanyourtv](https://github.com/Gathin23/cleanyourtv). Bukan produk Apple; "tvOS", "macOS", dan "Liquid Glass" adalah merek Apple Inc.

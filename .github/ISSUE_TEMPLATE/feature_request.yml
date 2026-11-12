@@ -1,0 +1,26 @@
+name: 💡 Usulan fitur
+description: Ide fitur baru atau perbaikan pengalaman
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options: [TV (launcher), HP (Android), Desktop, Semua]
+  - type: textarea
+    id: problem
+    attributes:
+      label: Masalah yang ingin diselesaikan
+      description: Ceritakan situasinya, bukan hanya solusinya.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Usulan
+  - type: textarea
+    id: extra
+    attributes:
+      label: Tambahan
+      description: Screenshot, contoh dari app lain, dll.
