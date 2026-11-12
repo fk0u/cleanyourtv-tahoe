@@ -82,11 +82,21 @@ fun SettingsScreen() {
         val isRunning by remember { IptvServer.isRunning }
         val chCount by remember { IptvServer.channelCount }
         val relCount by remember { IptvServer.relayCount }
+        var serverStarting by remember { mutableStateOf(false) }
+        var serverError by remember { mutableStateOf<String?>(null) }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (!isRunning) {
-                GhostButton("Nyalakan Server IPTV", Icons.Rounded.PlayArrow, color = Tahoe.Good) {
-                    Thread { runCatching { IptvServer.start(Settings.iptvPort) } }.start() // network load: off the UI thread
+                GhostButton(if (serverStarting) "Menyalakan…" else "Nyalakan Server IPTV", Icons.Rounded.PlayArrow, color = Tahoe.Good) {
+                    if (serverStarting) return@GhostButton // one start at a time
+                    serverStarting = true; serverError = null
+                    Thread { // network load: off the UI thread; daemon so it never keeps a closing app alive
+                        val err = runCatching { IptvServer.start(Settings.iptvPort) }.exceptionOrNull()
+                        javax.swing.SwingUtilities.invokeLater {
+                            serverStarting = false
+                            serverError = err?.let { "Server tidak bisa dinyalakan: ${it.message ?: it.javaClass.simpleName} (port ${Settings.iptvPort} dipakai app lain?)" }
+                        }
+                    }.apply { isDaemon = true }.start()
                 }
             } else {
                 GhostButton("Matikan Server", Icons.Rounded.Stop, color = Tahoe.Bad) {
@@ -97,6 +107,7 @@ fun SettingsScreen() {
                 }
             }
         }
+        serverError?.let { Text(it, color = Tahoe.Bad, fontSize = 12.sp) }
 
         if (isRunning) {
             Column(

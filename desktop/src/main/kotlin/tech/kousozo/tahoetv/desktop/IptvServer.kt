@@ -44,9 +44,10 @@ object IptvServer {
     )
 
     private var server: HttpServer? = null
-    private val channels = ArrayList<ServerChannel>()
-    private val byId = ConcurrentHashMap<String, ServerChannel>()
-    private val idByUrl = ConcurrentHashMap<String, String>()
+    // Replaced as a whole on reload (never changed in place): request handlers can read them while a reload runs.
+    @Volatile private var channels: List<ServerChannel> = emptyList()
+    @Volatile private var byId: Map<String, ServerChannel> = emptyMap()
+    @Volatile private var idByUrl: Map<String, String> = emptyMap()
 
     /** The server's id for a stream URL (for the web player), or null if it isn't in the list. */
     fun idFor(url: String): String? = idByUrl[url]
@@ -120,7 +121,8 @@ object IptvServer {
     fun masterPlaylistUrl(): String = "http://${lanIp()}:${port.value}/playlist.m3u"
     fun epgUrl(): String = "http://${lanIp()}:${port.value}/epg.xml"
 
-    fun start(bindPort: Int = 8088, customFiles: List<String> = emptyList()) {
+    /** Blocks while the channel list loads: call off the UI thread. A second call while one runs waits, then does nothing. */
+    @Synchronized fun start(bindPort: Int = 8088, customFiles: List<String> = emptyList()) {
         if (isRunning.value) return
         loadPlaylists(customFiles)
 
@@ -137,7 +139,7 @@ object IptvServer {
         Recordings.boot() // scheduled recordings run while the server does
     }
 
-    fun stop() {
+    fun stop() { // not under the lock: a reload in progress must not freeze the Stop button
         server?.stop(0)
         server = null
         isRunning.value = false
@@ -145,9 +147,9 @@ object IptvServer {
 
     private fun loadPlaylists(customFiles: List<String>) {
         healthGen.incrementAndGet(); health.clear(); healthAt = 0L // new channel list: old verdicts no longer apply
-        channels.clear()
-        byId.clear()
-        idByUrl.clear()
+        val channels = ArrayList<ServerChannel>()
+        val byId = HashMap<String, ServerChannel>()
+        val idByUrl = HashMap<String, String>()
         loadedSources.clear()
 
         val filesToLoad = LinkedHashSet<File>()
@@ -198,6 +200,7 @@ object IptvServer {
             }
         }
 
+        this.channels = channels; this.byId = byId; this.idByUrl = idByUrl
         channelCount.value = channels.size
         relayCount.value = relays
     }
@@ -586,7 +589,7 @@ object IptvServer {
         val ownPage = origin == null || origin == "http://127.0.0.1:${port.value}" || origin == "http://localhost:${port.value}"
         if (!fromThisComputer(ex) || !ownPage) return sendJson(ex, 403, JSONObject().put("error", "forbidden"))
         if (ex.requestMethod.equals("POST", true)) {
-            query["zap"]?.toIntOrNull()?.let { WebPlayer.zap(it.coerceIn(-1, 1)) }
+            query["zap"]?.toIntOrNull()?.let { WebPlayer.zap(query["s"]?.toIntOrNull() ?: -1, it.coerceIn(-1, 1)) }
             query["event"]?.let { WebPlayer.report(query["s"]?.toIntOrNull() ?: -1, it, query["msg"]) }
             return sendJson(ex, 200, JSONObject().put("ok", true))
         }
@@ -680,18 +683,23 @@ async function poll(){
 v.addEventListener('playing', () => { clearTimeout(timer); veil.classList.add('hide'); if (!reported) { reported = true; post('event=playing&s=' + seq); } });
 v.addEventListener('error', () => { if (!hls) next(); });
 document.getElementById('sound').onclick = (e) => { v.muted = false; e.target.style.display='none'; };
-document.getElementById('prev').onclick = () => post('zap=-1');
-document.getElementById('next').onclick = () => post('zap=1');
+document.getElementById('prev').onclick = () => post('zap=-1&s=' + seq);
+document.getElementById('next').onclick = () => post('zap=1&s=' + seq);
 let idle; document.addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idle); idle = setTimeout(()=>document.body.classList.add('idle'), 3000); });
 document.addEventListener('keydown', (e) => {
   if (e.key === ' ') { v.paused ? v.play() : v.pause(); e.preventDefault(); }
   if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
   if (e.key === 'm' || e.key === 'M') { v.muted = !v.muted; }
-  if (e.key === 'ArrowUp' || e.key === 'PageUp') { post('zap=-1'); e.preventDefault(); }
-  if (e.key === 'ArrowDown' || e.key === 'PageDown') { post('zap=1'); e.preventDefault(); }
+  if (e.key === 'ArrowUp' || e.key === 'PageUp') { post('zap=-1&s=' + seq); e.preventDefault(); }
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') { post('zap=1&s=' + seq); e.preventDefault(); }
 });
 window.addEventListener('pagehide', () => navigator.sendBeacon('/api/watch?event=closed&s=' + seq));
-fetch('/api/watch', { cache: 'no-store' }).then(r => r.json()).then(s => { if (s.ids && s.ids.length && !s.stopped) load(s); else if (ids.length) start(); else fail('Tidak ada saluran yang dipilih.'); })
+// opened by the app (?s=…) but already stopped: don't start playing; opened by hand: play the URL's channel
+const fromApp = new URLSearchParams(location.search).has('s');
+fetch('/api/watch', { cache: 'no-store' }).then(r => r.json()).then(s => {
+  if (s.ids && s.ids.length && !s.stopped) load(s);
+  else if (fromApp && s.stopped) { spin.style.display = 'none'; msg.textContent = 'Pemutar dihentikan.'; window.close(); }
+  else if (ids.length) start(); else fail('Tidak ada saluran yang dipilih.'); })
   .catch(() => { if (ids.length) start(); });
 setInterval(poll, 1500);
 </script></body></html>"""

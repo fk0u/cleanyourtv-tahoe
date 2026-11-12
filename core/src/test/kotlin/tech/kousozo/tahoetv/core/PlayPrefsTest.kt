@@ -34,6 +34,13 @@ class PlayPrefsTest {
         assertEquals(media, PlayPrefs.capVariants(media, 720))
     }
 
+    @Test fun capKeepsAudioOnlyVariants() {
+        val withAudio = master + "\n#EXT-X-STREAM-INF:BANDWIDTH=96000,CODECS=\"mp4a.40.2\"\naudio.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=900000\nunknown.m3u8"
+        val out = PlayPrefs.capVariants(withAudio, 720)
+        assertTrue("audio.m3u8" in out)
+        assertFalse("unknown.m3u8" in out || "v1080" in out)
+    }
+
     @Test fun optionsRoundTripAndCycle() {
         assertEquals(PlayPrefs.Quality.P720, PlayPrefs.Quality.of("720"))
         assertEquals(PlayPrefs.Quality.Auto, PlayPrefs.Quality.of(null))
