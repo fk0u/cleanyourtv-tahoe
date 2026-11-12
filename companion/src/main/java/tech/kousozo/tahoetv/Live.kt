@@ -14,6 +14,7 @@ import android.net.Uri
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -60,8 +61,9 @@ import tech.kousozo.tahoetv.core.Sources
 import tech.kousozo.tahoetv.core.Search
 import tech.kousozo.tahoetv.core.Web
 
-/** TV Live on the phone: same free channels and guide as the TV and desktop (national priority first, then near you).
- *  Plays here with ExoPlayer; each channel falls back through its backup streams. "Di TV" opens Live TV on the paired TV. */
+/** TV Live on the phone: same free channels and guide as the TV and desktop. The player is the app-wide [Playback]
+ *  (it keeps playing as a mini-player on other tabs). Redesign (#60): big title, glass search, chips, channel rows with
+ *  the show on now; the player's controls hide after 3 s and come back with a tap. */
 @Composable
 fun LiveScreen() {
     val c = LocalContext.current
@@ -70,21 +72,19 @@ fun LiveScreen() {
     val failed = Channels.failed
     var cat by remember { mutableStateOf(Nav.liveCategory) }
     var query by remember { mutableStateOf("") }
-    var playing by remember { mutableStateOf<LocalTv.Entry?>(null) }
+    val playing = Playback.entry
     var full by Nav::full
     LaunchedEffect(Unit) { Channels.load(c) }
-    // requests from Beranda / Kategori: open a category, or start a channel
+    // requests from Beranda / Kategori / a channel page: open a category, or start a channel
     LaunchedEffect(Nav.liveCategory) { cat = Nav.liveCategory }
     LaunchedEffect(Nav.playUrl, entries) {
         val u = Nav.playUrl ?: return@LaunchedEffect
-        entries?.firstOrNull { it.channel.url == u }?.let { playing = it; Nav.playUrl = null }
+        entries?.firstOrNull { it.channel.url == u }?.let { Playback.play(c, it); Nav.playUrl = null }
     }
-    LaunchedEffect(playing) { playing?.let { Channels.remember(c, it) } }
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { delay(30_000); now = Instant.now() } }
 
     // full screen = landscape, player only, system bars and tab bar hidden; Back returns.
-    // Turning the phone to landscape while a channel plays also goes full screen (rotation no longer recreates the screen).
     val activity = c as? Activity
     val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     LaunchedEffect(landscape) { if (playing != null) full = landscape }
@@ -104,163 +104,166 @@ fun LiveScreen() {
     BackHandler(full) { full = false }
 
     val list = entries
+    val shown = list?.let { l -> Search.run(l, epg, query, now).filter { (cat == null || LocalTv.inCategory(it.entry, cat!!)) && (!Nav.favOnly || it.entry.channel.url in Channels.favs) } }
     Column(Modifier.fillMaxSize().then(if (full) Modifier.background(Color.Black) else Modifier.systemBarsPadding())) {
         playing?.let { e ->
-            Box(Modifier.fillMaxWidth().then(if (full) Modifier.fillMaxHeight() else Modifier.aspectRatio(16f / 9f)).background(Color.Black)
+            Box(Modifier.fillMaxWidth().then(if (full) Modifier.fillMaxHeight() else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                .clip(RoundedCornerShape(22.dp)).aspectRatio(16f / 9f)).background(Color.Black)
                 .semantics { contentDescription = "Siaran ${e.name}" }) {
-                LivePlayer(e) { list?.let { l -> playing = l[(l.indexOf(e) + it + l.size) % l.size] } }
-                IconButton({ full = !full }, Modifier.align(Alignment.TopEnd).padding(4.dp)) {
-                    Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (full) "Keluar dari layar penuh" else "Layar penuh", tint = Color.White)
-                }
+                PlayerStage(e, full, onFull = { full = !full }) { dir -> Playback.zap(c, shown?.map { it.entry } ?: list, dir) }
             }
         }
         if (full) return@Column
-        Column(Modifier.padding(horizontal = 20.dp).padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (playing == null) Text("TV Live", fontSize = 34.sp, fontWeight = FontWeight.Bold)
-            playing?.let { e ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ChannelLogo(e, Modifier.size(56.dp, 38.dp)); Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) { Pill("LIVE", Tahoe.Bad, filled = true); Spacer(Modifier.width(8.dp))
-                            Text(e.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
-                        nowOn(epg, e, now)?.let { Text("${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}", color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    }
-                    val p = remember { Sync.prefs(c) }
-                    if (p.getString("token", "").orEmpty().isNotEmpty())
-                        TextButton({ tech.kousozo.tahoetv.core.TvLink(p.getString("host", "")!!, p.getString("token", "")!!).apply { open(); Thread { Thread.sleep(1500); launch(TV_LIVE); close() }.start() } }) {
-                            Icon(Icons.Rounded.Cast, null, tint = Tahoe.Accent); Spacer(Modifier.width(6.dp)); Text("Di TV", color = Tahoe.Accent)
-                        }
-                }
+        Column(Modifier.padding(horizontal = 20.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (playing == null) {
+                Text("SIARAN LANGSUNG", color = Tahoe.Faint, fontSize = 12.sp, fontFamily = Mono, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 12.dp))
+                Text("TV Live", fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
             }
+            playing?.let { e -> NowPlayingInfo(e, epg, now) }
             if (list == null) {
                 if (failed) Note("Daftar saluran tidak bisa dimuat. Cek internet, lalu buka lagi tab ini.", Icons.Rounded.ErrorOutline)
-                else LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
+                else LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
                 return@Column
             }
-            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp),
-                placeholder = { Text("Cari saluran atau acara (mis. bola, berita)") },
-                leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                trailingIcon = { if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, "Hapus pencarian") } })
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                (listOf<LocalTv.Category?>(null) + LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }).forEach { k ->
-                    val on = k == cat
-                    Text(k?.label ?: "Semua", Modifier.clip(RoundedCornerShape(50)).background(if (on) Tahoe.Accent else Tahoe.Glass).clickable { cat = k; Nav.liveCategory = k }
-                        .padding(horizontal = 12.dp, vertical = 7.dp), color = if (on) Color(0xFF111114) else Tahoe.Text, fontSize = 13.sp)
+            // glass search pill
+            Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(Tahoe.Glass).padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Search, null, tint = Tahoe.Dim, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
+                Box(Modifier.weight(1f)) {
+                    if (query.isEmpty()) Text("Cari saluran atau acara…", color = Tahoe.Faint, fontSize = 15.sp)
+                    androidx.compose.foundation.text.BasicTextField(query, { query = it }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Cari saluran atau acara" },
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Tahoe.Text, fontSize = 15.sp, fontFamily = Outfit),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Tahoe.Text))
+                }
+                if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, "Hapus pencarian", tint = Tahoe.Dim) }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Semua", cat == null && !Nav.favOnly) { cat = null; Nav.liveCategory = null; Nav.favOnly = false }
+                if (Channels.favs.isNotEmpty()) Chip("♥ Favorit", Nav.favOnly) { Nav.favOnly = !Nav.favOnly }
+                LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }.forEach { k ->
+                    Chip(k.label, k == cat) { cat = k; Nav.liveCategory = k }
                 }
             }
         }
-        list?.let { l ->
-            LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp), contentPadding = PaddingValues(bottom = TabInset)) {
-                val hits = Search.run(l, epg, query, now).filter { cat == null || LocalTv.inCategory(it.entry, cat!!) }
-                items(hits, key = { it.entry.channel.url }) { h ->
-                    val e = h.entry
-                    val on = e == playing
-                    val prog = h.programme ?: nowOn(epg, e, now)
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(18.dp))
-                        .background(if (on) Color.White.copy(alpha = 0.14f) else Tahoe.Glass).clickable { playing = e }.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        ChannelLogo(e, Modifier.size(72.dp, 48.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(e.name, Modifier.weight(1f, fill = false), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (prog != null) { Spacer(Modifier.width(6.dp)); Pill("EPG", Tahoe.Faint) }
-                            }
-                            Text(prog?.let { pr -> if (pr.start > now) "Pukul ${HM.format(pr.start)} · ${pr.title}" else pr.title } ?: e.category.label,
-                                color = if (h.programme != null) Tahoe.Accent else if (prog != null) Tahoe.Dim else Tahoe.Faint, fontSize = 12.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            prog?.let { pr ->
-                                LinearProgressIndicator({ progress(pr, now) }, Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp).clip(RoundedCornerShape(2.dp)),
-                                    color = if (on) Tahoe.Accent else Tahoe.Dim, trackColor = Tahoe.Stroke)
-                            }
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Icon(if (on) Icons.Rounded.GraphicEq else Icons.Rounded.PlayCircle, null, tint = if (on) Tahoe.Accent else Tahoe.Dim)
-                    }
-                }
+        shown?.let { hits ->
+            val rows = hits
+            LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp), contentPadding = PaddingValues(top = 4.dp, bottom = TabInset)) {
+                items(rows, key = { it.entry.channel.url }) { h -> ChannelRow(h.entry, h.programme, epg, now, on = h.entry == playing) }
             }
         }
     }
 }
 
-/** ExoPlayer with the stream's headers; on error tries the channel's next backup. `zap(±1)` = previous/next channel. */
+/** Under the player: name, show on now, format badge, ♥ and the channel page. */
 @Composable
-private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
+private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
     val c = LocalContext.current
-    // Decoder fallback: if the phone's hardware decoder refuses a stream, try another decoder instead of failing the source.
-    // FFmpeg (audio: AC-3, E-AC-3, DTS, MP2…) after the phone's own decoders, for channels whose sound it can't decode.
-    val player = remember {
-        ExoPlayer.Builder(c, DefaultRenderersFactory(c).setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)).build().apply {
-            addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
-                override fun onAudioDecoderInitialized(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, name: String, a: Long, b: Long) = DiagLog.add("live", "audio decoder $name")
-                override fun onVideoDecoderInitialized(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, name: String, a: Long, b: Long) = DiagLog.add("live", "video decoder $name")
-            })
-        }
-    }
-    var source by remember(e) { mutableIntStateOf(0) }
-    var message by remember(e) { mutableStateOf<String?>("") }
-    var everReady by remember(e) { mutableStateOf(false) }
-    var retries by remember(e) { mutableIntStateOf(0) }
-    val streams = remember(e) { SourceHealth.order(listOf(e.channel) + e.alternates) } // known-live sources first
-    DisposableEffect(player) { onDispose { player.release() } }
-    DisposableEffect(player, e) {
-        val l = object : Player.Listener {
-            // A source that already played reconnects at the live edge (blip, rebuffer, fell behind live);
-            // only one that never played, or keeps failing, moves to the backup.
-            override fun onPlayerError(error: PlaybackException) {
-                DiagLog.error("live", "${error.errorCodeName} @ ${streams.getOrNull(source)?.url}", error.cause)
-                // Fell out of the live window: rejoin at the live point. Anything else: carry on from the same spot.
-                if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) { player.seekToDefaultPosition(); player.prepare(); return }
-                if (!everReady || retries >= 3) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, false) }; source++; return }
-                retries++; message = ""
-                player.prepare(); player.play()
-            }
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state != Player.STATE_READY) return
-                // A finished playlist, or a "live" window far in the past, is a recording (yesterday's show on a loop), not live TV.
-                if (!everReady && isRecording(player, streams.getOrNull(source))) {
-                    DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); streams.getOrNull(source)?.let { SourceHealth.report(it.url, false) }; source++; return }
-                streams.getOrNull(source)?.let { SourceHealth.report(it.url, true) }; message = null; everReady = true; retries = 0
+    val show = nowOn(epg, e, now)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(e.name, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(show?.let { "${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}" } ?: e.category.label,
+                    Modifier.weight(1f, fill = false), color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Playback.format?.let { Spacer(Modifier.width(8.dp)); FormatBadge(it) }
             }
         }
-        player.addListener(l); onDispose { player.removeListener(l) }
-    }
-    LaunchedEffect(e, source) {
-        val s = streams.getOrNull(source) ?: run { DiagLog.add("live", "${e.name}: semua sumber gagal"); player.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."; return@LaunchedEffect }
-        DiagLog.add("live", "${e.name} sumber ${source + 1}/${streams.size} ${s.url}")
-        everReady = false; retries = 0
-        message = "" // loading: the spinner shows, no text about sources
-        val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
-            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/3.0.2").setDefaultRequestProperties(s.headers - "User-Agent")
-        player.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.Builder().setUri(Uri.parse(s.url))
-            // ~20 s behind live (default ~12 s): a cushion against slow pieces; clamped to what the stream keeps
-            .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(20_000).build()).build()))
-        player.prepare(); player.play()
-        delay(20_000) // never started → next source
-        if (!everReady) { DiagLog.add("live", "tidak mulai dalam 20 dtk → sumber berikutnya"); s.let { SourceHealth.report(it.url, false) }; source++ }
-    }
-    Box(Modifier.fillMaxSize()) {
-        AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } }, Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.55f)))))
-        Row(Modifier.align(Alignment.TopStart).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Pill("LIVE", Tahoe.Bad, filled = true); Spacer(Modifier.width(8.dp))
-            Text(e.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.width(10.dp))
+        val fav = e.channel.url in Channels.favs
+        RoundGlass(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (fav) "Hapus dari favorit" else "Tambah ke favorit",
+            tint = if (fav) Tahoe.Bad else Tahoe.Text) { Channels.toggleFav(c, e) }
+        Spacer(Modifier.width(8.dp))
+        RoundGlass(Icons.Rounded.Info, "Halaman saluran") { Nav.detail = e }
+        val p = remember { Sync.prefs(c) }
+        if (p.getString("token", "").orEmpty().isNotEmpty()) {
+            Spacer(Modifier.width(8.dp))
+            RoundGlass(Icons.Rounded.Cast, "Buka Live TV di TV") {
+                tech.kousozo.tahoetv.core.TvLink(p.getString("host", "")!!, p.getString("token", "")!!).apply { open(); Thread { Thread.sleep(1500); launch(TV_LIVE); close() }.start() }
+            }
         }
-        message?.let {
-            if (it.startsWith("Saluran ini")) Text(it, Modifier.align(Alignment.Center).semantics { liveRegion = LiveRegionMode.Polite }.background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp),
-                color = Color.White, fontSize = 14.sp)
+    }
+}
+
+/** "1080p · H.264 · AAC" in a hairline box, like a music app's "AAC · 44,1 kHz". */
+@Composable
+fun FormatBadge(text: String) = Text(text,
+    Modifier.border(1.dp, Tahoe.Faint, RoundedCornerShape(5.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
+    color = Tahoe.Dim, fontSize = 10.sp, fontFamily = Mono)
+
+@Composable
+private fun ChannelRow(e: LocalTv.Entry, match: Epg.Programme?, epg: Epg?, now: Instant, on: Boolean) {
+    val c = LocalContext.current
+    val prog = match ?: nowOn(epg, e, now)
+    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(20.dp))
+        .background(if (on) Color.White.copy(alpha = 0.12f) else Color.Transparent).clickable { Playback.play(c, e) }.padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        ChannelLogo(e, Modifier.size(64.dp, 44.dp))
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(e.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(prog?.let { pr -> if (pr.start > now) "Pukul ${HM.format(pr.start)} · ${pr.title}" else pr.title } ?: e.category.label,
+                color = if (match != null) Tahoe.Text else Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            prog?.takeIf { it.start <= now }?.let { pr ->
+                LinearProgressIndicator({ progress(pr, now) }, Modifier.padding(top = 6.dp).fillMaxWidth(0.6f).height(3.dp).clip(RoundedCornerShape(2.dp)),
+                    color = if (on) Tahoe.Text else Tahoe.Dim, trackColor = Tahoe.Stroke)
+            }
+        }
+        if (e.channel.url in Channels.favs) Icon(Icons.Rounded.Favorite, "Favorit", tint = Tahoe.Bad, modifier = Modifier.size(16.dp))
+        IconButton({ Nav.detail = e }) { Icon(Icons.Rounded.MoreHoriz, "Halaman ${e.name}", tint = Tahoe.Dim) }
+    }
+}
+
+/** The video with its overlay: LIVE pill and name on top, big transport in the middle (⏪30 ⏯ ⏩30), channel up/down and
+ *  full screen at the bottom. Controls fade out after 3 s of no touch and come back on tap; they stay while loading or
+ *  on an error. */
+@Composable
+private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap: (Int) -> Unit) {
+    val c = LocalContext.current
+    val player = remember { Playback.player(c) }
+    var shownAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var visible by remember { mutableStateOf(true) }
+    val busy = Playback.message != null
+    LaunchedEffect(shownAt, busy) { visible = true; if (!busy) { delay(3000); visible = false } }
+    fun poke() { shownAt = System.currentTimeMillis() }
+    Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {
+        if (visible && !busy) visible = false else poke()
+    }) {
+        AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } },
+            Modifier.fillMaxSize(), update = { it.player = player })
+        Playback.message?.let {
+            if (it.isNotEmpty()) Text(it, Modifier.align(Alignment.Center).semantics { liveRegion = LiveRegionMode.Polite }
+                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp), color = Color.White, fontSize = 14.sp)
             else ChannelLoader(e.name, Modifier.fillMaxSize().semantics { liveRegion = LiveRegionMode.Polite; contentDescription = "Memuat ${e.name}" })
         }
-        Row(Modifier.align(Alignment.BottomCenter).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalIconButton({ zap(-1) }) { Icon(Icons.Rounded.SkipPrevious, "Saluran sebelumnya") }
-            FilledTonalIconButton({ player.seekTo(maxOf(0L, player.currentPosition - 30_000)); player.play() }) { Icon(Icons.Rounded.Replay30, "Mundur 30 detik") }
-            var paused by remember { mutableStateOf(false) }
-            FilledTonalIconButton({ if (player.isPlaying) player.pause() else player.play(); paused = !player.playWhenReady }) {
-                Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (paused) "Putar" else "Jeda")
+        androidx.compose.animation.AnimatedVisibility(visible, Modifier.fillMaxSize(),
+            enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
+            Box(Modifier.fillMaxSize().background(if (busy) Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Black.copy(alpha = 0.45f)))
+                else Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.6f))))) {
+                Row(Modifier.align(Alignment.TopStart).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Pill("LIVE", Tahoe.Bad, filled = true); Spacer(Modifier.width(8.dp))
+                    Text(e.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+                IconButton({ poke(); onFull() }, Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                    Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (full) "Keluar dari layar penuh" else "Layar penuh", tint = Color.White)
+                }
+                // big transport only once it plays: while loading or on an error the middle belongs to the loader / message
+                if (!busy) Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (full) 48.dp else 28.dp)) {
+                    IconButton({ poke(); player.seekTo(maxOf(0L, player.currentPosition - 30_000)); player.play() }, Modifier.size(52.dp)) {
+                        Icon(Icons.Rounded.Replay30, "Mundur 30 detik", tint = Color.White, modifier = Modifier.size(34.dp)) }
+                    IconButton({ poke(); Playback.toggle() }, Modifier.size(68.dp)) {
+                        Icon(if (Playback.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (Playback.paused) "Putar" else "Jeda", tint = Color.White, modifier = Modifier.size(52.dp)) }
+                    IconButton({ poke(); seekForward(player, 30_000) }, Modifier.size(52.dp)) {
+                        Icon(Icons.Rounded.Forward30, "Maju 30 detik, atau kembali ke siaran langsung", tint = Color.White, modifier = Modifier.size(34.dp)) }
+                }
+                Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton({ poke(); zap(-1) }) { Icon(Icons.Rounded.SkipPrevious, "Saluran sebelumnya", tint = Color.White) }
+                    Spacer(Modifier.weight(1f))
+                    Playback.format?.let { Text(it, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, fontFamily = Mono) }
+                    Spacer(Modifier.weight(1f))
+                    IconButton({ poke(); zap(1) }) { Icon(Icons.Rounded.SkipNext, "Saluran berikutnya", tint = Color.White) }
+                }
             }
-            FilledTonalIconButton({ seekForward(player, 30_000) }) { Icon(Icons.Rounded.Forward30, "Maju 30 detik, atau kembali ke siaran langsung") }
-            FilledTonalIconButton({ zap(1) }) { Icon(Icons.Rounded.SkipNext, "Saluran berikutnya") }
         }
     }
 }
@@ -291,7 +294,7 @@ internal fun seekForward(player: ExoPlayer, ms: Long) {
 
 internal fun nowOn(epg: Epg?, e: LocalTv.Entry, now: Instant) = epg?.schedule(e.name, now)?.firstOrNull()?.takeIf { it.start <= now }
 
-private val HM = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault())
+val HM = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault())
 
 /** Channel list + guide shared by Beranda, TV Live and Kategori; loaded once per app start. */
 object Channels {
@@ -321,6 +324,14 @@ object Channels {
         return urls.mapNotNull { u -> all.firstOrNull { it.channel.url == u } }
     }
 
+    /** Favourite channels (stream URLs), kept on this phone. */
+    var favs by mutableStateOf<Set<String>>(emptySet()); private set
+    fun loadFavs(c: android.content.Context) { favs = c.getSharedPreferences("live", 0).getStringSet("favs", emptySet()).orEmpty().toSet() }
+    fun toggleFav(c: android.content.Context, e: LocalTv.Entry) {
+        favs = if (e.channel.url in favs) favs - e.channel.url else favs + e.channel.url
+        c.getSharedPreferences("live", 0).edit().putStringSet("favs", favs).apply()
+    }
+
     fun remember(c: android.content.Context, e: LocalTv.Entry) {
         val p = c.getSharedPreferences("live", 0)
         val urls = listOf(e.channel.url) + p.getString("recent", "").orEmpty().split('\n').filter { it.isNotBlank() && it != e.channel.url }
@@ -335,15 +346,21 @@ object Nav {
     var playUrl by mutableStateOf<String?>(null)
     /** Live TV player is full screen: the tab bar hides. */
     var full by mutableStateOf(false)
-    fun play(e: LocalTv.Entry) { playUrl = e.channel.url; tab = 1 }
-    fun category(k: LocalTv.Category?) { liveCategory = k; tab = 1 }
+    /** Channel page open over the tabs, or null. */
+    var detail by mutableStateOf<LocalTv.Entry?>(null)
+    /** The channel in Beranda's hero (tints the app when nothing plays). */
+    var hero by mutableStateOf<LocalTv.Entry?>(null)
+    /** TV Live list shows favourites only. */
+    var favOnly by mutableStateOf(false)
+    fun play(e: LocalTv.Entry) { playUrl = e.channel.url; tab = 1; detail = null }
+    fun category(k: LocalTv.Category?, favourites: Boolean = false) { liveCategory = k; favOnly = favourites; tab = 1; detail = null }
 }
 
 /** The TV launcher's built-in Live TV (its pseudo package in the app list). */
 const val TV_LIVE = "tv.clean.home.livetv"
 
 @Composable
-private fun ChannelLogo(e: LocalTv.Entry, modifier: Modifier) = Box(
+fun ChannelLogo(e: LocalTv.Entry, modifier: Modifier) = Box(
     modifier.clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center,
 ) {
     val img = rememberNetImage(e.channel.logo)
@@ -352,11 +369,11 @@ private fun ChannelLogo(e: LocalTv.Entry, modifier: Modifier) = Box(
 }
 
 @Composable
-private fun Pill(text: String, color: Color, filled: Boolean = false) = Text(text,
+fun Pill(text: String, color: Color, filled: Boolean = false) = Text(text,
     Modifier.clip(RoundedCornerShape(6.dp)).background(if (filled) color else color.copy(alpha = 0.18f)).padding(horizontal = 6.dp, vertical = 1.dp),
     color = if (filled) Color.White else color, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
 
-private fun progress(p: Epg.Programme, now: Instant) =
+fun progress(p: Epg.Programme, now: Instant) =
     ((now.epochSecond - p.start.epochSecond).toFloat() / (p.stop.epochSecond - p.start.epochSecond).coerceAtLeast(1)).coerceIn(0f, 1f)
 
 

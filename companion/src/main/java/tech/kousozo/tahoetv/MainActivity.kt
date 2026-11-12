@@ -30,6 +30,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -69,10 +72,13 @@ class MainActivity : ComponentActivity() {
         if (b == null) pairFrom(intent)
         val dark = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         enableEdgeToEdge(dark, dark)
+        Channels.loadFavs(this)
         setContent {
             TahoeTheme {
                 Box(Modifier.fillMaxSize()) {
-                    Aurora()
+                    // the playing channel (or the hero channel on Beranda) tints the whole app, like album art in a music app
+                    val tintLogo = rememberNetImage((Playback.entry ?: Nav.hero)?.channel?.logo)
+                    Backdrop(tintLogo?.let { dominantColor(it) })
                     AnimatedContent(Nav.tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {
                             0 -> HomeScreen(resumed.intValue)
@@ -82,14 +88,23 @@ class MainActivity : ComponentActivity() {
                             else -> SetupScreen(onExit = { Nav.tab = 0 })
                         }
                     }
-                    if (!Nav.full) TabBar(listOf("Beranda" to Icons.Rounded.Home, "TV Live" to Icons.Rounded.LiveTv, "Remote" to Icons.Rounded.SettingsRemote,
-                        "Kategori" to Icons.Rounded.GridView, "Pasang" to Icons.Rounded.Tv), Nav.tab, { Nav.tab = it }, Modifier.align(Alignment.BottomCenter))
+                    Nav.detail?.let { e -> ChannelScreen(e) { Nav.detail = null } }
+                    if (!Nav.full) Column(Modifier.align(Alignment.BottomCenter)) {
+                        MiniPlayer(Nav.tab != 1 || Nav.detail != null)
+                        TabBar(listOf("Beranda" to Icons.Rounded.Home, "Live" to Icons.Rounded.LiveTv, "Remote" to Icons.Rounded.SettingsRemote,
+                            "Jelajahi" to Icons.Rounded.GridView, "Pasang" to Icons.Rounded.Tv), Nav.tab, { Nav.tab = it; Nav.detail = null })
+                    }
                 }
             }
         }
     }
 
     override fun onResume() { super.onResume(); resumed.intValue++ }
+
+    /** Live TV doesn't play on in the background (no picture-in-picture yet, see #63). */
+    override fun onStop() { super.onStop(); Playback.pause() }
+
+    override fun onDestroy() { if (isFinishing) Playback.release(); super.onDestroy() }
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); pairFrom(intent) }
 
@@ -115,12 +130,14 @@ class MainActivity : ComponentActivity() {
 /** Bumped when this phone gets paired from outside the Beranda card (QR link), so screens re-read host and token. */
 object Pairing { var tick by mutableIntStateOf(0) }
 
-/** Space for the floating tab bar (with its raised centre button) under scrolling content. */
-val TabInset = 104.dp
+/** Space for the floating tab bar, plus the mini-player when it shows, under scrolling content. */
+val TabInset: androidx.compose.ui.unit.Dp
+    @Composable get() = if (Playback.entry != null && (Nav.tab != 1 || Nav.detail != null)) 172.dp else 100.dp
 
 // ============================================================================ Beranda
 
-@OptIn(ExperimentalFoundationApi::class)
+/** Beranda (redesign #60): a full-bleed hero for the channel you watch most recently (its colour tints the app),
+ *  then rows like a music app: Terakhir ditonton, Favorit, Jelajahi chips, a bento of numbers, and your TV. */
 @Composable
 fun HomeScreen(resumeTick: Int) {
     val c = LocalContext.current
@@ -143,166 +160,176 @@ fun HomeScreen(resumeTick: Int) {
     }
     LaunchedEffect(Unit) { Channels.load(c) }
     val entries = Channels.entries
-    val now = Instant.now()
+    var now by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(Unit) { while (true) { delay(30_000); now = Instant.now() } } // shows on now roll over at their end
+    val recentWatched = Channels.recent(c)
+    val hero = Playback.entry ?: recentWatched.firstOrNull() ?: entries?.firstOrNull()
+    LaunchedEffect(hero) { Nav.hero = hero }
 
-    Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = TabInset),
-        verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        // header
-        Row(Modifier.padding(start = 20.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            BrandTile(46.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text((hello + if (name.isNotEmpty()) ", $name" else "").uppercase(), color = Tahoe.Faint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-                Text("Beranda", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = TabInset),
+        verticalArrangement = Arrangement.spacedBy(26.dp)) {
+        // hero
+        Box(Modifier.fillMaxWidth().height(440.dp)) {
+            val logo = rememberNetImage(hero?.channel?.logo)
+            if (logo != null) Image(logo, null, Modifier.fillMaxSize().blur(70.dp).alpha(0.45f), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Tahoe.Bg)))
+            Row(Modifier.statusBarsPadding().padding(start = 20.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                BrandMark(30.dp, tint = Color.White)
+                Spacer(Modifier.weight(1f))
+                RoundGlass(if (paired) Icons.Rounded.Tv else Icons.Rounded.TvOff, if (paired) "TV tersambung" else "Sambungkan TV",
+                    tint = if (paired) Tahoe.Good else Tahoe.Text) { showPair = !showPair }
+                Spacer(Modifier.width(8.dp))
+                RoundGlass(Icons.Rounded.SettingsRemote, "Remote") { Nav.tab = 2 }
             }
-            RoundIcon(if (paired) Icons.Rounded.Tv else Icons.Rounded.TvOff, if (paired) Tahoe.Good else Tahoe.Dim, Tahoe.Glass) { showPair = !showPair }
-            Spacer(Modifier.width(10.dp))
-            RoundIcon(Icons.Rounded.AutoAwesome, Tahoe.OnAccent, Tahoe.Accent) { Nav.tab = 2 }
-        }
-
-        // hero carousel
-        val slides = buildList {
-            val pick = Channels.recent(c).firstOrNull() ?: entries?.firstOrNull()
-            pick?.let { e -> add(Slide("SEDANG TAYANG", e.name, nowOn(Channels.epg, e, now)?.title ?: "Tonton langsung di HP atau TV", e.channel.logo, Icons.Rounded.PlayArrow) { Nav.play(e) }) }
-            add(if (paired) Slide("TV KAMU", "Tonton di layar besar", "Remote, Live TV dan asisten dari HP", null, Icons.Rounded.SettingsRemote) { Nav.tab = 2 }
-                else Slide("MULAI", "Pasang Tahoe ke TV", "Tanpa laptop, cukup Wi-Fi yang sama", null, Icons.Rounded.Download) { Nav.tab = 4 })
-            add(Slide("JELAJAHI", "Pilih kategori saluran", "Nasional, TVRI daerah, TV lokal, berita", null, Icons.Rounded.GridView) { Nav.tab = 3 })
-        }
-        val pager = rememberPagerState { slides.size }
-        LaunchedEffect(slides.size) { while (true) { delay(5500); if (slides.isNotEmpty()) pager.animateScrollToPage((pager.currentPage + 1) % slides.size) } }
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            HorizontalPager(pager, contentPadding = PaddingValues(horizontal = 20.dp), pageSpacing = 12.dp) { i -> HeroCard(slides[i]) }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                repeat(slides.size) { i ->
-                    val on = i == pager.currentPage
-                    Box(Modifier.padding(horizontal = 3.dp).size(if (on) 18.dp else 6.dp, 6.dp).clip(CircleShape).background(if (on) Tahoe.Text else Tahoe.Faint))
-                }
-            }
-        }
-
-        // recently watched
-        val recent = Channels.recent(c).ifEmpty { entries.orEmpty().take(8) }
-        if (recent.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionHeader(if (Channels.recent(c).isEmpty()) "Saluran utama" else "Terakhir ditonton") { Nav.category(null) }
-            LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                items(recent, key = { it.channel.url }) { e ->
-                    Column(Modifier.width(66.dp).clickable { Nav.play(e) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(62.dp).clip(CircleShape).background(Color.White).border(2.dp, Tahoe.Accent.copy(alpha = 0.5f), CircleShape),
-                            contentAlignment = Alignment.Center) {
-                            rememberNetImage(e.channel.logo)?.let { Image(it, e.name, Modifier.padding(10.dp).fillMaxSize(), contentScale = ContentScale.Fit) }
-                                ?: Text(e.name.take(3).uppercase(), color = Color(0xFF111114), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Text(e.name, fontSize = 11.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+            if (hero != null) Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text((hello + if (name.isNotEmpty()) ", $name" else "").uppercase(), color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono, letterSpacing = 1.2.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(22.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+                        if (logo != null) Image(logo, null, Modifier.padding(3.dp).fillMaxSize(), contentScale = ContentScale.Fit)
                     }
+                    Spacer(Modifier.width(8.dp))
+                    Text(when { Playback.entry != null -> "Sedang kamu tonton"; recentWatched.isNotEmpty() -> "Lanjut nonton"; else -> "Saluran pilihan" },
+                        fontSize = 14.sp, color = Tahoe.Text.copy(alpha = 0.85f))
+                }
+                Text(hero.name, fontSize = 44.sp, lineHeight = 46.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                nowOn(Channels.epg, hero, now)?.let { Text(it.title, fontSize = 15.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PillButton("Tonton", Icons.Rounded.PlayArrow) { Nav.play(hero) }
+                    Spacer(Modifier.width(10.dp))
+                    RoundGlass(Icons.Rounded.Info, "Halaman ${hero.name}") { Nav.detail = hero }
                 }
             }
         }
 
-        // categories: one tall card + two stacked
+        // pairing / TV card opens from the TV button
+        if (showPair || !paired) TvCard(host, { host = it }, paired, code, { code = it }, showPair, { showPair = it }, granted, notif, { notif = it; p.edit().putBoolean("notif", it).apply() },
+            media, { media = it; p.edit().putBoolean("media", it).apply(); Sync.inst?.sendMedia() }) { token ->
+            p.edit().putString("host", host.trim()).putString("token", token).apply(); code = ""; paired = true; showPair = false; Sync.inst?.connect()
+        }
+
+        val recent = recentWatched.ifEmpty { entries.orEmpty().take(8) }
+        if (recent.isNotEmpty()) Shelf(if (recentWatched.isEmpty()) "Saluran utama" else "Terakhir ditonton", recent, now) { Nav.category(null) }
+        val favs = entries.orEmpty().filter { it.channel.url in Channels.favs }
+        if (favs.isNotEmpty()) Shelf("Favorit", favs, now) { Nav.category(null, favourites = true) }
+
         entries?.let { all ->
             val cats = LocalTv.Category.entries.map { k -> k to all.count { LocalTv.inCategory(it, k) } }.filter { it.second > 0 }
-            if (cats.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SectionHeader("Kategori") { Nav.tab = 3 }
-                Row(Modifier.padding(horizontal = 20.dp).height(236.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CategoryCard(cats[0].first, cats[0].second, Modifier.weight(1f).fillMaxHeight(), big = true)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        cats.getOrNull(1)?.let { CategoryCard(it.first, it.second, Modifier.weight(1f).fillMaxWidth()) }
-                        cats.getOrNull(2)?.let { CategoryCard(it.first, it.second, Modifier.weight(1f).fillMaxWidth()) }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionHeader("Jelajahi") { Nav.tab = 3 }
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    cats.forEach { (k, _) -> Chip(k.label, false) { Nav.category(k) } }
+                }
+                // bento of numbers
+                val near = all.count { it.near }
+                Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Bento("Semua saluran", all.size.toString(), Icons.Rounded.LiveTv, Modifier.weight(1f)) { Nav.category(null) }
+                    Bento(if (near > 0) "Dekat kamu" else "Kategori", (if (near > 0) near else cats.size).toString(), Icons.Rounded.Place, Modifier.weight(1f)) {
+                        if (near > 0) Nav.category(LocalTv.Category.Near) else Nav.tab = 3
                     }
                 }
             }
         } ?: if (Channels.failed) Box(Modifier.padding(horizontal = 20.dp)) { Note("Daftar saluran tidak bisa dimuat. Cek internet.", Icons.Rounded.ErrorOutline) }
-            else LinearProgressIndicator(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
+            else LinearProgressIndicator(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
 
-        // TV + phone-to-TV
-        Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("TV kamu", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            GlassCard {
+        if (paired && !showPair) Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("TV kamu", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            GlassCard(onClick = { showPair = true }) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background((if (paired) Tahoe.Good else Tahoe.Faint).copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Tv, null, tint = if (paired) Tahoe.Good else Tahoe.Dim) }
+                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Tahoe.Good.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Tv, null, tint = Tahoe.Good) }
                     Column(Modifier.weight(1f)) {
-                        Text(if (paired) "Tersambung ke TV" else "Belum ada TV", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text(if (paired) "$host · ${Sync.status.value}" else "Pasang Tahoe atau sambungkan dengan kode", color = Tahoe.Dim, fontSize = 12.sp)
+                        Text("Tersambung ke TV", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text("$host · ${Sync.status.value}", color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    TextButton({ showPair = !showPair }) { Text(if (showPair) "Tutup" else if (paired) "Ganti" else "Sambungkan", color = Tahoe.Accent) }
-                }
-                if (showPair) {
-                    Text("Di TV: Pusat Kontrol → HP. Pindai QR-nya dengan kamera HP (tersambung otomatis), atau masukkan kodenya di sini.", color = Tahoe.Dim, fontSize = 12.sp)
-                    Field(host, { host = it }, "Alamat TV (terdeteksi otomatis)", KeyboardType.Uri)
-                    Field(code, { if (it.length <= 6) code = it.filter(Char::isDigit) }, "Kode 6 digit", KeyboardType.NumberPassword)
-                    PrimaryButton("Sambungkan", enabled = host.isNotBlank() && code.length == 6, icon = Icons.Rounded.Link) {
-                        scope.launch {
-                            val err = withContext(Dispatchers.IO) {
-                                runCatching { TvLink.pair(host.trim(), code) }.fold({ token ->
-                                    p.edit().putString("host", host.trim()).putString("token", token).apply(); null
-                                }, { it.message })
-                            }
-                            if (err == null) { code = ""; paired = true; showPair = false; Sync.inst?.connect() }
-                            Toast.makeText(c, err ?: "Tersambung", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-                HorizontalDivider(color = Tahoe.Stroke)
-                if (!granted) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Akses notifikasi belum diizinkan", Modifier.weight(1f), fontSize = 14.sp, color = Tahoe.Dim)
-                    TextButton({ c.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) { Text("Izinkan", color = Tahoe.Accent) }
-                }
-                SwitchRow("Teruskan notifikasi HP ke TV", notif) { notif = it; p.edit().putBoolean("notif", it).apply() }
-                SwitchRow("Tampilkan musik yang diputar", media) { media = it; p.edit().putBoolean("media", it).apply(); Sync.inst?.sendMedia() }
-                if (host.isNotBlank()) TextButton({ c.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://${host.trim()}:8765/"))) }) {
-                    Icon(Icons.Rounded.SportsEsports, null, tint = Tahoe.Accent); Spacer(Modifier.width(8.dp)); Text("Buka gamepad (web)", color = Tahoe.Accent)
+                    PillButton("Remote", Icons.Rounded.SettingsRemote) { Nav.tab = 2 }
                 }
             }
-            UpdateCard() // version, changelog, OTA
+        }
+        Box(Modifier.padding(horizontal = 20.dp)) { UpdateCard() } // version, changelog, OTA
+    }
+}
+
+/** Pairing + notification settings (was the "TV kamu" card). */
+@Composable
+private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, code: String, setCode: (String) -> Unit, open: Boolean, setOpen: (Boolean) -> Unit,
+                   granted: Boolean, notif: Boolean, setNotif: (Boolean) -> Unit, media: Boolean, setMedia: (Boolean) -> Unit, onPaired: (String) -> Unit) {
+    val c = LocalContext.current
+    val scope = rememberCoroutineScope()
+    Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(if (paired) "TV kamu" else "Sambungkan TV", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        GlassCard {
+            if (!paired && !open) {
+                Text("Pakai HP ini sebagai remote dan kirim siaran ke TV.", color = Tahoe.Dim, fontSize = 14.sp)
+                Row { PillButton("Sambungkan", Icons.Rounded.Link) { setOpen(true) }; Spacer(Modifier.width(8.dp)); TextButton({ Nav.tab = 4 }) { Text("Pasang Tahoe ke TV", color = Tahoe.Text) } }
+                return@GlassCard
+            }
+            Text("Di TV: Pusat Kontrol → HP. Pindai QR-nya dengan kamera HP (tersambung otomatis), atau masukkan kodenya di sini.", color = Tahoe.Dim, fontSize = 13.sp)
+            Field(host, setHost, "Alamat TV (terdeteksi otomatis)", KeyboardType.Uri)
+            Field(code, { if (it.length <= 6) setCode(it.filter(Char::isDigit)) }, "Kode 6 digit", KeyboardType.NumberPassword)
+            PrimaryButton("Sambungkan", enabled = host.isNotBlank() && code.length == 6, icon = Icons.Rounded.Link) {
+                scope.launch {
+                    val r = withContext(Dispatchers.IO) { runCatching { TvLink.pair(host.trim(), code) } }
+                    r.onSuccess(onPaired)
+                    Toast.makeText(c, r.exceptionOrNull()?.message ?: "Tersambung", Toast.LENGTH_SHORT).show()
+                }
+            }
+            HorizontalDivider(color = Tahoe.Stroke)
+            if (!granted) Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Akses notifikasi belum diizinkan", Modifier.weight(1f), fontSize = 14.sp, color = Tahoe.Dim)
+                TextButton({ c.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) { Text("Izinkan", color = Tahoe.Text) }
+            }
+            SwitchRow("Teruskan notifikasi HP ke TV", notif, setNotif)
+            SwitchRow("Tampilkan musik yang diputar", media, setMedia)
+            if (host.isNotBlank()) TextButton({ c.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://${host.trim()}:8765/"))) }) {
+                Icon(Icons.Rounded.SportsEsports, null, tint = Tahoe.Text); Spacer(Modifier.width(8.dp)); Text("Buka gamepad (web)", color = Tahoe.Text)
+            }
+            if (open) TextButton({ setOpen(false) }) { Text("Tutup", color = Tahoe.Dim) }
         }
     }
 }
 
-private class Slide(val eyebrow: String, val title: String, val sub: String, val logo: String?, val icon: ImageVector, val go: () -> Unit)
-
+/** A horizontal shelf of square channel cards ("Recently played" style): logo on white, name, show on now. */
 @Composable
-private fun HeroCard(s: Slide) = Box(
-    Modifier.fillMaxWidth().height(186.dp).clip(RoundedCornerShape(26.dp))
-        .background(Brush.linearGradient(listOf(Color(0xFF0E3A52), Color(0xFF0B1B3A), Tahoe.Bg)))
-        .border(1.dp, Brush.verticalGradient(listOf(Tahoe.Accent.copy(alpha = 0.55f), Color.White.copy(alpha = 0.04f))), RoundedCornerShape(26.dp))
-        .clickable(onClick = s.go),
+private fun Shelf(title: String, items: List<LocalTv.Entry>, now: Instant, onAll: () -> Unit) = Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    SectionHeader(title, onAll)
+    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        items(items, key = { it.channel.url }) { e ->
+            val logo = rememberNetImage(e.channel.logo)
+            val tint = logo?.let { dominantColor(it) } ?: categoryTint(e.category)
+            Column(Modifier.width(128.dp).clip(RoundedCornerShape(18.dp)).clickable { Nav.play(e) }) {
+                Box(Modifier.size(128.dp).clip(RoundedCornerShape(18.dp))
+                    .background(Brush.linearGradient(listOf(tint.copy(alpha = 0.95f), tint.copy(alpha = 0.45f)))), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(78.dp, 56.dp).clip(RoundedCornerShape(12.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+                        if (logo != null) Image(logo, e.name, Modifier.padding(8.dp).fillMaxSize(), contentScale = ContentScale.Fit)
+                        else Text(e.name.take(3).uppercase(), color = Color(0xFF141216), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Text(e.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+                Text(nowOn(Channels.epg, e, now)?.title ?: e.category.label, fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** A big-number glass card (bento). */
+@Composable
+private fun Bento(label: String, value: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit) = Column(
+    modifier.height(108.dp).clip(RoundedCornerShape(22.dp)).background(Tahoe.Glass).clickable(onClick = onClick).padding(14.dp),
+    verticalArrangement = Arrangement.SpaceBetween,
 ) {
-    // accent light from the top-right corner + artwork
-    Box(Modifier.matchParentSize().background(Brush.radialGradient(listOf(Tahoe.Accent.copy(alpha = 0.45f), Color.Transparent),
-        center = androidx.compose.ui.geometry.Offset(900f, -80f), radius = 650f)))
-    Box(Modifier.align(Alignment.CenterEnd).padding(end = 18.dp).size(112.dp, 84.dp).clip(RoundedCornerShape(18.dp))
-        .background(if (s.logo != null) Color.White else Color.White.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
-        val img = rememberNetImage(s.logo)
-        if (img != null) Image(img, null, Modifier.padding(12.dp).fillMaxSize(), contentScale = ContentScale.Fit)
-        else Icon(s.icon, null, tint = Tahoe.Accent, modifier = Modifier.size(44.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = Tahoe.Dim, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp))
+        Text(label, fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1)
     }
-    Column(Modifier.align(Alignment.BottomStart).padding(20.dp).fillMaxWidth(0.62f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (s.eyebrow == "SEDANG TAYANG") { LiveDot(); Spacer(Modifier.width(6.dp)) }
-            Text(s.eyebrow, fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Accent, fontWeight = FontWeight.Bold)
-        }
-        Text(s.title, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, lineHeight = 26.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text(s.sub, fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
+    Text(value, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
 }
-
-@Composable
-private fun LiveDot() = Box(Modifier.size(7.dp).clip(CircleShape).background(Tahoe.Bad))
 
 @Composable
 private fun SectionHeader(title: String, onAll: () -> Unit) = Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-    Text(title, Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)
-    Row(Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onAll).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Lihat semua", fontSize = 12.sp, color = Tahoe.Dim)
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
-    }
+    Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Lihat semua $title", tint = Tahoe.Dim,
+        modifier = Modifier.padding(start = 2.dp).size(22.dp).clip(CircleShape).clickable(onClick = onAll))
 }
-
-@Composable
-private fun RoundIcon(icon: ImageVector, tint: Color, bg: Color, onClick: () -> Unit) =
-    Box(Modifier.size(42.dp).clip(CircleShape).background(bg).border(1.dp, Tahoe.Stroke, CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center) { Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp)) }
 
 /** Tinted glass card for a category: icon, LIVE badge, label, channel count. Opens TV Live filtered to it. */
 @Composable
