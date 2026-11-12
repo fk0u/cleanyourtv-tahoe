@@ -129,8 +129,15 @@ final class Companion extends NanoWSD {
             }
             // Forgotten kids PIN: a paired phone (it holds this TV's token) sets a new one. The owner's phone is the proof.
             if (uri.equals("/kids_pin") && s.getMethod() == Method.POST) {
-                // in the body, not the URL: URLs end up in logs
-                String pin = new JSONObject(body(s, 1024)).optString("pin");
+                // in the body, not the URL: URLs end up in logs. A missing, oversized or broken body is a bad request.
+                String pin;
+                try { pin = new JSONObject(body(s, 1024)).optString("pin"); }
+                catch (TooLarge e) {
+                    Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
+                    r.closeConnection(true); // its unread bytes must not be taken for the next request
+                    return r;
+                }
+                catch (Exception e) { pin = ""; }
                 if (!pin.matches("\\d{4}")) return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "PIN harus 4 angka"));
                 Kids.setPin(ctx, pin);
                 tech.kousozo.tahoetv.core.DiagLog.add("kids", "PIN Anak diatur ulang dari HP");
@@ -167,10 +174,14 @@ final class Companion extends NanoWSD {
         return json(Response.Status.OK, new JSONObject().put("token", token).put("name", "Tahoe TV"));
     }
 
-    /** A small request body as text (at most [max] bytes). */
+    static final class TooLarge extends IOException {}
+
+    /** A small request body as text: all of it (Content-Length bytes) or, past [max], TooLarge. No length = empty. */
     static String body(IHTTPSession s, int max) throws IOException {
-        int len = (int) Math.min(max, Long.parseLong(s.getHeaders().getOrDefault("content-length", "0")));
-        byte[] b = new byte[Math.max(0, len)]; int got = 0, n;
+        long declared;
+        try { declared = Long.parseLong(s.getHeaders().getOrDefault("content-length", "0").trim()); } catch (NumberFormatException e) { declared = 0; }
+        if (declared > max) throw new TooLarge();
+        byte[] b = new byte[(int) Math.max(0, declared)]; int got = 0, n;
         InputStream in = s.getInputStream();
         while (got < b.length && (n = in.read(b, got, b.length - got)) > 0) got += n;
         return new String(b, 0, got, "UTF-8");
