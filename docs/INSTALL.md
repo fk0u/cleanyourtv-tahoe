@@ -1,168 +1,174 @@
-# Instalasi & konfigurasi
+# Install & configure
 
-[← README](../README.md)
+[← README](../README.md) · [Bahasa Indonesia](id/INSTALL.md)
 
-Daftar isi: [Pasang dari HP](#pasang-dari-hp-tanpa-laptop) · [Pasang dari komputer](#pasang-dari-komputer-adb) · [Desktop](#app-desktop) ·
-[Kontrol remote](#kontrol-remote) · [HP ↔ TV](#hp--tv) · [Konfigurasi](#konfigurasi) · [API key](#api-key-opsional) ·
-[Wallpaper & foto](#wallpaper--foto) · [Profil Anak](#profil-anak) · [Kirim log](#kirim-log) · [Debloat](#debloat) · [Mengembalikan TV](#mengembalikan-tv)
+Contents: [From your phone](#install-from-your-phone-no-computer) · [From a computer](#install-from-a-computer-adb) · [Desktop](#desktop-app) ·
+[Remote control](#remote-control) · [Phone ↔ TV](#phone--tv) · [Configuration](#configuration) · [API keys](#api-keys-optional) ·
+[Wallpaper & photos](#wallpaper--photos) · [Kids profile](#kids-profile) · [Send log](#send-log) · [Debloat](#debloat) · [Restore the TV](#restore-the-tv)
 
-## Pasang dari HP (tanpa laptop)
+> The apps' text is in Indonesian for now (English: [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)). Menu
+> names below give the English meaning with the Indonesian label in brackets where it helps.
 
-Cara yang disarankan. Butuh HP Android di Wi-Fi yang sama dengan TV.
+## Install from your phone (no computer)
 
-1. Di TV: **Settings → Device Preferences → About → tekan "Build" 7×**, lalu **Developer options → USB debugging: ON**.
-2. Di HP: pasang [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk), buka tab **Pasang**.
-3. App memindai Wi-Fi dan menampilkan TV yang ditemukan (port ADB 5555, dan TV yang sudah memakai Tahoe lewat `/info`). Bisa juga ketik IP.
-4. Di TV muncul **"Izinkan debugging USB?"**: centang *Selalu izinkan*, lalu **OKE**.
-5. Pilih aplikasi bawaan yang dimatikan, isi nama, kota (dicari otomatis), foto, dock, dan API key (opsional), lalu **Pasang ke TV**.
-6. Selesai: launcher terpasang dan jadi Home, screensaver aktif, HP otomatis tersambung. Tekan **Matikan debugging di TV**.
+The recommended way. You need an Android phone on the same Wi-Fi as the TV.
 
-Ubah setelan kapan saja dengan menyalakan debugging lagi, lalu buka app. **Pulihkan TV** mengembalikan semuanya ke bawaan.
+1. On the TV: **Settings → Device Preferences → About → press "Build" 7×**, then **Developer options → USB debugging: ON**.
+2. On the phone: install [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) and open the **Install** (*Pasang*) tab.
+3. The app scans the Wi-Fi and lists the TVs it finds (ADB port 5555, and TVs already running Tahoe via `/info`). You can also type an IP.
+4. The TV shows **"Allow USB debugging?"**: tick *Always allow*, then **OK**.
+5. Choose which built-in apps to turn off, then fill in your name, city (searched automatically), photo, dock and API keys (optional), and tap **Install to TV**.
+6. Done: the launcher is installed and set as Home, the screensaver is on and the phone is connected. Tap **Turn off debugging on the TV**.
 
-Di balik layar: ADB lewat Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb)) dengan kunci milik HP. Setelan dikirim ke receiver
-`tech.kousozo.tahoetv.launcher/tv.clean.home.Config`, yang hanya bisa dipanggil shell ADB.
+Change settings any time by turning debugging back on and opening the app. **Restore TV** puts everything back to stock.
 
-> TV box tanpa opsi debugging? Lihat [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26) (Tahoe sebagai app mandiri) dan
-> [#36](https://github.com/fk0u/cleanyourtv-tahoe/issues/36) (setup awal lewat web lokal/QR).
+Under the hood: ADB over Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb)) with the phone's own key. Settings go to the
+receiver `tech.kousozo.tahoetv.launcher/tv.clean.home.Config`, which only the ADB shell can call.
 
-## Pasang dari komputer (ADB)
+> TV box without a debugging option? See [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26) (Tahoe as a standalone app) and
+> [#36](https://github.com/fk0u/cleanyourtv-tahoe/issues/36) (first setup through a local web page / QR).
 
-Butuh: Python 3, JDK 17, Android SDK (platform 36, build-tools 34+). Gradle diunduh otomatis oleh wrapper.
-Di TV nyalakan USB debugging seperti di atas.
+## Install from a computer (ADB)
+
+You need Python 3, JDK 17 and the Android SDK (platform 36, build-tools 34+). The Gradle wrapper downloads Gradle.
+Turn on USB debugging on the TV as above.
 
 ```bash
 git clone https://github.com/fk0u/cleanyourtv-tahoe.git && cd cleanyourtv-tahoe
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp secrets.example.properties secrets.properties     # opsional: isi API key
-export TV_HOST=192.168.1.50                           # IP TV kamu
-./build-and-install.sh                                # build APK (Gradle) + pasang
+cp secrets.example.properties secrets.properties     # optional: API keys
+export TV_HOST=192.168.1.50                           # your TV's IP
+./build-and-install.sh                                # build the APKs (Gradle) + install
 ```
 
-Izin satu kali:
+One-time permissions:
 
 ```bash
 T=".venv/bin/python tools/tv.py"
-$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.ACCESS_FINE_LOCATION'    # nama Wi-Fi
-$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.WRITE_SECURE_SETTINGS'   # tombol Apps tetap aktif setelah reboot
-$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.RECORD_AUDIO'            # mic untuk asisten
-$T 'appops set tech.kousozo.tahoetv.launcher SYSTEM_ALERT_WINDOW allow'                # banner shalat & notifikasi HP
-$T 'appops set tech.kousozo.tahoetv.launcher GET_USAGE_STATS allow'                    # titik "baru dipakai", aplikasi terakhir
+$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.ACCESS_FINE_LOCATION'    # Wi-Fi name
+$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.WRITE_SECURE_SETTINGS'   # Apps key keeps working after reboot
+$T 'pm grant tech.kousozo.tahoetv.launcher android.permission.RECORD_AUDIO'            # mic for the assistant
+$T 'appops set tech.kousozo.tahoetv.launcher SYSTEM_ALERT_WINDOW allow'                # prayer banner & phone notifications
+$T 'appops set tech.kousozo.tahoetv.launcher GET_USAGE_STATS allow'                    # "recently used" dot, last app
 $T 'cmd package set-home-activity tech.kousozo.tahoetv.launcher/tv.clean.home.Home'
 $T 'settings put secure screensaver_components tech.kousozo.tahoetv.launcher/tv.clean.home.Lock'
-tools/disable.sh com.google.android.tvlauncher                         # matikan launcher bawaan (bisa dikembalikan)
+tools/disable.sh com.google.android.tvlauncher                         # turn off the stock launcher (reversible)
 ```
 
-Build publik tanpa key: `./gradlew -PpublicBuild assembleRelease` (key lalu diisi dari app HP).
+Public build without keys: `./gradlew -PpublicBuild assembleRelease` (keys are then set from the phone app).
 
-## App desktop
+## Desktop app
 
-Unduh dari [Releases](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest): `TahoeTV-macos-arm64.dmg` (Apple Silicon),
-`TahoeTV-macos-intel.dmg`, atau `TahoeTV-windows.msi`.
+Download from [Releases](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest): `TahoeTV-macos-arm64.dmg` (Apple Silicon),
+`TahoeTV-macos-intel.dmg` or `TahoeTV-windows.msi`.
 
-- **macOS:** app belum dinotarisasi Apple. Saat pertama dibuka: klik kanan app → **Buka** → **Buka**.
-- **Windows:** SmartScreen bisa memperingatkan; pilih **More info → Run anyway**.
-- Data app: `~/.tahoetv/` (playlist kustom di `~/.tahoetv/playlists/`, log diagnostik `diag.log`, jadwal rekaman). Rekaman di `~/Movies/Tahoe TV` (macOS) atau `~/Videos/Tahoe TV`.
-- Server IPTV LAN aktif otomatis (Setelan → Server IPTV), atau dari terminal: `./tools/start-iptv-server.sh`.
+- **macOS:** the app isn't notarized by Apple yet. The first time: right-click the app → **Open** → **Open**.
+- **Windows:** SmartScreen may warn; choose **More info → Run anyway**. Live TV plays in a Microsoft Edge app window (built into Windows 10/11).
+- App data: `~/.tahoetv/` (custom playlists in `~/.tahoetv/playlists/`, diagnostic log `diag.log`, recording schedule). Recordings go to `~/Movies/Tahoe TV` (macOS) or `~/Videos/Tahoe TV`.
+- The LAN IPTV server starts automatically (Settings → IPTV Server), or from a terminal: `./tools/start-iptv-server.sh`.
 
-Build sendiri: `./gradlew -PpublicBuild :desktop:packageDmg` (atau `packageMsi` di Windows). Jalankan langsung: `./gradlew :desktop:run`.
+Build it yourself: `./gradlew -PpublicBuild :desktop:packageDmg` (or `packageMsi` on Windows). Run directly: `./gradlew :desktop:run`.
 
-## Kontrol remote
+## Remote control
 
-| Tombol (remote / gamepad) | Aksi |
+| Key (remote / gamepad) | Action |
 |---|---|
-| ◀ ▶ ▲ ▼ / stik | Pindah tepat satu langkah: top bar → tombol hero → dock → Launchpad |
-| OK / A | Buka · pilih |
-| Tahan OK / X | Menu aplikasi: sematkan/lepas, geser, info, uninstall |
-| Back / B | Tutup panel → kembali ke dock |
+| ◀ ▶ ▲ ▼ / stick | Move exactly one step: top bar → hero buttons → dock → Launchpad |
+| OK / A | Open · select |
+| Hold OK / X | App menu: pin/unpin, move, info, uninstall |
+| Back / B | Close the panel → back to the dock |
 | Apps / Start | Launchpad |
-| Menu / Y | Pusat Kontrol |
-| Select | Asisten |
-| L1 / R1 | Lompat 3 baris di Launchpad |
+| Menu / Y | Control Center |
+| Select | Assistant |
+| L1 / R1 | Jump 3 rows in Launchpad |
 
-Di **Live TV**: ▲▼ ganti saluran, angka 0–9 nomor saluran, ⏪⏩ tunda/maju 30 detik, **tahan OK** tandai sumber "bukan live"
-(atau pulihkan sumber yang ditandai bila saluran tidak bisa diputar), tombol merah sama dengan tahan OK.
+In **Live TV**: ▲▼ change channel, 0–9 channel number, ⏪⏩ pause/skip 30 seconds, **hold OK** to mark a source "not live"
+(or restore marked sources when a channel won't play); the red key is the same as holding OK. Quality and latency are in
+Control Center while watching.
 
-## HP ↔ TV
+## Phone ↔ TV
 
-- **App HP** (`tahoe-tv.apk`): pairing lewat **QR** di TV (Pusat Kontrol → HP) atau kode 6 digit. Isinya remote, Live TV, pasang/atur TV, Kirim log, dan PIN Anak.
-- **Web (HP apa pun, tanpa install):** buka alamat yang tampil di TV untuk remote, gamepad, daftar aplikasi, kirim link, tanya asisten, kirim foto, dan unggah suara adzan.
-- **Notifikasi & musik HP di TV:** di app HP, izinkan akses notifikasi. TV menampilkan notifikasi dan musik yang diputar, dan bisa play/pause/next dari Pusat Kontrol.
-- **Keamanan:** hanya di LAN (port 8765). Setiap HP butuh token dari kode yang hanya bisa dipakai sekali. **Menu** di layar "Hubungkan HP" di TV melupakan semua HP.
+- **Phone app** (`tahoe-tv.apk`): pair with the **QR code** on the TV (Control Center → Phone) or a 6-digit code. It has the remote, Live TV, install/set up the TV, Send log and the Kids PIN.
+- **Web (any phone, nothing to install):** open the address shown on the TV for a remote, gamepad, app list, send a link, ask the assistant, send photos and upload an adhan sound.
+- **Phone notifications & music on the TV:** in the phone app, allow notification access. The TV shows notifications and what's playing, with play/pause/next in Control Center.
+- **Security:** LAN only (port 8765). Every phone needs a token from a one-time code. **Menu** on the TV's "Connect phone" screen forgets all phones.
 
-## Konfigurasi
+## Configuration
 
-Sebagian besar diatur dari app HP. Default build ada di [`launcher/src/main/res/values/config.xml`](../launcher/src/main/res/values/config.xml):
+Most of it is set from the phone app. Build defaults are in [`launcher/src/main/res/values/config.xml`](../launcher/src/main/res/values/config.xml):
 
-| Kunci | Default | Fungsi |
+| Key | Default | What it does |
 |---|---|---|
-| `dock_size` | `6` | Slot dock (4–7) |
-| `columns` | `5` | Kolom Launchpad |
-| `dock_apps` | YouTube, Netflix, BitTV, Spotify, TikTok, Vidio | Isi dock awal (nama paket); yang tidak terpasang dilewati |
-| `user_name` | `Al-Ghani` | Nama di sapaan, profil, dan layar kunci |
-| `avatar_url` | foto GitHub | Foto profil (di-cache di TV) |
-| `city`, `latitude`, `longitude` | Samarinda | Cuaca & jadwal shalat |
-| `wallpaper_minutes` | `10` | Interval ganti wallpaper |
+| `dock_size` | `6` | Dock slots (4–7) |
+| `columns` | `5` | Launchpad columns |
+| `dock_apps` | YouTube, Netflix, BitTV, Spotify, TikTok, Vidio | Initial dock (package names); missing apps are skipped |
+| `user_name` | `Al-Ghani` | Name in the greeting, profile and lock screen |
+| `avatar_url` | GitHub photo | Profile photo (cached on the TV) |
+| `city`, `latitude`, `longitude` | Samarinda | Weather & prayer times |
+| `wallpaper_minutes` | `10` | Wallpaper change interval |
 
-Susunan dock yang diubah lewat menu tahan-OK disimpan di TV per profil.
+Dock changes made with the hold-OK menu are saved on the TV per profile.
 
-**Live TV:** saluran diambil dari [iptv-org](https://github.com/iptv-org/iptv), [dhanytv](https://github.com/dhasap/dhanytv) (bagian TV gratis Indonesia), dan
-[yositapjani](https://github.com/yositapjani/iptv-indonesia). Playlist sendiri: app HP (URL) atau desktop (Setelan → Tambah file playlist).
+**Live TV:** channels come from [iptv-org](https://github.com/iptv-org/iptv), [dhanytv](https://github.com/dhasap/dhanytv) (free Indonesian TV part) and
+[yositapjani](https://github.com/yositapjani/iptv-indonesia). Your own playlist: phone app (URL) or desktop (Settings → Add playlist file).
+Channels for other countries are planned in [#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71); until then, add an
+[iptv-org country playlist](https://github.com/iptv-org/iptv#grouped-by-country) (e.g. `https://iptv-org.github.io/iptv/countries/us.m3u`) as your own playlist.
 
-## API key (opsional)
+## API keys (optional)
 
-Isi di `secrets.properties` (gitignored) atau dari app HP. Kosong = fitur disembunyikan.
+Put them in `secrets.properties` (gitignored) or set them from the phone app. Empty = the feature is hidden.
 
-| Kunci | Untuk | Dapatkan di |
+| Key | For | Get it at |
 |---|---|---|
-| `gemini.apiKey`, `gemini.model` | Asisten (default `gemini-3.5-flash-lite`) | [Google AI Studio](https://aistudio.google.com/apikey) |
-| `youtube.apiKey` | Hero "Trending di YouTube" | Google Cloud → YouTube Data API v3 |
-| `tmdb.apiKey` | Hero "Populer di Netflix" | [TMDB](https://www.themoviedb.org/settings/api) |
-| `homeassistant.url`, `homeassistant.token` | Panel Rumah | Home Assistant → Profil → Long-lived token |
+| `gemini.apiKey`, `gemini.model` | Assistant (default `gemini-3.5-flash-lite`) | [Google AI Studio](https://aistudio.google.com/apikey) |
+| `youtube.apiKey` | "Trending on YouTube" hero | Google Cloud → YouTube Data API v3 |
+| `tmdb.apiKey` | "Popular on Netflix" hero | [TMDB](https://www.themoviedb.org/settings/api) |
+| `homeassistant.url`, `homeassistant.token` | Home panel | Home Assistant → Profile → Long-lived token |
 
-Pencarian Google (grounding) Gemini memakai kuota tersendiri. Kalau habis (429), asisten otomatis menjawab tanpa pencarian.
+Gemini's Google Search grounding has its own quota. When it runs out (429), the assistant answers without search.
 
-## Wallpaper & foto
+## Wallpaper & photos
 
-- **Pribadi** (pemilik): `files/wallpapers` + `files/photos` (foto kiriman HP). **Default**: gradien Tahoe bawaan. Profil Tamu selalu Default.
-- Ganti mode: Pusat Kontrol → Wallpaper → ◀ ▶. OK = wallpaper berikutnya.
-- Dari komputer:
+- **Personal** (owner): `files/wallpapers` + `files/photos` (photos sent from the phone). **Default**: the built-in Tahoe gradient. The Guest profile always uses Default.
+- Change mode: Control Center → Wallpaper → ◀ ▶. OK = next wallpaper.
+- From a computer:
   ```bash
-  sips -s format jpeg -z 1080 1920 foto.jpg --out wallpapers/01.jpg
+  sips -s format jpeg -z 1080 1920 photo.jpg --out wallpapers/01.jpg
   .venv/bin/python tools/tv.py --push /sdcard/Android/data/tech.kousozo.tahoetv.launcher/files/wallpapers wallpapers/01.jpg
   ```
-- Wallpaper bawaan dari API foto gratis direncanakan di [#39](https://github.com/fk0u/cleanyourtv-tahoe/issues/39).
+- Built-in wallpapers from a free photo API are planned in [#39](https://github.com/fk0u/cleanyourtv-tahoe/issues/39).
 
-## Profil Anak
+## Kids profile
 
-1. Di layar **Siapa yang menonton?**, pilih **Anak**. Pertama kali, buat PIN 4 angka (dengan tombol arah).
-2. Di profil Anak, Live TV hanya menampilkan saluran Anak & Dokumenter, dan hanya aplikasi yang diizinkan yang muncul.
-3. Keluar dari profil Anak (Pusat Kontrol → **Ganti profil**, atau saat TV menyala) meminta PIN.
-4. Atur PIN dan aplikasi yang diizinkan dari profil Saya: Pusat Kontrol → **Profil Anak**.
-5. **Lupa PIN?** Di HP yang sudah dipasangkan: Remote → **PIN Anak** → masukkan PIN baru.
+1. On **Who's watching?**, choose **Kids**. The first time, create a 4-digit PIN (with the arrow keys).
+2. In Kids, Live TV only shows kids' & documentary channels, and only allowed apps appear.
+3. Leaving Kids (Control Center → **Switch profile**, or when the TV turns on) asks for the PIN.
+4. Set the PIN and allowed apps from your own profile: Control Center → **Kids profile**.
+5. **Forgot the PIN?** On a paired phone: Remote → **Kids PIN** → enter a new PIN.
 
-## Kirim log
+## Send log
 
-Untuk melaporkan saluran yang gagal diputar atau app yang tertutup sendiri:
-- **HP:** Remote → **Kirim log** (log HP + TV sekaligus) lewat WhatsApp, email, dan sejenisnya.
-- **TV:** Pusat Kontrol → **Kirim log** menandai momen masalah; lalu kirim dari HP.
-- **Desktop:** Setelan → Bantuan → **Simpan & salin log**, lalu **Laporkan di GitHub**.
+To report a channel that won't play or an app that closes by itself:
+- **Phone:** Remote → **Send log** (phone + TV logs together) via WhatsApp, email and so on.
+- **TV:** Control Center → **Send log** marks the moment; then send it from the phone.
+- **Desktop:** Settings → Help → **Save & copy log**, then **Report on GitHub**.
 
-Log berisi catatan pemutar dan crash; alamat siaran dicatat tanpa token, kunci, atau kata sandi.
+Logs contain player notes and crashes; stream addresses are recorded without tokens, keys or passwords.
 
 ## Debloat
 
-Daftar: [`debloat-list.txt`](../debloat-list.txt). Jalankan dalam batch kecil dan cek layar di antaranya:
+List: [`debloat-list.txt`](../debloat-list.txt). Run it in small batches and check the screen in between:
 
 ```bash
 tools/disable.sh com.miui.tv.analytics tv.alphonso.alphonso_eula
 ```
 
-`tools/disable.sh` **menolak** paket inti Android (permission controller, package installer, providers, systemui, settings, dll.).
-Sengaja dibiarkan: Assistant, Chromecast, Miracast, update firmware, Play Store/Services, setup wizard.
+`tools/disable.sh` **refuses** core Android packages (permission controller, package installer, providers, systemui, settings, …).
+Left alone on purpose: Assistant, Chromecast, Miracast, firmware updates, Play Store/Services, setup wizard.
 
-## Mengembalikan TV
+## Restore the TV
 
-Dari app HP: **Pulihkan TV**. Dari komputer:
+From the phone app: **Restore TV**. From a computer:
 
 ```bash
 ./restore.sh
