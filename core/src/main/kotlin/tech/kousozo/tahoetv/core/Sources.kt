@@ -108,10 +108,17 @@ object Sources {
         val pool = Executors.newFixedThreadPool(32)
         val ok = ConcurrentHashMap.newKeySet<String>()
         channels.forEach { c -> pool.execute { if (check(c, timeoutMs)) ok += c.url } }
-        pool.shutdown(); pool.awaitTermination(timeoutMs * 3L, TimeUnit.MILLISECONDS)
+        pool.shutdown(); pool.awaitTermination(budget(channels.size, timeoutMs), TimeUnit.MILLISECONDS)
         pool.shutdownNow()
         return ok
     }
+
+    /** How long a parallel check of [n] channels may take: every channel gets its turn. The old fixed limit
+     *  (3 × timeout ≈ 10 s) stopped after roughly the first 250 of ~1000 channels, so on the desktop three in four
+     *  channels never got a status ("Memeriksa koneksi…" forever, missing from the LIVE filter). One check is at most
+     *  ~3 requests (master playlist, variant, retry), each bounded by [timeoutMs]. */
+    internal fun budget(n: Int, timeoutMs: Int, threads: Int = 32): Long =
+        ((n + threads - 1) / threads).coerceAtLeast(1) * timeoutMs * 3L + 10_000L
 
     /** Detailed status check returning Map of url -> isLive (true=LIVE, false=OFFLINE).
      *  Calls [onProgress] on each checked channel so UI updates in real time. */
@@ -129,7 +136,7 @@ object Sources {
                 onProgress?.invoke(c.url, live)
             }
         }
-        pool.shutdown(); pool.awaitTermination(timeoutMs * 3L, TimeUnit.MILLISECONDS)
+        pool.shutdown(); pool.awaitTermination(budget(channels.size, timeoutMs), TimeUnit.MILLISECONDS)
         pool.shutdownNow()
         return result
     }
@@ -149,7 +156,7 @@ object Sources {
         con.setRequestProperty("User-Agent", "TahoeTV"); c.headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
         try {
             if (con.responseCode !in 200..299) return@runCatching false
-            val head = con.inputStream.use { s -> ByteArray(16).let { b -> String(b, 0, s.read(b).coerceAtLeast(0)) } }
+            val head = Web.body(con)!!.use { s -> ByteArray(16).let { b -> String(b, 0, s.read(b).coerceAtLeast(0)) } }
             !c.url.contains(".m3u8", true) || head.startsWith("#EXTM3U")
         } finally { con.disconnect() }
     }.getOrDefault(false)

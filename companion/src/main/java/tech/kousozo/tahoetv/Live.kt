@@ -232,7 +232,7 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
         everReady = false; retries = 0
         message = "" // loading: the spinner shows, no text about sources
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
-            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/3.0.1").setDefaultRequestProperties(s.headers - "User-Agent")
+            .setUserAgent(s.headers["User-Agent"] ?: "TahoeTV/3.0.2").setDefaultRequestProperties(s.headers - "User-Agent")
         player.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.Builder().setUri(Uri.parse(s.url))
             // ~20 s behind live (default ~12 s): a cushion against slow pieces; clamped to what the stream keeps
             .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(20_000).build()).build()))

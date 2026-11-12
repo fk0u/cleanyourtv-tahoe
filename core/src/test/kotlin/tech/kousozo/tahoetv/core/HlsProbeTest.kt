@@ -35,4 +35,21 @@ class HlsProbeTest {
         assertNull(HlsProbe.firstVariant("#EXTM3U\n#EXTINF:6,\na.ts\n", "https://x/"))
         assertEquals(HlsProbe.Kind.UNKNOWN, HlsProbe.analyze("<html>403</html>", now))
     }
+
+    /** CNBC/detik send gzip without being asked; the JDK doesn't undo it, so the playlist used to come out binary. */
+    @Test fun fetchDecodesGzipThatWasNotAskedFor() {
+        val playlist = "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\na.ts\n"
+        val gz = java.io.ByteArrayOutputStream().also { o -> java.util.zip.GZIPOutputStream(o).use { it.write(playlist.toByteArray()) } }.toByteArray()
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0).apply {
+            createContext("/p.m3u8") { ex ->
+                ex.responseHeaders.add("Content-Encoding", "gzip"); ex.responseHeaders.add("Content-Type", "application/vnd.apple.mpegurl")
+                ex.sendResponseHeaders(200, gz.size.toLong()); ex.responseBody.use { it.write(gz) }
+            }
+            start()
+        }
+        try {
+            val (text, _) = HlsProbe.fetch("http://127.0.0.1:${server.address.port}/p.m3u8", emptyMap(), 5000)
+            assertEquals(playlist, text)
+        } finally { server.stop(0) }
+    }
 }

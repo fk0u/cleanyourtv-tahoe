@@ -16,6 +16,9 @@ object M3u {
 
     private val attr = Regex("""([\w-]+)="([^"]*)"""")
 
+    /** `"https://x/"` → `https://x/`: some playlists quote option values, and the quotes then went out in the header. */
+    private fun unquote(v: String) = v.trim().removeSurrounding("\"").removeSurrounding("'").trim()
+
     fun parse(text: String): List<Channel> {
         val out = mutableListOf<Channel>()
         var info: String? = null
@@ -31,9 +34,9 @@ object M3u {
                 line.startsWith("#EXTINF") -> info = line
                 line.startsWith("#EXTVLCOPT:") -> line.substringAfter(':').split('=', limit = 2).takeIf { it.size == 2 }?.let { (k, v) ->
                     when (k.trim().lowercase()) {
-                        "http-referrer", "http-referer" -> headers["Referer"] = v.trim()
-                        "http-user-agent" -> headers["User-Agent"] = v.trim().trim('"')
-                        "http-origin" -> headers["Origin"] = v.trim()
+                        "http-referrer", "http-referer" -> headers["Referer"] = unquote(v)
+                        "http-user-agent" -> headers["User-Agent"] = unquote(v)
+                        "http-origin" -> headers["Origin"] = unquote(v)
                     }
                 }
                 line.startsWith("#EXTHTTP:") -> runCatching { JSONObject(line.substringAfter(':')).let { j -> j.keys().forEach { k -> headers[k] = j.getString(k) } } }
@@ -50,7 +53,7 @@ object M3u {
                         prop.startsWith("inputstream.adaptive.stream_headers=", true) -> // "A=1&B=2" or "A=1|B=2"
                             prop.substringAfter('=').split('&', '|').forEach { kv ->
                                 kv.split('=', limit = 2).takeIf { it.size == 2 }?.let { (k, v) ->
-                                    when (k.trim().lowercase()) { "referer", "referrer" -> headers["Referer"] = v.trim(); "user-agent" -> headers["User-Agent"] = v.trim(); "origin" -> headers["Origin"] = v.trim() }
+                                    when (k.trim().lowercase()) { "referer", "referrer" -> headers["Referer"] = unquote(v); "user-agent" -> headers["User-Agent"] = unquote(v); "origin" -> headers["Origin"] = unquote(v) }
                                 }
                             }
                     }

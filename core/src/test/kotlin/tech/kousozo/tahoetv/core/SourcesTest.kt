@@ -74,4 +74,29 @@ class SourcesTest {
     @Test fun keepsFreeTvOnly() {
         assertEquals(listOf("TVRI Bali", "Stara TV"), M3u.parse(playlist).filter(Sources::free).map { it.name })
     }
+
+    /** Every channel gets checked, however long the list: the old fixed 3 × timeout cut-off left ~3 in 4 unchecked. */
+    @Test fun statusCheckReachesEveryChannel() {
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0).apply {
+            executor = java.util.concurrent.Executors.newFixedThreadPool(64)
+            createContext("/") { ex ->
+                Thread.sleep(150) // a slow-ish server: 200 channels ÷ 32 threads × 150 ms ≈ 1 s > 3 × the 300 ms timeout
+                val b = "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\na.ts\n".toByteArray()
+                ex.sendResponseHeaders(200, b.size.toLong()); ex.responseBody.use { it.write(b) }
+            }
+            start()
+        }
+        try {
+            val chans = (0 until 200).map { M3u.Channel("C$it", "http://127.0.0.1:${server.address.port}/c$it/index.m3u8", null, null) }
+            val seen = java.util.concurrent.atomic.AtomicInteger()
+            val res = Sources.checkStatus(chans, timeoutMs = 300) { _, _ -> seen.incrementAndGet() }
+            assertEquals(200, res.size)
+            assertEquals(200, seen.get())
+        } finally { server.stop(0) }
+    }
+
+    @Test fun budgetGrowsWithTheList() {
+        assertEquals(1 * 3500 * 3L + 10_000, Sources.budget(10, 3500))
+        assertEquals(33 * 3500 * 3L + 10_000, Sources.budget(1028, 3500))
+    }
 }

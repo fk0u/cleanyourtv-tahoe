@@ -26,12 +26,13 @@ object HlsProxy {
                     val type = con.contentType.orEmpty()
                     val playlist = url.substringBefore('?').endsWith(".m3u8", true) || "mpegurl" in type.lowercase()
                     if (playlist) {
-                        val body = rewrite(con.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }, con.url.toString(), headers).toByteArray()
+                        val body = rewrite(tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }, con.url.toString(), headers).toByteArray()
                         ex.responseHeaders.add("Content-Type", "application/vnd.apple.mpegurl")
                         ex.sendResponseHeaders(200, body.size.toLong()); ex.responseBody.use { it.write(body) }
                     } else {
                         if (type.isNotEmpty()) ex.responseHeaders.add("Content-Type", type)
-                        ex.sendResponseHeaders(con.responseCode, 0); ex.responseBody.use { out -> con.inputStream.use { it.copyTo(out) } }
+                        // decoded here, so no Content-Encoding goes to the player
+                        ex.sendResponseHeaders(con.responseCode, 0); ex.responseBody.use { out -> tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.copyTo(out) } }
                     }
                 } catch (e: Exception) {
                     runCatching { ex.sendResponseHeaders(502, -1) }
