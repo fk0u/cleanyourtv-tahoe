@@ -16,6 +16,8 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 - **Header Referer/Origin bertanda kutip** dari playlist (misalnya `"https://20.detik.com/"`) kini dikirim tanpa tanda kutip, sehingga server tidak lagi menolak sumber tersebut.
 
 
+## 3.0.1
+
 > **Rilis stabil pertama seri 3.0.** Selain yang di bawah, versi ini juga berisi semua isi 3.0.0 (beta): profil Anak dengan PIN, rekaman acara di desktop, perbaikan siaran Trans7 yang berulang dan layar hitam di desktop, loading baru, tunda siaran langsung, dan sambung HP lewat QR.
 
 ### Baru
