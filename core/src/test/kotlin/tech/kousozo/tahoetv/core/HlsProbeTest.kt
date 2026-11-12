@@ -94,4 +94,21 @@ class HlsProbeTest {
         assertEquals(null, HlsProbe.dropDeadVariants(master, "$base/none/m.m3u8", emptyMap(), 3000))
         assertEquals(media, HlsProbe.dropDeadVariants(media, base, emptyMap(), 3000))
     }
+
+    /** Two variants with the same attributes: a dead one must not take its working twin with it. */
+    @Test fun twinVariantsAreDroppedByPosition() {
+        val twins = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2000000,RESOLUTION=1280x720\na.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2000000,RESOLUTION=1280x720\nb.m3u8\n"
+        serve(mapOf("/a.m3u8" to (404 to "x"), "/b.m3u8" to (200 to media))) { base ->
+            assertEquals(listOf("b.m3u8"), HlsProbe.dropDeadVariants(twins, "$base/m.m3u8", emptyMap(), 3000)!!.lines().filter { it.endsWith(".m3u8") })
+            assertEquals(true, HlsProbe.firstVariantDead(twins, "$base/m.m3u8", emptyMap(), 3000))
+        }
+    }
+
+    /** More than four variants: a working fifth one still makes the channel live. */
+    @Test fun everyVariantIsTried() {
+        val many = "#EXTM3U\n" + (1..5).joinToString("") { "#EXT-X-STREAM-INF:BANDWIDTH=${it}000\nv$it.m3u8\n" }
+        serve(mapOf("/v5.m3u8" to (200 to media))) { base ->
+            assertEquals("$base/v5.m3u8", HlsProbe.liveVariant(many, "$base/m.m3u8", emptyMap(), 3000)?.first?.url)
+        }
+    }
 }

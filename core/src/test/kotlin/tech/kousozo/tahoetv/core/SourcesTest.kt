@@ -96,7 +96,7 @@ class SourcesTest {
     }
 
     @Test fun budgetGrowsWithTheList() {
-        assertEquals(1 * 3500 * 3L + 10_000, Sources.budget(10, 3500))
-        assertEquals(33 * 3500 * 3L + 10_000, Sources.budget(1028, 3500))
+        assertEquals(1 * 3500 * 4L + 10_000, Sources.budget(10, 3500))
+        assertEquals(33 * 3500 * 4L + 10_000, Sources.budget(1028, 3500))
     }
 }

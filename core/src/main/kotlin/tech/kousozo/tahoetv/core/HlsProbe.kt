@@ -59,7 +59,9 @@ object HlsProbe {
         return runCatching { URI(base).resolve(uri).toString() }.getOrNull()
     }
 
-    data class Variant(val url: String, val height: Int, val inf: String)
+    /** One variant of a master playlist: [line] is the index of its `#EXT-X-STREAM-INF` line (variants can share the
+     *  same attribute text, so position is what identifies one), [uriLine] the index of its URI line. */
+    data class Variant(val url: String, val height: Int, val inf: String, val line: Int = -1, val uriLine: Int = -1)
 
     private val HEIGHT = Regex("""RESOLUTION=\d+x(\d+)""")
 
@@ -67,9 +69,9 @@ object HlsProbe {
     fun variants(text: String, base: String): List<Variant> {
         val lines = text.lines().map { it.trim() }
         return lines.indices.filter { lines[it].startsWith("#EXT-X-STREAM-INF") }.mapNotNull { i ->
-            val uri = lines.drop(i + 1).firstOrNull { it.isNotEmpty() && !it.startsWith("#") } ?: return@mapNotNull null
-            val url = runCatching { URI(base).resolve(uri.replace(" ", "%20")).toString() }.getOrNull() ?: return@mapNotNull null
-            Variant(url, HEIGHT.find(lines[i])?.groupValues?.get(1)?.toIntOrNull() ?: 0, lines[i])
+            val u = (i + 1 until lines.size).firstOrNull { lines[it].isNotEmpty() && !lines[it].startsWith("#") } ?: return@mapNotNull null
+            val url = runCatching { URI(base).resolve(lines[u].replace(" ", "%20")).toString() }.getOrNull() ?: return@mapNotNull null
+            Variant(url, HEIGHT.find(lines[i])?.groupValues?.get(1)?.toIntOrNull() ?: 0, lines[i], i, u)
         }
     }
 
@@ -77,41 +79,49 @@ object HlsProbe {
     fun preferred(variants: List<Variant>, maxHeight: Int = 0): List<Variant> {
         if (maxHeight <= 0) return variants
         val (fit, over) = variants.partition { it.height in 1..maxHeight }
-        return fit.sortedByDescending { it.height } + (over + variants.filter { it.height == 0 && it !in fit }).distinct().sortedBy { if (it.height == 0) Int.MAX_VALUE else it.height }
+        return fit.sortedByDescending { it.height } + over.sortedBy { if (it.height == 0) Int.MAX_VALUE else it.height }
     }
 
-    /** The first variant (in [preferred] order, at most [tries]) whose playlist really answers, with that playlist's
-     *  text and final URL. Null if none does. Blocks. */
-    fun liveVariant(text: String, base: String, headers: Map<String, String>, timeoutMs: Int = 4000, maxHeight: Int = 0, tries: Int = 4): Pair<Variant, Pair<String, String>>? =
-        preferred(variants(text, base), maxHeight).take(tries).firstNotNullOfOrNull { v ->
-            runCatching { fetch(v.url, headers, timeoutMs) }.getOrNull()?.takeIf { it.first.trimStart().startsWith("#EXTM3U") }?.let { v to it }
-        }
+    /** Each variant's playlist (text, final URL), or null where it doesn't answer as a playlist. All are fetched in
+     *  parallel under one deadline, so a master with many slow variants still costs about one [timeoutMs]. */
+    private fun fetchAll(all: List<Variant>, headers: Map<String, String>, timeoutMs: Int): List<Pair<String, String>?> {
+        if (all.isEmpty()) return emptyList()
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(all.size.coerceAtMost(16))
+        try {
+            val jobs = all.map { v -> pool.submit<Pair<String, String>?> { runCatching { fetch(v.url, headers, timeoutMs) }.getOrNull()?.takeIf { it.first.trimStart().startsWith("#EXTM3U") } } }
+            val deadline = System.currentTimeMillis() + timeoutMs * 2L
+            return jobs.map { j -> runCatching { j.get((deadline - System.currentTimeMillis()).coerceAtLeast(1), java.util.concurrent.TimeUnit.MILLISECONDS) }.getOrNull() }
+        } finally { pool.shutdownNow() }
+    }
 
-    /** A master playlist without its dead variants (checked in parallel), for adaptive players that would otherwise
-     *  give up on the first variant that fails (hls.js, LAN players). Media playlists come back unchanged; null when
-     *  no variant answers. Blocks for about one [timeoutMs]. */
+    /** The first variant in [preferred] order whose playlist really answers, with that playlist's text and final URL.
+     *  Every variant is checked (in parallel). Null if none answers. Blocks for about one [timeoutMs]. */
+    fun liveVariant(text: String, base: String, headers: Map<String, String>, timeoutMs: Int = 4000, maxHeight: Int = 0): Pair<Variant, Pair<String, String>>? {
+        val order = preferred(variants(text, base), maxHeight)
+        val got = fetchAll(order, headers, timeoutMs)
+        return order.indices.firstOrNull { got[it] != null }?.let { order[it] to got[it]!! }
+    }
+
+    /** True when the first variant (the one a non-adaptive player like JavaFX takes) is dead but another one works. */
+    fun firstVariantDead(text: String, base: String, headers: Map<String, String>, timeoutMs: Int = 4000): Boolean {
+        val all = variants(text, base)
+        if (all.size < 2) return false
+        val got = fetchAll(all, headers, timeoutMs)
+        return got[0] == null && got.drop(1).any { it != null }
+    }
+
+    /** A master playlist without its dead variants, for players that would otherwise stop at the first one that fails
+     *  (JavaFX, hls.js, LAN players). Media playlists come back unchanged; null when no variant answers. Blocks for
+     *  about one [timeoutMs]. */
     fun dropDeadVariants(text: String, base: String, headers: Map<String, String>, timeoutMs: Int = 4000): String? {
         val all = variants(text, base)
         if (all.isEmpty()) return text
-        val pool = java.util.concurrent.Executors.newFixedThreadPool(all.size.coerceAtMost(8))
-        val alive = try {
-            all.map { v -> pool.submit<Boolean> { runCatching { fetch(v.url, headers, timeoutMs).first.trimStart().startsWith("#EXTM3U") }.getOrDefault(false) } }
-                .map { runCatching { it.get(timeoutMs * 2L, java.util.concurrent.TimeUnit.MILLISECONDS) }.getOrDefault(false) }
-        } finally { pool.shutdownNow() }
-        if (alive.none { it }) return null
-        if (alive.all { it }) return text
-        val dead = all.filterIndexed { i, _ -> !alive[i] }.map { it.inf }.toSet()
-        val lines = text.lines()
-        val out = ArrayList<String>()
-        var skipUri = false
-        for (l in lines) {
-            when {
-                l.trim() in dead -> skipUri = true // this variant's #EXT-X-STREAM-INF … and its URI line below
-                skipUri && l.isNotBlank() && !l.startsWith("#") -> skipUri = false
-                !skipUri -> out += l
-            }
-        }
-        return out.joinToString("\n")
+        val got = fetchAll(all, headers, timeoutMs)
+        if (got.all { it == null }) return null
+        if (got.all { it != null }) return text
+        // by position: two variants may have identical #EXT-X-STREAM-INF text
+        val drop = all.filterIndexed { i, _ -> got[i] == null }.flatMap { listOf(it.line, it.uriLine) }.toSet()
+        return text.lines().filterIndexed { i, _ -> i !in drop }.joinToString("\n")
     }
 
     /** Fetches [url] (and a working variant if it is a master playlist) and says what kind of stream it is. Blocks. */
