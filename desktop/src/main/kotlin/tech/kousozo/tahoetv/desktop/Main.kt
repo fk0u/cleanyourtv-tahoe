@@ -56,8 +56,8 @@ fun main(args: Array<String>) {
 private fun app() = application {
     LaunchedEffect(Unit) {
         Recordings.boot() // scheduled recordings start on time while the app is open
-        if (Settings.iptvAutoStart) {
-            runCatching { IptvServer.start(Settings.iptvPort) }
+        if (Settings.iptvAutoStart) { // loads the channel list over the network: not on the UI thread
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { IptvServer.start(Settings.iptvPort) } }
         }
     }
     val icon = remember { Screen::class.java.getResourceAsStream("/icon.png")?.use { BitmapPainter(org.jetbrains.skia.Image.makeFromEncoded(it.readBytes()).toComposeImageBitmap()) } }
