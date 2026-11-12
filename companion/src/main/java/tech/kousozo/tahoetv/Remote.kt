@@ -200,8 +200,9 @@ private fun KidsPinDialog(host: String, token: String, close: () -> Unit) {
                 error = when { a.length != 4 -> "PIN harus 4 angka"; a != b -> "PIN tidak sama"; else -> null }
                 if (error != null) return@TextButton
                 busy = true
+                val pin = a // the PIN that was confirmed, even if the field changes while this runs
                 Thread {
-                    val r = runCatching { TvLink.setKidsPin(host, token, a) }
+                    val r = runCatching { TvLink.setKidsPin(host, token, pin) }
                     main.post {
                         busy = false
                         r.fold({ android.widget.Toast.makeText(c, "PIN Anak di TV sudah diganti", android.widget.Toast.LENGTH_LONG).show(); close() },

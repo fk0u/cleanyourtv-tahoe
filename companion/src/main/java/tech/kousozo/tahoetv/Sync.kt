@@ -26,6 +26,7 @@ class Sync : NotificationListenerService() {
     private var retry = 0
 
     override fun onListenerConnected() {
+        Report.install(this) // Android can start this service without the activity: crashes here are logged too
         inst = this
         connect()
         val msm = getSystemService(MediaSessionManager::class.java)

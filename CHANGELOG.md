@@ -3,7 +3,9 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
-## Belum dirilis
+## 3.0.1
+
+> **Rilis stabil pertama seri 3.0.** Selain yang di bawah, versi ini juga berisi semua isi 3.0.0 (beta): profil Anak dengan PIN, rekaman acara di desktop, perbaikan siaran Trans7 yang berulang dan layar hitam di desktop, loading baru, tunda siaran langsung, dan sambung HP lewat QR.
 
 ### Baru
 - **Dekoder FFmpeg (TV & HP):** saluran yang suaranya memakai AC-3/Dolby Digital, E-AC-3, DTS, atau MP2 kini tetap bersuara walau dekoder bawaan perangkat tidak mendukungnya. FFmpeg baru dipakai setelah dekoder bawaan menolak, jadi saluran yang sudah lancar tidak berubah. Hanya audio; format video tetap memakai dekoder perangkat. APK hanya berisi pustaka ARM (TV stick dan HP) dan terkompresi: APK TV naik sekitar 1,5 MB, APK HP sekitar 3 MB karena ikut membawa APK TV untuk fitur pasang ke TV.

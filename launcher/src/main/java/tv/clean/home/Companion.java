@@ -122,10 +122,15 @@ final class Companion extends NanoWSD {
             }
             if (uri.equals("/upload") && s.getMethod() == Method.POST) return upload(s);
             // "Kirim log" on the phone: the TV's diagnostic report (no tokens or keys, see DiagLog)
-            if (uri.equals("/log")) return newFixedLengthResponse(Response.Status.OK, "text/plain; charset=utf-8", Diag.report(ctx));
+            if (uri.equals("/log")) {
+                Response r = newFixedLengthResponse(Response.Status.OK, "text/plain; charset=utf-8", Diag.report(ctx));
+                r.addHeader("Cache-Control", "no-store"); // device details and stream paths: never cached
+                return r;
+            }
             // Forgotten kids PIN: a paired phone (it holds this TV's token) sets a new one. The owner's phone is the proof.
             if (uri.equals("/kids_pin") && s.getMethod() == Method.POST) {
-                String pin = s.getParms().getOrDefault("pin", "");
+                // in the body, not the URL: URLs end up in logs
+                String pin = new JSONObject(body(s, 1024)).optString("pin");
                 if (!pin.matches("\\d{4}")) return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "PIN harus 4 angka"));
                 Kids.setPin(ctx, pin);
                 tech.kousozo.tahoetv.core.DiagLog.add("kids", "PIN Anak diatur ulang dari HP");
@@ -160,6 +165,15 @@ final class Companion extends NanoWSD {
         prefs.edit().putStringSet("tokens", t).apply();
         newCode(); // single use
         return json(Response.Status.OK, new JSONObject().put("token", token).put("name", "Tahoe TV"));
+    }
+
+    /** A small request body as text (at most [max] bytes). */
+    static String body(IHTTPSession s, int max) throws IOException {
+        int len = (int) Math.min(max, Long.parseLong(s.getHeaders().getOrDefault("content-length", "0")));
+        byte[] b = new byte[Math.max(0, len)]; int got = 0, n;
+        InputStream in = s.getInputStream();
+        while (got < b.length && (n = in.read(b, got, b.length - got)) > 0) got += n;
+        return new String(b, 0, got, "UTF-8");
     }
 
     /** Raw body upload: /upload?token=…&kind=photo|wallpaper|adzan&name=file.jpg */
