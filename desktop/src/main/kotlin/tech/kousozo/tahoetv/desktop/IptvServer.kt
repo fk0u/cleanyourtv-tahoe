@@ -12,6 +12,7 @@ import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.URI
 import java.net.URLDecoder
+import java.net.URLEncoder
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -204,10 +205,10 @@ object IptvServer {
                         serveLiveMpd(ex, cid)
                     } else {
                         val cid = path.removePrefix("/live/").removeSuffix(".m3u8")
-                        serveLive(ex, cid, query["sub"])
+                        serveLive(ex, cid, query["sub"], query["s"])
                     }
                 }
-                path == "/segment" -> serveSegment(ex, query["u"], query["cid"])
+                path == "/segment" -> serveSegment(ex, query["u"], query["cid"], query["s"])
                 path == "/api/status" -> serveStatus(ex)
                 path == "/api/channels" -> serveChannels(ex, query)
                 path == "/api/health" -> serveHealth(ex, query)
@@ -295,11 +296,19 @@ object IptvServer {
         ex.responseBody.use { it.write(body) }
     }
 
-    private fun serveLive(ex: HttpExchange, cid: String, subUrlB64: String?) {
+    /** Signs the URLs this server writes into playlists; [serveSegment] and variant playlists only fetch signed ones,
+     *  so the relay can't be pointed at arbitrary addresses (router pages, 127.0.0.1 services…). */
+    private val signer = tech.kousozo.tahoetv.core.UrlSigner()
+    private fun relayParams(cid: String, url: String) =
+        "cid=" + URLEncoder.encode(cid, "UTF-8") + "&u=" + Base64.getUrlEncoder().withoutPadding().encodeToString(url.toByteArray()) + "&s=" + signer.sign(cid, url)
+
+    private fun serveLive(ex: HttpExchange, cid: String, subUrlB64: String?, sig: String?) {
         val sc = byId[cid] ?: run { ex.sendResponseHeaders(404, -1); ex.close(); return }
         var targetUrl = sc.channel.url
         if (!subUrlB64.isNullOrEmpty()) {
-            runCatching { targetUrl = String(Base64.getUrlDecoder().decode(subUrlB64), Charsets.UTF_8) }
+            val sub = runCatching { String(Base64.getUrlDecoder().decode(subUrlB64), Charsets.UTF_8) }.getOrNull()
+            if (sub == null || !signer.verify(cid, sub, sig)) { ex.sendResponseHeaders(403, -1); ex.close(); return }
+            targetUrl = sub
         }
 
         val con = open(targetUrl, sc.channel.headers)
@@ -316,8 +325,7 @@ object IptvServer {
                     if (sline.startsWith("#EXT-X-KEY")) {
                         URI_ATTR.replace(sline) { m ->
                             val resolved = URI(finalUrl).resolve(m.groupValues[1]).toString()
-                            val enc = Base64.getUrlEncoder().withoutPadding().encodeToString(resolved.toByteArray())
-                            "URI=\"$base/segment?cid=$cid&u=$enc\""
+                            "URI=\"$base/segment?${relayParams(cid, resolved)}\""
                         }
                     } else line
                 }
@@ -325,9 +333,9 @@ object IptvServer {
                     val resolved = URI(finalUrl).resolve(sline).toString()
                     val enc = Base64.getUrlEncoder().withoutPadding().encodeToString(resolved.toByteArray())
                     if (resolved.substringBefore('?').endsWith(".m3u8", ignoreCase = true)) {
-                        "$base/live/$cid.m3u8?sub=$enc"
+                        "$base/live/$cid.m3u8?sub=$enc&s=${signer.sign(cid, resolved)}"
                     } else {
-                        "$base/segment?cid=$cid&u=$enc"
+                        "$base/segment?${relayParams(cid, resolved)}"
                     }
                 }
             }
@@ -341,10 +349,12 @@ object IptvServer {
         ex.responseBody.use { it.write(body) }
     }
 
-    private fun serveSegment(ex: HttpExchange, uB64: String?, cid: String?) {
-        if (uB64.isNullOrEmpty()) { ex.sendResponseHeaders(400, -1); ex.close(); return }
+    private fun serveSegment(ex: HttpExchange, uB64: String?, cid: String?, sig: String?) {
+        if (uB64.isNullOrEmpty() || cid.isNullOrEmpty()) { ex.sendResponseHeaders(400, -1); ex.close(); return }
         val targetUrl = runCatching { String(Base64.getUrlDecoder().decode(uB64), Charsets.UTF_8) }.getOrNull()
             ?: run { ex.sendResponseHeaders(400, -1); ex.close(); return }
+        // only URLs this server wrote into a playlist (see signer): not an open proxy for anyone on the LAN or any web page
+        if (!signer.verify(cid, targetUrl, sig)) { ex.sendResponseHeaders(403, -1); ex.close(); return }
 
         val headers = cid?.let { byId[it]?.channel?.headers }.orEmpty()
         val range = ex.requestHeaders.getFirst("Range")
@@ -545,6 +555,13 @@ object IptvServer {
         ex.responseBody.use { it.write(body) }
     }
 
+    /** Text from playlists (third-party files) goes into this page: escaped, never trusted as HTML. */
+    internal fun esc(s: String?): String = s.orEmpty().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        .replace("\"", "&quot;").replace("'", "&#39;")
+
+    /** Only http(s) logos: no javascript:/data: URLs in an <img src>. */
+    internal fun safeUrl(u: String?): String? = u?.trim()?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+
     private fun serveDashboard(ex: HttpExchange) {
         val base = baseUrl(ex)
         val groups = channels.mapNotNull { it.channel.group }.distinct().sorted()
@@ -558,8 +575,8 @@ object IptvServer {
             val isVod = sc.channel.group?.contains("vod", ignoreCase = true) == true ||
                     sc.channel.url.endsWith(".mp4", ignoreCase = true) ||
                     sc.channel.url.endsWith(".mkv", ignoreCase = true)
-            val logo = sc.channel.logo?.let { "<img src=\"$it\" onerror=\"this.style.display='none'; this.nextElementSibling.style.display='block';\">" }.orEmpty()
-            val initial = (sc.channel.name.firstOrNull() ?: '?').uppercaseChar()
+            val logo = safeUrl(sc.channel.logo)?.let { "<img src=\"${esc(it)}\" onerror=\"this.style.display='none'; this.nextElementSibling.style.display='block';\">" }.orEmpty()
+            val initial = esc((sc.channel.name.firstOrNull() ?: '?').uppercaseChar().toString())
             val placeholderStyle = if (sc.channel.logo.isNullOrBlank()) "" else "style=\"display:none;\""
             val relayBadge = if (sc.channel.headers.isNotEmpty()) "<span class=\"tag relay\">Relay</span>" else ""
             val dashBadge = if (isMpd) "<span class=\"tag dash\">DASH</span>" else ""
@@ -576,17 +593,17 @@ object IptvServer {
                 put("drm_type", sc.drmType)
                 put("drm_key", sc.drmKey)
                 put("has_headers", sc.channel.headers.isNotEmpty())
-            }.toString().replace("\"", "&quot;")
+            }.toString().let(::esc)
 
-            """<div class="card" data-id="${sc.id}" data-name="${sc.channel.name.lowercase().replace("\"", "")}" data-group="${(sc.channel.group.orEmpty()).replace("\"", "")}" data-info="$infoJson" onclick="playCard(this)">
+            """<div class="card" data-id="${esc(sc.id)}" data-name="${esc(sc.channel.name.lowercase())}" data-group="${esc(sc.channel.group)}" data-info="$infoJson" onclick="playCard(this)">
   <div class="logo">
     $logo
     <div class="placeholder" $placeholderStyle>$initial</div>
   </div>
   <div style="min-width: 0; flex: 1;">
-    <div class="name">${sc.channel.name}</div>
+    <div class="name">${esc(sc.channel.name)}</div>
     <div class="sub">
-      <span>${sc.channel.group.orEmpty()}</span>
+      <span>${esc(sc.channel.group)}</span>
       $relayBadge $dashBadge $drmBadge $vodBadge
     </div>
   </div>
@@ -595,7 +612,7 @@ object IptvServer {
 
         val groupPillsHtml = groups.joinToString("\n") { g ->
             val count = channels.count { it.channel.group == g }
-            """<button class="pill" onclick="selectGroup('${g.replace("'", "\\'")}', this)">$g ($count)</button>"""
+            """<button class="pill" data-group="${esc(g)}" onclick="selectGroup(this.dataset.group, this)">${esc(g)} ($count)</button>"""
         }
 
         val html = """
@@ -647,7 +664,7 @@ object IptvServer {
 <header>
   <div>
     <h1>Tahoe IPTV Server <span class="badge">ONLINE</span></h1>
-    <div style="font-size: 13px; color: var(--dim); margin-top: 4px;">$total saluran · $relays relay header · Sumber: ${loadedSources.joinToString(", ")}</div>
+    <div style="font-size: 13px; color: var(--dim); margin-top: 4px;">$total saluran · $relays relay header · Sumber: ${esc(loadedSources.joinToString(", "))}</div>
   </div>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
     <button class="btn primary" onclick="copy('$base/playlist.m3u', 'Playlist Master disalin!')">📋 Salin M3U Master</button>
