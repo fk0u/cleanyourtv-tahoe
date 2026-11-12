@@ -10,7 +10,7 @@
   const english = {};
   $$("[data-i18n]").forEach(el => { english[el.dataset.i18n] = el.textContent; });
   const OS = (() => { const u = navigator.userAgent; const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
-    if (/Android/i.test(u)) return "android"; if (/Win/i.test(p)) return "windows"; if (/Mac/i.test(p) && !/iPhone|iPad/.test(u)) return "mac"; return ""; })();
+    if (/Android/i.test(u)) return "android"; if (/Win/i.test(p)) return "windows"; if (/Mac/i.test(p) && !/iPhone|iPad/.test(u) && !(navigator.maxTouchPoints > 1)) return "mac"; /* iPads in desktop mode report Mac */ return ""; })();
   const OS_LABEL = { android: "· Android", windows: "· Windows", mac: "· macOS" };
 
   function pick() {
@@ -26,7 +26,7 @@
     const t = window.I18N[lang] || {};
     document.documentElement.lang = lang;
     $$("[data-i18n]").forEach(el => { const k = el.dataset.i18n; el.textContent = t[k] || english[k]; });
-    $$(".lang button").forEach(b => b.classList.toggle("on", b.dataset.lang === lang));
+    $$(".lang button").forEach(b => { b.classList.toggle("on", b.dataset.lang === lang); b.setAttribute("aria-pressed", String(b.dataset.lang === lang)); });
     $("#install-link").href = BLOB + (t._docs || "docs/INSTALL.md");
     $("#contrib-link").href = BLOB + (t._contrib || "CONTRIBUTING.md");
     document.title = t._title || "Tahoe TV — a free Android TV home screen with live TV";
@@ -36,7 +36,7 @@
 
   // ---------------------------------------------------------------- feature tabs
   $$(".tabs button").forEach(b => b.addEventListener("click", () => {
-    $$(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+    $$(".tabs button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", String(x === b)); });
     $$("[data-panel]").forEach(p => {
       p.hidden = p.dataset.panel !== b.dataset.tab;
       if (!p.hidden) $$(".reveal", p).forEach(el => el.classList.add("in"));
@@ -54,9 +54,10 @@
   function show(i, user) {
     slides[at].classList.remove("on"); at = (i + slides.length) % slides.length; slides[at].classList.add("on");
     $$("button", dots).forEach((d, k) => d.classList.toggle("on", k === at)); caption();
-    if (user) { clearInterval(timer); timer = setInterval(() => show(at + 1), 4500); }
+    if (user) { clearInterval(timer); timer = null; } // the viewer picked one: stop advancing
   }
-  show(0); timer = setInterval(() => show(at + 1), 4500);
+  const still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  show(0); if (!still) timer = setInterval(() => show(at + 1), 4500);
 
   // ---------------------------------------------------------------- downloads for this computer
   if (OS) {

@@ -9,6 +9,8 @@ Terima kasih sudah mau membantu! Tahoe TV adalah proyek open source (MIT) milik 
 2. Ambil log dari app: **Kirim log** (HP: Remote · TV: Pusat Kontrol · Desktop: Setelan → Bantuan).
 3. Buka [issue baru](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose) dan pilih templatnya.
 
+Celah keamanan **jangan** dilaporkan lewat issue publik: lihat [SECURITY.md](../../SECURITY.md#bahasa-indonesia).
+
 ## Menyiapkan proyek
 - JDK 17, Android SDK (platform 36, build-tools 34+). Gradle diunduh otomatis.
 - `cp secrets.example.properties secrets.properties` (opsional; API key **tidak pernah** di-commit).
@@ -28,7 +30,7 @@ Struktur dan alur kode: [docs/ARCHITECTURE.md](ARCHITECTURE.md).
 ## Terjemahan
 - **Dokumentasi:** salin file ke `docs/<kode-bahasa>/` (misalnya `docs/es/INSTALL.md`), terjemahkan, lalu tautkan dari tabel dokumentasi di README.
 - **README:** tambahkan `README.<kode-bahasa>.md` dan tautannya di pemilih bahasa di atas setiap README.
-- **Situs web:** tambahkan bahasamu di tabel `I18N` pada `website/assets/i18n.js` (salin blok `en`).
+- **Situs web:** tambahkan bahasamu di tabel `I18N` pada `website/assets/i18n.js` (salin blok `id` sebagai contoh; kunci yang kosong memakai bahasa Inggris).
 - **App:** ikuti [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56) dan [#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71).
 
 ## Mengirim PR

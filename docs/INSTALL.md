@@ -38,7 +38,7 @@ git clone https://github.com/fk0u/cleanyourtv-tahoe.git && cd cleanyourtv-tahoe
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp secrets.example.properties secrets.properties     # optional: API keys
 export TV_HOST=192.168.1.50                           # your TV's IP
-./build-and-install.sh                                # build the APKs (Gradle) + install
+./build-and-install.sh                                # build the launcher APK (Gradle) + install
 ```
 
 One-time permissions:
@@ -84,7 +84,7 @@ Build it yourself: `./gradlew -PpublicBuild :desktop:packageDmg` (or `packageMsi
 
 In **Live TV**: ▲▼ change channel, 0–9 channel number, ⏪⏩ pause/skip 30 seconds, **hold OK** to mark a source "not live"
 (or restore marked sources when a channel won't play); the red key is the same as holding OK. Quality and latency are in
-Control Center while watching.
+Control Center (◀ ▶).
 
 ## Phone ↔ TV
 

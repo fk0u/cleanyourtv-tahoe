@@ -19,7 +19,7 @@ Security problems go to [SECURITY.md](SECURITY.md), never to a public issue.
 - Tests: `./gradlew :core:test :desktop:test`
 - Run the desktop app: `./gradlew :desktop:run`
 - APKs: `./gradlew :launcher:assembleDebug :companion:assembleDebug`
-- Website: open `website/index.html`, or `python3 -m http.server -d website 8080`
+- Website: `sh website/build.sh && python3 -m http.server -d website/_site 8080`
 
 Code structure and flows: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -33,7 +33,7 @@ Code structure and flows: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ## Translations
 - **Docs:** copy a file into `docs/<language-code>/` (e.g. `docs/es/INSTALL.md`), translate it, link it from the README's documentation table.
 - **README:** add `README.<language-code>.md` and a link in the language switcher at the top of each README.
-- **Website:** add your language to the `I18N` table in `website/assets/i18n.js` (copy the `en` block).
+- **Website:** add your language to the `I18N` table in `website/assets/i18n.js` (copy the `id` block as a template; missing keys fall back to English).
 - **Apps:** follow [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56) and [#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71).
 
 ## Send a pull request
