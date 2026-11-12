@@ -63,6 +63,11 @@ object HlsProbe {
      *  same attribute text, so position is what identifies one), [uriLine] the index of its URI line. */
     data class Variant(val url: String, val height: Int, val inf: String, val line: Int = -1, val uriLine: Int = -1)
 
+    /** One bounded pool for every variant check. Big enough that a full status scan (32 channels at a time, a few
+     *  variants each) doesn't queue checks past their deadline and call live channels dead; idle threads exit. */
+    private val VARIANTS = java.util.concurrent.ThreadPoolExecutor(64, 64, 30, java.util.concurrent.TimeUnit.SECONDS,
+        java.util.concurrent.LinkedBlockingQueue()) { r -> Thread(r, "tahoe-variants").apply { isDaemon = true } }.apply { allowCoreThreadTimeOut(true) }
+
     private val HEIGHT = Regex("""RESOLUTION=\d+x(\d+)""")
 
     /** Variants of a master playlist (in playlist order), resolved against [base]; empty for a media playlist. */
@@ -86,12 +91,12 @@ object HlsProbe {
      *  parallel under one deadline, so a master with many slow variants still costs about one [timeoutMs]. */
     private fun fetchAll(all: List<Variant>, headers: Map<String, String>, timeoutMs: Int): List<Pair<String, String>?> {
         if (all.isEmpty()) return emptyList()
-        val pool = java.util.concurrent.Executors.newFixedThreadPool(all.size.coerceAtMost(16))
-        try {
-            val jobs = all.map { v -> pool.submit<Pair<String, String>?> { runCatching { fetch(v.url, headers, timeoutMs) }.getOrNull()?.takeIf { it.first.trimStart().startsWith("#EXTM3U") } } }
-            val deadline = System.currentTimeMillis() + timeoutMs * 2L
-            return jobs.map { j -> runCatching { j.get((deadline - System.currentTimeMillis()).coerceAtLeast(1), java.util.concurrent.TimeUnit.MILLISECONDS) }.getOrNull() }
-        } finally { pool.shutdownNow() }
+        val jobs = all.map { v -> VARIANTS.submit<Pair<String, String>?> { runCatching { fetch(v.url, headers, timeoutMs) }.getOrNull()?.takeIf { it.first.trimStart().startsWith("#EXTM3U") } } }
+        val deadline = System.currentTimeMillis() + timeoutMs * 2L
+        return jobs.map { j ->
+            runCatching { j.get((deadline - System.currentTimeMillis()).coerceAtLeast(1), java.util.concurrent.TimeUnit.MILLISECONDS) }
+                .getOrElse { j.cancel(true); null }
+        }
     }
 
     /** The first variant in [preferred] order whose playlist really answers, with that playlist's text and final URL.

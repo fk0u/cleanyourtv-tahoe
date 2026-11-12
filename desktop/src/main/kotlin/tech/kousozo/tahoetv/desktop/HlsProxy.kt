@@ -37,8 +37,8 @@ object HlsProxy {
                         val body = rewrite(text, con.url.toString(), headers).toByteArray()
                         ex.responseHeaders.add("Content-Type", "application/vnd.apple.mpegurl")
                         ex.sendResponseHeaders(200, body.size.toLong()); ex.responseBody.use { it.write(body) }
-                    } else if ("text/html" in type.lowercase()) {
-                        con.disconnect(); ex.sendResponseHeaders(502, -1) // an error page, whatever the URL looks like
+                    } else if ("text/html" in type.lowercase() || con.responseCode >= 400) {
+                        con.disconnect(); ex.sendResponseHeaders(502, -1) // an error page or a refused segment: the player moves on
                     } else {
                         if (type.isNotEmpty()) ex.responseHeaders.add("Content-Type", type)
                         // decoded here, so no Content-Encoding goes to the player
