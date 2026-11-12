@@ -45,6 +45,7 @@ android {
     }
     buildTypes {
         release {
+            ndk { abiFilters "armeabi-v7a", "arm64-v8a" } // TV sticks and phones are ARM: no x86 FFmpeg libraries in the APK
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
@@ -52,6 +53,8 @@ android {
         }
     }
     lint { abortOnError false }
+    // FFmpeg .so files compressed in the APK (smaller download for the TV stick); Android unpacks them on install
+    packaging { jniLibs { useLegacyPackaging true } }
 }
 
 dependencies {
@@ -63,4 +66,6 @@ dependencies {
     implementation "androidx.media3:media3-exoplayer:1.5.1"       // built-in Live TV player (HLS + DASH)
     implementation "androidx.media3:media3-exoplayer-hls:1.5.1"
     implementation "androidx.media3:media3-exoplayer-dash:1.5.1"
+    // FFmpeg audio decoders (AC-3, E-AC-3, DTS, MP2…) used after the device's own; Jellyfin's build of the media3 extension
+    implementation "org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1"
 }

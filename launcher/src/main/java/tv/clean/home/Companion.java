@@ -37,6 +37,7 @@ final class Companion extends NanoWSD {
         void onVolumeSet(int percent);
         void onPower();               // standby ↔ wake
         void onSleep(int minutes);    // sleep timer, 0 = off
+        void onKidsPin();             // a paired phone set a new PIN for the kids profile
         JSONObject state();           // volume, mute, channel: sent to phones on connect and on change
         JSONArray apps();
     }
@@ -120,6 +121,17 @@ final class Companion extends NanoWSD {
                 return json(Response.Status.OK, new JSONObject().put("apps", out[0]));
             }
             if (uri.equals("/upload") && s.getMethod() == Method.POST) return upload(s);
+            // "Kirim log" on the phone: the TV's diagnostic report (no tokens or keys, see DiagLog)
+            if (uri.equals("/log")) return newFixedLengthResponse(Response.Status.OK, "text/plain; charset=utf-8", Diag.report(ctx));
+            // Forgotten kids PIN: a paired phone (it holds this TV's token) sets a new one. The owner's phone is the proof.
+            if (uri.equals("/kids_pin") && s.getMethod() == Method.POST) {
+                String pin = s.getParms().getOrDefault("pin", "");
+                if (!pin.matches("\\d{4}")) return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "PIN harus 4 angka"));
+                Kids.setPin(ctx, pin);
+                tech.kousozo.tahoetv.core.DiagLog.add("kids", "PIN Anak diatur ulang dari HP");
+                ui.post(l::onKidsPin);
+                return json(Response.Status.OK, new JSONObject().put("ok", true));
+            }
         } catch (Exception e) {
             return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", String.valueOf(e.getMessage()));
         }

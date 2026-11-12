@@ -112,8 +112,43 @@ fun SettingsScreen() {
         }
         Section("Tentang & pembaruan")
         AboutUpdates()
+        Section("Bantuan")
+        SendLog()
     }
 }
+
+/** "Kirim log": saves the diagnostic report (player events and errors, URLs without their tokens) to Downloads,
+ *  copies it to the clipboard and opens GitHub Issues, so a problem can be reported with one paste. */
+@Composable
+private fun SendLog() {
+    var saved by remember { mutableStateOf<String?>(null) }
+    Text("Ada saluran yang tidak bisa diputar atau aplikasi tertutup sendiri? Kirim log ke pengembang. Isinya catatan pemutar dan error saja; alamat siaran dikirim tanpa token atau kunci.",
+        color = Tahoe.Dim, fontSize = 13.sp)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        GhostButton("Simpan & salin log", Icons.Rounded.BugReport) {
+            saved = runCatching {
+                val text = desktopReport()
+                val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"))
+                val out = java.io.File(System.getProperty("user.home"), "Downloads/TahoeTV-log-$stamp.txt").apply { parentFile.mkdirs(); writeText(text) }
+                java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(text), null)
+                runCatching { java.awt.Desktop.getDesktop().browseFileDirectory(out) }.recoverCatching { java.awt.Desktop.getDesktop().open(out.parentFile) }
+                "Disimpan di ${out.path} dan disalin. Tempel di laporan masalah, atau kirim filenya."
+            }.getOrElse { "Gagal menyimpan log: ${it.message}" }
+        }
+        GhostButton("Laporkan di GitHub", Icons.Rounded.OpenInBrowser) {
+            runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI("https://github.com/${tech.kousozo.tahoetv.core.Updates.REPO}/issues/new")) }
+        }
+    }
+    saved?.let { Text(it, color = Tahoe.Dim, fontSize = 13.sp) }
+}
+
+private fun desktopReport(): String = tech.kousozo.tahoetv.core.DiagLog.report(
+    "Tahoe TV (desktop)", System.getProperty("jpackage.app-version") ?: "dev", linkedMapOf(
+        "OS" to "${System.getProperty("os.name")} ${System.getProperty("os.version")} (${System.getProperty("os.arch")})",
+        "Java" to System.getProperty("java.version"),
+        "Server IPTV" to if (IptvServer.isRunning.value) "aktif, ${IptvServer.channelCount.value} saluran" else "mati",
+        "Rekaman" to "${Recordings.jobs.size} (${Recordings.jobs.count { it.state == "recording" }} sedang merekam)",
+    ))
 
 /** Version, latest release notes (changelog) and OTA: downloads the installer for this Mac/PC and opens it. */
 @Composable

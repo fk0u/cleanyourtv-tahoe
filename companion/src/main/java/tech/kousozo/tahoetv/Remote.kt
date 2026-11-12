@@ -54,7 +54,11 @@ fun RemoteScreen() {
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
     val link = remember(host, token) {
         if (host.isBlank() || token.isEmpty()) null
-        else TvLink(host, token) { o -> main.post { online = o } }.apply { onTvState = { s -> main.post { tv = s } } }
+        else TvLink(host, token) { o -> main.post { online = o } }.apply {
+            onTvState = { s -> main.post { tv = s } }
+            // "Kirim log" pressed on the TV: offer the share sheet here (the TV can't share files itself)
+            onCommand = { o -> if (o.optString("t") == "send_log") main.post { Report.send(c) { n -> n?.let { android.widget.Toast.makeText(c, it, android.widget.Toast.LENGTH_LONG).show() } } } }
+        }
     }
     DisposableEffect(link) { link?.open(); onDispose { link?.close() } }
     val haptic = LocalHapticFeedback.current
@@ -158,7 +162,55 @@ fun RemoteScreen() {
         Field(q, { q = it }, "Tanya asisten di TV…", trailing = {
             IconButton({ if (q.isNotBlank()) { link?.ask(q.trim()); q = "" } }) { Icon(Icons.AutoMirrored.Rounded.Send, "Kirim", tint = Tahoe.Accent) }
         })
+
+        // support: send logs, reset the kids PIN
+        var pinDialog by remember { mutableStateOf(false) }
+        var sending by remember { mutableStateOf(false) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            TextButton({
+                sending = true
+                Report.send(c) { n -> sending = false; n?.let { android.widget.Toast.makeText(c, it, android.widget.Toast.LENGTH_LONG).show() } }
+            }, enabled = !sending) { Icon(Icons.Rounded.BugReport, null); Spacer(Modifier.width(8.dp)); Text(if (sending) "Menyiapkan log…" else "Kirim log") }
+            if (link != null) TextButton({ pinDialog = true }) { Icon(Icons.Rounded.Lock, null); Spacer(Modifier.width(8.dp)); Text("PIN Anak") }
+        }
+        if (pinDialog) KidsPinDialog(host, token) { pinDialog = false }
     }
+}
+
+/** Forgotten kids PIN: set a new one on the TV from this paired phone (it holds the TV's token, which is the proof). */
+@Composable
+private fun KidsPinDialog(host: String, token: String, close: () -> Unit) {
+    val c = LocalContext.current
+    var a by remember { mutableStateOf("") }
+    var b by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    AlertDialog(onDismissRequest = close, title = { Text("Atur ulang PIN Anak") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("PIN baru untuk keluar dari profil Anak di TV. PIN lama tidak diperlukan.", fontSize = 13.sp, color = Tahoe.Dim)
+                Field(a, { a = it.filter(Char::isDigit).take(4) }, "PIN baru (4 angka)", keyboard = androidx.compose.ui.text.input.KeyboardType.NumberPassword, secret = true)
+                Field(b, { b = it.filter(Char::isDigit).take(4) }, "Ulangi PIN", keyboard = androidx.compose.ui.text.input.KeyboardType.NumberPassword, secret = true)
+                error?.let { Text(it, color = Tahoe.Bad, fontSize = 13.sp) }
+            }
+        },
+        confirmButton = {
+            TextButton({
+                error = when { a.length != 4 -> "PIN harus 4 angka"; a != b -> "PIN tidak sama"; else -> null }
+                if (error != null) return@TextButton
+                busy = true
+                Thread {
+                    val r = runCatching { TvLink.setKidsPin(host, token, a) }
+                    main.post {
+                        busy = false
+                        r.fold({ android.widget.Toast.makeText(c, "PIN Anak di TV sudah diganti", android.widget.Toast.LENGTH_LONG).show(); close() },
+                            { error = it.message ?: "Gagal" })
+                    }
+                }.start()
+            }, enabled = !busy) { Text(if (busy) "Menyimpan…" else "Simpan") }
+        },
+        dismissButton = { TextButton(close) { Text("Batal") } })
 }
 
 /** Ring D-pad: arrows on the ring, OK in the middle; a swipe anywhere on it also moves (one step per ~60 dp). */

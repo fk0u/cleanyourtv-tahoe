@@ -3,6 +3,20 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
+## Belum dirilis
+
+### Baru
+- **Dekoder FFmpeg (TV & HP):** saluran yang suaranya memakai AC-3/Dolby Digital, E-AC-3, DTS, atau MP2 kini tetap bersuara walau dekoder bawaan perangkat tidak mendukungnya. FFmpeg baru dipakai setelah dekoder bawaan menolak, jadi saluran yang sudah lancar tidak berubah. Hanya audio; format video tetap memakai dekoder perangkat. APK hanya berisi pustaka ARM (TV stick dan HP) dan terkompresi: APK TV naik sekitar 1,5 MB, APK HP sekitar 3 MB karena ikut membawa APK TV untuk fitur pasang ke TV.
+- **Kirim log:** untuk melaporkan saluran yang gagal diputar atau aplikasi yang tertutup sendiri.
+  - HP: Remote → **Kirim log** mengirim log HP sekaligus log TV yang tersambung lewat WhatsApp, email, dan sejenisnya.
+  - TV: Pusat Kontrol → **Kirim log** menandai momen masalah di log; HP yang sedang membuka Remote langsung menawarkan pengiriman.
+  - Desktop: Setelan → Bantuan → **Simpan & salin log** (file di Downloads + clipboard) dan **Laporkan di GitHub**.
+  - Isinya catatan pemutar (saluran, sumber, dekoder, error) dan crash. Alamat siaran dicatat tanpa token, kunci, atau kata sandi.
+- **Atur ulang PIN Anak dari HP:** lupa PIN? Di HP yang sudah dipasangkan dengan TV: Remote → **PIN Anak**, masukkan PIN baru dua kali. PIN lama tidak diperlukan; HP yang sudah dipasangkan menjadi buktinya.
+
+### Perbaikan
+- Tes server IPTV desktop memakai playlist uji sendiri, tidak lagi gagal saat `koutv.m3u` tidak ada.
+
 ## 3.0.0
 
 > **Beta:** rilis uji coba. Laporkan masalah di GitHub Issues sebelum versi ini dijadikan rilis stabil.

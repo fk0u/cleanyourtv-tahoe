@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.drawscope.rotate
+import tech.kousozo.tahoetv.core.DiagLog
 import tech.kousozo.tahoetv.core.SourceHealth
 import android.app.Activity
 import android.content.pm.ActivityInfo
@@ -187,7 +188,16 @@ fun LiveScreen() {
 private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
     val c = LocalContext.current
     // Decoder fallback: if the phone's hardware decoder refuses a stream, try another decoder instead of failing the source.
-    val player = remember { ExoPlayer.Builder(c, DefaultRenderersFactory(c).setEnableDecoderFallback(true)).build() }
+    // FFmpeg (audio: AC-3, E-AC-3, DTS, MP2…) after the phone's own decoders, for channels whose sound it can't decode.
+    val player = remember {
+        ExoPlayer.Builder(c, DefaultRenderersFactory(c).setEnableDecoderFallback(true)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)).build().apply {
+            addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+                override fun onAudioDecoderInitialized(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, name: String, a: Long, b: Long) = DiagLog.add("live", "audio decoder $name")
+                override fun onVideoDecoderInitialized(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, name: String, a: Long, b: Long) = DiagLog.add("live", "video decoder $name")
+            })
+        }
+    }
     var source by remember(e) { mutableIntStateOf(0) }
     var message by remember(e) { mutableStateOf<String?>("") }
     var everReady by remember(e) { mutableStateOf(false) }
@@ -199,6 +209,7 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
             // A source that already played reconnects at the live edge (blip, rebuffer, fell behind live);
             // only one that never played, or keeps failing, moves to the backup.
             override fun onPlayerError(error: PlaybackException) {
+                DiagLog.error("live", "${error.errorCodeName} @ ${streams.getOrNull(source)?.url}", error.cause)
                 // Fell out of the live window: rejoin at the live point. Anything else: carry on from the same spot.
                 if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) { player.seekToDefaultPosition(); player.prepare(); return }
                 if (!everReady || retries >= 3) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, false) }; source++; return }
@@ -208,14 +219,16 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state != Player.STATE_READY) return
                 // A finished playlist, or a "live" window far in the past, is a recording (yesterday's show on a loop), not live TV.
-                if (!everReady && isRecording(player, streams.getOrNull(source))) { streams.getOrNull(source)?.let { SourceHealth.report(it.url, false) }; source++; return }
+                if (!everReady && isRecording(player, streams.getOrNull(source))) {
+                    DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); streams.getOrNull(source)?.let { SourceHealth.report(it.url, false) }; source++; return }
                 streams.getOrNull(source)?.let { SourceHealth.report(it.url, true) }; message = null; everReady = true; retries = 0
             }
         }
         player.addListener(l); onDispose { player.removeListener(l) }
     }
     LaunchedEffect(e, source) {
-        val s = streams.getOrNull(source) ?: run { player.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."; return@LaunchedEffect }
+        val s = streams.getOrNull(source) ?: run { DiagLog.add("live", "${e.name}: semua sumber gagal"); player.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."; return@LaunchedEffect }
+        DiagLog.add("live", "${e.name} sumber ${source + 1}/${streams.size} ${s.url}")
         everReady = false; retries = 0
         message = "" // loading: the spinner shows, no text about sources
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
@@ -225,7 +238,7 @@ private fun LivePlayer(e: LocalTv.Entry, zap: (Int) -> Unit) {
             .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(20_000).build()).build()))
         player.prepare(); player.play()
         delay(20_000) // never started → next source
-        if (!everReady) { s.let { SourceHealth.report(it.url, false) }; source++ }
+        if (!everReady) { DiagLog.add("live", "tidak mulai dalam 20 dtk → sumber berikutnya"); s.let { SourceHealth.report(it.url, false) }; source++ }
     }
     Box(Modifier.fillMaxSize()) {
         AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } }, Modifier.fillMaxSize())
