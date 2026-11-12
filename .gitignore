@@ -25,3 +25,6 @@ keystore.properties
 __pycache__/
 *.pyc
 .kotlin/
+
+# website build output
+website/_site/
