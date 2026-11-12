@@ -48,17 +48,20 @@ final class Companion extends NanoWSD {
     final SharedPreferences prefs;
     final Set<Socket> sockets = Collections.synchronizedSet(new HashSet<>());
     final SecureRandom rnd = new SecureRandom();
-    String code;
+    /** Pairing code: expires, locks after repeated wrong guesses (see PairGuard). */
+    final tech.kousozo.tahoetv.core.PairGuard guard = new tech.kousozo.tahoetv.core.PairGuard();
     NsdManager.RegistrationListener nsdReg;
 
     Companion(Context c, Listener l) {
         super(PORT);
         ctx = c.getApplicationContext(); this.l = l;
         prefs = c.getSharedPreferences("companion", Context.MODE_PRIVATE);
-        newCode();
     }
 
-    void newCode() { code = String.format(Locale.US, "%06d", rnd.nextInt(1_000_000)); }
+    /** A fresh code (OK on the "Hubungkan HP" screen); also lifts a lockout, since only someone at the TV can do it. */
+    void newCode() { guard.newCode(); }
+    /** The code to show now (renewed after it expires). */
+    String code() { return guard.current(); }
 
     void startAll() {
         try { start(NanoHTTPD.SOCKET_READ_TIMEOUT, true); } catch (IOException e) { return; }
@@ -87,7 +90,7 @@ final class Companion extends NanoWSD {
         return "0.0.0.0";
     }
 
-    String pairUrl() { return "http://" + ip() + ":" + PORT + "/?code=" + code; }
+    String pairUrl() { return "http://" + ip() + ":" + PORT + "/?code=" + code(); }
 
     Set<String> tokens() { return new HashSet<>(prefs.getStringSet("tokens", new HashSet<>())); }
     boolean authed(IHTTPSession s) { String t = s.getParms().get("token"); return t != null && tokens().contains(t); }
@@ -165,12 +168,18 @@ final class Companion extends NanoWSD {
         s.parseBody(files);
         String body = files.get("postData");
         String given = body == null ? s.getParms().get("code") : new JSONObject(body).optString("code");
-        if (!code.equals(given)) return json(Response.Status.FORBIDDEN, new JSONObject().put("error", "kode salah"));
+        tech.kousozo.tahoetv.core.PairGuard.Result r = guard.check(given);
+        if (r instanceof tech.kousozo.tahoetv.core.PairGuard.Result.Locked) {
+            long sec = ((tech.kousozo.tahoetv.core.PairGuard.Result.Locked) r).getSeconds();
+            tech.kousozo.tahoetv.core.DiagLog.add("pair", "terlalu banyak kode salah, dikunci " + sec + " dtk");
+            return json(Response.Status.TOO_MANY_REQUESTS, new JSONObject().put("error", "Terlalu banyak percobaan. Tunggu " + sec + " detik, atau tekan OK di layar Hubungkan HP untuk kode baru.").put("retry_after", sec));
+        }
+        if (!(r instanceof tech.kousozo.tahoetv.core.PairGuard.Result.Ok)) return json(Response.Status.FORBIDDEN, new JSONObject().put("error", "kode salah"));
+        tech.kousozo.tahoetv.core.DiagLog.add("pair", "HP baru dipasangkan dari " + s.getRemoteIpAddress());
         byte[] b = new byte[24]; rnd.nextBytes(b);
         String token = android.util.Base64.encodeToString(b, android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING);
         Set<String> t = tokens(); t.add(token);
         prefs.edit().putStringSet("tokens", t).apply();
-        newCode(); // single use
         return json(Response.Status.OK, new JSONObject().put("token", token).put("name", "Tahoe TV"));
     }
 
