@@ -69,6 +69,7 @@ public class LiveTv extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Diag.install(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         prefs = getSharedPreferences("live", MODE_PRIVATE);
         FrameLayout root = new FrameLayout(this);
@@ -99,20 +100,28 @@ public class LiveTv extends Activity {
         setContentView(root);
 
         // Decoder fallback: if the TV's hardware decoder refuses a stream, try the next decoder instead of failing the source.
-        player = new ExoPlayer.Builder(this, new DefaultRenderersFactory(this).setEnableDecoderFallback(true)).build();
+        // FFmpeg (audio: AC-3, E-AC-3, DTS, MP2…) after the TV's own decoders, for channels whose sound the TV can't decode.
+        player = new ExoPlayer.Builder(this, new DefaultRenderersFactory(this).setEnableDecoderFallback(true)
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)).build();
+        player.addAnalyticsListener(new androidx.media3.exoplayer.analytics.AnalyticsListener() {
+            @Override public void onAudioDecoderInitialized(EventTime t, String name, long a, long b) { tech.kousozo.tahoetv.core.DiagLog.add("live", "audio decoder " + name); }
+            @Override public void onVideoDecoderInitialized(EventTime t, String name, long a, long b) { tech.kousozo.tahoetv.core.DiagLog.add("live", "video decoder " + name); }
+        });
         // Handle audio focus: pause for the adzan (and other transient sounds), resume after.
         player.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder()
                 .setUsage(androidx.media3.common.C.USAGE_MEDIA).setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE).build(), true);
         player.setVideoSurfaceView(surface);
         player.addListener(new Player.Listener() {
             @Override public void onPlayerError(PlaybackException e) {
+                tech.kousozo.tahoetv.core.DiagLog.error("live", e.getErrorCodeName() + (source < order.size() ? " @ " + order.get(source).getUrl() : ""), e.getCause());
                 // Fell out of the stream's live window: rejoin at the live point (not a failure of the source).
                 if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) { player.seekToDefaultPosition(); player.prepare(); return; }
                 recover();
             }
             @Override public void onPlaybackStateChanged(int s) {
                 if (s == Player.STATE_READY) {
-                    if (!everReady && isRecording()) { nextSource(); return; } // a finished/old playlist: not live TV, try the backup
+                    if (!everReady && isRecording()) { tech.kousozo.tahoetv.core.DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); nextSource(); return; } // a finished/old playlist: not live TV, try the backup
+                    if (!everReady) tech.kousozo.tahoetv.core.DiagLog.add("live", "siap dalam " + (System.currentTimeMillis() - sourceStarted) + " ms");
                     if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), true);
                     everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE);
                 }
@@ -156,6 +165,7 @@ public class LiveTv extends Activity {
     void play() {
         List<M3u.Channel> s = streams();
         if (source >= s.size()) {
+            tech.kousozo.tahoetv.core.DiagLog.add("live", list.get(index).getName() + ": semua sumber gagal");
             player.stop();
             LocalTv.Entry e = list.get(index);
             boolean marked = SourceHealth.isBanned(e.getChannel().getUrl());
@@ -165,6 +175,7 @@ public class LiveTv extends Activity {
             bStatus.setVisibility(View.VISIBLE); loading.setVisibility(View.GONE); showBanner(); return;
         }
         M3u.Channel c = s.get(source);
+        tech.kousozo.tahoetv.core.DiagLog.add("live", list.get(index).getName() + " sumber " + (source + 1) + "/" + s.size() + " " + c.getUrl());
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(8000).setReadTimeoutMs(15000)
                 .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : "TahoeTV/3.0.0");
@@ -239,6 +250,7 @@ public class LiveTv extends Activity {
             return;
         }
         SourceHealth.ban(order.get(source).getUrl());
+        tech.kousozo.tahoetv.core.DiagLog.add("live", "ditandai bukan live: " + order.get(source).getUrl());
         Toast.makeText(this, "Sumber dilewati: bukan siaran langsung", Toast.LENGTH_SHORT).show();
         nextSource();
     }
@@ -267,9 +279,9 @@ public class LiveTv extends Activity {
             int state = player.getPlaybackState();
             // paused on purpose, or paused for the adzan (audio focus), isn't stuck
             if (moving || !player.getPlayWhenReady() || player.getPlaybackSuppressionReason() != Player.PLAYBACK_SUPPRESSION_REASON_NONE) { lastPos = pos; stuckSince = now; }
-            if (!everReady && now - sourceStarted > 20_000) nextSource();
+            if (!everReady && now - sourceStarted > 20_000) { tech.kousozo.tahoetv.core.DiagLog.add("live", "tidak mulai dalam 20 dtk → sumber berikutnya"); nextSource(); }
             // Buffering is ExoPlayer's job: give it 30 s. "Ready" but the picture not moving for 12 s = frozen.
-            else if (lastPos >= 0 && now - stuckSince > (state == Player.STATE_BUFFERING ? 30_000 : 12_000)) recover();
+            else if (lastPos >= 0 && now - stuckSince > (state == Player.STATE_BUFFERING ? 30_000 : 12_000)) { tech.kousozo.tahoetv.core.DiagLog.add("live", "gambar macet → sambung ulang"); recover(); }
         }
         ui.postDelayed(this, 2000);
     }};

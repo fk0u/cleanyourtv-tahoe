@@ -216,6 +216,7 @@ final class Sheets {
             int left = h.sleepLeft();
             add(new Item(R.drawable.ic_moon, "Timer tidur", (left == 0 ? "Mati" : left + " menit lagi") + "  ·  ◀ ▶", () -> h.stepSleep(1)).adjust(h::stepSleep),
                 new Item(R.drawable.ic_info, "Tentang", "Versi " + About.version(h) + "  ·  Pembaruan", () -> { h.closeSheet(); h.openSheet(new About(h)); }));
+            add(new Item(R.drawable.ic_smartphone, "Kirim log", "Laporkan masalah lewat HP", () -> { h.closeSheet(); h.sendLog(); }).wide());
             if (h.guest()) add(switchProfile.wide());
             else add(switchProfile, new Item(R.drawable.ic_lock, "Profil Anak", Kids.hasPin(h) ? "PIN & aplikasi" : "Belum diatur", () -> { h.closeSheet(); h.openSheet(new KidsSetup(h)); }));
         }
