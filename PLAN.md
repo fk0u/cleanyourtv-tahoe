@@ -1,3 +1,5 @@
+> Arsip rencana v2. Rencana terbaru: [docs/ROADMAP.md](docs/ROADMAP.md).
+
 # Rencana v2: Tahoe TV (gaya tvOS 26)
 
 Arah baru: **modern minimalis tapi editorial**. Tetap bahasa desain "Tahoe"/Liquid Glass, tapi mengikuti **tvOS 26**,

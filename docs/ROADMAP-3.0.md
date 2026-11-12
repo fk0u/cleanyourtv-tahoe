@@ -1,3 +1,5 @@
+> Arsip: sebagian besar rencana ini sudah dirilis di 2.9.3–3.0.1. Rencana terbaru: [ROADMAP.md](ROADMAP.md).
+
 # Rencana Tahoe TV 2.9.3 → 3.0.0
 
 Dua rilis, bukan satu. **2.9.3** membereskan hal yang paling bikin pengguna kesal (nunggu siaran, layar hitam,
