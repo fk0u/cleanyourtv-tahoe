@@ -46,7 +46,7 @@ object Sources {
         load(DEFAULT + extra.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.map { Source("extra", it) })
 
     /** Loads channels from local files (koutv.m3u, anotheriptv.m3u, ~/.tahoetv/playlists/),
-     *  plus user extra sources and built-in playlists. Preserves all premium, sports, movies, VOD & DRM channels.
+     *  plus user extra sources and built-in playlists. Local and user playlists are kept whole (premium, VOD, DRM).
      *  With nothing local, the built-in sources of [country] are used (see [Region.sources]): Indonesia's taken whole,
      *  another country's iptv-org list through the free-TV filter [free]. */
     @JvmOverloads
