@@ -7,8 +7,8 @@
 | Version | Highlights |
 |---|---|
 | **3.0.1** | Kids profile + PIN, desktop recording, recorded/stale broadcast detection, Apple TV-style loader, live pause, QR pairing, FFmpeg decoder, Send log, PIN reset from the phone |
-| **3.0.2** (stable) | Desktop checks every channel, gzip playlists, security fixes |
-| **Next** (on `main`) | Windows Live TV through the web player, quality (Auto/1080p/720p/480p) and latency options on every device, phone app redesign |
+| **3.0.2** | Desktop checks every channel, gzip playlists, security fixes |
+| **3.1.0** (stable) | Windows Live TV through the web player, quality (Auto/1080p/720p/480p) and latency options on every device, phone app redesign |
 
 Per-release details: [CHANGELOG.md](../CHANGELOG.md).
 
