@@ -21,7 +21,8 @@ object WebPlayer {
         if (!IptvServer.isRunning.value) return "Server pemutar tidak bisa dijalankan."
         val ids = streams.mapNotNull { IptvServer.idFor(it.url) }.distinct()
         if (ids.isEmpty()) return "Saluran ini tidak ada di daftar server."
-        val url = "http://127.0.0.1:$port/watch?t=" + URLEncoder.encode(title, "UTF-8") + "&ids=" + URLEncoder.encode(ids.joinToString(","), "UTF-8")
+        val url = "http://127.0.0.1:$port/watch?t=" + URLEncoder.encode(title, "UTF-8") + "&ids=" + URLEncoder.encode(ids.joinToString(","), "UTF-8") +
+            "&q=${Settings.quality.maxHeight}&lat=${Settings.latency.offsetMs / 1000}"
         last = url
         DiagLog.add("live", "$title → web player (${ids.size} sumber)")
         return launch(url)

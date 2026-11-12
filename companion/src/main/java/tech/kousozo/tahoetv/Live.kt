@@ -222,6 +222,8 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
     val c = LocalContext.current
     val player = remember { Playback.player(c) }
     var shownAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var settings by remember { mutableStateOf(false) }
+    if (settings) PlayerSettingsSheet { settings = false }
     var visible by remember { mutableStateOf(true) }
     val busy = Playback.message != null
     LaunchedEffect(shownAt, busy) { visible = true; if (!busy) { delay(3000); visible = false } }
@@ -244,8 +246,11 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                     Pill("LIVE", Tahoe.Bad, filled = true); Spacer(Modifier.width(8.dp))
                     Text(e.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
-                IconButton({ poke(); onFull() }, Modifier.align(Alignment.TopEnd).padding(4.dp)) {
-                    Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (full) "Keluar dari layar penuh" else "Layar penuh", tint = Color.White)
+                Row(Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                    IconButton({ poke(); settings = true }) { Icon(Icons.Rounded.Settings, "Setelan pemutar: kualitas dan latensi", tint = Color.White) }
+                    IconButton({ poke(); onFull() }) {
+                        Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (full) "Keluar dari layar penuh" else "Layar penuh", tint = Color.White)
+                    }
                 }
                 // big transport only once it plays: while loading or on an error the middle belongs to the loader / message
                 if (!busy) Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (full) 48.dp else 28.dp)) {
@@ -401,6 +406,31 @@ private fun ChannelLoader(name: String, modifier: Modifier = Modifier) {
                         strokeWidth = r * 0.14f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
                 }
             }
+        }
+    }
+}
+
+
+/** Setelan pemutar: highest video quality and distance from live, shared with the TV and desktop options. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlayerSettingsSheet(onDismiss: () -> Unit) {
+    val c = LocalContext.current
+    ModalBottomSheet(onDismiss, containerColor = Tahoe.Surface) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Setelan pemutar", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Kualitas video", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                tech.kousozo.tahoetv.core.PlayPrefs.Quality.entries.forEach { q -> Chip(q.label, Playback.quality == q) { Playback.setQuality(c, q) } }
+            }
+            Text(if (Playback.quality.maxHeight > 0) "Paling tinggi ${Playback.quality.label}; kalau siaran tidak punya, dipakai yang terdekat di bawahnya."
+                else "Menyesuaikan kecepatan internet.", fontSize = 13.sp, color = Tahoe.Dim)
+            Text("Latensi siaran", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                tech.kousozo.tahoetv.core.PlayPrefs.Latency.entries.forEach { l -> Chip(l.label, Playback.latency == l) { Playback.setLatency(c, l) } }
+            }
+            Text(Playback.latency.note + if (Playback.latency == tech.kousozo.tahoetv.core.PlayPrefs.Latency.Low) ". Bisa lebih sering jeda di siaran yang lambat." else ".",
+                fontSize = 13.sp, color = Tahoe.Dim)
         }
     }
 }

@@ -611,6 +611,9 @@ object IptvServer {
 <button id="sound">🔊 Klik untuk menyalakan suara</button>
 <script>
 const ids = JSON.parse("__IDS__".replace(/&quot;/g,'"'));
+const qs = new URLSearchParams(location.search);
+const maxH = parseInt(qs.get('q') || '0', 10) || 0;          // quality cap (0 = automatic)
+const lat = Math.min(60, Math.max(4, parseInt(qs.get('lat') || '20', 10) || 20)); // seconds behind live
 const v = document.getElementById('v'), veil = document.getElementById('veil'), msg = document.getElementById('msg'), spin = document.getElementById('spin');
 let i = 0, hls = null, timer = null;
 function fail(t){ spin.style.display='none'; msg.textContent=t; veil.classList.remove('hide'); }
@@ -622,7 +625,14 @@ function start(){
   const src = '/live/' + encodeURIComponent(ids[i]) + '.m3u8';
   if (hls) { hls.destroy(); hls = null; }
   if (window.Hls && Hls.isSupported()) {
-    hls = new Hls({ liveSyncDuration: 20, liveMaxLatencyDuration: 60, enableWorker: true });
+    hls = new Hls({ liveSyncDuration: lat, liveMaxLatencyDuration: lat * 3, enableWorker: true });
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      if (!maxH) return;
+      let cap = -1, smallest = 0;
+      hls.levels.forEach((l, k) => { if (l.height && l.height <= maxH && (cap < 0 || l.height >= hls.levels[cap].height)) cap = k;
+                                     if ((l.height || 1e9) < (hls.levels[smallest].height || 1e9)) smallest = k; });
+      hls.autoLevelCapping = cap >= 0 ? cap : smallest;
+    });
     hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) { if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError(); else next(); } });
     hls.on(Hls.Events.LEVEL_SWITCHED, (e, d) => { const l = hls.levels[d.level]; if (l) document.getElementById('fmt').textContent = (l.height ? l.height + 'p · ' : '') + (l.videoCodec || '').split('.')[0].replace('avc1','H.264').replace('hvc1','H.265'); });
     hls.loadSource(src); hls.attachMedia(v);
