@@ -80,9 +80,11 @@ fun LiveScreen() {
                 channels = loaded
                 // Asynchronously check reachability of each channel
                 withContext(Dispatchers.IO) {
+                    val lock = Any()
                     Sources.checkStatus(loaded, timeoutMs = 3500) { url, isLive ->
                         SourceHealth.report(url, isLive) // the player then starts a source known to work
-                        statusMap = statusMap + (url to isLive)
+                        // 32 checker threads report at once: without the lock, read-add-write lost results
+                        synchronized(lock) { statusMap = statusMap + (url to isLive) }
                     }
                     checkingDone = true
                 }

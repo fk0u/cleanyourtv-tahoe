@@ -288,7 +288,7 @@ object IptvServer {
     private fun serveLiveMpd(ex: HttpExchange, cid: String) {
         val sc = byId[cid] ?: run { ex.sendResponseHeaders(404, -1); ex.close(); return }
         val con = open(sc.channel.url, sc.channel.headers)
-        val body = con.inputStream.use { it.readBytes() }
+        val body = tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes() }
         sendCors(ex)
         ex.responseHeaders.add("Content-Type", "application/dash+xml")
         ex.sendResponseHeaders(200, body.size.toLong())
@@ -304,7 +304,7 @@ object IptvServer {
 
         val con = open(targetUrl, sc.channel.headers)
         val type = con.contentType.orEmpty()
-        val text = con.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+        val text = tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }
         val finalUrl = con.url.toString()
 
         val base = baseUrl(ex)
@@ -355,12 +355,13 @@ object IptvServer {
 
         sendCors(ex)
         ex.responseHeaders.add("Content-Type", type)
-        con.getHeaderField("Content-Length")?.let { ex.responseHeaders.add("Content-Length", it) }
+        // decoded below: a compressed upstream's length no longer applies
+        if (con.contentEncoding.isNullOrBlank()) con.getHeaderField("Content-Length")?.let { ex.responseHeaders.add("Content-Length", it) }
         con.getHeaderField("Content-Range")?.let { ex.responseHeaders.add("Content-Range", it) }
         con.getHeaderField("Accept-Ranges")?.let { ex.responseHeaders.add("Accept-Ranges", it) }
 
         ex.sendResponseHeaders(code, 0)
-        ex.responseBody.use { out -> con.inputStream.use { it.copyTo(out) } }
+        ex.responseBody.use { out -> tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.copyTo(out) } }
     }
 
     /** Guide XML kept in memory for 6 h: every TV/phone/player asking used to download the whole file again. */
@@ -374,7 +375,7 @@ object IptvServer {
         val data = fresh() ?: synchronized(epgLock) { fresh() ?: runCatching {
             val c = URI("https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml").toURL().openConnection() as HttpURLConnection
             c.connectTimeout = 10000; c.readTimeout = 15000; c.setRequestProperty("User-Agent", "TahoeIPTV")
-            c.inputStream.use { it.readBytes() }.also { epgCache = it; epgAt = System.currentTimeMillis() }
+            tech.kousozo.tahoetv.core.Web.body(c)!!.use { it.readBytes() }.also { epgCache = it; epgAt = System.currentTimeMillis() }
         }.getOrNull() ?: epgCache } // a stale guide beats none
 
         if (data == null) { ex.sendResponseHeaders(502, -1); ex.close(); return }
@@ -781,7 +782,7 @@ object IptvServer {
         repeat(5) {
             val c = URI(u).toURL().openConnection() as HttpURLConnection
             c.connectTimeout = 10000; c.readTimeout = 18000; c.instanceFollowRedirects = false
-            c.setRequestProperty("User-Agent", "TahoeTV/3.0.1")
+            c.setRequestProperty("User-Agent", "TahoeTV/3.0.2")
             headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
             if (!range.isNullOrEmpty()) c.setRequestProperty("Range", range)
             if (c.responseCode in 300..399) {

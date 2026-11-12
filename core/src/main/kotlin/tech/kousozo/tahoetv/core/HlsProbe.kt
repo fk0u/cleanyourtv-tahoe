@@ -82,7 +82,7 @@ object HlsProbe {
             if (con.responseCode !in 200..299) error("HTTP ${con.responseCode}")
             // manual read: InputStream.readNBytes(int) needs Android 13, and this runs on Android 9 TVs too
             val out = java.io.ByteArrayOutputStream()
-            con.inputStream.use { s ->
+            Web.body(con)!!.use { s ->
                 val buf = ByteArray(8192)
                 while (out.size() < LIMIT) { val n = s.read(buf); if (n < 0) break; out.write(buf, 0, n) }
             }
