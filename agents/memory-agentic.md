@@ -14,7 +14,7 @@
 ⊢ origin       = owner's side project from boredom + frustration: boring stock TV UI, hard for elderly; live TV must feel native
 ⊢ north_star   = "TV anyone can use, on a $20 stick, controlled like a real TV"
 ⊢ owner        = @fk0u  · site = tahoe.kousozo.tech (deploy kit ready, secrets not set)
-⊢ release      = v3.1.0 (2026-11-12) · next = 3.1.x trust patch
+⊢ release      = v3.2.0 (2026-11-13) · next = 3.2.x trust patch → 3.3 international → 3.4 simple & connect
 ```
 
 ## ⟦TOPOLOGY⟧
@@ -57,6 +57,7 @@ website/    static      → index.html · assets/{app,i18n,style} · build.sh ·
 △ R5  channel number = list position       → #90 · #94
 △ R6  desktop can't play MP2/LATM/HEVC     → #75
 △ R7  TV onboarding + TV slate never run on real TV
+△ R8  slate follow-ups (OSD overlap, wrong reason) → #114
 ```
 
 ## ⟦POINTERS⟧
@@ -65,7 +66,7 @@ website/    static      → index.html · assets/{app,i18n,style} · build.sh ·
 → direction    agents/plans.md
 → how-to       agents/handsoff.md
 → epics        #71 international · #77 onboarding · #88 Connect · #90 native TV
-→ open PRs     #87 slate · #89 README worldwide
+→ open PRs     none · last release PR #113
 ```
 
 ```

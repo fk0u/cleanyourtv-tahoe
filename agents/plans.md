@@ -16,9 +16,10 @@ serves three promises:
 
 | Milestone | Goal | Exit criteria |
 |---|---|---|
-| **3.1.x Trust patch** | A stranger can trust the APK | #102 #103 #78 #92 #104 #45 fixed; advisories GHSA-34j8/x8v7/cp6v fixed and published; slate polished (#76) |
-| **3.2 International** | A viewer in Taipei, Lagos or Lima gets a fully local first run | #71 #77 #56 (EN/ID/中文 strings) #80 #79 #94 #105 #81 #101 #99 done; website in 3 languages |
-| **3.3 Simple & Connect** | "Works like a real TV" + "control it from your phone" | #90 Simple Mode + numbers; #93 protocol v2; #88 Tahoe Connect P0–P2; elderly test passes |
+| **3.2.0** ✅ | Onboarding everywhere, channels for every country, 3-language slate | released 2026-11-13 |
+| **3.2.x Trust patch** | A stranger can trust the APK | #102 #103 #78 #92 #104 #45 fixed; advisories GHSA-34j8/x8v7/cp6v fixed and published; slate follow-ups (#114) |
+| **3.3 International** | A viewer in Taipei, Lagos or Lima gets a fully local first run | #71 #77 #56 (EN/ID/中文 strings) #80 #79 #94 #105 #81 #101 #99 done; website in 3 languages |
+| **3.4 Simple & Connect** | "Works like a real TV" + "control it from your phone" | #90 Simple Mode + numbers; #93 protocol v2; #88 Tahoe Connect P0–P2; elderly test passes |
 | **Later** | Nice-to-haves | parked list in tasks.md |
 
 Release cadence: monthly, gated on green CI (#100, #57).
