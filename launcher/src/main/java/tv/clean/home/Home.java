@@ -102,6 +102,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     @Override protected void onResume() {
         super.onResume();
+        // first run (#77): onboarding until it's done, also after Home was pressed in the middle of it
+        if (!TvViewer.done(this) && Onboarding.open == null) startActivity(new android.content.Intent(this, Onboarding.class));
         if (hero == null) return;
         tick(); checkGamepad(); markRunning();
         if (transition != null) { // coming back from an app: dissolve the launch overlay
@@ -200,7 +202,6 @@ public class Home extends Activity implements Companion.Listener, Tools {
         padStep = padTileH + dp(46);
 
         showProfiles(); // boot: "Siapa yang menonton?"
-        if (!TvViewer.done(this)) startActivity(new android.content.Intent(this, Onboarding.class)); // first run: language, country, … (#77)
         buildChips();
         tick();
     }
@@ -330,7 +331,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
     // ---------------------------------------------------------------- data
 
     void refreshData(boolean force) {
-        Weather.refresh(this, prefs, force, o -> { weather = o; updateChips(); renderHero(); }, ui);
+        if (TvViewer.hasCity(this)) Weather.refresh(this, prefs, force, o -> { weather = o; updateChips(); renderHero(); }, ui);
+        else weather = null; // onboarding without a city: no weather
         Prayer.fetchIfStale(this, () -> { Prayer.schedule(this); updateChips(); renderHero(); }, ui);
         trending = Trending.cached(this);
         Trending.refresh(this, () -> { trending = Trending.cached(this); renderHero(); }, ui);

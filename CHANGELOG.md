@@ -11,7 +11,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
   2. **Negara tempat tinggal.**
   3. **Kota** untuk cuaca dan jadwal shalat (dicari otomatis; boleh dilewati).
   4. **Zona waktu:** otomatis dari kota, atau pilih sendiri. Dipakai jam dan jadwal shalat di desktop (jadwal acara menyusul).
-  5. **Jadwal shalat:** tampil atau tidak (bawaan sesuai negara) dan metode perhitungannya (Kemenag, JAKIM, MUIS, MWL, ISNA, Umm al-Qura, Diyanet, dll.). Pengaturan adzan di TV menyusul.
+  5. **Jadwal shalat:** tampil atau tidak (bawaan sesuai negara) dan metode perhitungannya (Kemenag, JAKIM, MUIS, MWL, ISNA, Umm al-Qura, Diyanet, dll.). Di TV, mematikannya juga menghentikan adzan.
   6. **Negara saluran:** boleh lebih dari satu.
   7. **Kategori** yang ingin ditonton.
   8. **Favorit awal.**
@@ -23,7 +23,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
   - Lebih mudah dari HP: pilihan onboarding di HP yang sudah dipasangkan langsung dikirim ke TV, dan TV melewati onboarding-nya sendiri.
   - TV Live di TV memakai negara saluran, kategori, dan urutan favorit pilihan.
   - Jadwal shalat bisa dimatikan dan memakai metode pilihan (sebelumnya selalu Kemenag RI).
-  - TV yang sudah diatur sebelumnya (kota dari app HP) tidak ditanya lagi. Teks onboarding tersedia dalam tiga bahasa; teks aplikasi lainnya menyusul (#56). TV menyusul.
+  - TV yang sudah diatur sebelumnya (kota dari app HP) tidak ditanya lagi. Teks onboarding tersedia dalam tiga bahasa; teks aplikasi lainnya menyusul (#56).
 
 ### Perbaikan
 - **Desktop: saluran yang servernya "hidup tapi kosong" tidak lagi ditunggu 20 detik.** Sebagian sumber menjawab dengan halaman HTML (mis. Metro TV) atau playlist utama yang hidup sementara semua kualitasnya ditolak (403/404). Dulu sumber seperti ini tetap ditandai LIVE dan pemutar menunggu sampai habis waktu; sekarang langsung dianggap mati dan pindah ke sumber cadangan, di TV, HP, dan desktop (#75).
@@ -31,7 +31,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 - User-Agent bawaan untuk permintaan siaran kini sama di TV, HP, pengecekan sumber, relay desktop, dan server IPTV (`TahoeTV/<versi>`); sumber yang meminta User-Agent sendiri tetap memakai miliknya. Pemutar desktop yang memutar langsung (tanpa relay) masih memakai User-Agent bawaan Java.
 
 ### Baru
-- **Saluran untuk semua negara (#71, tahap 1).** Saat pertama dibuka, app HP dan desktop menanyakan **bahasa** lalu **negara** (disarankan dari setelan perangkat, nama negara dalam bahasa yang dipilih). Daftar saluran dan jadwal acara mengikuti negara itu: Indonesia tetap dengan sumber pilihannya, negara lain memakai daftar per negara dari iptv-org dan jadwal dari epg.pw. Ganti kapan saja: HP lewat kartu **Wilayah & bahasa** di Beranda, desktop lewat Setelan → Wilayah & bahasa. "Dekat kamu" hanya muncul untuk Indonesia. Teks aplikasi lainnya masih berbahasa Indonesia (terjemahan: #56); TV menyusul.
+- **Saluran untuk semua negara (#71, tahap 1).** Saat pertama dibuka, app HP dan desktop menanyakan **bahasa** lalu **negara** (disarankan dari setelan perangkat, nama negara dalam bahasa yang dipilih). Daftar saluran dan jadwal acara mengikuti negara itu: Indonesia tetap dengan sumber pilihannya, negara lain memakai daftar per negara dari iptv-org dan jadwal dari epg.pw. Ganti kapan saja: HP lewat kartu **Wilayah & bahasa** di Beranda, desktop lewat Setelan → Wilayah & bahasa. "Dekat kamu" hanya muncul untuk Indonesia. Teks aplikasi lainnya masih berbahasa Indonesia (terjemahan: #56); TV ikut lewat onboarding di bawah.
 
 ## 3.1.0
 

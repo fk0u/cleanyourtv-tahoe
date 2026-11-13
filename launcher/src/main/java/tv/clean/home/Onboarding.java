@@ -108,6 +108,7 @@ public class Onboarding extends Activity {
     }
 
     void go(int d) {
+        focusKey = null;
         int n = Math.max(0, Math.min(Step.values().length - 1, step.ordinal() + d));
         step = Step.values()[n];
         render();
@@ -117,6 +118,7 @@ public class Onboarding extends Activity {
 
     void render() {
         list.removeAllViews(); footer.removeAllViews(); scroll.scrollTo(0, 0);
+        if (focusKey == null) query = ""; // a new step: its search box is empty, so is the filter
         stepLabel.setText(t("step").replace("%s", (step.ordinal() + 1) + "/" + Step.values().length));
         String[] ts = keys();
         title.setText(t(ts[0])); sub.setText(t(ts[1]));
@@ -211,7 +213,7 @@ public class Onboarding extends Activity {
         top.addAll(rest);
         for (Region.Country c : top) {
             boolean sel = multi ? countries.contains(c.getCode()) : c.getCode().equals(country);
-            row(c.getFlag() + "   " + c.getName(), null, sel, () -> {
+            row(c.getFlag() + "   " + c.getName(), null, sel, c.getCode(), () -> {
                 if (multi) { if (countries.contains(c.getCode())) { if (countries.size() > 1) countries.remove(c.getCode()); } else countries.add(c.getCode()); }
                 else if (!c.getCode().equals(country)) {
                     country = c.getCode(); prayer = Region.prayerByDefault(country); method = tech.kousozo.tahoetv.core.Prayer.methodFor(country);
@@ -224,6 +226,8 @@ public class Onboarding extends Activity {
             note(t(country.equals(Region.HOME) ? "note.home" : "note.other").replace("%s", Region.name(country, language)));
     }
 
+    int citySearch;
+
     void cityStep() {
         if (lat != null) row("📍  " + city + ", " + Region.name(country, language) + "   ✕", null, true, () -> {
             city = ""; lat = null; lon = null; region = ""; timeZone = ""; render(); // OK again clears it
@@ -232,9 +236,11 @@ public class Onboarding extends Activity {
         searchField(t("city.search"), q -> {
             if (q.trim().length() < 2) return;
             String lang = Region.HOME.equals(country) ? "id" : language; // Indonesian province names for "near you"
+            int mine = ++citySearch;
             Net.bg.execute(() -> {
                 List<Web.City> found = Web.INSTANCE.searchPlaces(q.trim(), lang, country);
                 ui.post(() -> {
+                    if (mine != citySearch || step != Step.CITY) return; // a newer search, or the viewer moved on
                     while (list.getChildCount() > 2) list.removeViewAt(2);
                     if (found.isEmpty()) note(t("city.empty"));
                     for (Web.City c : found) row("📍  " + c.getLabel(), null, false, () -> {
@@ -305,7 +311,7 @@ public class Onboarding extends Activity {
             if (!q.isEmpty() && !e.getName().toLowerCase(Locale.ROOT).contains(q)) continue;
             String url = e.getChannel().getUrl();
             boolean on = favorites.contains(url);
-            row((on ? "♥  " : "♡  ") + e.getName(), null, on, () -> { if (!favorites.remove(url)) favorites.add(url); refreshFavs(); });
+            row((on ? "♥  " : "♡  ") + e.getName(), null, on, url, () -> { if (!favorites.remove(url)) favorites.add(url); refreshFavs(); });
             if (++n >= 150) break;
         }
     }
@@ -355,7 +361,12 @@ public class Onboarding extends Activity {
 
     // ------------------------------------------------------------------ views
 
-    TextView row(String text, String icon, boolean selected, Runnable onClick) {
+    /** Row to focus after the list is rebuilt (the one just toggled), by key. */
+    String focusKey;
+
+    TextView row(String text, String icon, boolean selected, Runnable onClick) { return row(text, icon, selected, null, onClick); }
+
+    TextView row(String text, String icon, boolean selected, String key, Runnable onClick) {
         TextView r = Ui.text(this, Ui.BODY + 2, selected ? 600 : 400, Ui.TEXT);
         r.setText((icon == null ? "" : icon + "  ") + text + (selected ? "   ✓" : ""));
         r.setPadding(dp(20), dp(14), dp(20), dp(14));
@@ -368,9 +379,10 @@ public class Onboarding extends Activity {
             r.setTextColor(f ? 0xFF111114 : Ui.TEXT);
             r.setShadowLayer(f ? 0 : dp(10), 0, f ? 0 : dp(1), f ? 0 : 0x66000000);
         });
-        r.setOnClickListener(v -> onClick.run());
+        r.setOnClickListener(v -> { focusKey = key; onClick.run(); });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.bottomMargin = dp(8);
         list.addView(r, lp);
+        if (key != null && key.equals(focusKey)) r.post(r::requestFocus);
         return r;
     }
 

@@ -559,6 +559,7 @@ public class LiveTv extends Activity {
         java.util.Set<String> f = favs();
         boolean add = f.add(u); if (!add) f.remove(u);
         prefs.edit().putStringSet("fav", f).apply();
+        TvViewer.favoritesChanged(this, f);
         Toast.makeText(this, (add ? "★ Ditambahkan ke favorit: " : "Dihapus dari favorit: ") + list.get(k).getName(), Toast.LENGTH_SHORT).show();
         buildRows();
         if (k < allRows.length) allRows[k].requestFocus();

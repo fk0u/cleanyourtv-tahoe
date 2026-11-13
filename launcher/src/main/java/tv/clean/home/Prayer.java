@@ -98,6 +98,7 @@ final class Prayer {
     /** Fires at prayer time: banner over any app, adzan if enabled, then arms the next one. */
     public static class Alarm extends BroadcastReceiver {
         @Override public void onReceive(Context c, Intent i) {
+            if (!TvViewer.prayer(c)) return; // turned off since this alarm was set
             String name = prefs(c).getString("alarm_for", "");
             Notif.banner(c, null, "Waktu shalat", "Waktunya shalat " + name, Cfg.s(c, "city", R.string.city) + " dan sekitarnya");
             if (adzanOn(c, name)) play(c, name);
