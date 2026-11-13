@@ -14,13 +14,13 @@
         <item>com.tiktok.tv</item>
         <item>com.vidio.android.tv</item>
     </string-array>
-    <string name="user_name">Al-Ghani</string>
+    <string name="user_name">Tahoe</string>
     <!-- Profile photo (any https image), cached on the TV after the first download. -->
-    <string name="avatar_url">https://avatars.githubusercontent.com/u/142812925?v=4</string>
+    <string name="avatar_url"></string>
     <!-- Weather (Open-Meteo) and prayer times (Aladhan, method 20 = Kemenag RI). -->
-    <string name="city">Samarinda</string>
-    <string name="latitude">-0.4948</string>
-    <string name="longitude">117.1436</string>
+    <string name="city"></string>
+    <string name="latitude"></string>
+    <string name="longitude"></string>
     <!-- Wallpapers + phone photos: files/wallpapers and files/photos, rotated every N minutes. -->
     <integer name="wallpaper_minutes">10</integer>
 </resources>
