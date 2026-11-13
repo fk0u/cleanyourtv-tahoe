@@ -4,12 +4,16 @@
 
 ## State of the repo
 
-- **main:** onboarding on phone, desktop and TV (#84, #85); desktop playback fixes (#82); debug build installs next to the release app (#86).
-- **Released:** `v3.1.0`. Everything after it is unreleased: CHANGELOG `## Belum dirilis`.
-- **Open PRs:**
-  - **#87** slate in 3 languages (#76). Checked on a real phone (Android 14) and the web player. Follow-ups are in the #76 comments.
-  - **#89** README worldwide: 中文, origin story, open to PRs.
-  - The PR that adds this folder.
+- **main = v3.2.0**, which brought:
+  - onboarding on phone, desktop and TV (#84, #85);
+  - channels for every country (#74);
+  - the three-language slate (#87);
+  - desktop playback fixes (#82);
+  - debug builds installing next to the release app (#86);
+  - the worldwide README with 中文 (#89);
+  - this folder (#112).
+- **Released:** `v3.2.0` (2026-11-13, all 5 assets). New work goes under a fresh `## Belum dirilis` heading in the CHANGELOG. The 3.2.0 notes include a "Diketahui" (known issues) list.
+- **Open PRs:** none. #76 closed with #87; its follow-ups are in **#114**.
 - **Private security advisories (drafts):** GHSA-34j8-5cp5-rcmv, GHSA-x8v7-r42c-7qqj, GHSA-cp6v-7p8f-hpvx. Fix in private, then publish; never move them to public issues.
 - **Review board** (DevOps, UI/UX, CTO, CEO, Creative, Frontend, SWE, QA) filed #88 and #90–#111, plus comments on #43 #45 #56 #57 #64 #65 #71 #75 #76 #77 #78 #81 #90 #96 #100. Priorities are in `agents/tasks.md`; direction is in `agents/plans.md`.
 
@@ -47,6 +51,6 @@ export JAVA_HOME=<jdk17>/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk
 
 ## Next 3 concrete steps
 
-1. Owner: review and merge #87 and #89; test #85/#87 on the Mi TV Stick.
-2. The 3.1.x trust patch: #102, #103, #78, #92, #104, then the three advisories.
-3. Start 3.2: #94 stable channel ids, then #56 strings in EN/ID/中文.
+1. Test 3.2.0 on the Mi TV Stick: TV onboarding, TV slate, and phone→TV handoff. Install the TV from the phone app, not the desktop (#92).
+2. The 3.2.x trust patch: #102 (CH+), #103, #78, #92, #104, #114, then the three advisories.
+3. Start 3.3: #94 stable channel ids, then #56 strings in EN/ID/中文.

@@ -1,10 +1,10 @@
 # tasks.md — Tahoe TV
 
-> `[STATE] 0x02 · board=8 · issues=+23 · advisories=3 (private) · updated=2026-11-13`
+> `[STATE] 0x03 · release=v3.2.0 · board=8 · issues=+24 · advisories=3 (private) · updated=2026-11-13`
 > One list, ordered by what unblocks the most. Every line links to its issue; tick it when the issue closes.
 > Format: `[ ] #N  title  ⟨roles⟩  {size: S/M/L}`
 
-## 🔴 NOW — trust patch `3.1.x` (ship before any international push)
+## 🔴 NOW — trust patch `3.2.x` (ship before any international push)
 
 - [ ] #102 CH+ goes down a channel (inverted on TV, phone, desktop)  ⟨UI/UX⟩ {S}
 - [ ] #103 Red colour key = "Exit" in the legend but marks the stream "not live"  ⟨UI/UX⟩ {S}
@@ -13,9 +13,10 @@
 - [ ] #104 EPG loaded whole into memory → OOM with big guides  ⟨SWE⟩ {M}
 - [ ] #45 Truncated update accepted as complete (+ checksums)  ⟨DevOps·QA⟩ {S}
 - [ ] Private advisories GHSA-34j8 (phone↔TV link), GHSA-x8v7 (desktop server), GHSA-cp6v (release key)  ⟨SWE·CTO·DevOps⟩ {M}
-- [ ] #76 Slate follow-ups: OSD covers slate on TV, wrong reason, calmer layout (PR #87)  ⟨UI/UX·Creative·QA⟩ {S}
+- [ ] #114 Slate follow-ups: OSD covers slate on TV, wrong reason, calmer layout, one tested state machine  ⟨UI/UX·Creative·QA⟩ {S}
+- [ ] Real-device pass on the Mi TV Stick: TV onboarding (#85) and TV slate (#87) have never run on a TV  ⟨QA⟩ {S}
 
-## 🟠 NEXT — `3.2 International`
+## 🟠 NEXT — `3.3 International`
 
 - [ ] #71 epic · #77 onboarding (TV real-device test pending) · #56 strings EN/ID/中文 · #80 de-Indonesianise core · #79 prayer/time zone per region
 - [ ] #94 Stable channel IDs (favourites, numbers, handoff, EPG)  ⟨CTO⟩ {M}
@@ -28,7 +29,7 @@
 - [ ] #110 Website a11y + 中文 button  ⟨Frontend⟩ {S} `good first issue`
 - [ ] #97 Community plumbing: Weblate, MAINTAINERS, FUNDING, English issues  ⟨CEO·DevOps⟩ {S}
 
-## 🟡 NEXT — `3.3 Simple & Connect`
+## 🟡 NEXT — `3.4 Simple & Connect`
 
 - [ ] #90 Native-TV controls + Simple Mode (numbers, CH±, last channel, big text)  ⟨CEO·UI/UX⟩ {M}
 - [ ] #64 Accessibility (TalkBack, focus ring, 48 dp, font scale) · #65 plain language
@@ -51,5 +52,7 @@
 
 ## ✅ Done this session (for context)
 
-- `#69 #70 #72 #73 #74 #82 #83 #84 #85 #86` merged · `v3.1.0` released · history rewritten (no co-author lines to Claude)
-- Open PRs: **#87** slate (#76), **#89** README worldwide (中文 + origin story)
+- `#69 #70 #72 #73 #74 #82 #83 #84 #85 #86 #87 #89 #112 #113` merged · `v3.1.0` and **`v3.2.0`** released · history rewritten (no co-author lines to Claude)
+- #76 (slate) closed by #87; its follow-ups live in #114
+- Review-board notes posted on merged PRs #82 #84 #85 #87 #89
+- Open PRs: none (besides the one updating this file)
