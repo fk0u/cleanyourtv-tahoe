@@ -59,6 +59,12 @@ object Playback {
     var entry by mutableStateOf<LocalTv.Entry?>(null); private set
     /** "" = loading (spinner), null = playing, other text = can't play. */
     var message by mutableStateOf<String?>(null); private set
+    /** Every source failed: the slate (#76) shows, with this reason, and the channel is retried in the background. */
+    var slate by mutableStateOf<tech.kousozo.tahoetv.core.Slate.Reason?>(null); private set
+    /** Seconds until the next background retry (0 = not counting: retrying now, or given up). */
+    var retryIn by mutableIntStateOf(0); private set
+    private var autoRetries = 0
+    private var sawRecording = false
     var paused by mutableStateOf(false); private set
     /** "1080p · H.264 · AAC", once known. */
     var format by mutableStateOf<String?>(null); private set
@@ -120,9 +126,9 @@ object Playback {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state != Player.STATE_READY) return
                 // a finished playlist, or a "live" window far in the past, is a recording (yesterday's show on a loop)
-                if (!everReady && isRecording(p, streams.getOrNull(source))) { DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); next(c); return }
+                if (!everReady && isRecording(p, streams.getOrNull(source))) { DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); sawRecording = true; next(c); return }
                 streams.getOrNull(source)?.let { SourceHealth.report(it.url, true) }
-                message = null; everReady = true; retries = 0
+                message = null; everReady = true; retries = 0; slate = null; autoRetries = 0; retryIn = 0
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) { paused = !p.playWhenReady }
             override fun onTracksChanged(tracks: Tracks) { format = describe(p) }
@@ -136,8 +142,8 @@ object Playback {
 
     /** Start [e] (from its best source), or carry on if it's already the channel playing. */
     fun play(c: Context, e: LocalTv.Entry) {
-        if (entry?.channel?.url == e.channel.url && message != "Saluran ini sedang tidak bisa diputar. Coba saluran lain.") { resume(); return }
-        entry = e
+        if (entry?.channel?.url == e.channel.url && slate == null) { resume(); return }
+        entry = e; slate = null; autoRetries = 0; retryIn = 0; sawRecording = false
         Channels.remember(c, e)
         streams = SourceHealth.order(listOf(e.channel) + e.alternates) // known-live first
         source = 0
@@ -156,7 +162,27 @@ object Playback {
     fun resume() { player?.play(); paused = false }
 
     /** Stop and forget the channel (the mini-player's ✕). */
-    fun stop() { attempt++; player?.stop(); entry = null; message = null; format = null; paused = false }
+    fun stop() { attempt++; player?.stop(); entry = null; message = null; format = null; paused = false; slate = null; retryIn = 0 }
+
+    /** "Coba lagi" on the slate, or the background retry: every source again, best first. */
+    fun retry(c: Context) {
+        val e = entry ?: return
+        slate = null; retryIn = 0; sawRecording = false
+        streams = SourceHealth.order(listOf(e.channel) + e.alternates)
+        source = 0
+        start(c.applicationContext)
+    }
+
+    /** Counts down to the next background retry; stops after [Slate.MAX_RETRIES] (the slate then waits for the viewer). */
+    private fun scheduleRetry(c: Context, my: Int) {
+        if (autoRetries >= tech.kousozo.tahoetv.core.Slate.MAX_RETRIES) { retryIn = 0; return }
+        retryIn = tech.kousozo.tahoetv.core.Slate.RETRY_SECONDS
+        fun tick() {
+            if (my != attempt || slate == null) return
+            if (--retryIn <= 0) { autoRetries++; retry(c) } else ui.postDelayed(::tick, 1000)
+        }
+        ui.postDelayed(::tick, 1000)
+    }
 
     fun release() { stop(); player?.release(); player = null }
 
@@ -173,7 +199,9 @@ object Playback {
         val my = ++attempt
         if (s == null) {
             DiagLog.add("live", "${e.name}: semua sumber gagal")
-            p.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."; return
+            p.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."
+            slate = if (sawRecording) tech.kousozo.tahoetv.core.Slate.Reason.Recording else tech.kousozo.tahoetv.core.Slate.Reason.Offline
+            scheduleRetry(c, my); return
         }
         DiagLog.add("live", "${e.name} sumber ${source + 1}/${streams.size} ${s.url}")
         everReady = false; retries = 0; message = ""; format = null; paused = false

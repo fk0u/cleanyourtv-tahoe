@@ -80,6 +80,9 @@ public class LiveTv extends Activity {
         loading = new Loader(this); // Apple TV / Netflix style: logo, name, spinner. No "loading source" text.
         root.addView(loading, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
 
+        slate = buildSlate(); // #76: shown instead of a channel that can't play
+        root.addView(slate, new FrameLayout.LayoutParams(-1, -1));
+
         osd = buildOsd();
         root.addView(osd, new FrameLayout.LayoutParams(-1, -1));
 
@@ -124,6 +127,7 @@ public class LiveTv extends Activity {
                     if (!everReady) tech.kousozo.tahoetv.core.DiagLog.add("live", "siap dalam " + (System.currentTimeMillis() - sourceStarted) + " ms");
                     if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), true);
                     everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE);
+                    hideSlate(); slateRetries = 0;
                 }
             }
         });
@@ -147,6 +151,7 @@ public class LiveTv extends Activity {
         if (index >= 0) previous = index;
         index = ((i % list.size()) + list.size()) % list.size();
         source = 0;
+        hideSlate(); slateRetries = 0; // another channel: a fresh start
         LocalTv.Entry e = list.get(index);
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
         order = SourceHealth.order(raw); // fixed for this tune, so `source` keeps pointing at the same stream
@@ -172,7 +177,7 @@ public class LiveTv extends Activity {
             for (M3u.Channel a : e.getAlternates()) marked |= SourceHealth.isBanned(a.getUrl());
             bStatus.setText(marked ? "Saluran ini sedang tidak bisa diputar. Tahan OK untuk memulihkan sumber yang ditandai \"bukan live\", atau ▼ untuk saluran berikutnya."
                     : "Saluran ini sedang tidak bisa diputar. Tekan ▼ untuk saluran berikutnya.");
-            bStatus.setVisibility(View.VISIBLE); loading.setVisibility(View.GONE); showBanner(); return;
+            bStatus.setVisibility(View.VISIBLE); loading.setVisibility(View.GONE); showSlate(); showBanner(); return;
         }
         M3u.Channel c = s.get(source);
         // viewer choices from Pusat Kontrol (read on every start, so a change applies from the next channel/source)
@@ -594,6 +599,73 @@ public class LiveTv extends Activity {
         return super.onKeyDown(code, e);
     }
 
+    // ------------------------------------------------------------------ slate (#76)
+
+    FrameLayout slate; TextView slName, slStatus; LinearLayout slMessages;
+    int slateRetries, slateGen, slateLeft;
+
+    /** The Tahoe slate: the apology in Indonesian, English and Chinese (the viewer's language first), the reason, and
+     *  what to press. Big and calm, readable from the sofa. */
+    FrameLayout buildSlate() {
+        FrameLayout f = new FrameLayout(this);
+        f.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF0A1A7A, 0xFF07080D, 0xFF3A1650}));
+        LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL); col.setGravity(Gravity.CENTER_HORIZONTAL);
+        col.setPadding((int) dp(Ui.SAFE_SIDE * 3), 0, (int) dp(Ui.SAFE_SIDE * 3), 0);
+        TextView brand = Ui.eyebrow(this, Ui.TEXT_3); brand.setText("Tahoe TV"); col.addView(brand);
+        slName = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); slName.setGravity(Gravity.CENTER); slName.setPadding(0, (int) dp(10), 0, (int) dp(18)); col.addView(slName);
+        slMessages = new LinearLayout(this); slMessages.setOrientation(LinearLayout.VERTICAL); slMessages.setGravity(Gravity.CENTER_HORIZONTAL);
+        col.addView(slMessages);
+        slStatus = Ui.text(this, Ui.BODY, 400, Ui.TEXT_3); slStatus.setGravity(Gravity.CENTER); slStatus.setSingleLine(false);
+        slStatus.setPadding(0, (int) dp(22), 0, 0); col.addView(slStatus);
+        f.addView(col, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
+        f.setVisibility(View.GONE);
+        return f;
+    }
+
+    void showSlate() {
+        String lang = TvViewer.get(this).getLanguage();
+        slName.setText(list.get(index).getName());
+        slMessages.removeAllViews();
+        java.util.List<String> order = tech.kousozo.tahoetv.core.Slate.order(lang);
+        for (int k = 0; k < order.size(); k++) {
+            TextView t = Ui.text(this, k == 0 ? Ui.HEADLINE : Ui.BODY + 1, k == 0 ? 600 : 400, k == 0 ? Ui.TEXT : Ui.TEXT_2);
+            t.setSingleLine(false); t.setGravity(Gravity.CENTER); t.setPadding(0, (int) dp(k == 0 ? 0 : 8), 0, 0);
+            t.setText(tech.kousozo.tahoetv.core.Slate.message(order.get(k)));
+            slMessages.addView(t);
+        }
+        slate.setVisibility(View.VISIBLE);
+        int my = ++slateGen;
+        if (slateRetries >= tech.kousozo.tahoetv.core.Slate.MAX_RETRIES) { slateLeft = 0; slateStatus(lang); return; }
+        slateLeft = tech.kousozo.tahoetv.core.Slate.RETRY_SECONDS;
+        slateStatus(lang);
+        ui.postDelayed(new Runnable() { @Override public void run() {
+            if (my != slateGen || slate.getVisibility() != View.VISIBLE) return;
+            if (--slateLeft <= 0) { slateRetries++; retryChannel(); } else { slateStatus(lang); ui.postDelayed(this, 1000); }
+        }}, 1000);
+    }
+
+    void slateStatus(String lang) {
+        String when = slateLeft > 0 ? tech.kousozo.tahoetv.core.Slate.label(lang, "retrying").replace("%s", String.valueOf(slateLeft))
+                : tech.kousozo.tahoetv.core.Slate.label(lang, "waiting");
+        slStatus.setText(tech.kousozo.tahoetv.core.Slate.reason(tech.kousozo.tahoetv.core.Slate.order(lang).get(0), tech.kousozo.tahoetv.core.Slate.Reason.Offline)
+                + "  ·  " + when + "\nOK  " + tech.kousozo.tahoetv.core.Slate.label(lang, "retry") + "     ▼  " + tech.kousozo.tahoetv.core.Slate.label(lang, "next"));
+    }
+
+    void hideSlate() { slateGen++; if (slate != null) slate.setVisibility(View.GONE); }
+
+    /** Every source of this channel again, best first (OK on the slate, or the background retry). */
+    void retryChannel() {
+        if (index < 0 || list.isEmpty()) return;
+        hideSlate();
+        LocalTv.Entry e = list.get(index);
+        List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
+        order = SourceHealth.order(raw);
+        source = 0;
+        bStatus.setVisibility(View.GONE);
+        play();
+    }
+
     @Override public boolean onKeyLongPress(int code, KeyEvent e) {
         if (guide.getVisibility() != View.VISIBLE && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)) { flagRecording(); return true; }
         return super.onKeyLongPress(code, e);
@@ -601,7 +673,10 @@ public class LiveTv extends Activity {
 
     @Override public boolean onKeyUp(int code, KeyEvent e) {
         if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) && guide.getVisibility() != View.VISIBLE
-                && e.isTracking() && !e.isCanceled()) { openGuide(); return true; }
+                && e.isTracking() && !e.isCanceled()) {
+            if (slate.getVisibility() == View.VISIBLE) retryChannel(); else openGuide(); // on the slate, OK = try again
+            return true;
+        }
         return super.onKeyUp(code, e);
     }
 

@@ -85,6 +85,10 @@ object PlayerWindow {
     /** Every stream of the channel (main + backups) incl. ones marked "not live", for the restore button. */
     private var channelStreams: List<M3u.Channel> = emptyList()
     private lateinit var restoreBtn: Button
+    private lateinit var retryBtn: Button
+    /** Slate (#76): background retries of this channel so far, and the countdown ticking towards the next one. */
+    private var slateRetries = 0
+    private var slateTimer: Timeline? = null
     /** Sent to the app when the window closes, so it stops treating the channel as playing. */
     const val CLOSED = "Pemutar ditutup"
     private var currentIndex = 0
@@ -152,13 +156,14 @@ object PlayerWindow {
         val logo = streams.firstOrNull()?.logo
         loaderLogo.image = logo?.let { runCatching { Image(it, 200.0, 120.0, true, true, true) }.getOrNull() }
         loaderTile.isVisible = loaderLogo.image != null; loaderTile.isManaged = loaderTile.isVisible
-        channelStreams = streams
+        channelStreams = streams; slateRetries = 0; slateTimer?.stop()
         start(SourceHealth.order(streams), 0, ++generation) // known-live sources first, recordings left out
         s.show(); s.toFront(); reveal()
     }
 
     /** Playing: hide the loader and any error. Only real failures ever reach the app window (no "loading…" chatter). */
     private fun playingNow() {
+        slateRetries = 0; slateTimer?.stop()
         tech.kousozo.tahoetv.core.DiagLog.add("live", "gambar tampil")
         loading(false); statusLabel.isVisible = false; nextBtn.isVisible = false; nextBtn.isManaged = false; webBtn.isVisible = false; webBtn.isManaged = false
         restoreBtn.isVisible = false; restoreBtn.isManaged = false
@@ -166,6 +171,27 @@ object PlayerWindow {
     }
 
     /** Dead end: say why, offer the next channel and the browser Web Player. */
+    /** Every source failed: the slate (#76) — the apology in Indonesian, English and Chinese (the viewer's language
+     *  first), the reason, a countdown to the next background retry, and the buttons. */
+    private fun slate(gen: Int) {
+        val lang = Settings.lang
+        val order = tech.kousozo.tahoetv.core.Slate.order(lang)
+        val reason = if (failReason != null) tech.kousozo.tahoetv.core.Slate.Reason.Recording else tech.kousozo.tahoetv.core.Slate.Reason.Offline
+        val head = order.joinToString("\n\n") { tech.kousozo.tahoetv.core.Slate.message(it) } + "\n\n" + tech.kousozo.tahoetv.core.Slate.reason(order[0], reason)
+        fail(head)
+        retryBtn.text = tech.kousozo.tahoetv.core.Slate.label(lang, "retry") + " ↻"; retryBtn.isVisible = true; retryBtn.isManaged = true
+        slateTimer?.stop()
+        if (slateRetries >= tech.kousozo.tahoetv.core.Slate.MAX_RETRIES) { statusLabel.text = head + "\n" + tech.kousozo.tahoetv.core.Slate.label(lang, "waiting"); return }
+        var left = tech.kousozo.tahoetv.core.Slate.RETRY_SECONDS
+        statusLabel.text = head + "\n" + tech.kousozo.tahoetv.core.Slate.label(lang, "retrying").replace("%s", "$left")
+        slateTimer = Timeline(KeyFrame(Duration.seconds(1.0), {
+            if (gen != generation) { slateTimer?.stop(); return@KeyFrame }
+            left--
+            if (left <= 0) { slateTimer?.stop(); slateRetries++; start(SourceHealth.order(channelStreams), 0, gen) }
+            else statusLabel.text = head + "\n" + tech.kousozo.tahoetv.core.Slate.label(lang, "retrying").replace("%s", "$left")
+        })).apply { cycleCount = Timeline.INDEFINITE; play() }
+    }
+
     private fun fail(msg: String, offerWeb: Boolean = true) {
         tech.kousozo.tahoetv.core.DiagLog.add("live", "${titleLabel.text} gagal: $msg")
         loading(false)
@@ -202,14 +228,15 @@ object PlayerWindow {
         if (gen != generation) return // another channel was chosen meanwhile
         watchdog?.stop(); release()
         currentStreams = streams; currentIndex = i
-        val c = streams.getOrNull(i) ?: return fail(failReason ?: "Saluran ini sedang tidak bisa diputar. Coba saluran lain, atau buka di Web Player.")
+        val c = streams.getOrNull(i) ?: return slate(gen)
         val next = { if (gen == generation) { SourceHealth.report(c.url, false); start(streams, i + 1, gen) } }
         if (c.url.contains(".mpd", true) || c.drm) {
             val alt = streams.drop(i + 1).firstOrNull { !it.url.contains(".mpd", true) && !it.drm }
             if (alt != null) return start(streams, streams.indexOf(alt), gen)
             return fail("Saluran ini menggunakan DASH/DRM. Silakan tonton melalui Web Player bawaan (Shaka Player) atau pemutar eksternal (Kodi/TiviMate).")
         }
-        if (retry == 0) { failReason = null; statusLabel.isVisible = false; nextBtn.isVisible = false; nextBtn.isManaged = false; webBtn.isVisible = false; webBtn.isManaged = false; loading(true) }
+        if (retry == 0) { failReason = null; statusLabel.isVisible = false; nextBtn.isVisible = false; nextBtn.isManaged = false; webBtn.isVisible = false; webBtn.isManaged = false
+            retryBtn.isVisible = false; retryBtn.isManaged = false; slateTimer?.stop(); loading(true) }
         // A source that "answers" can still be a recording (finished playlist, or yesterday's broadcast replayed on a loop).
         // Unless it was just verified live, look at the playlist first and skip it if it isn't live.
         val hls = c.url.substringBefore('?').endsWith(".m3u8", true)
@@ -316,6 +343,7 @@ object PlayerWindow {
         }
         nextBtn = button("Saluran berikutnya ▶") { onSwitch(1) }.apply { isVisible = false; isManaged = false }
         webBtn = button("Buka di Web Player") { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(IptvServer.webUrl())) } }.apply { isVisible = false; isManaged = false }
+        retryBtn = button("Coba lagi ↻") { slateTimer?.stop(); start(SourceHealth.order(channelStreams), 0, ++generation) }.apply { isVisible = false; isManaged = false }
         restoreBtn = button("Pulihkan sumber yang ditandai") {
             SourceHealth.unbanAll(channelStreams); start(SourceHealth.order(channelStreams), 0, ++generation)
         }.apply { isVisible = false; isManaged = false }
@@ -338,7 +366,7 @@ object PlayerWindow {
             style = "-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12px;"; StackPane.setAlignment(this, Pos.BOTTOM_CENTER)
             StackPane.setMargin(this, Insets(0.0, 0.0, 70.0, 0.0))
         }
-        val center = VBox(12.0, statusLabel, nextBtn, webBtn, restoreBtn).apply { alignment = Pos.CENTER; isPickOnBounds = false }
+        val center = VBox(12.0, statusLabel, retryBtn, nextBtn, webBtn, restoreBtn).apply { alignment = Pos.CENTER; isPickOnBounds = false }
         loaderLogo = ImageView().apply { isPreserveRatio = true; fitWidth = 150.0; fitHeight = 84.0 }
         loaderTile = StackPane(loaderLogo).apply {
             maxWidth = 176.0; maxHeight = 104.0; padding = Insets(10.0)
