@@ -610,6 +610,17 @@ object IptvServer {
         sendJson(ex, 200, WebPlayer.state())
     }
 
+    /** The slate's texts (#76) for the watch page, in the app's language order (org.json escapes "</" for a script tag). */
+    private fun slateJson(): String {
+        val S = tech.kousozo.tahoetv.core.Slate
+        val lang = Settings.lang
+        val order = S.order(lang)
+        return JSONObject().put("order", JSONArray(order)).put("msg", JSONObject().apply { order.forEach { put(it, S.message(it)) } })
+            .put("reason", S.reason(order[0], tech.kousozo.tahoetv.core.Slate.Reason.Offline))
+            .put("retrying", S.label(lang, "retrying")).put("waiting", S.label(lang, "waiting"))
+            .put("secs", S.RETRY_SECONDS).put("max", S.MAX_RETRIES).toString()
+    }
+
     /** One channel, full window, for the web player (Windows, where JavaFX can't play HLS): hls.js plays the server's
      *  relay of each source in turn, moving on when one fails or doesn't start in 20 s; follows the app's session. */
     private fun serveWatch(ex: HttpExchange, query: Map<String, String>) {
@@ -617,6 +628,7 @@ object IptvServer {
         val title = query["t"].orEmpty().ifBlank { ids.firstOrNull()?.let { byId[it]?.channel?.name } ?: "Tahoe TV" }
         val html = WATCH_HTML.replace("__TITLE__", esc(title)).replace("__IDS__", esc(JSONArray(ids).toString()))
             .replace("__SEQ__", (query["s"]?.toIntOrNull() ?: -1).toString())
+            .replace("__SLATE__", slateJson())
         val body = html.toByteArray(Charsets.UTF_8)
         ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
         ex.responseHeaders.add("Cache-Control", "no-store")
@@ -653,17 +665,37 @@ object IptvServer {
 <button id="sound">🔊 Klik untuk menyalakan suara</button>
 <script>
 const v = document.getElementById('v'), veil = document.getElementById('veil'), msg = document.getElementById('msg'), spin = document.getElementById('spin');
+const SLATE = __SLATE__;
 let ids = JSON.parse("__IDS__".replace(/&quot;/g,'"')), seq = __SEQ__, maxH = 0, lat = 20, i = 0, hls = null, timer = null, reported = false, session = false;
 function post(q){ return fetch('/api/watch?' + q, { method: 'POST' }).catch(() => {}); }
 function fail(t){ spin.style.display='none'; msg.textContent=t; veil.classList.remove('hide'); post('event=failed&s=' + seq + '&msg=' + encodeURIComponent(t)); }
 function next(){ i++; start(); }
+// #76: every source failed — the apology in Indonesian, English and Chinese (viewer's language first), retried every 30 s
+let slateTimer = null, slateTries = 0;
+function slate(){
+  const t = SLATE, order = t.order;
+  spin.style.display = 'none'; veil.classList.remove('hide');
+  msg.textContent = '';
+  order.forEach((l, k) => { const p = document.createElement('div'); p.textContent = t.msg[l]; p.style.cssText = k ? 'opacity:.62;font-size:13px;margin-top:8px' : 'font-size:17px;font-weight:600'; msg.appendChild(p); });
+  const st = document.createElement('div'); st.style.cssText = 'opacity:.5;font-size:12px;margin-top:14px'; msg.appendChild(st);
+  post('event=failed&s=' + seq + '&msg=' + encodeURIComponent(t.msg[order[0]]));
+  clearInterval(slateTimer);
+  if (slateTries >= t.max) { st.textContent = t.reason + '  ·  ' + t.waiting; return; }
+  let left = t.secs; const mine = seq;
+  st.textContent = t.reason + '  ·  ' + t.retrying.replace('%s', left);
+  slateTimer = setInterval(() => {
+    if (mine !== seq) { clearInterval(slateTimer); return; }
+    if (--left <= 0) { clearInterval(slateTimer); slateTries++; i = 0; start(); }
+    else st.textContent = t.reason + '  ·  ' + t.retrying.replace('%s', left);
+  }, 1000);
+}
 function tryPlay(){
   v.play().catch(() => { v.muted = true; v.play().catch(()=>{}); document.getElementById('sound').style.display='block'; });
 }
 function start(){
   clearTimeout(timer); reported = false;
   if (hls) { hls.destroy(); hls = null; }
-  if (i >= ids.length) { fail('Saluran ini sedang tidak bisa diputar. Coba saluran lain (◀ ▶).'); return; }
+  if (i >= ids.length) { slate(); return; }
   spin.style.display=''; msg.textContent='Memuat…'; veil.classList.remove('hide');
   const src = '/live/' + encodeURIComponent(ids[i]) + '.m3u8';
   if (window.Hls && Hls.isSupported()) {
@@ -684,7 +716,7 @@ function start(){
   } else { v.src = src; v.addEventListener('loadedmetadata', tryPlay, { once: true }); }
   timer = setTimeout(() => { if (v.readyState < 3) next(); }, 20000);
 }
-function load(s){ session = true; seq = s.seq; ids = s.ids; maxH = s.q || 0; lat = Math.min(60, Math.max(4, s.lat || 20)); i = 0;
+function load(s){ clearInterval(slateTimer); slateTries = 0; session = true; seq = s.seq; ids = s.ids; maxH = s.q || 0; lat = Math.min(60, Math.max(4, s.lat || 20)); i = 0;
   document.getElementById('name').textContent = s.title; document.title = s.title + ' — Tahoe TV'; start(); }
 // follow the app: a new channel replaces this one; Stop stops and closes the window
 async function poll(){
@@ -694,7 +726,7 @@ async function poll(){
     else if (!s.stopped && s.seq !== seq && s.ids.length) load(s);
   } catch (e) {}
 }
-v.addEventListener('playing', () => { clearTimeout(timer); veil.classList.add('hide'); if (!reported) { reported = true; post('event=playing&s=' + seq); } });
+v.addEventListener('playing', () => { clearTimeout(timer); clearInterval(slateTimer); slateTries = 0; veil.classList.add('hide'); if (!reported) { reported = true; post('event=playing&s=' + seq); } });
 v.addEventListener('error', () => { if (!hls) next(); });
 document.getElementById('sound').onclick = (e) => { v.muted = false; e.target.style.display='none'; };
 document.getElementById('prev').onclick = () => post('zap=-1&s=' + seq);

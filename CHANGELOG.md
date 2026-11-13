@@ -6,6 +6,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 ## Belum dirilis
 
 ### Baru
+- **Tampilan "siaran tidak tersedia" (#76).** Saat semua sumber sebuah saluran gagal, TV, HP, desktop, dan Web Player menampilkan slate Tahoe dengan permintaan maaf dalam **tiga bahasa sekaligus** (Indonesia, English, 中文; bahasa pilihanmu paling atas) beserta alasannya. Tahoe terus mencoba lagi otomatis setiap 30 detik (sampai ±10 menit) dan langsung kembali ke siaran begitu ada sumber yang hidup. Tombolnya: **Coba lagi**, **Saluran berikutnya**, dan di HP layar penuh juga **Laporkan saluran**. Di TV: OK untuk coba lagi, ▼ untuk saluran berikutnya.
 - **Onboarding lengkap di HP dan desktop (#77).** Saat pertama dibuka (atau lewat **Wilayah & bahasa** → Ubah), Tahoe menanyakan 10 langkah, dimulai dari bahasa:
   1. **Bahasa:** English, Bahasa Indonesia, atau 中文（简体）.
   2. **Negara tempat tinggal.**

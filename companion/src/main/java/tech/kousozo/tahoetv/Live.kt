@@ -233,12 +233,15 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
     }) {
         AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } },
             Modifier.fillMaxSize(), update = { it.player = player })
-        Playback.message?.let {
+        val slate = Playback.slate
+        if (slate != null) ChannelSlate(e, slate, full, zap)
+        else Playback.message?.let {
             if (it.isNotEmpty()) Text(it, Modifier.align(Alignment.Center).semantics { liveRegion = LiveRegionMode.Polite }
                 .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp), color = Color.White, fontSize = 14.sp)
             else ChannelLoader(e.name, Modifier.fillMaxSize().semantics { liveRegion = LiveRegionMode.Polite; contentDescription = "Memuat ${e.name}" })
         }
-        androidx.compose.animation.AnimatedVisibility(visible, Modifier.fillMaxSize(),
+        // the slate brings its own actions: the player controls would sit on top of it
+        androidx.compose.animation.AnimatedVisibility(visible && slate == null, Modifier.fillMaxSize(),
             enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
             Box(Modifier.fillMaxSize().background(if (busy) Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Black.copy(alpha = 0.45f)))
                 else Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.6f))))) {
@@ -455,4 +458,60 @@ fun PlayerSettingsSheet(onDismiss: () -> Unit) {
                 fontSize = 13.sp, color = Tahoe.Dim)
         }
     }
+}
+
+/** In place of a channel that can't play (#76): the Tahoe slate with the apology in Indonesian, English and Chinese
+ *  (the viewer's language first), the reason, and Try again / Next channel / Report. The player keeps retrying.
+ *  In the small player the other two languages take turns on one line, so everything fits. */
+@Composable
+private fun ChannelSlate(e: LocalTv.Entry, reason: tech.kousozo.tahoetv.core.Slate.Reason, full: Boolean, zap: (Int) -> Unit) {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    val order = tech.kousozo.tahoetv.core.Slate.order(lang)
+    val logo = rememberNetImage(e.channel.logo)
+    var turn by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { delay(4000); turn++ } }
+    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF0A1A7A), Color(0xFF07080D), Color(0xFF3A1650))))
+        .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+        Column(Modifier.align(Alignment.Center).padding(horizontal = 16.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (full) 10.dp else 3.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.size(if (full) 48.dp else 24.dp).clip(RoundedCornerShape(if (full) 10.dp else 6.dp)).background(Color.White.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                    if (logo != null) androidx.compose.foundation.Image(logo, null, Modifier.fillMaxSize().padding(3.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+                    else BrandMark(if (full) 28.dp else 16.dp)
+                }
+                Text(e.name, color = Color.White, fontSize = if (full) 20.sp else 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(tech.kousozo.tahoetv.core.Slate.message(order[0]), color = Color.White, fontSize = if (full) 16.sp else 12.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = if (full) 3 else 2, overflow = TextOverflow.Ellipsis)
+            if (full) order.drop(1).forEach { l ->
+                Text(tech.kousozo.tahoetv.core.Slate.message(l), color = Color.White.copy(alpha = 0.62f), fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            } else androidx.compose.animation.Crossfade(order[1 + turn % 2], label = "slate-lang") { l ->
+                Text(tech.kousozo.tahoetv.core.Slate.message(l), color = Color.White.copy(alpha = 0.62f), fontSize = 10.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(tech.kousozo.tahoetv.core.Slate.reason(order.first(), reason) + "  ·  " + when {
+                Playback.retryIn > 0 -> tech.kousozo.tahoetv.core.Slate.label(lang, "retrying").replace("%s", "${Playback.retryIn}")
+                else -> tech.kousozo.tahoetv.core.Slate.label(lang, "waiting")
+            }, color = Color.White.copy(alpha = 0.5f), fontSize = if (full) 12.sp else 10.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = if (full) 6.dp else 2.dp)) {
+                SlateButton(tech.kousozo.tahoetv.core.Slate.label(lang, "retry"), Icons.Rounded.Refresh, full, primary = true) { Playback.retry(c) }
+                SlateButton(tech.kousozo.tahoetv.core.Slate.label(lang, "next"), Icons.Rounded.SkipNext, full) { zap(1) }
+                if (full) SlateButton(tech.kousozo.tahoetv.core.Slate.label(lang, "report"), Icons.Rounded.Flag, full) {
+                    runCatching { c.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(tech.kousozo.tahoetv.core.Slate.reportUrl(e.name)))) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SlateButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, big: Boolean, primary: Boolean = false, onClick: () -> Unit) = Row(
+    Modifier.clip(RoundedCornerShape(50)).background(if (primary) Color.White else Color.White.copy(alpha = 0.16f)).clickable(onClick = onClick)
+        .padding(horizontal = if (big) 16.dp else 12.dp, vertical = if (big) 10.dp else 6.dp),
+    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+) {
+    val fg = if (primary) Color(0xFF111114) else Color.White
+    Icon(icon, null, tint = fg, modifier = Modifier.size(if (big) 18.dp else 14.dp))
+    Text(text, color = fg, fontSize = if (big) 14.sp else 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
 }
