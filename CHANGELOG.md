@@ -3,7 +3,7 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
-## Belum dirilis
+## 3.2.0
 
 ### Baru
 - **Tampilan "siaran tidak tersedia" (#76).** Saat semua sumber sebuah saluran gagal, TV, HP, desktop, dan Web Player menampilkan slate Tahoe dengan permintaan maaf dalam **tiga bahasa sekaligus** (Indonesia, English, 中文; bahasa pilihanmu paling atas) beserta alasannya. Tahoe terus mencoba lagi otomatis setiap 30 detik (sampai ±10 menit) dan langsung kembali ke siaran begitu ada sumber yang hidup. Tombolnya: **Coba lagi**, **Saluran berikutnya**, dan di HP layar penuh juga **Laporkan saluran**. Di TV: OK untuk coba lagi, ▼ untuk saluran berikutnya.
@@ -26,13 +26,17 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
   - Jadwal shalat bisa dimatikan dan memakai metode pilihan (sebelumnya selalu Kemenag RI).
   - TV yang sudah diatur sebelumnya (kota dari app HP) tidak ditanya lagi. Teks onboarding tersedia dalam tiga bahasa; teks aplikasi lainnya menyusul (#56).
 
+- **Saluran untuk semua negara (#71, tahap 1).** Saat pertama dibuka, app HP dan desktop menanyakan **bahasa** lalu **negara** (disarankan dari setelan perangkat, nama negara dalam bahasa yang dipilih). Daftar saluran dan jadwal acara mengikuti negara itu: Indonesia tetap dengan sumber pilihannya, negara lain memakai daftar per negara dari iptv-org dan jadwal dari epg.pw. Ganti kapan saja: HP lewat kartu **Wilayah & bahasa** di Beranda, desktop lewat Setelan → Wilayah & bahasa. "Dekat kamu" hanya muncul untuk Indonesia. Teks aplikasi lainnya masih berbahasa Indonesia (terjemahan: #56); TV ikut lewat onboarding di atas.
+
 ### Perbaikan
 - **Desktop: saluran yang servernya "hidup tapi kosong" tidak lagi ditunggu 20 detik.** Sebagian sumber menjawab dengan halaman HTML (mis. Metro TV) atau playlist utama yang hidup sementara semua kualitasnya ditolak (403/404). Dulu sumber seperti ini tetap ditandai LIVE dan pemutar menunggu sampai habis waktu; sekarang langsung dianggap mati dan pindah ke sumber cadangan, di TV, HP, dan desktop (#75).
 - **Kualitas yang mati dilewati.** Server IPTV desktop (Web Player Windows, VLC/TiviMate di LAN) membuang varian kualitas yang tidak menjawab. Pemutar macOS melakukan hal yang sama untuk sumber yang lewat relay, dan otomatis memakai relay bila varian pertama sumber itu mati, sehingga tidak berhenti di varian yang rusak.
 - User-Agent bawaan untuk permintaan siaran kini sama di TV, HP, pengecekan sumber, relay desktop, dan server IPTV (`TahoeTV/<versi>`); sumber yang meminta User-Agent sendiri tetap memakai miliknya. Pemutar desktop yang memutar langsung (tanpa relay) masih memakai User-Agent bawaan Java.
 
-### Baru
-- **Saluran untuk semua negara (#71, tahap 1).** Saat pertama dibuka, app HP dan desktop menanyakan **bahasa** lalu **negara** (disarankan dari setelan perangkat, nama negara dalam bahasa yang dipilih). Daftar saluran dan jadwal acara mengikuti negara itu: Indonesia tetap dengan sumber pilihannya, negara lain memakai daftar per negara dari iptv-org dan jadwal dari epg.pw. Ganti kapan saja: HP lewat kartu **Wilayah & bahasa** di Beranda, desktop lewat Setelan → Wilayah & bahasa. "Dekat kamu" hanya muncul untuk Indonesia. Teks aplikasi lainnya masih berbahasa Indonesia (terjemahan: #56); TV ikut lewat onboarding di atas.
+### Diketahui
+- Tombol **CH+** di remote masih pindah ke nomor saluran sebelumnya (dan CH− ke berikutnya); diperbaiki di rilis berikutnya (#102).
+- Saluran dengan audio MP2/AAC-LATM atau iklan sisipan rapat belum bisa diputar di pemutar desktop macOS (#75).
+- Teks aplikasi di luar onboarding dan layar "siaran tidak tersedia" masih berbahasa Indonesia (#56).
 
 ## 3.1.0
 
