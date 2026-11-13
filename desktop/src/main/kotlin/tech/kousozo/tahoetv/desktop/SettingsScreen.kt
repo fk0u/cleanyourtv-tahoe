@@ -39,7 +39,10 @@ fun SettingsScreen() {
                     place = "Mencari…"
                     val r = withContext(Dispatchers.IO) { Web.geocode(city) }
                     if (r == null) place = "Kota tidak ditemukan"
-                    else { Settings.city = r.name; Settings.province = r.region; Settings.lat = r.lat; Settings.lon = r.lon; city = r.name; place = r.label }
+                    else {
+                        Settings.city = r.name; Settings.province = r.region; Settings.lat = r.lat; Settings.lon = r.lon; city = r.name; place = r.label
+                        Settings.viewer.takeIf { it.done }?.let { Settings.viewer = it.copy(city = r.name, lat = r.lat, lon = r.lon, region = r.region) } // one source of truth
+                    }
                 }
             }
         }

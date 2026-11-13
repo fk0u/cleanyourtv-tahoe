@@ -198,12 +198,12 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
     LaunchedEffect(query) {
         if (query.trim().length < 2 || query == v.city) { results = null; return@LaunchedEffect }
         delay(400) // typing: wait for a pause
-        results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), v.language, v.country) }
+        results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), if (v.country == Region.HOME) "id" else v.language, v.country) // Indonesian province names: "near you" matches them }
     }
     Field(query, { query = it }, t("city.search"))
     Spacer(Modifier.height(10.dp))
     if (v.lat != null) Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", ") + "  ✕", "📍", true) {
-        onChange(v.copy(city = "", lat = null, lon = null, region = "")); query = "" // tap again to clear: weather and prayer stay hidden
+        onChange(v.copy(city = "", lat = null, lon = null, region = "", timeZone = "")); query = "" // tap again to clear: weather and prayer stay hidden
     }
     else if (results == null) Text(t("city.none"), color = Tahoe.Faint, fontSize = 12.sp)
     results?.let { list ->
