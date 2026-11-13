@@ -167,7 +167,9 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
     }
     Field(query, { query = it }, t("city.search"))
     Spacer(Modifier.height(10.dp))
-    if (v.lat != null) Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", "), "📍", true) {}
+    if (v.lat != null) Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", ") + "  ✕", "📍", true) {
+        onChange(v.copy(city = "", lat = null, lon = null, region = "")); query = "" // tap again to clear: weather and prayer stay hidden
+    }
     else if (results == null) Text(t("city.none"), color = Tahoe.Faint, fontSize = 12.sp)
     results?.let { list ->
         if (list.isEmpty()) Text(t("city.empty"), color = Tahoe.Faint, fontSize = 12.sp)
@@ -186,7 +188,7 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
 private fun TimeZoneStep(v: Viewer, t: (String) -> String, onPick: (String) -> Unit) = Column {
     val device = remember { java.util.TimeZone.getDefault().id }
     var query by remember { mutableStateOf("") }
-    val zones = remember { java.time.ZoneId.getAvailableZoneIds().filter { '/' in it && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }.sorted() }
+    val zones = remember { (listOf("UTC") + java.time.ZoneId.getAvailableZoneIds().filter { '/' in it && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }.sorted()) }
     val picked = v.timeZone.ifBlank { device }
     Option(t("tz.device").replace("%s", device), "💻", v.timeZone.isBlank() || v.timeZone == device) { onPick("") }
     Spacer(Modifier.height(6.dp))
@@ -207,14 +209,14 @@ private fun offset(zone: String): String = runCatching {
 
 @Composable
 private fun FavoritesStep(v: Viewer, t: (String) -> String, onLoaded: (List<LocalTv.Entry>?) -> Unit, onChange: (List<String>) -> Unit) = Column {
-    var list by remember(v.countries, v.categories) { mutableStateOf<List<LocalTv.Entry>?>(null) }
+    var list by remember(v.countries) { mutableStateOf<List<LocalTv.Entry>?>(null) }
     var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(v.countries, v.categories) {
+    LaunchedEffect(v.countries) {
         list = null; failed = false
         val loaded = withContext(Dispatchers.IO) {
-            runCatching { LocalTv.arrange(Sources.loadCountries(Settings.playlist, v.countries), v.region.takeIf { Region.HOME in v.countries }) }.getOrNull()
+            runCatching { LocalTv.arrange(Sources.loadCountries(Settings.playlist, v.countries), v.nearRegion) }.getOrNull()
         }
-        list = loaded?.let { all -> if (v.categories.isEmpty()) all else all.filter { it.category.name in v.categories } }
+        list = loaded // every channel: favourites stay visible in Live TV whatever the categories
         failed = loaded.isNullOrEmpty()
         onLoaded(loaded)
     }

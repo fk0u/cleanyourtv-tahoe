@@ -85,7 +85,7 @@ object Web {
     @JvmOverloads
     fun prayer(lat: Double, lon: Double, method: Int = 20, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): List<Pair<String, String>> = runCatching {
         val t = JSONObject(get("https://api.aladhan.com/v1/timings/" + LocalDate.now(zone).format(DateTimeFormatter.ofPattern("dd-MM-yyyy")) +
-            "?latitude=$lat&longitude=$lon&method=$method")).getJSONObject("data").getJSONObject("timings")
+            "?latitude=$lat&longitude=$lon&method=$method&timezonestring=" + enc(zone.id))).getJSONObject("data").getJSONObject("timings")
         listOf("Subuh" to "Fajr", "Dzuhur" to "Dhuhr", "Ashar" to "Asr", "Maghrib" to "Maghrib", "Isya" to "Isha")
             .map { (id, key) -> id to t.getString(key).take(5) }
     }.getOrDefault(emptyList())

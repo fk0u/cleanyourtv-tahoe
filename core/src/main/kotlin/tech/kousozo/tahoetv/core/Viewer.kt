@@ -30,6 +30,14 @@ data class Viewer(
     val favorites: List<String> = emptyList(),
 ) {
     val done get() = country.isNotBlank()
+
+    /** [categories] that apply to the chosen channel countries: "near you" and TVRI only exist with Indonesia, so a
+     *  leftover selection of them can't hide every channel after Indonesia is removed. */
+    val activeCategories: Set<String> get() =
+        if (Region.HOME in countries) categories else categories - setOf(LocalTv.Category.Near.name, LocalTv.Category.Tvri.name)
+
+    /** Province for "near you": only when the viewer lives in Indonesia and watches its channels. */
+    val nearRegion: String? get() = region.takeIf { it.isNotBlank() && country == Region.HOME && Region.HOME in countries }
     val countries get() = channelCountries.ifEmpty { listOfNotNull(Region.country(country) ?: Region.HOME) }
     val zone: ZoneId get() = runCatching { ZoneId.of(timeZone) }.getOrDefault(ZoneId.systemDefault())
 
@@ -37,7 +45,9 @@ data class Viewer(
      *  their order, then the usual order. */
     fun arrange(entries: List<LocalTv.Entry>): List<LocalTv.Entry> {
         val rank = favorites.withIndex().associate { (i, u) -> u to i }
-        val shown = if (categories.isEmpty()) entries else entries.filter { it.channel.url in rank || it.category.name in categories }
+        val cats = activeCategories
+        val near = LocalTv.Category.Near.name in cats
+        val shown = if (cats.isEmpty()) entries else entries.filter { it.channel.url in rank || it.category.name in cats || (near && it.near) }
         return shown.sortedBy { rank[it.channel.url] ?: Int.MAX_VALUE } // stable: the rest keep their order
     }
 
@@ -50,7 +60,7 @@ data class Viewer(
     companion object {
         @JvmStatic fun fromJson(s: String?): Viewer {
             val j = runCatching { JSONObject(s ?: return Viewer()) }.getOrNull() ?: return Viewer()
-            fun list(k: String) = j.optJSONArray(k)?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
+            fun list(k: String) = j.optJSONArray(k)?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotBlank() } } }.orEmpty()
             return Viewer(
                 language = Region.language(j.optString("language", "en")),
                 country = Region.country(j.optString("country")).orEmpty(),

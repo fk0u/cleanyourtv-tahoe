@@ -35,4 +35,15 @@ class ViewerTest {
         for (l in Region.LANGUAGES) for (k in keys) assertTrue(OnboardingText.get(l, k) != k, "$l/$k")
         assertEquals("zh", Region.language("zh-CN"))
     }
+
+    @Test fun nearMeansNearbyAndIndonesiaOnlyCategoriesDropWithoutIndonesia() {
+        val local = LocalTv.Entry(M3u.Channel("tvlokal", "https://x/l.m3u8", null, null), "tvlokal", LocalTv.Category.Local, true, false, false, 99)
+        val news = e("news", LocalTv.Category.News)
+        val v = Viewer(country = "ID", channelCountries = listOf("ID"), categories = setOf("Near"))
+        assertEquals(listOf("tvlokal"), v.arrange(listOf(news, local)).map { it.name })   // near by proximity, not by category
+        val abroad = v.copy(channelCountries = listOf("JP"))
+        assertEquals(emptySet(), abroad.activeCategories)                                    // Near can't hide everything
+        assertEquals(2, abroad.arrange(listOf(news, local)).size)
+        assertEquals(null, Viewer(country = "JP", region = "Tokyo", channelCountries = listOf("ID")).nearRegion)
+    }
 }

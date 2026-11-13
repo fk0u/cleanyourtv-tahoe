@@ -311,7 +311,7 @@ object Channels {
     private var generation = 0
 
     /** Country changed: forget the list; the next screen that shows loads the new one. */
-    fun reload(@Suppress("UNUSED_PARAMETER") c: android.content.Context) { generation++; loading = false; entries = null; epg = null; failed = false }
+    fun reload(@Suppress("UNUSED_PARAMETER") c: android.content.Context) { generation++; loading = false; entries = null; all = null; epg = null; failed = false }
 
     suspend fun load(c: android.content.Context) {
         if (entries != null || loading) return
@@ -321,8 +321,8 @@ object Channels {
             val setup = c.getSharedPreferences("setup", 0)
             val viewer = PhoneRegion.viewer
             val country = PhoneRegion.code
-            val home = viewer.countries.contains(tech.kousozo.tahoetv.core.Region.HOME)
-            val province = if (!home) null else viewer.region.ifBlank { null } ?: setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
+            // the onboarding's region; the older setup's only before onboarding (Indonesia, no city chosen yet)
+            val province = viewer.nearRegion ?: setup.getString("region", null).takeIf { !viewer.done } ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
                 ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
             SourceHealth.init(java.io.File(c.cacheDir, "source-health.tsv"), java.io.File(c.filesDir, "source-banned.txt")) // bans: durable
             val list = runCatching { LocalTv.arrange(Sources.loadCountries(null, viewer.countries), province) }.getOrNull()
@@ -344,7 +344,7 @@ object Channels {
     /** Every loaded channel, before the viewer's categories and order ([entries] is what the screens show). */
     private var all: List<LocalTv.Entry>? = null
     /** Categories or favourite order changed: re-apply them without reloading. */
-    fun rearrange() { all?.let { entries = PhoneRegion.viewer.arrange(it) } }
+    fun rearrange() { if (entries != null) all?.let { entries = PhoneRegion.viewer.arrange(it) } }
 
     /** Favourite channels (stream URLs), kept on this phone. */
     var favs by mutableStateOf<Set<String>>(emptySet()); private set
@@ -356,6 +356,7 @@ object Channels {
         favs = if (e.channel.url in favs) favs - e.channel.url else favs + e.channel.url
         c.getSharedPreferences("live", 0).edit().putStringSet("favs", favs).apply()
         PhoneRegion.favoritesChanged(c, favs)
+        rearrange() // the new favourite moves to the front now
     }
 
     fun remember(c: android.content.Context, e: LocalTv.Entry) {

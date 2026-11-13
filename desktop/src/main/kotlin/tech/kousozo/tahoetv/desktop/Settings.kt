@@ -23,7 +23,11 @@ object Settings {
     var viewer: tech.kousozo.tahoetv.core.Viewer
         get() = pref("viewer").state.value.takeIf { it.isNotBlank() }?.let { tech.kousozo.tahoetv.core.Viewer.fromJson(it) }
             ?: pref("country").state.value.let { old -> // from the earlier two-step setup
-                tech.kousozo.tahoetv.core.Region.country(old)?.let { tech.kousozo.tahoetv.core.Viewer.suggested(it, tech.kousozo.tahoetv.core.Region.language(pref("language").state.value)) }
+                tech.kousozo.tahoetv.core.Region.country(old)?.let {
+                    // keep what the older settings already had: city, coordinates, province, favourites
+                    tech.kousozo.tahoetv.core.Viewer.suggested(it, tech.kousozo.tahoetv.core.Region.language(pref("language").state.value))
+                        .copy(city = city, lat = lat, lon = lon, region = province, favorites = pref("fav").state.value.split('\n').filter { f -> f.isNotBlank() })
+                }
                     ?: tech.kousozo.tahoetv.core.Viewer(language = tech.kousozo.tahoetv.core.Region.language(java.util.Locale.getDefault().language))
             }
         set(v) {
@@ -37,7 +41,7 @@ object Settings {
     val countryCode get() = tech.kousozo.tahoetv.core.Region.country(country) ?: tech.kousozo.tahoetv.core.Region.HOME
     val lang get() = viewer.language
     /** Province for "near you": only Indonesia's channel lists are tagged by province. */
-    val nearProvince get() = if (tech.kousozo.tahoetv.core.Region.HOME in viewer.countries) viewer.region.ifBlank { province } else ""
+    val nearProvince get() = viewer.nearRegion ?: (if (!viewer.done) province else "")
     /** Live TV: highest video quality, and distance from live (shared options with the TV and phone). */
     var quality get() = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(pref("quality", "auto").state.value); set(v) = pref("quality").set(v.key)
     var latency get() = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(pref("latency", "standard").state.value); set(v) = pref("latency").set(v.key)
