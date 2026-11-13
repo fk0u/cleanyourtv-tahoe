@@ -47,6 +47,7 @@ final class TvViewer {
         Viewer n = new Viewer(v.getLanguage(), v.getCountry(), v.getCity(), v.getLat(), v.getLon(), v.getRegion(), v.getTimeZone(), v.getPrayer(),
                 v.getPrayerMethod(), v.getChannelCountries(), v.getCategories(), order);
         Cfg.p(c).edit().putString("viewer", n.toJson()).apply();
+        Live.cached = null; // the order is part of the cached list
     }
 
     /** Prayer times shown and adhan scheduled: on unless the onboarding turned them off (older setups keep them). */

@@ -323,6 +323,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         if (chipViews.isEmpty()) return;
         JSONObject cur = weather == null ? null : weather.optJSONObject("current");
         if (cur != null) chipText(0, Weather.icon(cur.optInt("weather_code"), cur.optInt("is_day", 1) == 1), Math.round(cur.optDouble("temperature_2m")) + "°");
+        else if (!TvViewer.hasCity(this)) chipText(0, 0, "—"); // no city: no stale temperature
         Object[] n = Prayer.next(this);
         chipText(1, 0, n == null ? "Shalat" : n[0] + "  " + new SimpleDateFormat("HH.mm", Locale.getDefault()).format(new Date((Long) n[1])));
         if (phoneMedia != null) chipText(2, 0, phoneMedia.optString("title"));

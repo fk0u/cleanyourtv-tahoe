@@ -41,6 +41,7 @@ final class Prayer {
                 StringBuilder sb = new StringBuilder();
                 for (String[] x : TIMES) sb.append(x[0]).append('=').append(t.getString(x[1]).substring(0, 5)).append(';');
                 String hijri = h.getString("day") + " " + h.getJSONObject("month").getString("en") + " " + h.getString("year") + " H";
+                if (!TvViewer.prayer(c)) return; // turned off while this was loading
                 p.edit().putString("prayer2", sb.toString()).putString("prayer2_date", today()).putString("hijri", hijri).apply();
                 schedule(c);
                 ui.post(done);
