@@ -6,6 +6,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 ## Belum dirilis
 
 ### Perbaikan
+- **Launcher release-signed di installer desktop (#92).** Memperbaiki alur CI build desktop (`desktop.yml`) agar mendekode keystore rilis sebelum mem-bundle `launcher-release.apk` ke dalam installer desktop (DMG & MSI), sehingga APK launcher yang dikirimkan ke TV selalu ditandatangani release key resmi (bukan debug key).
 - **Arah ganti saluran CH+/CH− (#102).** Tombol CHANNEL UP (CH+) di remote fisik TV dan tombol rocker CH atas di remote HP kini menaikkan nomor saluran (saluran berikutnya), dan CHANNEL DOWN (CH−) / rocker bawah menurunkan nomor saluran. Tombol arah D-pad ▲/▼ di TV tetap berfungsi alami sesuai daftar saluran (▲ ke item sebelumnya di atas, ▼ ke item berikutnya di bawah).
 
 ## 3.2.0
