@@ -7,7 +7,7 @@ import java.util.Locale
  *  `country` (ISO 3166 alpha-2, e.g. "ID", "US") and `language` (ISO 639-1, e.g. "id", "en"). */
 object Region {
     /** App languages with a translation. Others fall back to English. */
-    val LANGUAGES = listOf("en", "id")
+    val LANGUAGES = listOf("en", "id", "zh")
 
     /** The country whose channels have extra curated sources and features (prayer times on by default, "near you"). */
     const val HOME = "ID"

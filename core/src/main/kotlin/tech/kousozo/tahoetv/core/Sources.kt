@@ -103,6 +103,13 @@ object Sources {
         return out
     }
 
+    /** Channels of several countries (the onboarding's "channel countries"), merged without duplicates; [extra] once. */
+    @JvmStatic fun loadCountries(extra: String?, countries: List<String>): List<M3u.Channel> {
+        val list = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
+        val seen = HashSet<String>()
+        return list.flatMapIndexed { i, cc -> loadAll(if (i == 0) extra else null, country = cc) }.filter { seen.add(it.url) }
+    }
+
     /** [loadAll] for the viewer's [country] (the usual call from the apps). */
     @JvmStatic fun loadFor(extra: String?, country: String?): List<M3u.Channel> =
         loadAll(extra, country = Region.country(country) ?: Region.HOME)

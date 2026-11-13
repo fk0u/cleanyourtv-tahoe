@@ -255,7 +255,8 @@ fun HomeScreen(resumeTick: Int) {
                     Column(Modifier.weight(1f)) {
                         Text("Wilayah & bahasa", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Text(tech.kousozo.tahoetv.core.Region.name(PhoneRegion.code, PhoneRegion.language) + " · " +
-                            (if (PhoneRegion.language == "id") "Bahasa Indonesia" else "English"), color = Tahoe.Dim, fontSize = 12.sp)
+                            tech.kousozo.tahoetv.core.OnboardingText.LANGUAGE_NAMES.getValue(PhoneRegion.language) +
+                            " · " + PhoneRegion.viewer.countries.joinToString(" ") { tech.kousozo.tahoetv.core.Region.flag(it) }, color = Tahoe.Dim, fontSize = 12.sp)
                     }
                     PillButton("Ubah") { Playback.stop(); PhoneRegion.reset() }
                 }

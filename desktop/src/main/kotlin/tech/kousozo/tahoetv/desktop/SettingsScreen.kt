@@ -79,7 +79,7 @@ fun SettingsScreen() {
         Section("Wilayah & bahasa")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${tech.kousozo.tahoetv.core.Region.flag(Settings.countryCode)}  ${tech.kousozo.tahoetv.core.Region.name(Settings.countryCode, Settings.lang)} · " +
-                (if (Settings.lang == "id") "Bahasa Indonesia" else "English"), color = Tahoe.Text, fontSize = 14.sp)
+                tech.kousozo.tahoetv.core.OnboardingText.LANGUAGE_NAMES.getValue(Settings.lang), color = Tahoe.Text, fontSize = 14.sp)
             GhostButton("Ubah", Icons.Rounded.Public) { PlayerWindow.stop(); DeskNav.regionSetup = true } // the old country's channel stops
         }
         Text("Menentukan daftar saluran dan jadwal acara. Teks aplikasi lainnya masih berbahasa Indonesia; terjemahan sedang dikerjakan (#56).",

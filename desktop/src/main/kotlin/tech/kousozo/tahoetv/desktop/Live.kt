@@ -57,14 +57,15 @@ fun LiveScreen() {
     var tick by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { delay(30_000); tick = Instant.now() } }
     val epgUrl = Settings.epg
-    val country = Settings.countryCode
-    LaunchedEffect(epgUrl, country) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: tech.kousozo.tahoetv.core.Region.guides(country)) }.getOrNull() } }
+    val viewer = Settings.viewer
+    val countries = viewer.countries
+    LaunchedEffect(epgUrl, countries) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct()) }.getOrNull() } }
     val playlist = Settings.playlist
     var statusMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var checkingDone by remember { mutableStateOf(false) }
     var statusFilter by remember { mutableStateOf<String?>(null) } // null = all, "live", "offline"
 
-    LaunchedEffect(playlist, country) {
+    LaunchedEffect(playlist, countries) {
         channels = null; error = null
         statusMap = emptyMap()
         checkingDone = false
@@ -76,7 +77,7 @@ fun LiveScreen() {
                 runCatching { IptvServer.start(Settings.iptvPort) }
             }
             if (IptvServer.isRunning.value) runCatching { IptvServer.ensureRunning() } // LAN clients get the new country too
-            runCatching { Sources.loadFor(playlist, country) }
+            runCatching { Sources.loadCountries(playlist, countries) }
         }.fold(
             { loaded ->
                 channels = loaded
@@ -95,7 +96,8 @@ fun LiveScreen() {
         )
     }
     val province = Settings.nearProvince
-    val entries = remember(channels, province) { LocalTv.arrange(channels.orEmpty(), province) }
+    // the viewer's categories and favourite order (onboarding) on top of the usual arrangement
+    val entries = remember(channels, province, viewer) { viewer.arrange(LocalTv.arrange(channels.orEmpty(), province)) }
     val names = remember(entries) { entries.associate { it.channel.url to it.name } }
     val byUrl = remember(entries) { entries.associateBy { it.channel.url } }
     fun isChannelLive(e: LocalTv.Entry): Boolean? {

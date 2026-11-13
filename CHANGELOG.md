@@ -5,6 +5,21 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+### Baru
+- **Onboarding lengkap di HP dan desktop (#77).** Saat pertama dibuka (atau lewat **Wilayah & bahasa** → Ubah), Tahoe menanyakan 10 langkah, dimulai dari bahasa:
+  1. **Bahasa:** English, Bahasa Indonesia, atau 中文（简体）.
+  2. **Negara tempat tinggal.**
+  3. **Kota** untuk cuaca dan jadwal shalat (dicari otomatis; boleh dilewati).
+  4. **Zona waktu:** otomatis dari kota, atau pilih sendiri. Dipakai jam, jadwal acara, dan jadwal shalat.
+  5. **Jadwal shalat & adzan:** aktif atau tidak (bawaan sesuai negara) dan metode perhitungannya (Kemenag, JAKIM, MUIS, MWL, ISNA, Umm al-Qura, Diyanet, dll.).
+  6. **Negara saluran:** boleh lebih dari satu.
+  7. **Kategori** yang ingin ditonton.
+  8. **Favorit awal.**
+  9. **Urutan favorit.**
+  10. **Ringkasan.**
+
+  Hasilnya langsung dipakai TV Live: hanya kategori pilihan yang tampil, dan favorit muncul paling depan sesuai urutan. Teks onboarding tersedia dalam tiga bahasa; teks aplikasi lainnya menyusul (#56). TV menyusul.
+
 ### Perbaikan
 - **Desktop: saluran yang servernya "hidup tapi kosong" tidak lagi ditunggu 20 detik.** Sebagian sumber menjawab dengan halaman HTML (mis. Metro TV) atau playlist utama yang hidup sementara semua kualitasnya ditolak (403/404). Dulu sumber seperti ini tetap ditandai LIVE dan pemutar menunggu sampai habis waktu; sekarang langsung dianggap mati dan pindah ke sumber cadangan, di TV, HP, dan desktop (#75).
 - **Kualitas yang mati dilewati.** Server IPTV desktop (Web Player Windows, VLC/TiviMate di LAN) membuang varian kualitas yang tidak menjawab. Pemutar macOS melakukan hal yang sama untuk sumber yang lewat relay, dan otomatis memakai relay bila varian pertama sumber itu mati, sehingga tidak berhenti di varian yang rusak.
