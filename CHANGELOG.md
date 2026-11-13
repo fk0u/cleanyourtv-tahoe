@@ -7,6 +7,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ### Perbaikan
 - **Arah ganti saluran CH+/CH− (#102).** Tombol CHANNEL UP (CH+) di remote fisik TV dan tombol rocker CH atas di remote HP kini menaikkan nomor saluran (saluran berikutnya), dan CHANNEL DOWN (CH−) / rocker bawah menurunkan nomor saluran. Tombol arah D-pad ▲/▼ di TV tetap berfungsi alami sesuai daftar saluran (▲ ke item sebelumnya di atas, ▼ ke item berikutnya di bawah).
+- **Streaming parser panduan acara EPG mencegah kehabisan memori (#104).** Pengunduhan dan pembacaan XMLTV kini dilakukan secara streaming langsung dari koneksi jaringan HTTP (mendukung kompresi gzip) tanpa memuat seluruh teks XML ke memori. Panduan disaring hanya untuk saluran yang ada di daftar putar serta rentang waktu yang relevan (-6 jam sampai +24 jam), deskripsi panjang dipotong maksimal 160 karakter, dan batas aman diterapkan agar perangkat seperti Android TV stick 1 GB dan ponsel tidak mengalami crash out-of-memory saat memuat panduan berukuran besar.
 
 ## 3.2.0
 
