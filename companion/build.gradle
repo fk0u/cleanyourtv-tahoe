@@ -36,6 +36,8 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
     buildTypes {
+        // installs next to the released app (different package), so testing never wipes a phone's real data/pairing
+        debug { applicationIdSuffix ".dev"; versionNameSuffix "-dev" }
         release {
             ndk { abiFilters "armeabi-v7a", "arm64-v8a" } // TV sticks and phones are ARM: no x86 FFmpeg libraries in the APK
             minifyEnabled true
