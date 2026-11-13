@@ -69,6 +69,15 @@ object PhoneRegion {
         viewer = v; editing = false
         Channels.setFavs(c, v.favorites)
         if (reload) Channels.reload(c) else Channels.rearrange()
+        sendToTv(c, v)
+    }
+
+    /** A paired TV gets the same choices (it then skips or updates its own onboarding). */
+    private fun sendToTv(c: Context, v: Viewer) {
+        val p = Sync.prefs(c)
+        val host = p.getString("host", "").orEmpty(); val token = p.getString("token", "").orEmpty()
+        if (host.isEmpty() || token.isEmpty()) return
+        tech.kousozo.tahoetv.core.TvLink(host, token).apply { open(); Thread { Thread.sleep(1500); viewer(v.toJson()); Thread.sleep(500); close() }.start() }
     }
 
     /** A heart tapped elsewhere in the app: keep the onboarding's order, new ones last. */

@@ -39,6 +39,9 @@
         <!-- Built-in Live TV player (opened from its dock tile / app grid, or from Jadwal TV). -->
         <activity android:name=".LiveTv" android:exported="false" android:screenOrientation="landscape"
             android:theme="@style/HomeTheme" android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize" />
+        <activity android:name=".Onboarding" android:exported="false" android:screenOrientation="landscape"
+            android:theme="@style/HomeTheme" android:windowSoftInputMode="adjustResize"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize" />
         <activity android:name=".Live" android:exported="false" android:screenOrientation="landscape"
             android:theme="@style/HomeTheme" android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize" />
         <service android:name=".Keys" android:exported="true"

@@ -30,10 +30,12 @@ final class Prayer {
     static void fetchIfStale(Context c, Runnable done, android.os.Handler ui) {
         SharedPreferences p = prefs(c);
         if (today().equals(p.getString("prayer2_date", ""))) { ui.post(done); return; }
+        if (!TvViewer.prayer(c)) { p.edit().remove("prayer2").apply(); ui.post(done); return; } // turned off in onboarding
         Net.bg.execute(() -> {
             try {
                 String js = Net.get("https://api.aladhan.com/v1/timings/" + new SimpleDateFormat("dd-MM-yyyy", Locale.US).format(new Date())
-                        + "?latitude=" + Cfg.s(c, "latitude", R.string.latitude) + "&longitude=" + Cfg.s(c, "longitude", R.string.longitude) + "&method=20");
+                        + "?latitude=" + Cfg.s(c, "latitude", R.string.latitude) + "&longitude=" + Cfg.s(c, "longitude", R.string.longitude)
+                        + "&method=" + TvViewer.prayerMethod(c) + "&timezonestring=" + java.net.URLEncoder.encode(java.util.TimeZone.getDefault().getID(), "UTF-8"));
                 JSONObject data = new JSONObject(js).getJSONObject("data");
                 JSONObject t = data.getJSONObject("timings"), h = data.getJSONObject("date").getJSONObject("hijri");
                 StringBuilder sb = new StringBuilder();
@@ -183,7 +185,7 @@ final class Prayer {
             TextView big = Ui.text(c, Ui.DISPLAY, 200, Ui.TEXT); big.setEllipsize(null);
             big.setText(n == null ? "" : new SimpleDateFormat("HH.mm", Locale.getDefault()).format(new Date((Long) n[1])));
             TextView meta = Ui.text(c, Ui.BODY, 400, Ui.TEXT_2);
-            meta.setText((n == null ? "" : "dalam " + countdown((Long) n[1]) + "  ·  ") + Cfg.s(c, "city", R.string.city) + "  ·  Kemenag RI");
+            meta.setText((n == null ? "" : "dalam " + countdown((Long) n[1]) + "  ·  ") + Cfg.s(c, "city", R.string.city) + "  ·  " + tech.kousozo.tahoetv.core.Prayer.name(TvViewer.prayerMethod(c)));
             left.addView(eb);
             LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2); tl.topMargin = (int) (10 * d);
             left.addView(title, tl); left.addView(big, new LinearLayout.LayoutParams(-1, -2)); left.addView(meta);

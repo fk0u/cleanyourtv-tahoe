@@ -200,6 +200,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         padStep = padTileH + dp(46);
 
         showProfiles(); // boot: "Siapa yang menonton?"
+        if (!TvViewer.done(this)) startActivity(new android.content.Intent(this, Onboarding.class)); // first run: language, country, … (#77)
         buildChips();
         tick();
     }

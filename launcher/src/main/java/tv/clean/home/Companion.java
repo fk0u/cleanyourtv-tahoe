@@ -242,6 +242,7 @@ final class Companion extends NanoWSD {
                 ui.post(() -> {
                     switch (t) {
                         case "key": l.onKey(m.optString("k")); break;
+                        case "viewer": Onboarding.fromPhone(ctx, m.optString("v")); break; // the phone's onboarding (#77)
                         case "launch": l.onLaunch(m.optString("pkg")); break;
                         case "url": l.onUrl(m.optString("u")); break;
                         case "ask": l.onAsk(m.optString("q")); break;

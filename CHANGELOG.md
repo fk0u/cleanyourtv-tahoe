@@ -18,7 +18,12 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
   9. **Urutan favorit.**
   10. **Ringkasan.**
 
-  Hasilnya langsung dipakai TV Live: kategori pilihan yang tampil (favorit selalu tetap tampil), dan favorit muncul paling depan sesuai urutan. Teks onboarding tersedia dalam tiga bahasa; teks aplikasi lainnya menyusul (#56). TV menyusul.
+  Hasilnya langsung dipakai TV Live: kategori pilihan yang tampil (favorit selalu tetap tampil), dan favorit muncul paling depan sesuai urutan.
+- **Onboarding juga di TV (#77).** Saat pertama menyala, launcher menanyakan 10 langkah yang sama, dengan baris besar yang mudah dipilih memakai remote. Untuk mengurutkan favorit: OK untuk mengangkat, ▲ ▼ untuk memindah, OK lagi untuk menaruh. Bisa dibuka lagi dari Pusat Kontrol → **Wilayah & bahasa**.
+  - Lebih mudah dari HP: pilihan onboarding di HP yang sudah dipasangkan langsung dikirim ke TV, dan TV melewati onboarding-nya sendiri.
+  - TV Live di TV memakai negara saluran, kategori, dan urutan favorit pilihan.
+  - Jadwal shalat bisa dimatikan dan memakai metode pilihan (sebelumnya selalu Kemenag RI).
+  - TV yang sudah diatur sebelumnya (kota dari app HP) tidak ditanya lagi. Teks onboarding tersedia dalam tiga bahasa; teks aplikasi lainnya menyusul (#56). TV menyusul.
 
 ### Perbaikan
 - **Desktop: saluran yang servernya "hidup tapi kosong" tidak lagi ditunggu 20 detik.** Sebagian sumber menjawab dengan halaman HTML (mis. Metro TV) atau playlist utama yang hidup sementara semua kualitasnya ditolak (403/404). Dulu sumber seperti ini tetap ditandai LIVE dan pemutar menunggu sampai habis waktu; sekarang langsung dianggap mati dan pindah ke sumber cadangan, di TV, HP, dan desktop (#75).
