@@ -583,8 +583,10 @@ public class LiveTv extends Activity {
         if (code >= KeyEvent.KEYCODE_0 && code <= KeyEvent.KEYCODE_9) { digit(code - KeyEvent.KEYCODE_0); return true; }
         if (code == KeyEvent.KEYCODE_LAST_CHANNEL) { back(); return true; }
         switch (code) {
-            case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_CHANNEL_UP: tune(index - 1); return true;
-            case KeyEvent.KEYCODE_DPAD_DOWN: case KeyEvent.KEYCODE_CHANNEL_DOWN: tune(index + 1); return true;
+            case KeyEvent.KEYCODE_DPAD_UP: tune(index - 1); return true;
+            case KeyEvent.KEYCODE_DPAD_DOWN: tune(index + 1); return true;
+            case KeyEvent.KEYCODE_CHANNEL_UP: tune(index + 1); return true;
+            case KeyEvent.KEYCODE_CHANNEL_DOWN: tune(index - 1); return true;
             case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: e.startTracking(); return true; // tap = list, hold = "not live"
             case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_MENU: openGuide(); return true;
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: case KeyEvent.KEYCODE_MEDIA_PLAY: case KeyEvent.KEYCODE_MEDIA_PAUSE:

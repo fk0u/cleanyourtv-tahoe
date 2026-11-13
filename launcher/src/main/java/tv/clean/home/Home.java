@@ -906,7 +906,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
             case "livetv": start(new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
             case "ch_up": case "ch_down":
                 LiveTv tv = LiveTv.live;
-                if (tv != null) tv.ui.post(() -> tv.tune(tv.index + (key.equals("ch_up") ? -1 : 1)));
+                if (tv != null) tv.ui.post(() -> tv.tune(tv.index + (key.equals("ch_up") ? 1 : -1)));
                 else start(new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                 return true;
         }

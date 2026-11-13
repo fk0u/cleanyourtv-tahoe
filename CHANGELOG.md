@@ -3,6 +3,11 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
+## Belum dirilis
+
+### Perbaikan
+- **Arah ganti saluran CH+/CH− (#102).** Tombol CHANNEL UP (CH+) di remote fisik TV dan tombol rocker CH atas di remote HP kini menaikkan nomor saluran (saluran berikutnya), dan CHANNEL DOWN (CH−) / rocker bawah menurunkan nomor saluran. Tombol arah D-pad ▲/▼ di TV tetap berfungsi alami sesuai daftar saluran (▲ ke item sebelumnya di atas, ▼ ke item berikutnya di bawah).
+
 ## 3.2.0
 
 ### Baru
