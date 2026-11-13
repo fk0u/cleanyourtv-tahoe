@@ -1,18 +1,18 @@
 # 📋 Hand-off Dokumen: Implementasi & Pengujian Tahoe IPTV Server, Live TV, Sports & VOD
 
-Dokumen ini disusun untuk **Claude** (atau tim developer selanjutnya) guna memverifikasi, melakukan *build*, serta menjalankan pengujian menyeluruh terhadap fitur **IPTV Server LAN**, **Pengkategorian Live TV & VOD**, serta **Pengecekan Status Siaran (Live vs Offline)** pada aplikasi Tahoe TV.
+Dokumen ini disusun untuk tim developer dan kontributor guna memverifikasi, melakukan *build*, serta menjalankan pengujian menyeluruh terhadap fitur **IPTV Server LAN**, **Pengkategorian Live TV & VOD**, serta **Pengecekan Status Siaran (Live vs Offline)** pada aplikasi Tahoe TV.
 
 ---
 
 ## 1. Ringkasan Implementasi
 
 ### A. Integrasi Penuh IPTV Server ke Aplikasi Desktop
-* **Otomatis Berjalan saat Aplikasi Dibuka**: IPTV Server (`IptvServer.kt`) secara *default* langsung menyala pada *port* 8088 (`http://localhost:8088/` atau IP LAN) begitu aplikasi dimuat via [`Main.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Main.kt) dan [`Live.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Live.kt).
-* **Seluruh Saluran Masuk Tanpa Disaring**: Menggantikan filter lawas `Sources.free()`, fungsi baru [`Sources.loadAll()`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/core/src/main/kotlin/tech/kousozo/tahoetv/core/Sources.kt) memuat **986+ saluran secara lengkap** dari `koutv.m3u`, `anotheriptv.m3u`, direktori `~/.tahoetv/playlists/`, serta URL playlist kustom.
+* **Otomatis Berjalan saat Aplikasi Dibuka**: IPTV Server (`IptvServer.kt`) secara *default* langsung menyala pada *port* 8088 (`http://localhost:8088/` atau IP LAN) begitu aplikasi dimuat via [`Main.kt`](desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Main.kt) dan [`Live.kt`](desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Live.kt).
+* **Seluruh Saluran Masuk Tanpa Disaring**: Menggantikan filter lawas `Sources.free()`, fungsi baru [`Sources.loadAll()`](core/src/main/kotlin/tech/kousozo/tahoetv/core/Sources.kt) memuat **986+ saluran secara lengkap** dari `koutv.m3u`, `anotheriptv.m3u`, direktori `~/.tahoetv/playlists/`, serta URL playlist kustom.
 * **Header-Injecting Relay**: Saluran premium/restream yang mewajibkan header (`DENSGO`, `Referer: https://www.dens.tv/`, `detik.com`, `inisemar`) diproxy transparan sehingga tidak lagi terkena blokir HTTP 403 atau *stream reset*.
 
 ### B. Pengkategorian Lengkap & Detail (Sports, Movies, VOD, Hiburan, dll.)
-Telah ditambahkan klasifikasi kategori cerdas pada [`LocalTv.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/core/src/main/kotlin/tech/kousozo/tahoetv/core/LocalTv.kt):
+Telah ditambahkan klasifikasi kategori cerdas pada [`LocalTv.kt`](core/src/main/kotlin/tech/kousozo/tahoetv/core/LocalTv.kt):
 1. **Olahraga / Sports**: beIN Sports 1/2/3, SPOTV 1/2, Champions TV 1/2/3/5/6, Premier League, Soccer Channel, Sportstars, NBA, Eurosport, Golf, Fight Sports, MotoGP, F1 TV, Mola, TVRI Sport, WorldCup.
 2. **Film & Sinema**: HBO, HBO Hits, HBO Family, Cinemax, Fox Movies, Cinema World, Celestial Movies, Hits Movies, Zee Bioskop, Galaxy, Flik, My Cinema, Bioskop Indonesia, Paramount.
 3. **VOD (Video On Demand)**: Grup VOD INDO, file `.mp4`, `.mkv`, film/serial *on-demand*, dan klip.
@@ -27,7 +27,7 @@ Telah ditambahkan klasifikasi kategori cerdas pada [`LocalTv.kt`](file:///Users/
 12. **TVRI Daerah & TV Lokal**: Seluruh stasiun TVRI provinsi dan stasiun TV daerah (JTV, Padang TV, Bali TV, dll.).
 
 ### C. Pengecekan Server Otomatis (Live vs Offline)
-* **Background Asynchronous Connectivity Checker**: Fungsi [`Sources.checkStatus()`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/core/src/main/kotlin/tech/kousozo/tahoetv/core/Sources.kt) menguji ketersediaan setiap server/stream secara paralel (32 *worker threads*).
+* **Background Asynchronous Connectivity Checker**: Fungsi [`Sources.checkStatus()`](core/src/main/kotlin/tech/kousozo/tahoetv/core/Sources.kt) menguji ketersediaan setiap server/stream secara paralel (32 *worker threads*).
 * **Indikator Visual di Tampilan Antarmuka**:
   * Badge **`LIVE`** (Warna Hijau `#30D158`) untuk saluran yang aktif dan servernya merespons.
   * Badge **`OFFLINE`** (Warna Merah `#FF453A`) untuk saluran yang tidak dapat diakses / mati / 404 / 403.
@@ -47,23 +47,23 @@ Telah ditambahkan klasifikasi kategori cerdas pada [`LocalTv.kt`](file:///Users/
 
 | Modul / Lokasi | File | Keterangan Perubahan |
 | :--- | :--- | :--- |
-| `core` | [`core/src/main/kotlin/tech/kousozo/tahoetv/core/Sources.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/core/src/main/kotlin/tech/kousozo/tahoetv/core/Sources.kt) | Menambahkan `loadAll()`, `checkStatus()` dengan *callback progress*. |
-| `core` | [`core/src/main/kotlin/tech/kousozo/tahoetv/core/LocalTv.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/core/src/main/kotlin/tech/kousozo/tahoetv/core/LocalTv.kt) | Menambahkan kategori `Sports`, `Movies`, `Vod`, `Entertainment`, `Documentary`, `Music`, `Lifestyle`; klasifikasi otomatis. |
-| `core` | [`core/src/main/kotlin/tech/kousozo/tahoetv/core/M3u.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/core/src/main/kotlin/tech/kousozo/tahoetv/core/M3u.kt) | Menangkap `tvgId`, `drmType`, `drmKey` dari `#KODIPROP`. |
-| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Live.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Live.kt) | Integrasi `loadAll()`, auto-start server, background status check, badge `LIVE`/`OFFLINE`/`VOD`/`DRM`, filter status. |
-| `launcher` | [`launcher/src/main/java/tv/clean/home/Live.java`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/launcher/src/main/java/tv/clean/home/Live.java) | Menggunakan `Sources.loadAll()` dan kategori dinamis untuk Android TV launcher. |
-| `companion` | [`companion/src/main/java/tech/kousozo/tahoetv/Live.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/companion/src/main/java/tech/kousozo/tahoetv/Live.kt) | Menggunakan `Sources.loadAll()` dan kategori dinamis pada aplikasi mobile. |
-| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/IptvServer.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/IptvServer.kt) | Native server JVM: Shaka Player, ClearKey auto-decrypt, tag VOD/DRM/DASH/Relay, endpoint `/api/channels` dengan `is_vod`. |
-| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/PlayerWindow.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/PlayerWindow.kt) | Penanganan ramah pengguna saat memutar DASH/DRM di JavaFX Media. |
-| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Main.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Main.kt) | Auto-start IPTV Server saat app menyala dan *graceful shutdown*. |
-| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Home.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Home.kt) | Memperbarui deskripsi siaran TV Live & VOD. |
-| `tools` | [`tools/iptv_server.py`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/tools/iptv_server.py) | Standalone Python server: deteksi VOD, badge VOD, Shaka Player auto-config. |
-| `tests` | [`core/src/test/kotlin/tech/kousozo/tahoetv/core/LocalTvTest.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/core/src/test/kotlin/tech/kousozo/tahoetv/core/LocalTvTest.kt) | Menambahkan pengetesan untuk `Sports`, `Movies`, `Vod`, `Entertainment`. |
-| `tests` | [`desktop/src/test/kotlin/tech/kousozo/tahoetv/desktop/IptvServerTest.kt`](file:///Users/kou/Library/Application%20Support/Claude/scratch-workspaces/c00dd9d3-c671-4371-b1fb-023eac9f67c8/79ec4fc5-ae4a-43d8-93ef-5419fa58ea48/scratch-2026-10-23-1cfecf/desktop/src/test/kotlin/tech/kousozo/tahoetv/desktop/IptvServerTest.kt) | Pengujian *lifecycle* server, master playlist, API channels, dan web dashboard. |
+| `core` | [`core/src/main/kotlin/tech/kousozo/tahoetv/core/Sources.kt`](core/src/main/kotlin/tech/kousozo/tahoetv/core/Sources.kt) | Menambahkan `loadAll()`, `checkStatus()` dengan *callback progress*. |
+| `core` | [`core/src/main/kotlin/tech/kousozo/tahoetv/core/LocalTv.kt`](core/src/main/kotlin/tech/kousozo/tahoetv/core/LocalTv.kt) | Menambahkan kategori `Sports`, `Movies`, `Vod`, `Entertainment`, `Documentary`, `Music`, `Lifestyle`; klasifikasi otomatis. |
+| `core` | [`core/src/main/kotlin/tech/kousozo/tahoetv/core/M3u.kt`](core/src/main/kotlin/tech/kousozo/tahoetv/core/M3u.kt) | Menangkap `tvgId`, `drmType`, `drmKey` dari `#KODIPROP`. |
+| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Live.kt`](desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Live.kt) | Integrasi `loadAll()`, auto-start server, background status check, badge `LIVE`/`OFFLINE`/`VOD`/`DRM`, filter status. |
+| `launcher` | [`launcher/src/main/java/tv/clean/home/Live.java`](launcher/src/main/java/tv/clean/home/Live.java) | Menggunakan `Sources.loadAll()` dan kategori dinamis untuk Android TV launcher. |
+| `companion` | [`companion/src/main/java/tech/kousozo/tahoetv/Live.kt`](companion/src/main/java/tech/kousozo/tahoetv/Live.kt) | Menggunakan `Sources.loadAll()` dan kategori dinamis pada aplikasi mobile. |
+| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/IptvServer.kt`](desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/IptvServer.kt) | Native server JVM: Shaka Player, ClearKey auto-decrypt, tag VOD/DRM/DASH/Relay, endpoint `/api/channels` dengan `is_vod`. |
+| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/PlayerWindow.kt`](desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/PlayerWindow.kt) | Penanganan ramah pengguna saat memutar DASH/DRM di JavaFX Media. |
+| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Main.kt`](desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Main.kt) | Auto-start IPTV Server saat app menyala dan *graceful shutdown*. |
+| `desktop` | [`desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Home.kt`](desktop/src/main/kotlin/tech/kousozo/tahoetv/desktop/Home.kt) | Memperbarui deskripsi siaran TV Live & VOD. |
+| `tools` | [`tools/iptv_server.py`](tools/iptv_server.py) | Standalone Python server: deteksi VOD, badge VOD, Shaka Player auto-config. |
+| `tests` | [`core/src/test/kotlin/tech/kousozo/tahoetv/core/LocalTvTest.kt`](core/src/test/kotlin/tech/kousozo/tahoetv/core/LocalTvTest.kt) | Menambahkan pengetesan untuk `Sports`, `Movies`, `Vod`, `Entertainment`. |
+| `tests` | [`desktop/src/test/kotlin/tech/kousozo/tahoetv/desktop/IptvServerTest.kt`](desktop/src/test/kotlin/tech/kousozo/tahoetv/desktop/IptvServerTest.kt) | Pengujian *lifecycle* server, master playlist, API channels, dan web dashboard. |
 
 ---
 
-## 3. Panduan Perintah Build & Testing untuk Claude
+## 3. Panduan Perintah Build & Testing
 
 Jalankan perintah-perintah berikut di terminal:
 
@@ -114,7 +114,7 @@ curl -s http://localhost:8088/playlist.m3u | grep -E "KODIPROP|EXTINF" | head -n
 
 ---
 
-## 4. Checklist Verifikasi Mandiri untuk Claude & Tim Rilis v2.9.5
+## 4. Checklist Verifikasi Mandiri untuk Tim Rilis v2.9.5
 
 - [x] `./gradlew :core:test :desktop:test` berhasil dijalankan dengan status `BUILD SUCCESSFUL`.
 - [x] `./gradlew -PpublicBuild :launcher:assembleRelease :companion:assembleRelease :desktop:assemble` berhasil dikompilasi tanpa error.
