@@ -163,7 +163,8 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
     LaunchedEffect(query) {
         if (query.trim().length < 2 || query == v.city) { results = null; return@LaunchedEffect }
         delay(400)
-        results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), if (v.country == Region.HOME) "id" else v.language, v.country) // Indonesian province names: "near you" matches them }
+        // Indonesian city names give Indonesian province names, which "near you" matches
+        results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), if (v.country == Region.HOME) "id" else v.language, v.country) }
     }
     Field(query, { query = it }, t("city.search"))
     Spacer(Modifier.height(10.dp))
