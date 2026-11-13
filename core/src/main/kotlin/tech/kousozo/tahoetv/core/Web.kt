@@ -53,6 +53,19 @@ object Web {
             r.getDouble("latitude"), r.getDouble("longitude"), r.optString("admin1"))
     }.getOrNull()
 
+    /** A city found by [searchPlaces], with its IANA time zone and country code. */
+    data class City(val name: String, val label: String, val lat: Double, val lon: Double, val region: String, val country: String, val timeZone: String)
+
+    /** Cities matching [q] (up to 10), names in [language]: for the onboarding's city step. */
+    fun searchPlaces(q: String, language: String = "en", country: String? = null): List<City> = runCatching {
+        val a = JSONObject(get("https://geocoding-api.open-meteo.com/v1/search?count=10&language=" + enc(language) + "&name=" + enc(q) +
+            (country?.takeIf { it.isNotBlank() }?.let { "&countryCode=" + enc(it) } ?: ""))).optJSONArray("results") ?: return@runCatching emptyList()
+        (0 until a.length()).map { i -> a.getJSONObject(i) }.map { r ->
+            City(r.getString("name"), listOf(r.getString("name"), r.optString("admin1"), r.optString("country")).filter { it.isNotBlank() }.joinToString(", "),
+                r.getDouble("latitude"), r.getDouble("longitude"), r.optString("admin1"), r.optString("country_code"), r.optString("timezone"))
+        }
+    }.getOrDefault(emptyList())
+
     data class Weather(val tempC: Int, val code: Int, val label: String)
 
     fun weather(lat: Double, lon: Double): Weather? = runCatching {
@@ -67,10 +80,12 @@ object Web {
         in 51..57 -> "Gerimis"; in 61..67, in 80..82 -> "Hujan"; in 71..77, 85, 86 -> "Salju"; in 95..99 -> "Badai petir"; else -> "—"
     }
 
-    /** Today's prayer times (Kemenag RI method 20): ordered name → "HH:mm". */
-    fun prayer(lat: Double, lon: Double): List<Pair<String, String>> = runCatching {
-        val t = JSONObject(get("https://api.aladhan.com/v1/timings/" + LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy")) +
-            "?latitude=$lat&longitude=$lon&method=20")).getJSONObject("data").getJSONObject("timings")
+    /** Today's prayer times for the place: ordered name → "HH:mm" (local time there). [method] is an Aladhan id
+     *  ([Prayer.METHODS]; Kemenag RI = 20); "today" is the date in [zone], the place's time zone. */
+    @JvmOverloads
+    fun prayer(lat: Double, lon: Double, method: Int = 20, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): List<Pair<String, String>> = runCatching {
+        val t = JSONObject(get("https://api.aladhan.com/v1/timings/" + LocalDate.now(zone).format(DateTimeFormatter.ofPattern("dd-MM-yyyy")) +
+            "?latitude=$lat&longitude=$lon&method=$method&timezonestring=" + enc(zone.id))).getJSONObject("data").getJSONObject("timings")
         listOf("Subuh" to "Fajr", "Dzuhur" to "Dhuhr", "Ashar" to "Asr", "Maghrib" to "Maghrib", "Isya" to "Isha")
             .map { (id, key) -> id to t.getString(key).take(5) }
     }.getOrDefault(emptyList())

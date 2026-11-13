@@ -18,14 +18,30 @@ object Settings {
     private fun pref(key: String, default: String = "") = prefs.getOrPut(key) { Pref(key, default) }
 
     var name get() = pref("name").state.value; set(v) = pref("name").set(v)
-    /** Region (#71): ISO country ("ID") and app language ("id"/"en"). Blank country = first-run setup not done yet. */
-    var country get() = pref("country").state.value; set(v) = pref("country").set(v)
-    var language get() = pref("language").state.value; set(v) = pref("language").set(v)
-    /** The country to load channels for: the chosen one, or Indonesia until it's chosen. */
+    /** Onboarding choices (#77): language, country, city, time zone, prayer, channel countries, categories, favourites.
+     *  Blank country = onboarding not done yet. Saving also updates the older single settings (city, favourites…). */
+    var viewer: tech.kousozo.tahoetv.core.Viewer
+        get() = pref("viewer").state.value.takeIf { it.isNotBlank() }?.let { tech.kousozo.tahoetv.core.Viewer.fromJson(it) }
+            ?: pref("country").state.value.let { old -> // from the earlier two-step setup
+                tech.kousozo.tahoetv.core.Region.country(old)?.let {
+                    // keep what the older settings already had: city, coordinates, province, favourites
+                    tech.kousozo.tahoetv.core.Viewer.suggested(it, tech.kousozo.tahoetv.core.Region.language(pref("language").state.value))
+                        .copy(city = city, lat = lat, lon = lon, region = province, favorites = pref("fav").state.value.split('\n').filter { f -> f.isNotBlank() })
+                }
+                    ?: tech.kousozo.tahoetv.core.Viewer(language = tech.kousozo.tahoetv.core.Region.language(java.util.Locale.getDefault().language))
+            }
+        set(v) {
+            pref("viewer").set(v.toJson()); pref("country").set(v.country); pref("language").set(v.language)
+            val la = v.lat; val lo = v.lon
+            if (la != null && lo != null) { city = v.city; lat = la; lon = lo; province = v.region }
+            pref("fav").set(v.favorites.joinToString("\n"))
+        }
+    val country get() = viewer.country
+    /** The home country: the chosen one, or Indonesia until it's chosen. */
     val countryCode get() = tech.kousozo.tahoetv.core.Region.country(country) ?: tech.kousozo.tahoetv.core.Region.HOME
-    val lang get() = tech.kousozo.tahoetv.core.Region.language(language.ifBlank { null } ?: java.util.Locale.getDefault().language)
+    val lang get() = viewer.language
     /** Province for "near you": only Indonesia's channel lists are tagged by province. */
-    val nearProvince get() = if (countryCode == tech.kousozo.tahoetv.core.Region.HOME) province else ""
+    val nearProvince get() = viewer.nearRegion ?: (if (!viewer.done) province else "")
     /** Live TV: highest video quality, and distance from live (shared options with the TV and phone). */
     var quality get() = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(pref("quality", "auto").state.value); set(v) = pref("quality").set(v.key)
     var latency get() = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(pref("latency", "standard").state.value); set(v) = pref("latency").set(v.key)
@@ -43,7 +59,12 @@ object Settings {
     var tvHost get() = pref("tv_host").state.value; set(v) = pref("tv_host").set(v)
     var favorites: Set<String>
         get() = pref("fav").state.value.split('\n').filter { it.isNotBlank() }.toSet()
-        set(v) = pref("fav").set(v.joinToString("\n"))
+        set(v) {
+            pref("fav").set(v.joinToString("\n"))
+            // keep the onboarding's order; new ones last
+            val vw = viewer; val kept = vw.favorites.filter { it in v }
+            pref("viewer").set(vw.copy(favorites = kept + (v - kept.toSet())).toJson())
+        }
 
     var iptvPort get() = pref("iptv_port", "8088").state.value.toIntOrNull() ?: 8088; set(v) = pref("iptv_port").set("$v")
     var iptvAutoStart get() = pref("iptv_autostart", "false").state.value == "true"; set(v) = pref("iptv_autostart").set("$v")

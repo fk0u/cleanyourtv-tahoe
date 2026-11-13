@@ -93,14 +93,22 @@ object Sources {
 
         // 4. Fallback to the country's built-in sources if no local channels found. Indonesia's are taken whole, as
         // before; another country's iptv-org list goes through the free-TV filter (it also lists paid/DRM/VOD entries).
-        if (out.isEmpty()) {
-            val home = country.equals(Region.HOME, true)
-            val builtIn = if (home) Region.sources(country).flatMap { s -> runCatching { M3u.load(s.url) }.getOrDefault(emptyList()) }
-                          else load(Region.sources(country))
-            builtIn.forEach { ch -> if (seenUrls.add(ch.url)) out += ch }
-        }
+        if (out.isEmpty()) builtIn(country).forEach { ch -> if (seenUrls.add(ch.url)) out += ch }
 
         return out
+    }
+
+    /** A country's built-in channels: Indonesia's sources taken whole, another country's iptv-org list through [free]. */
+    private fun builtIn(country: String): List<M3u.Channel> =
+        if (country.equals(Region.HOME, true)) Region.sources(country).flatMap { s -> runCatching { M3u.load(s.url) }.getOrDefault(emptyList()) }
+        else load(Region.sources(country))
+
+    /** Channels of several countries (the onboarding's "channel countries"), merged without duplicates: the first as
+     *  [loadAll] (local files, [extra], or its built-ins), then every other country's built-in channels. */
+    @JvmStatic fun loadCountries(extra: String?, countries: List<String>): List<M3u.Channel> {
+        val list = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
+        val seen = HashSet<String>()
+        return (loadAll(extra, country = list.first()) + list.drop(1).flatMap(::builtIn)).filter { seen.add(it.url) }
     }
 
     /** [loadAll] for the viewer's [country] (the usual call from the apps). */

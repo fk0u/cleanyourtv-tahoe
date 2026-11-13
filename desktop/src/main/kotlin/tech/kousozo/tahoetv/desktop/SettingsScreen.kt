@@ -39,7 +39,10 @@ fun SettingsScreen() {
                     place = "Mencari…"
                     val r = withContext(Dispatchers.IO) { Web.geocode(city) }
                     if (r == null) place = "Kota tidak ditemukan"
-                    else { Settings.city = r.name; Settings.province = r.region; Settings.lat = r.lat; Settings.lon = r.lon; city = r.name; place = r.label }
+                    else {
+                        Settings.city = r.name; Settings.province = r.region; Settings.lat = r.lat; Settings.lon = r.lon; city = r.name; place = r.label
+                        Settings.viewer.takeIf { it.done }?.let { Settings.viewer = it.copy(city = r.name, lat = r.lat, lon = r.lon, region = r.region) } // one source of truth
+                    }
                 }
             }
         }
@@ -79,7 +82,7 @@ fun SettingsScreen() {
         Section("Wilayah & bahasa")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${tech.kousozo.tahoetv.core.Region.flag(Settings.countryCode)}  ${tech.kousozo.tahoetv.core.Region.name(Settings.countryCode, Settings.lang)} · " +
-                (if (Settings.lang == "id") "Bahasa Indonesia" else "English"), color = Tahoe.Text, fontSize = 14.sp)
+                tech.kousozo.tahoetv.core.OnboardingText.LANGUAGE_NAMES.getValue(Settings.lang), color = Tahoe.Text, fontSize = 14.sp)
             GhostButton("Ubah", Icons.Rounded.Public) { PlayerWindow.stop(); DeskNav.regionSetup = true } // the old country's channel stops
         }
         Text("Menentukan daftar saluran dan jadwal acara. Teks aplikasi lainnya masih berbahasa Indonesia; terjemahan sedang dikerjakan (#56).",

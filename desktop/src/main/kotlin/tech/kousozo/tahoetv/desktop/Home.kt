@@ -61,16 +61,19 @@ private val SERVICES = listOf(
  *  then featured national channels next to the assistant. */
 @Composable
 fun HomeScreen(onLive: () -> Unit) {
-    var now by remember { mutableStateOf(LocalTime.now()) }
-    LaunchedEffect(Unit) { while (true) { now = LocalTime.now(); delay(15_000) } }
+    var now by remember { mutableStateOf(LocalTime.now(Settings.viewer.zone)) } // the viewer's time zone (onboarding)
+    LaunchedEffect(Unit) { while (true) { now = LocalTime.now(Settings.viewer.zone); delay(15_000) } }
     var weather by remember { mutableStateOf<Web.Weather?>(null) }
     var prayer by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var heroes by remember { mutableStateOf<List<Web.Hero>>(emptyList()) }
     val lat = Settings.lat; val lon = Settings.lon
-    LaunchedEffect(lat, lon, Settings.youtube, Settings.tmdb) {
+    val viewer = Settings.viewer
+    // after onboarding: no city = no weather/prayer; prayer only when switched on, with the chosen method and time zone
+    val hasCity = !viewer.done || viewer.lat != null
+    LaunchedEffect(lat, lon, viewer, Settings.youtube, Settings.tmdb) {
         withContext(Dispatchers.IO) {
-            weather = Web.weather(lat, lon)
-            prayer = Web.prayer(lat, lon)
+            weather = if (hasCity) Web.weather(lat, lon) else null
+            prayer = if (hasCity && (!viewer.done || viewer.prayer)) Web.prayer(lat, lon, if (viewer.done) viewer.prayerMethod else 20, viewer.zone) else emptyList()
             val yt = Settings.youtube.takeIf { it.isNotBlank() }?.let { Web.youtubeTrending(it) }.orEmpty()
             val nf = Settings.tmdb.takeIf { it.isNotBlank() }?.let { Web.netflixPopular(it) }.orEmpty()
             heroes = (0 until maxOf(yt.size, nf.size)).flatMap { listOfNotNull(yt.getOrNull(it), nf.getOrNull(it)) }

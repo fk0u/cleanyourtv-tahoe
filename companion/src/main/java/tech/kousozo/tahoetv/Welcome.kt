@@ -1,107 +1,332 @@
 package tech.kousozo.tahoetv
 
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import tech.kousozo.tahoetv.core.LocalTv
+import tech.kousozo.tahoetv.core.OnboardingText
+import tech.kousozo.tahoetv.core.Prayer
 import tech.kousozo.tahoetv.core.Region
+import tech.kousozo.tahoetv.core.Sources
+import tech.kousozo.tahoetv.core.Viewer
+import tech.kousozo.tahoetv.core.Web
 
-/** The viewer's country + language on this phone (#71). Blank country = first-run setup not done yet. */
+/** The viewer's onboarding choices on this phone (#71, #77): language, country, city, time zone, prayer, channel
+ *  countries, categories, favourites and their order. Blank country = onboarding not done yet. */
 object PhoneRegion {
     private fun p(c: Context) = c.getSharedPreferences("region", 0)
-    var country by mutableStateOf(""); private set
-    var language by mutableStateOf("en"); private set
+    var viewer by mutableStateOf(Viewer()); private set
+    val country get() = viewer.country
+    val language get() = viewer.language
 
     fun load(c: Context) {
-        country = Region.country(p(c).getString("country", null)).orEmpty()
-        language = Region.language(p(c).getString("language", null) ?: java.util.Locale.getDefault().language)
+        val saved = p(c).getString("viewer", null)
+        viewer = if (saved != null) Viewer.fromJson(saved) else {
+            // from the earlier two-step setup (country + language only)
+            val old = Region.country(p(c).getString("country", null))
+            if (old == null) Viewer(language = Region.language(java.util.Locale.getDefault().language))
+            else Viewer.suggested(old, Region.language(p(c).getString("language", null))).copy(favorites = Channels.favs.toList())
+        }
     }
-    fun save(c: Context, country: String, language: String) {
-        p(c).edit().putString("country", country).putString("language", language).apply()
-        val changed = country != this.country
-        this.country = country; this.language = language; editing = false
-        if (changed) Channels.reload(c) // a new country = a new channel list and guide
+
+    fun save(c: Context, v: Viewer) {
+        val reload = v.countries != viewer.countries || v.region != viewer.region || !viewer.done
+        p(c).edit().putString("viewer", v.toJson()).apply()
+        viewer = v; editing = false
+        Channels.setFavs(c, v.favorites)
+        if (reload) Channels.reload(c) else Channels.rearrange()
     }
-    /** The setup is open again from Beranda (the saved country stays, so it's preselected). */
+
+    /** A heart tapped elsewhere in the app: keep the onboarding's order, new ones last. */
+    fun favoritesChanged(c: Context, favs: Set<String>) {
+        val kept = viewer.favorites.filter { it in favs }
+        val v = viewer.copy(favorites = kept + (favs - kept.toSet()))
+        p(c).edit().putString("viewer", v.toJson()).apply(); viewer = v
+    }
+
+    /** The onboarding is open again from Beranda (current choices preselected). */
     var editing by mutableStateOf(false)
-    /** Close a reopened setup without changes. */
     fun cancel() { editing = false }
-    /** Reopen the setup (Beranda → Wilayah). */
     fun reset() { editing = true }
-    val needsSetup get() = country.isBlank() || editing
-    val code get() = country.ifBlank { Region.HOME }
+    val needsSetup get() = !viewer.done || editing
+    val code get() = Region.country(viewer.country) ?: Region.HOME
 }
 
-/** First run: language, then country. The rest of the app is still Indonesian until it's translated (#56). */
+private enum class Step { Language, Country, City, TimeZone, Prayer, Countries, Categories, Favorites, Order, Summary }
+
+/** Onboarding: language always first, then the rest; every step has a sensible default and can be changed later. */
 @Composable
 fun WelcomeScreen() {
     val c = LocalContext.current
     val (suggestedCountry, suggestedLang) = remember { Region.suggest() }
-    var lang by remember { mutableStateOf(if (PhoneRegion.country.isBlank()) suggestedLang else PhoneRegion.language) }
-    var country by remember { mutableStateOf(Region.country(PhoneRegion.country) ?: suggestedCountry) }
-    var step by remember { mutableStateOf(0) }
-    val startCountry = remember { country } // list order fixed while open: picking a row doesn't make it jump
-    val t = WELCOME.getValue(lang)
-    // reopened from Beranda: back closes it (first run has nothing to go back to)
-    androidx.activity.compose.BackHandler(enabled = PhoneRegion.country.isNotBlank()) { if (step == 1) step = 0 else PhoneRegion.cancel() }
+    var v by remember {
+        mutableStateOf(PhoneRegion.viewer.takeIf { it.done } ?: Viewer.suggested(suggestedCountry, suggestedLang).copy(favorites = Channels.favs.toList()))
+    }
+    var step by remember { mutableStateOf(Step.Language) }
+    /** Channels of the chosen countries, loaded on the favourites step (names for the order step too). */
+    var catalog by remember { mutableStateOf<List<LocalTv.Entry>?>(null) }
+    val t = { k: String -> OnboardingText.get(v.language, k) }
+    fun go(d: Int) { step = Step.entries[(step.ordinal + d).coerceIn(0, Step.entries.size - 1)] }
+    androidx.activity.compose.BackHandler(enabled = step != Step.Language || PhoneRegion.viewer.done) {
+        if (step == Step.Language) PhoneRegion.cancel() else go(-1)
+    }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 20.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
-        BrandTile(56.dp)
-        Spacer(Modifier.height(16.dp))
-        Text(t.getValue(if (step == 0) "lang.title" else "country.title"), color = Tahoe.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        Text(t.getValue(if (step == 0) "lang.sub" else "country.sub"), color = Tahoe.Dim, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 20.dp))
-        if (step == 0) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Region.LANGUAGES.forEach { l -> RegionOption(LANG_NAME.getValue(l), null, l == lang) { lang = l } }
+    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            BrandTile(36.dp)
+            Text(t("step").replace("%s", "${step.ordinal + 1}/${Step.entries.size}"), color = Tahoe.Dim, fontSize = 13.sp)
+        }
+        LinearProgressIndicator(progress = { (step.ordinal + 1f) / Step.entries.size }, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            color = Tahoe.Text, trackColor = Tahoe.Glass)
+        val (title, sub) = when (step) {
+            Step.Language -> "lang.title" to "lang.sub"; Step.Country -> "country.title" to "country.sub"
+            Step.City -> "city.title" to "city.sub"; Step.TimeZone -> "tz.title" to "tz.sub"; Step.Prayer -> "prayer.title" to "prayer.sub"
+            Step.Countries -> "countries.title" to "countries.sub"; Step.Categories -> "cats.title" to "cats.sub"
+            Step.Favorites -> "favs.title" to "favs.sub"; Step.Order -> "order.title" to "order.sub"; Step.Summary -> "summary.title" to "summary.sub"
+        }
+        Text(t(title), color = Tahoe.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Text(t(sub), color = Tahoe.Dim, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when (step) {
+                Step.Language -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Region.LANGUAGES.forEach { l -> Option(OnboardingText.LANGUAGE_NAMES.getValue(l), null, l == v.language) { v = v.copy(language = l) } }
+                }
+                Step.Country -> CountryList(v.language, listOf(v.country), suggestedCountry, multi = false) { cc ->
+                    // a new home country brings its defaults (prayer, method, channels) unless already changed by hand
+                    v = if (cc == v.country) v else v.copy(country = cc, prayer = Region.prayerByDefault(cc), prayerMethod = Prayer.methodFor(cc),
+                        channelCountries = listOf(cc), city = "", lat = null, lon = null, region = "", timeZone = "")
+                }
+                Step.City -> CityStep(v, t) { v = it }
+                Step.TimeZone -> TimeZoneStep(v, t) { v = v.copy(timeZone = it) }
+                Step.Prayer -> Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    SwitchRow(t("prayer.on"), v.prayer) { v = v.copy(prayer = it) }
+                    if (v.prayer && v.lat == null) Text(t("prayer.needcity"), color = Tahoe.Faint, fontSize = 12.sp)
+                    if (v.prayer) {
+                        Text(t("prayer.method"), color = Tahoe.Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                        Prayer.METHODS.forEach { m -> Option(m.name, null, m.id == v.prayerMethod) { v = v.copy(prayerMethod = m.id) } }
+                    }
+                }
+                Step.Countries -> CountryList(v.language, v.countries, v.country, multi = true) { cc ->
+                    val now = v.countries
+                    val next = if (cc in now) now - cc else now + cc
+                    if (next.isNotEmpty()) v = v.copy(channelCountries = next)
+                }
+                Step.Categories -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LocalTv.Category.entries.filter { it != LocalTv.Category.Other && (it != LocalTv.Category.Tvri && it != LocalTv.Category.Near || v.countries.contains(Region.HOME)) }
+                        .forEach { cat ->
+                            val on = cat.name in v.categories
+                            Option(OnboardingText.category(v.language, cat), null, on) { v = v.copy(categories = if (on) v.categories - cat.name else v.categories + cat.name) }
+                        }
+                }
+                Step.Favorites -> FavoritesStep(v, t, { catalog = it }) { v = v.copy(favorites = it) }
+                Step.Order -> OrderStep(v, t, catalog) { v = v.copy(favorites = it) }
+                Step.Summary -> Summary(v, t)
             }
-            Spacer(Modifier.weight(1f))
-            PrimaryButton(t.getValue("next"), icon = Icons.Rounded.ArrowForward) { step = 1 }
-        } else {
-            var query by remember { mutableStateOf("") }
-            val all = remember(lang) { Region.countries(lang) }
-            val shown = remember(all, query) {
-                val q = query.trim().lowercase()
-                all.filter { q.isEmpty() || it.name.lowercase().contains(q) || it.code.lowercase() == q }
-                    .sortedBy { if (it.code == startCountry) 0 else if (it.code == suggestedCountry) 1 else 2 }
-            }
-            Field(query, { query = it }, t.getValue("search"))
-            Spacer(Modifier.height(10.dp))
-            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-                LaunchedEffect(query) { listState.scrollToItem(0) } // new search: start at the top
-                LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(shown, key = { it.code }) { co -> RegionOption(co.name, co.flag, co.code == country) { country = co.code } }
-            }
-            Text(t.getValue(if (country == Region.HOME) "note.home" else "note.other").replace("%s", Region.name(country, lang)),
-                color = Tahoe.Faint, fontSize = 12.sp, modifier = Modifier.padding(vertical = 10.dp))
-            // both buttons are full width on the phone: stacked, the main action first
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PrimaryButton(t.getValue("done"), icon = Icons.Rounded.Check) { PhoneRegion.save(c, country, lang) }
-                SecondaryButton(t.getValue("back")) { step = 0 }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
+            if (step == Step.Summary) PrimaryButton(t("done"), icon = Icons.Rounded.Check) { PhoneRegion.save(c, v) }
+            else PrimaryButton(if (step == Step.City && v.lat == null) t("skip") else t("next"), icon = Icons.Rounded.ArrowForward) { go(1) }
+            if (step != Step.Language) SecondaryButton(t("back")) { go(-1) }
+        }
+    }
+}
+
+@Composable
+private fun CountryList(lang: String, chosen: List<String>, suggested: String, multi: Boolean, onPick: (String) -> Unit) = Column {
+    var query by remember { mutableStateOf("") }
+    val all = remember(lang) { Region.countries(lang) }
+    val start = remember { chosen.toSet() } // order fixed while open: picking a row doesn't make it jump
+    val shown = remember(all, query) {
+        val q = query.trim().lowercase()
+        all.filter { q.isEmpty() || it.name.lowercase().contains(q) || it.code.lowercase() == q }
+            .sortedBy { if (it.code in start) 0 else if (it.code == suggested) 1 else 2 }
+    }
+    Field(query, { query = it }, OnboardingText.get(lang, "search"))
+    Spacer(Modifier.height(10.dp))
+    val listState = rememberLazyListState()
+    LaunchedEffect(query) { listState.scrollToItem(0) }
+    LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        items(shown, key = { it.code }) { co -> Option(co.name, co.flag, co.code in chosen) { onPick(co.code) } }
+    }
+    if (!multi && chosen.isNotEmpty()) {
+        val cc = chosen.first()
+        Text(OnboardingText.get(lang, if (cc == Region.HOME) "note.home" else "note.other").replace("%s", Region.name(cc, lang)),
+            color = Tahoe.Faint, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
+private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Unit) = Column {
+    var query by remember { mutableStateOf(v.city) }
+    var results by remember { mutableStateOf<List<Web.City>?>(null) }
+    LaunchedEffect(query) {
+        if (query.trim().length < 2 || query == v.city) { results = null; return@LaunchedEffect }
+        delay(400) // typing: wait for a pause
+        // Indonesian city names give Indonesian province names, which "near you" matches
+        results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), if (v.country == Region.HOME) "id" else v.language, v.country) }
+    }
+    Field(query, { query = it }, t("city.search"))
+    Spacer(Modifier.height(10.dp))
+    if (v.lat != null) Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", ") + "  ✕", "📍", true) {
+        onChange(v.copy(city = "", lat = null, lon = null, region = "", timeZone = "")); query = "" // tap again to clear: weather and prayer stay hidden
+    }
+    else if (results == null) Text(t("city.none"), color = Tahoe.Faint, fontSize = 12.sp)
+    results?.let { list ->
+        if (list.isEmpty()) Text(t("city.empty"), color = Tahoe.Faint, fontSize = 12.sp)
+        LazyColumn(Modifier.weight(1f).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(list) { city ->
+                Option(city.label, "📍", false) {
+                    onChange(v.copy(city = city.name, lat = city.lat, lon = city.lon, region = city.region, timeZone = city.timeZone.ifBlank { v.timeZone }))
+                    query = city.name; results = null
+                }
             }
         }
     }
 }
 
 @Composable
-private fun RegionOption(text: String, flag: String?, selected: Boolean, onClick: () -> Unit) = Row(
+private fun TimeZoneStep(v: Viewer, t: (String) -> String, onPick: (String) -> Unit) = Column {
+    val device = remember { java.util.TimeZone.getDefault().id }
+    var query by remember { mutableStateOf("") }
+    val zones = remember { (listOf("UTC") + java.time.ZoneId.getAvailableZoneIds().filter { '/' in it && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }.sorted()) }
+    val picked = v.timeZone.ifBlank { device }
+    Option(t("tz.device").replace("%s", device), "📱", v.timeZone.isBlank() || v.timeZone == device) { onPick("") }
+    Spacer(Modifier.height(6.dp))
+    Field(query, { query = it }, t("search"))
+    Spacer(Modifier.height(8.dp))
+    LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        val q = query.trim().lowercase().replace(' ', '_')
+        items(zones.filter { q.isEmpty() || it.lowercase().contains(q) }.sortedBy { if (it == picked) 0 else 1 }) { z ->
+            Option(z.replace('_', ' ') + "  " + offset(z), null, z == picked && v.timeZone.isNotBlank()) { onPick(z) }
+        }
+    }
+}
+
+private fun offset(zone: String): String = runCatching {
+    val o = java.time.ZoneId.of(zone).rules.getOffset(java.time.Instant.now())
+    "UTC" + if (o.totalSeconds == 0) "" else o.id
+}.getOrDefault("")
+
+@Composable
+private fun FavoritesStep(v: Viewer, t: (String) -> String, onLoaded: (List<LocalTv.Entry>?) -> Unit, onChange: (List<String>) -> Unit) = Column {
+    var list by remember(v.countries) { mutableStateOf<List<LocalTv.Entry>?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(v.countries) {
+        list = null; failed = false
+        val loaded = withContext(Dispatchers.IO) {
+            runCatching { LocalTv.arrange(Sources.loadCountries(null, v.countries), v.nearRegion) }.getOrNull()
+        }
+        list = loaded // every channel: favourites stay visible in Live TV whatever the categories
+        failed = loaded.isNullOrEmpty()
+        onLoaded(loaded)
+    }
+    var query by remember { mutableStateOf("") }
+    Field(query, { query = it }, t("search"))
+    Spacer(Modifier.height(8.dp))
+    when {
+        list == null && !failed -> Column { Text(t("favs.loading"), color = Tahoe.Dim, fontSize = 13.sp); LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = Tahoe.Text, trackColor = Tahoe.Glass) }
+        failed -> Text(t("favs.failed"), color = Tahoe.Faint, fontSize = 13.sp)
+        else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val q = query.trim().lowercase()
+            items(list!!.filter { q.isEmpty() || it.name.lowercase().contains(q) }.take(300), key = { it.channel.url }) { e ->
+                val on = e.channel.url in v.favorites
+                ChannelRow(e, on) { onChange(if (on) v.favorites - e.channel.url else v.favorites + e.channel.url) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChannelRow(e: LocalTv.Entry, fav: Boolean, onClick: () -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (fav) Tahoe.Text.copy(alpha = .12f) else Tahoe.Glass)
+        .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp),
+    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+) {
+    val logo = rememberNetImage(e.channel.logo)
+    Box(Modifier.size(36.dp).clip(CircleShape).background(Tahoe.Glass), contentAlignment = Alignment.Center) {
+        if (logo != null) Image(logo, null, Modifier.size(28.dp), contentScale = ContentScale.Fit)
+    }
+    Text(e.name, color = Tahoe.Text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+    Icon(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null, tint = if (fav) Tahoe.Bad else Tahoe.Dim)
+}
+
+@Composable
+private fun OrderStep(v: Viewer, t: (String) -> String, catalog: List<LocalTv.Entry>?, onChange: (List<String>) -> Unit) {
+    if (v.favorites.isEmpty()) { Text(t("order.empty"), color = Tahoe.Faint, fontSize = 13.sp); return }
+    val names = remember(catalog) { (catalog ?: Channels.entries).orEmpty().associate { it.channel.url to it.name } }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        itemsIndexed(v.favorites, key = { _, u -> u }) { i, url ->
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Tahoe.Glass).padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("${i + 1}", color = Tahoe.Dim, fontSize = 13.sp, modifier = Modifier.width(28.dp))
+                Text(names[url] ?: url.substringAfterLast('/').substringBefore('.'), color = Tahoe.Text, fontSize = 15.sp, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                RoundGlass(Icons.Rounded.KeyboardArrowUp, "▲", 36.dp) { if (i > 0) onChange(v.favorites.toMutableList().apply { add(i - 1, removeAt(i)) }) }
+                Spacer(Modifier.width(6.dp))
+                RoundGlass(Icons.Rounded.KeyboardArrowDown, "▼", 36.dp) { if (i < v.favorites.size - 1) onChange(v.favorites.toMutableList().apply { add(i + 1, removeAt(i)) }) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Summary(v: Viewer, t: (String) -> String) = Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    fun row(k: String, value: String) = k to value
+    listOf(
+        row("sum.language", OnboardingText.LANGUAGE_NAMES.getValue(v.language)),
+        row("sum.country", Region.flag(v.country) + " " + Region.name(v.country, v.language)),
+        row("sum.city", v.city.ifBlank { t("sum.none") }),
+        row("sum.tz", v.timeZone.ifBlank { java.util.TimeZone.getDefault().id }),
+        row("sum.prayer", if (v.prayer) Prayer.name(v.prayerMethod) else t("sum.off")),
+        row("sum.channels", v.countries.joinToString(" ") { Region.flag(it) + " " + Region.name(it, v.language) }),
+        row("sum.cats", if (v.categories.isEmpty()) t("sum.all") else LocalTv.Category.entries.filter { it.name in v.categories }.joinToString(", ") { OnboardingText.category(v.language, it) }),
+        row("sum.favs", if (v.favorites.isEmpty()) t("sum.none") else v.favorites.size.toString()),
+    ).forEach { (k, value) ->
+        GlassCard {
+            Text(t(k), color = Tahoe.Dim, fontSize = 12.sp)
+            Text(value, color = Tahoe.Text, fontSize = 15.sp)
+        }
+    }
+}
+
+@Composable
+private fun Option(text: String, flag: String?, selected: Boolean, onClick: () -> Unit) = Row(
     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
         .background(if (selected) Tahoe.Text.copy(alpha = .14f) else Tahoe.Glass)
         .border(1.dp, if (selected) Tahoe.Text.copy(alpha = .5f) else Tahoe.Stroke, RoundedCornerShape(16.dp))
@@ -112,22 +337,3 @@ private fun RegionOption(text: String, flag: String?, selected: Boolean, onClick
     Text(text, color = Tahoe.Text, fontSize = 15.sp, modifier = Modifier.weight(1f))
     if (selected) Icon(Icons.Rounded.Check, null, tint = Tahoe.Text)
 }
-
-private val LANG_NAME = mapOf("en" to "English", "id" to "Bahasa Indonesia")
-
-private val WELCOME = mapOf(
-    "en" to mapOf(
-        "lang.title" to "Welcome to Tahoe TV", "lang.sub" to "Choose your language",
-        "country.title" to "Where are you watching?", "country.sub" to "Free channels and the TV guide for your country",
-        "search" to "Search country", "next" to "Continue", "back" to "Back", "done" to "Start watching",
-        "note.home" to "%s includes curated extra sources, regional channels and prayer times.",
-        "note.other" to "Free channels for %s come from iptv-org. Some countries have only a few.",
-    ),
-    "id" to mapOf(
-        "lang.title" to "Selamat datang di Tahoe TV", "lang.sub" to "Pilih bahasa",
-        "country.title" to "Kamu menonton dari mana?", "country.sub" to "Saluran gratis dan jadwal acara untuk negaramu",
-        "search" to "Cari negara", "next" to "Lanjut", "back" to "Kembali", "done" to "Mulai menonton",
-        "note.home" to "%s punya sumber tambahan pilihan, saluran daerah, dan jadwal shalat.",
-        "note.other" to "Saluran gratis untuk %s diambil dari iptv-org. Beberapa negara salurannya sedikit.",
-    ),
-)

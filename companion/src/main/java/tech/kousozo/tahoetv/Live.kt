@@ -311,7 +311,7 @@ object Channels {
     private var generation = 0
 
     /** Country changed: forget the list; the next screen that shows loads the new one. */
-    fun reload(@Suppress("UNUSED_PARAMETER") c: android.content.Context) { generation++; loading = false; entries = null; epg = null; failed = false }
+    fun reload(@Suppress("UNUSED_PARAMETER") c: android.content.Context) { generation++; loading = false; entries = null; all = null; epg = null; failed = false }
 
     suspend fun load(c: android.content.Context) {
         if (entries != null || loading) return
@@ -319,15 +319,17 @@ object Channels {
         val mine = generation
         try { withContext(Dispatchers.IO) {
             val setup = c.getSharedPreferences("setup", 0)
+            val viewer = PhoneRegion.viewer
             val country = PhoneRegion.code
-            val province = if (country != tech.kousozo.tahoetv.core.Region.HOME) null else setup.getString("region", null) ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
+            // the onboarding's region; the older setup's only before onboarding (Indonesia, no city chosen yet)
+            val province = viewer.nearRegion ?: setup.getString("region", null).takeIf { !viewer.done } ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
                 ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
             SourceHealth.init(java.io.File(c.cacheDir, "source-health.tsv"), java.io.File(c.filesDir, "source-banned.txt")) // bans: durable
-            val list = runCatching { LocalTv.arrange(Sources.loadFor(null, country), province) }.getOrNull()
-            val guide = runCatching { Epg.load(tech.kousozo.tahoetv.core.Region.guides(country)) }.getOrNull()
+            val list = runCatching { LocalTv.arrange(Sources.loadCountries(null, viewer.countries), province) }.getOrNull()
+            val guide = runCatching { Epg.load(viewer.countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct()) }.getOrNull()
             if (mine != generation) return@withContext // the country changed meanwhile
             if (list.isNullOrEmpty()) failed = true // no playlist for this country, or no internet: show the note, not a blank list
-            else { entries = list; SourceHealth.probeAll(SourceHealth.streamsOf(list)) }
+            else { all = list; entries = PhoneRegion.viewer.arrange(list); SourceHealth.probeAll(SourceHealth.streamsOf(list)) }
             epg = guide
         } } finally { if (mine == generation) loading = false } // also when the screen leaves mid-load: the next one retries
     }
@@ -339,12 +341,22 @@ object Channels {
         return urls.mapNotNull { u -> all.firstOrNull { it.channel.url == u } }
     }
 
+    /** Every loaded channel, before the viewer's categories and order ([entries] is what the screens show). */
+    private var all: List<LocalTv.Entry>? = null
+    /** Categories or favourite order changed: re-apply them without reloading. */
+    fun rearrange() { if (entries != null) all?.let { entries = PhoneRegion.viewer.arrange(it) } }
+
     /** Favourite channels (stream URLs), kept on this phone. */
     var favs by mutableStateOf<Set<String>>(emptySet()); private set
+    fun setFavs(c: android.content.Context, list: List<String>) {
+        favs = list.toSet(); c.getSharedPreferences("live", 0).edit().putStringSet("favs", favs).apply()
+    }
     fun loadFavs(c: android.content.Context) { favs = c.getSharedPreferences("live", 0).getStringSet("favs", emptySet()).orEmpty().toSet() }
     fun toggleFav(c: android.content.Context, e: LocalTv.Entry) {
         favs = if (e.channel.url in favs) favs - e.channel.url else favs + e.channel.url
         c.getSharedPreferences("live", 0).edit().putStringSet("favs", favs).apply()
+        PhoneRegion.favoritesChanged(c, favs)
+        rearrange() // the new favourite moves to the front now
     }
 
     fun remember(c: android.content.Context, e: LocalTv.Entry) {
