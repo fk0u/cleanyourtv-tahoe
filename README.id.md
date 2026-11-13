@@ -1,4 +1,4 @@
-<p align="right"><a href="README.md">English</a> · <b>Bahasa Indonesia</b></p>
+<p align="right"><a href="README.md">English</a> · <b>Bahasa Indonesia</b> · <a href="README.zh.md">中文</a></p>
 
 <p align="center"><img src="docs/readme/hero.svg" alt="Tahoe TV di TV dan HP" width="100%"></p>
 
@@ -31,16 +31,28 @@
 </p>
 
 > [!NOTE]
-> **Tahoe TV adalah proyek open source komunitas.** Berlisensi MIT: bebas dipakai, dipelajari, diubah, dan dibagikan,
-> dan siapa pun boleh ikut berkontribusi. Lahir di Indonesia dan sedang menuju internasional: banyak bahasa, saluran
-> dari semua negara, serta setup awal bahasa + negara di setiap perangkat sedang dikerjakan di
-> [#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71). Mau negara atau bahasamu masuk? [Ayo ikut](#ikut-berkontribusi).
+> **Tahoe TV adalah proyek open source komunitas untuk seluruh dunia.** Berlisensi MIT: bebas dipakai, dipelajari,
+> dikonfigurasi, di-fork, dan dirilis ulang versimu sendiri — dan pull request terbuka untuk siapa pun, dari mana pun,
+> dalam bahasa apa pun. Lahir di Indonesia, kini berbahasa English, Bahasa Indonesia, dan 中文, dengan saluran gratis
+> dari semua negara ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)). Mau negara atau bahasamu masuk? [Ayo ikut](#ikut-berkontribusi).
+
+## Asal-usul proyek ini
+
+Tahoe TV lahir dari kegabutan pemiliknya — dan dari rasa kesal yang nyata. Launcher bawaan TV di rumah membosankan,
+penuh iklan, dan susah dipakai, dan yang paling kesulitan justru anggota keluarga yang sudah lansia: tulisannya kecil,
+menunya membingungkan, dan TV siaran malah tersembunyi di balik aplikasi, bukan *nyalakan lalu ganti saluran* seperti biasa.
+
+Jadi tujuannya sederhana: **beranda TV yang cantik, tenang, dan mudah untuk semua orang — termasuk kakek-nenek**,
+dengan Live TV yang terasa seperti TV biasa (▲ ▼ untuk ganti saluran, jelas "sedang tayang apa"), ringan di TV stick
+1 GB yang murah, dan gratis untuk dipakai serta dikembangkan siapa pun di dunia.
 
 ---
 
 ## Kenapa Tahoe TV?
 
 - 📺 **Beranda TV yang cantik dan ringan.** Gaya tvOS 26 tanpa blur berat, jadi tetap lancar di TV stick 1 GB.
+- 👵 **Mudah untuk semua orang.** Tile besar yang mudah dibaca, navigasi satu langkah dengan remote, dan Live TV seperti TV biasa: ▲ ▼ ganti saluran, jadwal menampilkan acara yang sedang tayang. (Nomor saluran yang konsisten untuk tiap negara menyusul.)
+- 🗣️ **Bahasamu duluan.** Setup awal di TV, HP, dan desktop dimulai dari bahasa (English, Bahasa Indonesia, 中文), lalu negara, kota, jadwal shalat, saluran, dan favorit.
 - 🌍 **Live TV gratis.** 1.000+ saluran gratis (Indonesia dulu: nasional, TVRI daerah, TV lokal "dekat kamu", berita, olahraga…) dengan jadwal acara, dari sumber publik. Berikutnya semua negara ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)).
 - ⚡ **Langsung tayang.** Sumber yang hidup diputar duluan; siaran ulang dan sumber mati dilewati otomatis. Pilih kualitas (Otomatis/1080p/720p/480p) dan latensi.
 - 📱 **HP jadi remote dan pusat kendali.** Remote lengkap, ketik ke TV, kirim foto, nonton di HP, pasang Tahoe ke TV lewat Wi-Fi tanpa laptop.
@@ -151,8 +163,9 @@ Mau menerjemahkan dokumen ke bahasamu? Taruh di `docs/<kode-bahasa>/` dan tautka
 
 ## Ikut berkontribusi
 
-Tahoe TV **gratis dan terbuka untuk semua orang**: fork, kembangkan, rilis versimu sendiri dengan lisensi MIT, atau
-kirim perbaikanmu kembali ke sini. Bantuan apa pun berarti:
+Tahoe TV **gratis dan terbuka untuk semua orang di seluruh dunia**: fork, konfigurasi untuk negara atau keluargamu,
+rilis versimu sendiri dengan lisensi MIT, atau kirim perbaikanmu kembali ke sini. Pull request terbuka untuk siapa
+pun — issue dan PR dalam English, Bahasa Indonesia, atau 中文 semuanya boleh. Bantuan apa pun berarti:
 
 - ⭐ **Beri bintang** repo ini kalau Tahoe TV berguna. Itu membantu orang lain menemukannya.
 - 🌍 **Terjemahkan** app atau dokumentasi, atau **tambahkan saluran negaramu** ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71), [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)).

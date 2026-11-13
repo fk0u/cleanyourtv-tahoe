@@ -3,7 +3,7 @@
 
     python3 tools/readme-art.py          (macOS: uses `sips` to resize, no extra packages)
 
-Writes docs/readme/hero.svg and docs/readme/showcase-{tv,phone}.{en,id}.svg. Screenshots are embedded as data URIs,
+Writes docs/readme/hero.svg and docs/readme/showcase-{tv,phone}.{en,id,zh}.svg. Screenshots are embedded as data URIs,
 because GitHub shows README SVGs as <img>, which can't load other files. Animations are plain CSS, so they play on
 GitHub, in browsers and on the website. Re-run after updating the screenshots."""
 import base64, os, subprocess, tempfile
@@ -20,6 +20,8 @@ CAPTIONS = {
            "phone": ["Home", "Live TV", "Channel page", "Mini player"]},
     "id": {"tv": ["Beranda", "Hero + aksi", "Launchpad", "Pusat Kontrol", "Asisten", "Siapa yang menonton?"],
            "phone": ["Beranda", "TV Live", "Halaman saluran", "Mini player"]},
+    "zh": {"tv": ["主屏幕", "精选与操作", "启动台", "控制中心", "助手", "谁在观看？"],
+           "phone": ["主页", "电视直播", "频道页", "迷你播放器"]},
 }
 
 FONT = "font-family=\"Outfit, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif\""
@@ -177,6 +179,6 @@ def write(name, text):
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     write("hero.svg", hero())
-    for lang in ("en", "id"):
+    for lang in ("en", "id", "zh"):
         write(f"showcase-tv.{lang}.svg", showcase_tv(lang))
         write(f"showcase-phone.{lang}.svg", showcase_phone(lang))

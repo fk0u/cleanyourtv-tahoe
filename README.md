@@ -1,4 +1,4 @@
-<p align="right"><b>English</b> · <a href="README.id.md">Bahasa Indonesia</a></p>
+<p align="right"><b>English</b> · <a href="README.id.md">Bahasa Indonesia</a> · <a href="README.zh.md">中文</a></p>
 
 <p align="center"><img src="docs/readme/hero.svg" alt="Tahoe TV running on a TV and a phone" width="100%"></p>
 
@@ -31,16 +31,28 @@
 </p>
 
 > [!NOTE]
-> **Tahoe TV is a community open-source project.** It's MIT-licensed: free to use, study, change and share, and anyone
-> is welcome to contribute. It started in Indonesia and is going international: languages, every country's channels
-> and a first-run language + country setup on every device are being built in [#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71).
-> Want your country or language in? [Jump in](#contributing).
+> **Tahoe TV is a worldwide, community open-source project.** It's MIT-licensed: use it, study it, configure it,
+> fork it and ship your own build — and pull requests are welcome from anyone, anywhere, in any language.
+> It started in Indonesia and now speaks English, Bahasa Indonesia and 中文, with free channels from every country
+> ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)). Want your country or language in? [Jump in](#contributing).
+
+## Why this exists
+
+Tahoe TV began as a side project born out of boredom — and out of a real annoyance. The TV at home had a stock
+launcher that was dull, cluttered with ads and hard to use, and the people who struggled most were older family
+members: tiny text, confusing menus, and live TV hidden behind apps instead of just *turning on and changing the channel*.
+
+So the goal became simple: **a TV home screen that is beautiful, calm and easy for everyone — including grandparents**,
+where live TV behaves like a normal TV (▲ ▼ to change channel, a clear "what's on now"), that runs well on a cheap
+1 GB TV stick, and that is free for anyone in the world to use and improve.
 
 ---
 
 ## Why Tahoe TV?
 
 - 📺 **A beautiful home screen that stays light.** tvOS 26 style without heavy real-time blur, so it runs smoothly on a 1 GB TV stick.
+- 👵 **Easy for everyone.** Big readable tiles, one-step navigation with the remote, and live TV that works like a native TV: ▲ ▼ changes channel, the guide shows what's on now. (Consistent channel numbers for every country's lineup are coming.)
+- 🗣️ **Your language first.** First-run setup on TV, phone and desktop starts with the language (English, Bahasa Indonesia, 中文), then your country, city, prayer times, channels and favourites.
 - 🌍 **Free live TV.** 1,000+ free channels today (Indonesia first: national, regional, "near you", news, sports…) with a program guide, from public sources. Every country is next ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)).
 - ⚡ **Plays right away.** Working sources play first; reruns of yesterday's broadcast and dead sources are skipped automatically. Choose quality (Auto/1080p/720p/480p) and latency.
 - 📱 **Your phone is the remote and the control center.** Full remote, type on the TV, send photos, watch on the phone, install Tahoe on the TV over Wi-Fi without a computer.
@@ -152,8 +164,9 @@ Translating a document into your language? Add it under `docs/<language-code>/` 
 
 ## Contributing
 
-Tahoe TV is **free and open to everyone**: fork it, build on it, ship your own version under the MIT license, or send
-your improvements back. Every kind of help counts:
+Tahoe TV is **free and open to everyone, worldwide**: fork it, configure it for your country or family, ship your own
+version under the MIT license, or send your improvements back. Pull requests are welcome from anyone — issues and
+PRs in English, Bahasa Indonesia or 中文 are all fine. Every kind of help counts:
 
 - ⭐ **Star** the repo if Tahoe TV is useful. It helps others find it.
 - 🌍 **Translate** the apps or docs, or **add your country's channels** ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71), [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)).
