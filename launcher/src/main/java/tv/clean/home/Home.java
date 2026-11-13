@@ -102,6 +102,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     @Override protected void onResume() {
         super.onResume();
+        // first run (#77): onboarding until it's done, also after Home was pressed in the middle of it
+        if (!TvViewer.done(this) && Onboarding.open == null) startActivity(new android.content.Intent(this, Onboarding.class));
         if (hero == null) return;
         tick(); checkGamepad(); markRunning();
         if (transition != null) { // coming back from an app: dissolve the launch overlay
@@ -321,6 +323,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         if (chipViews.isEmpty()) return;
         JSONObject cur = weather == null ? null : weather.optJSONObject("current");
         if (cur != null) chipText(0, Weather.icon(cur.optInt("weather_code"), cur.optInt("is_day", 1) == 1), Math.round(cur.optDouble("temperature_2m")) + "°");
+        else if (!TvViewer.hasCity(this)) chipText(0, 0, "—"); // no city: no stale temperature
         Object[] n = Prayer.next(this);
         chipText(1, 0, n == null ? "Shalat" : n[0] + "  " + new SimpleDateFormat("HH.mm", Locale.getDefault()).format(new Date((Long) n[1])));
         if (phoneMedia != null) chipText(2, 0, phoneMedia.optString("title"));
@@ -329,7 +332,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
     // ---------------------------------------------------------------- data
 
     void refreshData(boolean force) {
-        Weather.refresh(this, prefs, force, o -> { weather = o; updateChips(); renderHero(); }, ui);
+        if (TvViewer.hasCity(this)) Weather.refresh(this, prefs, force, o -> { weather = o; updateChips(); renderHero(); }, ui);
+        else weather = null; // onboarding without a city: no weather
         Prayer.fetchIfStale(this, () -> { Prayer.schedule(this); updateChips(); renderHero(); }, ui);
         trending = Trending.cached(this);
         Trending.refresh(this, () -> { trending = Trending.cached(this); renderHero(); }, ui);

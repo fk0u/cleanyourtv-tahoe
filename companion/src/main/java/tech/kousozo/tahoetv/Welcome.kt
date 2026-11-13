@@ -69,6 +69,19 @@ object PhoneRegion {
         viewer = v; editing = false
         Channels.setFavs(c, v.favorites)
         if (reload) Channels.reload(c) else Channels.rearrange()
+        sendToTv(c, v)
+    }
+
+    /** A paired TV gets the same choices (it then skips or updates its own onboarding). */
+    private fun sendToTv(c: Context, v: Viewer) {
+        val p = Sync.prefs(c)
+        val host = p.getString("host", "").orEmpty(); val token = p.getString("token", "").orEmpty()
+        if (host.isEmpty() || token.isEmpty()) return
+        // sent once the socket is really open (a slow TV/network would drop a message sent on a timer); gives up after 20 s
+        var link: tech.kousozo.tahoetv.core.TvLink? = null
+        link = tech.kousozo.tahoetv.core.TvLink(host, token) { open ->
+            if (open) link?.let { l -> l.viewer(v.toJson()); Thread { Thread.sleep(1000); l.close() }.start() }
+        }.apply { open(); Thread { Thread.sleep(20_000); close() }.start() }
     }
 
     /** A heart tapped elsewhere in the app: keep the onboarding's order, new ones last. */
@@ -76,6 +89,7 @@ object PhoneRegion {
         val kept = viewer.favorites.filter { it in favs }
         val v = viewer.copy(favorites = kept + (favs - kept.toSet()))
         p(c).edit().putString("viewer", v.toJson()).apply(); viewer = v
+        if (v.done) sendToTv(c, v) // the paired TV keeps the same favourites
     }
 
     /** The onboarding is open again from Beranda (current choices preselected). */

@@ -44,6 +44,8 @@ class TvLink(val host: String, private val token: String, private val onState: (
     private fun send(o: JSONObject) { runCatching { ws?.takeIf { it.isOpen }?.send(o.toString()) } }
     /** up, down, left, right, ok, back, home, menu, apps, mute, settings, livetv, ch_up, ch_down, 0–9, play_pause, rewind, ffwd */
     fun key(k: String) = send(JSONObject().put("t", "key").put("k", k))
+    /** The phone's onboarding choices ([Viewer] JSON): the TV takes them and skips its own onboarding (#77). */
+    fun viewer(json: String) = send(JSONObject().put("t", "viewer").put("v", json))
     fun launch(pkg: String) = send(JSONObject().put("t", "launch").put("pkg", pkg))
     fun url(u: String) = send(JSONObject().put("t", "url").put("u", u))
     fun ask(q: String) = send(JSONObject().put("t", "ask").put("q", q))

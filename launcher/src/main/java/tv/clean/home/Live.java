@@ -109,12 +109,17 @@ public class Live extends Activity {
                         if (p != null && !p.getRegion().isEmpty()) { province = p.getRegion(); cfg.edit().putString("province", province).apply(); }
                     }
                     // built-in sources (+ a custom playlist from the phone/desktop), loads all channels unfiltered
-                    List<LocalTv.Entry> l = LocalTv.INSTANCE.arrange(Sources.INSTANCE.loadAll(cfg.getString("playlist_url", "")), province);
+                    tech.kousozo.tahoetv.core.Viewer vw = TvViewer.get(c);
+                    if (vw.getDone()) province = vw.getNearRegion() == null ? "" : vw.getNearRegion(); // onboarding (#77)
+                    // the onboarding's channel countries (Indonesia before onboarding), then its categories and favourite order
+                    List<LocalTv.Entry> l = vw.arrange(LocalTv.INSTANCE.arrange(Sources.loadCountries(cfg.getString("playlist_url", ""), vw.getCountries()), province));
                     probe(c, l);
                     main.post(() -> { cached = l; cachedAt = System.currentTimeMillis(); list.accept(l); });
                 }
                 String guideUrl = cfg.getString("epg_url", "");
-                Epg e = guideUrl.isEmpty() ? Epg.Companion.load(Sources.INSTANCE.getEPG()) : Epg.Companion.load(guideUrl);
+                List<String> guides = new java.util.ArrayList<>();
+                for (String cc : TvViewer.get(c).getCountries()) for (String g : tech.kousozo.tahoetv.core.Region.guides(cc)) if (!guides.contains(g)) guides.add(g);
+                Epg e = guideUrl.isEmpty() ? Epg.Companion.load(guides) : Epg.Companion.load(guideUrl);
                 main.post(() -> { epg = e; guide.accept(e); });
             } catch (Exception ex) { main.post(failed); }
         });

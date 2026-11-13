@@ -451,8 +451,8 @@ public class LiveTv extends Activity {
         bl.setMargins((int) dp(Ui.SAFE_SIDE), 0, (int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP));
         o.addView(band, bl);
 
-        // weather once, in the background
-        Net.bg.execute(() -> {
+        // weather once, in the background (not when the onboarding left the city empty)
+        if (TvViewer.hasCity(this)) Net.bg.execute(() -> {
             try {
                 double lat = Double.parseDouble(Cfg.s(this, "latitude", R.string.latitude)), lon = Double.parseDouble(Cfg.s(this, "longitude", R.string.longitude));
                 tech.kousozo.tahoetv.core.Web.Weather wx = tech.kousozo.tahoetv.core.Web.INSTANCE.weather(lat, lon);
@@ -559,6 +559,7 @@ public class LiveTv extends Activity {
         java.util.Set<String> f = favs();
         boolean add = f.add(u); if (!add) f.remove(u);
         prefs.edit().putStringSet("fav", f).apply();
+        TvViewer.favoritesChanged(this, f);
         Toast.makeText(this, (add ? "★ Ditambahkan ke favorit: " : "Dihapus dari favorit: ") + list.get(k).getName(), Toast.LENGTH_SHORT).show();
         buildRows();
         if (k < allRows.length) allRows[k].requestFocus();
