@@ -22,7 +22,9 @@ import org.json.JSONObject
 import tech.kousozo.tahoetv.core.HlsProbe
 import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.M3u
+import tech.kousozo.tahoetv.core.Protocol
 import tech.kousozo.tahoetv.core.Sources
+import tech.kousozo.tahoetv.core.TahoeVersion
 
 /** LAN IPTV Server & Streaming Relay:
  *  Aggregates local M3U playlists (koutv.m3u, anotheriptv.m3u, ~/.tahoetv/playlists),
@@ -295,6 +297,8 @@ object IptvServer {
                     }
                 }
                 path == "/segment" -> serveSegment(ex, query["u"], query["cid"], query["s"])
+                path == "/info" -> serveInfo(ex)
+                path == "/api/connect" -> serveConnect(ex)
                 path == "/api/status" -> serveStatus(ex)
                 path == "/api/channels" -> serveChannels(ex, query)
                 path == "/api/health" -> serveHealth(ex, query)
@@ -616,6 +620,95 @@ object IptvServer {
         ex.responseHeaders.add("Content-Type", "application/json; charset=utf-8")
         ex.sendResponseHeaders(200, body.size.toLong())
         ex.responseBody.use { it.write(body) }
+    }
+
+    /** Device identity and Tahoe Connect capability advertisement (`GET /info`), matching TV Companion's handshake shape. */
+    private fun serveInfo(ex: HttpExchange) {
+        val info = JSONObject()
+            .put("id", "desktop-${lanIp()}")
+            .put("name", "Tahoe Desktop")
+            .put("role", "desktop")
+            .put("proto", Protocol.VERSION)
+            .put("ver", TahoeVersion.VERSION)
+            .put("port", port.value)
+            .put("channels", channels.size)
+            .put("caps", JSONArray(listOf("live", "handoff", "session")))
+        sendJson(ex, 200, info)
+    }
+
+    /** Tahoe Connect LAN receiver endpoint: GET returns device + playback session state; POST accepts Protocol v2 messages. */
+    private fun serveConnect(ex: HttpExchange) {
+        when (ex.requestMethod.uppercase()) {
+            "GET" -> {
+                val st = WebPlayer.state()
+                val ids = st.optJSONArray("ids")
+                val firstId = if (ids != null && ids.length() > 0) ids.optString(0, "") else ""
+                val stopped = st.optBoolean("stopped", true)
+                val title = st.optString("title", "")
+                val session = Protocol.SessionState(
+                    rev = st.optLong("seq", 0L),
+                    channelId = firstId,
+                    channel = title,
+                    number = 0,
+                    playing = !stopped && title.isNotEmpty(),
+                    paused = false,
+                )
+                val payload = Protocol.toLegacyStateJson(
+                    Protocol.DeviceState(volume = 100, muted = false, sleep = 0, session = session),
+                    session
+                )
+                sendJson(ex, 200, payload)
+            }
+            "POST" -> {
+                val origin = ex.requestHeaders.getFirst("Origin")
+                if (origin != null && !isAllowedOrigin(origin)) {
+                    return sendJson(ex, 403, Protocol.error("", "forbidden", "forbidden origin"))
+                }
+                val rawBytes = ex.requestBody.readNBytes(8193)
+                if (rawBytes.size > 8192) {
+                    return sendJson(ex, 413, Protocol.error("", "too_large", "payload too large"))
+                }
+                val decoded = Protocol.decode(String(rawBytes, Charsets.UTF_8))
+                    ?: return sendJson(ex, 400, Protocol.error("", "bad_request", "invalid message"))
+                when (val msg = decoded.message) {
+                    is Protocol.SessionLoad -> {
+                        val match = byId[msg.channelId] ?: channels.firstOrNull {
+                            it.channel.channelId.equals(msg.channelId, ignoreCase = true) ||
+                                it.channel.name.equals(msg.name.ifBlank { msg.channelId }, ignoreCase = true)
+                        }
+                        val stream = match?.channel ?: if (msg.url.isNotBlank()) {
+                            M3u.Channel(name = msg.name.ifBlank { msg.channelId.ifBlank { "Tahoe TV" } }, url = msg.url, logo = null, group = null)
+                        } else null
+                        if (stream == null) {
+                            return sendJson(ex, 404, Protocol.error(decoded.envelope.id, "not_found", "channel not found"))
+                        }
+                        val title = msg.name.ifBlank { stream.name }
+                        val err = WebPlayer.open(listOf(stream), title, {}, {})
+                        val rev = WebPlayer.state().optLong("seq", 0L)
+                        if (err != null) sendJson(ex, 409, Protocol.error(decoded.envelope.id, "playback_error", err))
+                        else sendJson(ex, 200, Protocol.ack(decoded.envelope.id, rev))
+                    }
+                    is Protocol.SessionControl -> when (msg.action.lowercase()) {
+                        "stop" -> {
+                            WebPlayer.stop()
+                            sendJson(ex, 200, Protocol.ack(decoded.envelope.id, WebPlayer.state().optLong("seq", 0L)))
+                        }
+                        "play" -> {
+                            WebPlayer.reopen()
+                            sendJson(ex, 200, Protocol.ack(decoded.envelope.id, WebPlayer.state().optLong("seq", 0L)))
+                        }
+                        "pause" -> sendJson(ex, 200, Protocol.ack(decoded.envelope.id, WebPlayer.state().optLong("seq", 0L)))
+                        else -> sendJson(ex, 400, Protocol.error(decoded.envelope.id, "unsupported", "unsupported action: ${msg.action}"))
+                    }
+                    is Protocol.Ping -> sendJson(ex, 200, Protocol.encode(Protocol.Pong(msg.nonce), id = decoded.envelope.id))
+                    else -> sendJson(ex, 400, Protocol.error(decoded.envelope.id, "unsupported", "unsupported type: ${decoded.envelope.type}"))
+                }
+            }
+            else -> {
+                ex.sendResponseHeaders(405, -1)
+                ex.close()
+            }
+        }
     }
 
     private fun serveChannels(ex: HttpExchange, query: Map<String, String>) {
