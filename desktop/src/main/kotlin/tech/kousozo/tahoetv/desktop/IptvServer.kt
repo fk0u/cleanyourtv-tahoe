@@ -121,6 +121,36 @@ object IptvServer {
         return "127.0.0.1"
     }
 
+    fun localIps(): Set<String> {
+        val ips = LinkedHashSet<String>()
+        ips.add("127.0.0.1")
+        ips.add("localhost")
+        ips.add("::1")
+        ips.add("0.0.0.0")
+        try {
+            for (ni in java.util.Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                for (a in java.util.Collections.list(ni.inetAddresses)) {
+                    a.hostAddress?.let { ips.add(it.substringBefore('%').lowercase()) }
+                }
+            }
+        } catch (_: Exception) {}
+        return ips
+    }
+
+    internal fun isAllowedHost(hostHeader: String?): Boolean {
+        if (hostHeader.isNullOrBlank()) return true
+        val host = hostHeader.substringBefore(':').trim().lowercase()
+        return host in localIps() || host.endsWith(".local")
+    }
+
+    internal fun isAllowedOrigin(origin: String?): Boolean {
+        if (origin.isNullOrBlank()) return false
+        val uri = runCatching { URI(origin) }.getOrNull() ?: return false
+        val host = uri.host?.lowercase().orEmpty()
+        val p = uri.port.takeIf { it != -1 } ?: if (uri.scheme.equals("https", true)) 443 else 80
+        return isAllowedHost(host) && (p == port.value || p == 80 || p == 443)
+    }
+
     fun webUrl(): String = "http://${lanIp()}:${port.value}/"
     fun masterPlaylistUrl(): String = "http://${lanIp()}:${port.value}/playlist.m3u"
     fun epgUrl(): String = "http://${lanIp()}:${port.value}/epg.xml"
@@ -211,11 +241,24 @@ object IptvServer {
     }
 
     private fun handleRequest(ex: HttpExchange) {
+        val host = ex.requestHeaders.getFirst("Host")
+        if (!isAllowedHost(host)) {
+            ex.sendResponseHeaders(400, -1)
+            ex.close()
+            return
+        }
+
         val path = ex.requestURI.path
         val query = ex.requestURI.rawQuery.orEmpty().split('&').filter { it.contains('=') }
             .associate { it.substringBefore('=') to URLDecoder.decode(it.substringAfter('='), "UTF-8") }
 
         if (ex.requestMethod.equals("OPTIONS", ignoreCase = true)) {
+            val origin = ex.requestHeaders.getFirst("Origin")
+            if (origin != null && !isAllowedOrigin(origin)) {
+                ex.sendResponseHeaders(403, -1)
+                ex.close()
+                return
+            }
             sendCors(ex)
             ex.sendResponseHeaders(204, -1)
             ex.close()
@@ -257,10 +300,14 @@ object IptvServer {
     }
 
     private fun sendCors(ex: HttpExchange) {
-        ex.responseHeaders.add("Access-Control-Allow-Origin", "*")
-        ex.responseHeaders.add("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
-        ex.responseHeaders.add("Access-Control-Allow-Headers", "Range, User-Agent, Referer, Accept, Content-Type")
-        ex.responseHeaders.add("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
+        val origin = ex.requestHeaders.getFirst("Origin")
+        if (origin != null && isAllowedOrigin(origin)) {
+            ex.responseHeaders.set("Access-Control-Allow-Origin", origin)
+            ex.responseHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
+            ex.responseHeaders.set("Access-Control-Allow-Headers", "Range, User-Agent, Referer, Accept, Content-Type")
+            ex.responseHeaders.set("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
+            ex.responseHeaders.set("Vary", "Origin")
+        }
     }
 
     private fun baseUrl(ex: HttpExchange): String {
@@ -563,6 +610,8 @@ object IptvServer {
         val base = baseUrl(ex)
         val grp = query["group"]
         val filtered = channels.filter { (grp == null || it.channel.group.equals(grp, ignoreCase = true)) && wanted(it, query) }
+        val origin = ex.requestHeaders.getFirst("Origin")
+        val includeSecrets = fromThisComputer(ex) && (origin == null || isAllowedOrigin(origin))
         val arr = JSONArray()
         for (sc in filtered) {
             val isMpd = sc.channel.url.contains(".mpd", ignoreCase = true)
@@ -574,11 +623,11 @@ object IptvServer {
                 put("id", sc.id)
                 put("name", sc.channel.name)
                 put("stream_url", "$base/live/${sc.id}$ext")
-                put("raw_url", sc.channel.url)
+                if (includeSecrets) put("raw_url", sc.channel.url)
                 put("is_mpd", isMpd)
                 put("is_vod", isVod)
                 put("drm_type", sc.drmType)
-                put("drm_key", sc.drmKey)
+                if (includeSecrets) put("drm_key", sc.drmKey)
                 put("logo", sc.channel.logo)
                 put("group", sc.channel.group)
                 put("tvg_id", sc.channel.tvgId)
@@ -631,6 +680,7 @@ object IptvServer {
             .replace("__SLATE__", slateJson())
         val body = html.toByteArray(Charsets.UTF_8)
         ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
+        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
         ex.responseHeaders.add("Cache-Control", "no-store")
         ex.sendResponseHeaders(200, body.size.toLong())
         ex.responseBody.use { it.write(body) }
@@ -938,7 +988,17 @@ setInterval(poll, 1500);
     const drmBox = document.getElementById('drmBox');
     if (info.drm_type || info.drm_key) {
       drmBox.style.display = 'block';
-      drmBox.innerHTML = '<strong>DRM:</strong> ' + (info.drm_type || 'ClearKey') + (info.drm_key ? '<br><code>' + info.drm_key + '</code>' : '');
+      drmBox.textContent = '';
+      const strong = document.createElement('strong');
+      strong.textContent = 'DRM: ';
+      drmBox.appendChild(strong);
+      drmBox.appendChild(document.createTextNode((info.drm_type || 'ClearKey') + ' '));
+      if (info.drm_key) {
+        drmBox.appendChild(document.createElement('br'));
+        const code = document.createElement('code');
+        code.textContent = info.drm_key;
+        drmBox.appendChild(code);
+      }
     } else {
       drmBox.style.display = 'none';
     }
@@ -985,6 +1045,7 @@ setInterval(poll, 1500);
         val body = html.toByteArray(Charsets.UTF_8)
         sendCors(ex)
         ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
+        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
         ex.sendResponseHeaders(200, body.size.toLong())
         ex.responseBody.use { it.write(body) }
     }
