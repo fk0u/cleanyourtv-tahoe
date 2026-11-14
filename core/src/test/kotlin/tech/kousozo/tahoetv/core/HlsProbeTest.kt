@@ -111,4 +111,56 @@ class HlsProbeTest {
             assertEquals("$base/v5.m3u8", HlsProbe.liveVariant(many, "$base/m.m3u8", emptyMap(), 3000)?.first?.url)
         }
     }
+
+    @Test fun fetchFollowsMultiHopAndRelativeRedirects() {
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        val base = "http://127.0.0.1:${server.address.port}"
+        server.createContext("/start") { ex ->
+            ex.responseHeaders.add("Location", "$base/dir/hop1")
+            ex.sendResponseHeaders(302, -1)
+            ex.close()
+        }
+        server.createContext("/dir/hop1") { ex ->
+            ex.responseHeaders.add("Location", "../final/stream.m3u8")
+            ex.sendResponseHeaders(307, -1)
+            ex.close()
+        }
+        server.createContext("/final/stream.m3u8") { ex ->
+            val b = media.toByteArray()
+            ex.sendResponseHeaders(200, b.size.toLong())
+            ex.responseBody.use { it.write(b) }
+        }
+        server.start()
+        try {
+            val (text, finalUrl) = HlsProbe.fetch("$base/start", emptyMap(), 3000)
+            assertEquals(media, text)
+            assertEquals("$base/final/stream.m3u8", finalUrl)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test fun openFollowingRedirectsStopsAfterFiveHops() {
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        val base = "http://127.0.0.1:${server.address.port}"
+        server.createContext("/") { ex ->
+            val n = ex.requestURI.path.removePrefix("/r").toIntOrNull() ?: 0
+            ex.responseHeaders.add("Location", "$base/r${n + 1}")
+            ex.sendResponseHeaders(302, -1)
+            ex.close()
+        }
+        server.start()
+        try {
+            var thrown: java.io.IOException? = null
+            try {
+                Web.openFollowingRedirects("$base/r0", 3000)
+            } catch (e: java.io.IOException) {
+                thrown = e
+            }
+            kotlin.test.assertNotNull(thrown)
+            kotlin.test.assertTrue(thrown!!.message!!.contains("Too many redirects"))
+        } finally {
+            server.stop(0)
+        }
+    }
 }

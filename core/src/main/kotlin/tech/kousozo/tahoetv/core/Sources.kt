@@ -1,8 +1,6 @@
 package tech.kousozo.tahoetv.core
 
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -165,9 +163,7 @@ object Sources {
             if (!text.trimStart().startsWith("#EXTM3U")) return@runCatching false
             return@runCatching LocalTv.isVod(c) || HlsProbe.verdict(text, finalUrl, c.headers, timeoutMs).let { it == HlsProbe.Kind.LIVE || it == HlsProbe.Kind.UNKNOWN }
         }
-        val con = URI(c.url).toURL().openConnection() as HttpURLConnection
-        con.connectTimeout = timeoutMs; con.readTimeout = timeoutMs; con.instanceFollowRedirects = true
-        con.setRequestProperty("User-Agent", Web.STREAM_UA); c.headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
+        val con = Web.openFollowingRedirects(c.url, timeoutMs, c.headers, connectTimeoutMs = timeoutMs)
         try {
             if (con.responseCode !in 200..299) return@runCatching false
             val head = Web.body(con)!!.use { s -> ByteArray(16).let { b -> String(b, 0, s.read(b).coerceAtLeast(0)) } }

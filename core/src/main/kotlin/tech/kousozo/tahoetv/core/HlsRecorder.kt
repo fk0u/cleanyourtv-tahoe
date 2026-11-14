@@ -3,7 +3,6 @@ package tech.kousozo.tahoetv.core
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
 import java.net.URI
 
 /** Records a live HLS channel to one file by following its playlist and appending every new segment, until [stopAt].
@@ -165,34 +164,26 @@ class HlsRecorder(
 
         /** Writes one segment (or bytes [range] of it) to [o]; returns its size. */
         fun copy(url: String, headers: Map<String, String>, range: String?, o: java.io.OutputStream): Long {
-            var u = url
-            repeat(5) {
-                val c = URI(u).toURL().openConnection() as HttpURLConnection
-                c.connectTimeout = 8000; c.readTimeout = 20_000; c.instanceFollowRedirects = false
-                c.setRequestProperty("User-Agent", Web.STREAM_UA); headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
-                if (range != null) c.setRequestProperty("Range", "bytes=$range")
-                try {
-                    if (c.responseCode in 300..399) { u = URI(u).resolve(c.getHeaderField("Location")).toString(); return@repeat }
-                    if (c.responseCode !in 200..299) error("HTTP ${c.responseCode}")
-                    // A server that ignores Range sends the whole file: cut the requested part out of it.
-                    if (range != null && c.responseCode == 200) {
-                        val a = range.substringBefore('-').toLong(); val n = range.substringAfter('-').toLong() - a + 1
-                        return Web.body(c)!!.use { s ->
-                            var pos = 0L; var left = n; val buf = ByteArray(64 * 1024)
-                            while (left > 0) {
-                                val r = s.read(buf); if (r < 0) break
-                                val from = (a - pos).coerceIn(0, r.toLong()).toInt()
-                                val take = minOf((r - from).toLong(), left).toInt()
-                                if (take > 0) { o.write(buf, from, take); left -= take }
-                                pos += r
-                            }
-                            n - left
+            val c = Web.openFollowingRedirects(url, 20_000, headers, range = range?.let { "bytes=$it" }, connectTimeoutMs = 8000)
+            try {
+                if (c.responseCode !in 200..299) error("HTTP ${c.responseCode}")
+                // A server that ignores Range sends the whole file: cut the requested part out of it.
+                if (range != null && c.responseCode == 200) {
+                    val a = range.substringBefore('-').toLong(); val n = range.substringAfter('-').toLong() - a + 1
+                    return Web.body(c)!!.use { s ->
+                        var pos = 0L; var left = n; val buf = ByteArray(64 * 1024)
+                        while (left > 0) {
+                            val r = s.read(buf); if (r < 0) break
+                            val from = (a - pos).coerceIn(0, r.toLong()).toInt()
+                            val take = minOf((r - from).toLong(), left).toInt()
+                            if (take > 0) { o.write(buf, from, take); left -= take }
+                            pos += r
                         }
+                        n - left
                     }
-                    return Web.body(c)!!.use { it.copyTo(o) }
-                } finally { c.disconnect() }
-            }
-            error("too many redirects")
+                }
+                return Web.body(c)!!.use { it.copyTo(o) }
+            } finally { c.disconnect() }
         }
     }
 }
