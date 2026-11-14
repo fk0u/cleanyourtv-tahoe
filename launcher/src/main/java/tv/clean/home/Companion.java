@@ -143,6 +143,10 @@ final class Companion extends NanoWSD {
     String pairUrl() { return "http://" + ip() + ":" + PORT + "/?code=" + code(); }
 
     Set<String> tokens() { return new HashSet<>(prefs.getStringSet("tokens", new HashSet<>())); }
+    private JSONObject tokenMeta() {
+        try { return new JSONObject(prefs.getString("token_meta", "{}")); }
+        catch (Exception ignored) { return new JSONObject(); }
+    }
     boolean authed(IHTTPSession s) {
         String auth = s.getHeaders().get("authorization");
         String t = null;
@@ -156,9 +160,11 @@ final class Companion extends NanoWSD {
     void revoke(String token) {
         Set<String> t = tokens();
         t.remove(token);
-        prefs.edit().putStringSet("tokens", t).apply();
+        JSONObject meta = tokenMeta();
+        meta.remove(token);
+        prefs.edit().putStringSet("tokens", t).putString("token_meta", meta.toString()).apply();
     }
-    void forgetAll() { prefs.edit().remove("tokens").apply(); synchronized (sockets) { for (Socket s : sockets) try { s.close(WebSocketFrame.CloseCode.NormalClosure, "unpaired", false); } catch (Exception ignored) {} } }
+    void forgetAll() { prefs.edit().remove("tokens").remove("token_meta").apply(); synchronized (sockets) { for (Socket s : sockets) try { s.close(WebSocketFrame.CloseCode.NormalClosure, "unpaired", false); } catch (Exception ignored) {} } }
 
     /** Send to every connected phone (e.g. media controls back to the phone app). */
     /** Socket writes off the main thread (Android throws NetworkOnMainThreadException there). */
@@ -211,6 +217,37 @@ final class Companion extends NanoWSD {
                 ui.post(l::onKidsPin);
                 return json(Response.Status.OK, new JSONObject().put("ok", true));
             }
+            if (uri.equals("/devices") && s.getMethod() == Method.GET) {
+                JSONArray list = new JSONArray();
+                JSONObject meta = tokenMeta();
+                for (String tk : tokens()) {
+                    JSONObject m = meta.optJSONObject(tk);
+                    list.put(new JSONObject()
+                            .put("prefix", tk.substring(0, Math.min(6, tk.length())))
+                            .put("name", m != null ? m.optString("name", "HP") : "HP")
+                            .put("role", m != null ? m.optString("role", "owner") : "owner")
+                            .put("ip", m != null ? m.optString("ip", "") : "")
+                            .put("pairedAt", m != null ? m.optLong("pairedAt", 0L) : 0L));
+                }
+                return json(Response.Status.OK, new JSONObject().put("devices", list));
+            }
+            if (uri.equals("/devices/revoke") && s.getMethod() == Method.POST) {
+                String prefix;
+                try { prefix = new JSONObject(body(s, 1024)).optString("prefix", "").trim(); }
+                catch (TooLarge e) {
+                    Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
+                    r.closeConnection(true);
+                    return r;
+                }
+                catch (Exception e) { prefix = ""; }
+                if (prefix.isEmpty()) return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "prefix wajib"));
+                String target = null;
+                for (String tk : tokens()) {
+                    if (tk.startsWith(prefix)) { target = tk; break; }
+                }
+                if (target != null) revoke(target);
+                return json(Response.Status.OK, new JSONObject().put("ok", target != null));
+            }
         } catch (Exception e) {
             return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", String.valueOf(e.getMessage()));
         }
@@ -229,9 +266,17 @@ final class Companion extends NanoWSD {
 
     Response pair(IHTTPSession s) throws Exception {
         String given;
+        String deviceName = "HP";
         try {
             String b = body(s, 1024);
-            given = b.isEmpty() ? s.getParms().get("code") : new JSONObject(b).optString("code");
+            if (b.isEmpty()) {
+                given = s.getParms().get("code");
+            } else {
+                JSONObject jb = new JSONObject(b);
+                given = jb.optString("code");
+                String dn = jb.optString("deviceName", "").trim();
+                if (!dn.isEmpty()) deviceName = dn;
+            }
         } catch (TooLarge e) {
             Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
             r.closeConnection(true);
@@ -250,8 +295,20 @@ final class Companion extends NanoWSD {
         byte[] b = new byte[24]; rnd.nextBytes(b);
         String token = android.util.Base64.encodeToString(b, android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING);
         Set<String> t = tokens(); t.add(token);
-        prefs.edit().putStringSet("tokens", t).apply();
-        return json(Response.Status.OK, new JSONObject().put("token", token).put("name", "Tahoe TV"));
+        JSONObject meta = tokenMeta();
+        try {
+            meta.put(token, new JSONObject()
+                    .put("name", deviceName)
+                    .put("role", "owner")
+                    .put("ip", String.valueOf(s.getRemoteIpAddress()))
+                    .put("pairedAt", System.currentTimeMillis()));
+        } catch (Exception ignored) {}
+        prefs.edit().putStringSet("tokens", t).putString("token_meta", meta.toString()).apply();
+        return json(Response.Status.OK, new JSONObject()
+                .put("token", token)
+                .put("id", deviceId())
+                .put("name", "Tahoe TV")
+                .put("role", "owner"));
     }
 
     static final class TooLarge extends IOException {}
