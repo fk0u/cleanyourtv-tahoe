@@ -93,6 +93,7 @@ object PlayerWindow {
     const val CLOSED = "Pemutar ditutup"
     private var currentIndex = 0
     private var failReason: String? = null
+    private var failSlateReason: tech.kousozo.tahoetv.core.Slate.Reason? = null
 
     // ---- loading overlay: dark scrim, channel logo + name, 12-tick spinner (tvOS / Apple TV style)
     private lateinit var loader: StackPane
@@ -176,19 +177,18 @@ object PlayerWindow {
     private fun slate(gen: Int) {
         val lang = Settings.lang
         val order = tech.kousozo.tahoetv.core.Slate.order(lang)
-        val reason = if (failReason != null) tech.kousozo.tahoetv.core.Slate.Reason.Recording else tech.kousozo.tahoetv.core.Slate.Reason.Offline
+        val reason = failSlateReason ?: tech.kousozo.tahoetv.core.Slate.Reason.Offline
         val head = order.joinToString("\n\n") { tech.kousozo.tahoetv.core.Slate.message(it) } + "\n\n" + tech.kousozo.tahoetv.core.Slate.reason(order[0], reason)
         fail(head)
         retryBtn.text = tech.kousozo.tahoetv.core.Slate.label(lang, "retry") + " ↻"; retryBtn.isVisible = true; retryBtn.isManaged = true
         slateTimer?.stop()
-        if (slateRetries >= tech.kousozo.tahoetv.core.Slate.MAX_RETRIES) { statusLabel.text = head + "\n" + tech.kousozo.tahoetv.core.Slate.label(lang, "waiting"); return }
+        if (slateRetries >= tech.kousozo.tahoetv.core.Slate.MAX_RETRIES) { statusLabel.text = head + "\n\n" + tech.kousozo.tahoetv.core.Slate.label(lang, "waiting"); return }
         var left = tech.kousozo.tahoetv.core.Slate.RETRY_SECONDS
-        statusLabel.text = head + "\n" + tech.kousozo.tahoetv.core.Slate.label(lang, "retrying").replace("%s", "$left")
+        statusLabel.text = head + "\n\n" + tech.kousozo.tahoetv.core.Slate.label(lang, "trying")
         slateTimer = Timeline(KeyFrame(Duration.seconds(1.0), {
             if (gen != generation) { slateTimer?.stop(); return@KeyFrame }
             left--
             if (left <= 0) { slateTimer?.stop(); slateRetries++; start(SourceHealth.order(channelStreams), 0, gen) }
-            else statusLabel.text = head + "\n" + tech.kousozo.tahoetv.core.Slate.label(lang, "retrying").replace("%s", "$left")
         })).apply { cycleCount = Timeline.INDEFINITE; play() }
     }
 
@@ -235,7 +235,7 @@ object PlayerWindow {
             if (alt != null) return start(streams, streams.indexOf(alt), gen)
             return fail("Saluran ini menggunakan DASH/DRM. Silakan tonton melalui Web Player bawaan (Shaka Player) atau pemutar eksternal (Kodi/TiviMate).")
         }
-        if (retry == 0) { failReason = null; statusLabel.isVisible = false; nextBtn.isVisible = false; nextBtn.isManaged = false; webBtn.isVisible = false; webBtn.isManaged = false
+        if (retry == 0) { failReason = null; failSlateReason = null; statusLabel.isVisible = false; nextBtn.isVisible = false; nextBtn.isManaged = false; webBtn.isVisible = false; webBtn.isManaged = false
             retryBtn.isVisible = false; retryBtn.isManaged = false; slateTimer?.stop(); loading(true) }
         // A source that "answers" can still be a recording (finished playlist, or yesterday's broadcast replayed on a loop).
         // Unless it was just verified live, look at the playlist first and skip it if it isn't live.
@@ -247,8 +247,8 @@ object PlayerWindow {
                 val fix = kind == HlsProbe.Kind.LIVE && runCatching { HlsProbe.fetch(c.url, c.headers, 4000).let { (t, u) -> HlsProbe.firstVariantDead(t, u, c.headers, 4000) } }.getOrDefault(false)
                 Platform.runLater {
                     if (gen != generation) return@runLater
-                    if (kind == HlsProbe.Kind.REPLAY || kind == HlsProbe.Kind.STALE) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; next() }
-                    else if (kind == HlsProbe.Kind.DEAD) { failReason = "Server saluran ini sedang tidak mengirim siaran."; next() } // don't wait 20 s for it
+                    if (kind == HlsProbe.Kind.REPLAY || kind == HlsProbe.Kind.STALE) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Recording; next() }
+                    else if (kind == HlsProbe.Kind.DEAD) { failReason = "Server saluran ini sedang tidak mengirim siaran."; failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Offline; next() } // don't wait 20 s for it
                     else { if (fix) relayed += c.url; begin(streams, i, gen, retry, c, next) }
                 }
             }, "tahoe-probe").apply { isDaemon = true }.start()
@@ -275,7 +275,7 @@ object PlayerWindow {
         p.setOnPlaying { if (current() && (p.media.width > 0 || p.media.tracks.any { it is javafx.scene.media.VideoTrack })) { SourceHealth.report(c.url, true); playingNow() } }
         p.setOnError { if (current()) { tech.kousozo.tahoetv.core.DiagLog.error("live", "JavaFX: ${p.error?.type} ${p.error?.message}"); recover() } }
         // A live channel that reaches its end is a finished recording: restarting it just plays it from the top again.
-        p.setOnEndOfMedia { if (!isVod && current()) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; next() } }
+        p.setOnEndOfMedia { if (!isVod && current()) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Recording; next() } }
         p.play()
         // Watchdog: a stream may never error and just hang, or "play" with no picture / a frozen or black picture.
         var stuckSince = System.nanoTime(); val began = System.nanoTime()
@@ -293,7 +293,7 @@ object PlayerWindow {
                 age > 20 && lastTime < 0 -> next()                                   // never started
                 // sound only: judged once it really plays (track info is known by then), not while still connecting
                 age > 12 && noVideo && lastTime >= 0 && p.status == MediaPlayer.Status.PLAYING && p.media.tracks.isNotEmpty() ->
-                    { failReason = "Siaran ini hanya mengirim suara, tanpa gambar."; next() }
+                    { failReason = "Siaran ini hanya mengirim suara, tanpa gambar."; failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Unsupported; next() }
                 // STALLED = buffering, give it 30 s (a restart starts the stream over); playing but stuck 12 s = frozen
                 lastTime >= 0 && since > (if (p.status == MediaPlayer.Status.STALLED) 30 else 12) -> recover()
             }
@@ -301,7 +301,7 @@ object PlayerWindow {
             if (moving && !noVideo) {
                 black = if (pictureIsBlack()) black + 1 else 0
                 // ~20 s of pure black (10 checks): longer than a fade or a dark scene
-                if (black >= 10) { black = 0; failReason = "Pemutar ini tidak bisa menampilkan gambar siaran tersebut (kodek video tidak didukung)."; next() }
+                if (black >= 10) { black = 0; failReason = "Pemutar ini tidak bisa menampilkan gambar siaran tersebut (kodek video tidak didukung)."; failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Unsupported; next() }
             }
         })).apply { cycleCount = Timeline.INDEFINITE; play() }
     }
@@ -411,7 +411,7 @@ object PlayerWindow {
     /** "This isn't live": the current source plays a recording. Skip it now and never start it first again. */
     private fun reportRecording() {
         val c = currentStreams.getOrNull(currentIndex) ?: return
-        SourceHealth.ban(c.url); failReason = "Semua sumber saluran ini memutar rekaman."
+        SourceHealth.ban(c.url); failReason = "Semua sumber saluran ini memutar rekaman."; failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Recording
         start(currentStreams, currentIndex + 1, ++generation) // new generation: a probe still running for the flagged source is ignored
     }
 }

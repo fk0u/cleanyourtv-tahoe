@@ -1,11 +1,58 @@
 package tech.kousozo.tahoetv.core
 
-/** What every player shows in place of a channel that can't play (#76): a calm Tahoe "slate" with the apology in
+/** What every player shows in place of a channel that can't play (#76, #114): a calm Tahoe "slate" with the apology in
  *  Indonesian, English and Chinese at once (the viewer's language first), a short reason, and the actions. Players
  *  keep retrying in the background every [RETRY_SECONDS] and switch back to the broadcast as soon as a source works. */
 object Slate {
     /** Why it can't play, when the player knows. */
     enum class Reason { Offline, Recording, Unsupported }
+
+    enum class State { RETRYING, WAITING }
+
+    /** Reusable retry state machine for slate across TV, phone, desktop, and web players. */
+    class RetryState(
+        val maxRetries: Int = MAX_RETRIES,
+        val retrySeconds: Int = RETRY_SECONDS
+    ) {
+        var retries: Int = 0
+            private set
+        var secondsLeft: Int = retrySeconds
+            private set
+        var state: State = State.RETRYING
+            private set
+
+        val isWaiting: Boolean get() = state == State.WAITING
+
+        /** Ticks 1 second down. Returns true if a retry should be triggered right now. */
+        fun tick(): Boolean {
+            if (state == State.WAITING) return false
+            secondsLeft--
+            if (secondsLeft <= 0) {
+                retries++
+                if (retries >= maxRetries) {
+                    state = State.WAITING
+                    secondsLeft = 0
+                    return false
+                } else {
+                    secondsLeft = retrySeconds
+                    return true
+                }
+            }
+            return false
+        }
+
+        fun retryNow() {
+            retries = 0
+            secondsLeft = retrySeconds
+            state = State.RETRYING
+        }
+
+        fun reset() {
+            retries = 0
+            secondsLeft = retrySeconds
+            state = State.RETRYING
+        }
+    }
 
     /** The three languages the apology is always shown in, in this order unless the viewer reads one of them. */
     val LANGUAGES = listOf("id", "en", "zh")
@@ -31,7 +78,7 @@ object Slate {
         "next" to mapOf("id" to "Saluran berikutnya", "en" to "Next channel", "zh" to "下一个频道"),
         "report" to mapOf("id" to "Laporkan saluran", "en" to "Report channel", "zh" to "报告频道"),
         "retrying" to mapOf("id" to "Mencoba lagi dalam %s detik", "en" to "Trying again in %s s", "zh" to "%s 秒后重试"),
-        "trying" to mapOf("id" to "Mencoba lagi…", "en" to "Trying again…", "zh" to "正在重试…"),
+        "trying" to mapOf("id" to "Mencoba lagi otomatis…", "en" to "Trying automatically…", "zh" to "自动重试中…"),
         "waiting" to mapOf("id" to "Tekan Coba lagi kapan saja.", "en" to "Press Try again any time.", "zh" to "随时可按重试。"),
     )
 
@@ -50,7 +97,17 @@ object Slate {
         return m[l] ?: m.getValue("en")
     }
 
-    /** GitHub's "channel problem" form, with the channel name filled in. */
-    @JvmStatic fun reportUrl(channel: String): String =
-        "https://github.com/fk0u/cleanyourtv-tahoe/issues/new?template=channel.yml&title=" + java.net.URLEncoder.encode("[Saluran] $channel", "UTF-8")
+    @JvmStatic fun reportTitle(lang: String?, channel: String): String {
+        val prefix = when (Region.language(lang)) {
+            "zh" -> "[频道]"
+            "en" -> "[Channel]"
+            else -> "[Saluran]"
+        }
+        return "$prefix $channel"
+    }
+
+    /** GitHub's "channel problem" form, with the channel name filled in and localised title. */
+    @JvmStatic @JvmOverloads fun reportUrl(channel: String, lang: String? = null): String =
+        "https://github.com/fk0u/cleanyourtv-tahoe/issues/new?template=channel.yml&title=" +
+        java.net.URLEncoder.encode(reportTitle(lang, channel), "UTF-8")
 }

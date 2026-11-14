@@ -470,36 +470,30 @@ private fun ChannelSlate(e: LocalTv.Entry, reason: tech.kousozo.tahoetv.core.Sla
     val lang = PhoneRegion.language
     val order = tech.kousozo.tahoetv.core.Slate.order(lang)
     val logo = rememberNetImage(e.channel.logo)
-    var turn by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) { while (true) { delay(4000); turn++ } }
-    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF0A1A7A), Color(0xFF07080D), Color(0xFF3A1650))))
+    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(tech.kousozo.tahoetv.core.Brand.LAKE_DEEP), Color(tech.kousozo.tahoetv.core.Brand.NIGHT), Color(tech.kousozo.tahoetv.core.Brand.CANVAS))))
         .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
         Column(Modifier.align(Alignment.Center).padding(horizontal = 16.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (full) 10.dp else 3.dp)) {
+            verticalArrangement = Arrangement.spacedBy(if (full) 10.dp else 4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(if (full) 48.dp else 24.dp).clip(RoundedCornerShape(if (full) 10.dp else 6.dp)).background(Color.White.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(if (full) 48.dp else 28.dp).clip(RoundedCornerShape(if (full) 10.dp else 6.dp)).background(Color.White.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
                     if (logo != null) androidx.compose.foundation.Image(logo, null, Modifier.fillMaxSize().padding(3.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
                     else BrandMark(if (full) 28.dp else 16.dp)
                 }
-                Text(e.name, color = Color.White, fontSize = if (full) 20.sp else 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(e.name, color = Color.White, fontSize = if (full) 20.sp else 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(tech.kousozo.tahoetv.core.Slate.message(order[0]), color = Color.White, fontSize = if (full) 16.sp else 12.sp,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = if (full) 3 else 2, overflow = TextOverflow.Ellipsis)
-            if (full) order.drop(1).forEach { l ->
-                Text(tech.kousozo.tahoetv.core.Slate.message(l), color = Color.White.copy(alpha = 0.62f), fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            } else androidx.compose.animation.Crossfade(order[1 + turn % 2], label = "slate-lang") { l ->
-                Text(tech.kousozo.tahoetv.core.Slate.message(l), color = Color.White.copy(alpha = 0.62f), fontSize = 10.sp,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Text(tech.kousozo.tahoetv.core.Slate.reason(order.first(), reason) + "  ·  " + when {
-                Playback.retryIn > 0 -> tech.kousozo.tahoetv.core.Slate.label(lang, "retrying").replace("%s", "${Playback.retryIn}")
-                else -> tech.kousozo.tahoetv.core.Slate.label(lang, "waiting")
-            }, color = Color.White.copy(alpha = 0.5f), fontSize = if (full) 12.sp else 10.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1)
+            val others = order.drop(1).joinToString("  ·  ") { tech.kousozo.tahoetv.core.Slate.message(it) }
+            Text(others, color = Color.White.copy(alpha = 0.62f), fontSize = if (full) 13.sp else 10.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = if (full) 2 else 1, overflow = TextOverflow.Ellipsis)
+            val whenText = if (Playback.retryIn > 0) tech.kousozo.tahoetv.core.Slate.label(lang, "trying") else tech.kousozo.tahoetv.core.Slate.label(lang, "waiting")
+            Text(tech.kousozo.tahoetv.core.Slate.reason(order.first(), reason) + "  ·  " + whenText,
+                color = Color.White.copy(alpha = 0.62f), fontSize = if (full) 13.sp else 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = if (full) 6.dp else 2.dp)) {
                 SlateButton(tech.kousozo.tahoetv.core.Slate.label(lang, "retry"), Icons.Rounded.Refresh, full, primary = true) { Playback.retry(c) }
                 SlateButton(tech.kousozo.tahoetv.core.Slate.label(lang, "next"), Icons.Rounded.SkipNext, full) { zap(1) }
                 if (full) SlateButton(tech.kousozo.tahoetv.core.Slate.label(lang, "report"), Icons.Rounded.Flag, full) {
-                    runCatching { c.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(tech.kousozo.tahoetv.core.Slate.reportUrl(e.name)))) }
+                    runCatching { c.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(tech.kousozo.tahoetv.core.Slate.reportUrl(e.name, lang)))) }
                 }
             }
         }
@@ -508,7 +502,8 @@ private fun ChannelSlate(e: LocalTv.Entry, reason: tech.kousozo.tahoetv.core.Sla
 
 @Composable
 private fun SlateButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, big: Boolean, primary: Boolean = false, onClick: () -> Unit) = Row(
-    Modifier.clip(RoundedCornerShape(50)).background(if (primary) Color.White else Color.White.copy(alpha = 0.16f)).clickable(onClick = onClick)
+    Modifier.defaultMinSize(minHeight = 48.dp, minWidth = 48.dp)
+        .clip(RoundedCornerShape(50)).background(if (primary) Color.White else Color.White.copy(alpha = 0.16f)).clickable(onClick = onClick)
         .padding(horizontal = if (big) 16.dp else 12.dp, vertical = if (big) 10.dp else 6.dp),
     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
 ) {
