@@ -1,6 +1,9 @@
 package tech.kousozo.tahoetv.core
 
 import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -21,6 +24,8 @@ object SourceHealth {
     private val banned = ConcurrentHashMap.newKeySet<String>()
     private var banFile: File? = null
 
+    internal fun resetForTest() { file = null; banFile = null; map.clear(); banned.clear(); queued.clear() }
+
     /** Restores the last results (if still fresh) and saves new ones to [f]. Call once at start-up.
      *  [bans]: where sources marked "not live" are kept. Must be durable storage (Android: filesDir, not cacheDir, which
      *  the system may clear); defaults to a file next to [f]. */
@@ -30,15 +35,34 @@ object SourceHealth {
         banFile = (bans ?: File(f.parentFile, "source-banned.txt")).also { b -> runCatching { b.readLines().filter { it.isNotBlank() }.forEach { banned += it } } }
         val now = System.currentTimeMillis()
         runCatching {
-            f.readLines().forEach { l ->
-                val p = l.split('\t')
-                if (p.size == 4 && now - p[3].toLong() < TTL) map[p[0]] = Status(p[1] == "1", p[2].toLong(), p[3].toLong())
+            f.forEachLine { l ->
+                runCatching {
+                    val p = l.split('\t')
+                    if (p.size == 4) {
+                        val ms = p[2].toLong()
+                        val at = p[3].toLong()
+                        if (now - at < TTL) map[p[0]] = Status(p[1] == "1", ms, at)
+                    }
+                }
             }
         }
     }
 
-    private fun save() = file?.let { f ->
-        runCatching { f.writeText(map.entries.joinToString("\n") { (u, s) -> "$u\t${if (s.live) 1 else 0}\t${s.ms}\t${s.at}" }) }
+    private fun atomicWrite(target: File, content: String) {
+        runCatching {
+            target.parentFile?.mkdirs()
+            val tmp = File(target.parentFile, "${target.name}.tmp")
+            tmp.writeText(content)
+            try {
+                Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        }
+    }
+
+    @Synchronized internal fun save() = file?.let { f ->
+        atomicWrite(f, map.entries.joinToString("\n") { (u, s) -> "$u\t${if (s.live) 1 else 0}\t${s.ms}\t${s.at}" })
     }
 
     @JvmStatic fun status(url: String): Status? =
@@ -54,7 +78,7 @@ object SourceHealth {
         if (n > 0) saveBans()
         return n
     }
-    private fun saveBans() { banFile?.let { f -> runCatching { f.writeText(banned.joinToString("\n")) } } }
+    @Synchronized private fun saveBans() { banFile?.let { f -> atomicWrite(f, banned.joinToString("\n")) } }
 
     /** A player's verdict beats a probe: it really played (or really failed). */
     @JvmStatic fun report(url: String, live: Boolean) { if (url in banned) return; map[url] = Status(live, status(url)?.ms ?: 0, System.currentTimeMillis()) }
@@ -70,7 +94,8 @@ object SourceHealth {
                 val live = Sources.check(c, 3500)
                 map[c.url] = Status(live, (System.nanoTime() - t) / 1_000_000, System.currentTimeMillis())
                 queued.remove(c.url)
-                if (left.decrementAndGet() == 0) { save(); done?.run() } else if (left.get() % 50 == 0) save()
+                val rem = left.decrementAndGet()
+                if (rem == 0) { save(); done?.run() } else if (rem % 50 == 0) save()
             }
         }
     }
