@@ -308,7 +308,7 @@ fun TabBar(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int)
     }
 }
 
-/** Remote images (channel logos) with an in-memory cache; null while loading or on failure. */
+/** Remote images (channel logos) with a byte-bounded in-memory LRU cache and downsampled decoding. */
 @Composable
 fun rememberNetImage(url: String?): androidx.compose.ui.graphics.ImageBitmap? {
     var img by remember(url) { mutableStateOf(url?.let { NetImages.cache.get(it) }) }
@@ -316,12 +316,21 @@ fun rememberNetImage(url: String?): androidx.compose.ui.graphics.ImageBitmap? {
         if (url == null || img != null) return@LaunchedEffect
         img = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
-                val c = java.net.URL(url).openConnection().apply { connectTimeout = 6000; readTimeout = 10000; setRequestProperty("User-Agent", "TahoeTV") }
-                val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }
-                android.graphics.BitmapFactory.decodeStream(c.getInputStream(), null, o)?.let { b ->
+                val c = java.net.URI(url).toURL().openConnection().apply { connectTimeout = 6000; readTimeout = 10000; setRequestProperty("User-Agent", "TahoeTV") }
+                val data = try { c.getInputStream().use { it.readBytes() } } finally { (c as? java.net.HttpURLConnection)?.disconnect() }
+                val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, o)
+                var sample = 1
+                while (maxOf(o.outWidth, o.outHeight) / (sample * 2) >= 200) sample *= 2
+                o.inJustDecodeBounds = false
+                o.inSampleSize = sample
+                o.inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+                android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, o)?.let { b ->
                     // logos only need ~200 px: keep memory small
                     val s = minOf(1f, 200f / maxOf(b.width, b.height))
-                    (if (s < 1f) android.graphics.Bitmap.createScaledBitmap(b, (b.width * s).toInt().coerceAtLeast(1), (b.height * s).toInt().coerceAtLeast(1), true) else b)
+                    val scaled = if (s < 1f) android.graphics.Bitmap.createScaledBitmap(b, (b.width * s).toInt().coerceAtLeast(1), (b.height * s).toInt().coerceAtLeast(1), true) else b
+                    if (scaled !== b) b.recycle()
+                    scaled
                 }?.asImageBitmap()
             }.getOrNull()?.also { b: androidx.compose.ui.graphics.ImageBitmap -> NetImages.cache.put(url, b) }
         }
@@ -329,4 +338,9 @@ fun rememberNetImage(url: String?): androidx.compose.ui.graphics.ImageBitmap? {
     return img
 }
 
-object NetImages { val cache = android.util.LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(200) }
+object NetImages {
+    val cache = object : android.util.LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(8 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: androidx.compose.ui.graphics.ImageBitmap): Int =
+            (value.width * value.height * 4).coerceAtLeast(1)
+    }
+}

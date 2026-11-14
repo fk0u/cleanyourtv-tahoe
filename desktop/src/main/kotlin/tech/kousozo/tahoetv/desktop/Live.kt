@@ -115,28 +115,32 @@ fun LiveScreen() {
         val altLive = e.alternates.mapNotNull { statusMap[it.url] }
         return if (altLive.isNotEmpty()) altLive.any { it } else null
     }
-    val liveCount = entries.count { isChannelLive(it) == true }
-    val offlineCount = entries.count { isChannelLive(it) == false }
+    val liveCount = remember(entries, statusMap) { entries.count { isChannelLive(it) == true } }
+    val offlineCount = remember(entries, statusMap) { entries.count { isChannelLive(it) == false } }
     val cats = remember(entries) { LocalTv.Category.entries.filter { c -> entries.any { LocalTv.inCategory(it, c) } } }
     // Search covers names, groups and the guide: "bola" or a show's title finds the channel airing it.
-    val hits = remember(entries, epg, query, tick) { Search.run(entries, epg, query, tick) }
+    // Blank queries don't re-run Search.run on every 30s clock tick.
+    val searchMinute = if (query.isBlank()) 0L else tick.epochSecond / 60
+    val hits = remember(entries, epg, query, searchMinute) { Search.run(entries, epg, query, tick) }
     val matchedShow = remember(hits) { hits.mapNotNull { h -> h.programme?.let { h.entry.channel.url to it } }.toMap() }
-    val shown = hits.map { it.entry }
-        .filter { e ->
-            when (group) {
-                null -> true
-                "★" -> e.channel.url in favs
-                else -> runCatching { LocalTv.inCategory(e, LocalTv.Category.valueOf(group!!)) }.getOrDefault(false)
+    val shown = remember(hits, group, statusFilter, statusMap, favs, query) {
+        hits.map { it.entry }
+            .filter { e ->
+                when (group) {
+                    null -> true
+                    "★" -> e.channel.url in favs || e.channel.channelId in favs
+                    else -> runCatching { LocalTv.inCategory(e, LocalTv.Category.valueOf(group!!)) }.getOrDefault(false)
+                }
             }
-        }
-        .filter { e ->
-            when (statusFilter) {
-                "live" -> isChannelLive(e) == true
-                "offline" -> isChannelLive(e) == false
-                else -> true
+            .filter { e ->
+                when (statusFilter) {
+                    "live" -> isChannelLive(e) == true
+                    "offline" -> isChannelLive(e) == false
+                    else -> true
+                }
             }
-        }
-        .let { l -> if (query.isBlank()) l.sortedByDescending { it.channel.url in favs } else l } // searching: best match first
+            .let { l -> if (query.isBlank()) l.sortedByDescending { it.channel.url in favs || it.channel.channelId in favs } else l } // searching: best match first
+    }
 
     var selected by remember { mutableStateOf<LocalTv.Entry?>(null) }   // focused card → detail panel
     var status by remember { mutableStateOf<String?>(null) }

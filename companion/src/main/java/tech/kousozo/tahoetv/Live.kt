@@ -104,7 +104,12 @@ fun LiveScreen() {
     BackHandler(full) { full = false }
 
     val list = entries
-    val shown = list?.let { l -> Search.run(l, epg, query, now).filter { (cat == null || LocalTv.inCategory(it.entry, cat!!)) && (!Nav.favOnly || it.entry.channel.url in Channels.favs) } }
+    val searchMinute = if (query.isBlank()) 0L else now.epochSecond / 60
+    val hits = remember(list, epg, query, searchMinute) { list?.let { Search.run(it, epg, query, now) } }
+    val favSet = Channels.favs.toSet()
+    val shown = remember(hits, cat, Nav.favOnly, favSet) {
+        hits?.filter { (cat == null || LocalTv.inCategory(it.entry, cat!!)) && (!Nav.favOnly || it.entry.channel.url in favSet || it.entry.channel.channelId in favSet) }
+    }
     Column(Modifier.fillMaxSize().then(if (full) Modifier.background(Color.Black) else Modifier.systemBarsPadding())) {
         playing?.let { e ->
             Box(Modifier.fillMaxWidth().then(if (full) Modifier.fillMaxHeight() else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)

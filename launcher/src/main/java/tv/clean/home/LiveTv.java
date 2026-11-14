@@ -97,6 +97,11 @@ public class LiveTv extends Activity {
         guide.addView(gh);
         rows = new LinearLayout(this); rows.setOrientation(LinearLayout.VERTICAL);
         ScrollView sv = new ScrollView(this); sv.setVerticalScrollBarEnabled(false); sv.addView(rows);
+        sv.setOnScrollChangeListener((v, sx, sy, osx, osy) -> {
+            if (rows.getHeight() - (sy + sv.getHeight()) <= (int) dp(400) && renderedEnd < list.size()) {
+                ensureRowsThrough(renderedEnd + ROW_STEP);
+            }
+        });
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-1, 0, 1); sl.topMargin = (int) dp(12);
         guide.addView(sv, sl);
         guide.setVisibility(View.GONE);
@@ -140,8 +145,10 @@ public class LiveTv extends Activity {
             String want = getIntent().getStringExtra("url"), last = prefs.getString("last", null);
             int i = 0;
             for (int k = 0; k < l.size(); k++) if (l.get(k).getChannel().getUrl().equals(want != null ? want : last)) { i = k; break; }
-            buildRows(); tune(i);
-        }, e -> { epg = e; buildRows(); if (index >= 0) showBanner(); }, () -> loading.setText("Daftar saluran tidak bisa dimuat. Cek internet."));
+            guideDirty = true;
+            if (guide.getVisibility() == View.VISIBLE) buildRows();
+            tune(i);
+        }, e -> { epg = e; if (guide.getVisibility() == View.VISIBLE) buildRows(); else guideDirty = true; if (index >= 0) showBanner(); }, () -> loading.setText("Daftar saluran tidak bisa dimuat. Cek internet."));
         ui.post(watchdog);
     }
 
@@ -483,10 +490,14 @@ public class LiveTv extends Activity {
     List<String> recent() { String v = prefs.getString("recent", ""); return v.isEmpty() ? new ArrayList<>() : new ArrayList<>(java.util.Arrays.asList(v.split("\n"))); }
     int previous = -1;
     View[] allRows = new View[0]; // the "Semua saluran" row of each channel, for focusing
+    static final int ROW_WINDOW = 60, ROW_STEP = 40;
+    boolean guideDirty = true;
+    int renderedEnd = 0;
 
-    /** Guide: ★ Favorit, Terakhir ditonton, then every channel. */
+    /** Guide: ★ Favorit, Terakhir ditonton, then a windowed slice of every channel (expanded on scroll/focus). */
     void buildRows() {
         rows.removeAllViews();
+        guideDirty = false;
         Instant now = Instant.now();
         java.util.Set<String> fav = favs();
         java.util.Map<String, Integer> at = new java.util.HashMap<>();
@@ -498,7 +509,37 @@ public class LiveTv extends Activity {
         if (!recentRows.isEmpty()) { section("Terakhir ditonton"); for (int k : recentRows) rows.addView(row(k, now, fav)); }
         if (!favRows.isEmpty() || !recentRows.isEmpty()) section("Semua saluran");
         allRows = new View[list.size()];
-        for (int k = 0; k < list.size(); k++) { allRows[k] = row(k, now, fav); rows.addView(allRows[k]); }
+        renderedEnd = 0;
+        ensureRowsThrough(Math.max(ROW_WINDOW, index + 25), now, fav);
+    }
+
+    void ensureRowsThrough(int target) { ensureRowsThrough(target, Instant.now(), favs()); }
+
+    void ensureRowsThrough(int target, Instant now, java.util.Set<String> fav) {
+        int end = Math.min(list.size(), target);
+        while (renderedEnd < end) {
+            int k = renderedEnd++;
+            allRows[k] = row(k, now, fav);
+            rows.addView(allRows[k]);
+        }
+    }
+
+    void refreshRow(int k) {
+        guideDirty = true;
+        if (guide.getVisibility() != View.VISIBLE || k < 0 || k >= allRows.length) return;
+        ensureRowsThrough(k + 1);
+        View old = allRows[k];
+        int pos = old == null ? -1 : rows.indexOfChild(old);
+        if (pos >= 0) {
+            View fresh = row(k, Instant.now(), favs());
+            allRows[k] = fresh;
+            rows.removeViewAt(pos);
+            rows.addView(fresh, pos);
+            fresh.requestFocus();
+            return;
+        }
+        buildRows();
+        if (k < allRows.length && allRows[k] != null) allRows[k].requestFocus();
     }
 
     void section(String title) {
@@ -546,6 +587,7 @@ public class LiveTv extends Activity {
         r.addView(col, cp);
         if (fav.contains(e.getChannel().getUrl())) { TextView star = Ui.text(this, Ui.BODY, 700, Ui.SUN); star.setText("★"); r.addView(star); }
         r.setOnFocusChangeListener((v, f) -> {
+            if (f && k + 20 >= renderedEnd && renderedEnd < list.size()) ensureRowsThrough(renderedEnd + ROW_STEP);
             v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null);
             v.animate().scaleX(f ? 1.03f : 1f).scaleY(f ? 1.03f : 1f).setDuration(Ui.FAST).start();
         });
@@ -565,8 +607,7 @@ public class LiveTv extends Activity {
         if (next == null) { Toast.makeText(this, "Belum ada jadwal acara berikutnya untuk " + e.getName(), Toast.LENGTH_SHORT).show(); return; }
         boolean on = Reminder.toggle(this, e.getChannel().getUrl(), e.getName(), next.getTitle(), next.getStart().toEpochMilli());
         Toast.makeText(this, (on ? "🔔 Diingatkan: " : "Pengingat dibatalkan: ") + next.getTitle(), Toast.LENGTH_SHORT).show();
-        buildRows();
-        if (k < allRows.length) allRows[k].requestFocus();
+        refreshRow(k);
     }
 
     void toggleFav(int k) {
@@ -576,14 +617,14 @@ public class LiveTv extends Activity {
         prefs.edit().putStringSet("fav", f).apply();
         TvViewer.favoritesChanged(this, f);
         Toast.makeText(this, (add ? "★ Ditambahkan ke favorit: " : "Dihapus dari favorit: ") + list.get(k).getName(), Toast.LENGTH_SHORT).show();
-        buildRows();
-        if (k < allRows.length) allRows[k].requestFocus();
+        refreshRow(k);
     }
 
     void openGuide() {
         guide.setVisibility(View.VISIBLE);
-        buildRows(); // fresh live/dead dots
-        if (index >= 0 && index < allRows.length) allRows[index].requestFocus();
+        if (guideDirty || allRows.length != list.size()) buildRows();
+        ensureRowsThrough(Math.max(ROW_WINDOW, index + 25));
+        if (index >= 0 && index < allRows.length && allRows[index] != null) allRows[index].requestFocus();
     }
 
     @Override public boolean onKeyDown(int code, KeyEvent e) {
