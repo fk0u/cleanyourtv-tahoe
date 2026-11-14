@@ -449,12 +449,12 @@ public class LiveTv extends Activity {
 
         // remote colour-key legend
         LinearLayout legend = new LinearLayout(this); legend.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        String[][] keys = {{"▲▼", "Ganti saluran"}, {"OK", "Daftar saluran"}, {"⏪⏩", "Tunda / maju"}, {"▶", "Info"}, {"↩", "Keluar"}};
-        int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.SUN, Ui.TEXT_3, Ui.LIVE};
+        String[][] keys = {{"▲▼", "Ganti saluran"}, {"OK", "Daftar saluran"}, {"⏪⏩", "Tunda / maju"}, {"▶", "Info"}, {"🔴", "Bukan live"}, {"↩", "Keluar"}};
+        int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.SUN, Ui.TEXT_3, Ui.LIVE, Ui.TEXT_2};
         for (int k = 0; k < keys.length; k++) {
             View dot = new View(this); android.graphics.drawable.GradientDrawable dg = new android.graphics.drawable.GradientDrawable();
             dg.setColor(colors[k]); dg.setCornerRadius(dp(2)); dot.setBackground(dg);
-            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams((int) dp(8), (int) dp(8)); dlp.leftMargin = (int) dp(k == 0 ? 0 : 26); dlp.rightMargin = (int) dp(8);
+            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams((int) dp(8), (int) dp(8)); dlp.leftMargin = (int) dp(k == 0 ? 0 : 20); dlp.rightMargin = (int) dp(6);
             legend.addView(dot, dlp);
             TextView lt = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_2); lt.setText(keys[k][0] + "  " + keys[k][1]);
             legend.addView(lt);

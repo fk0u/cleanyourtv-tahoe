@@ -34,6 +34,17 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      # Release signing key so the bundled launcher inside desktop installers is signed with the release key (#92)
+      - name: Release signing key
+        if: env.KEYSTORE_B64 != ''
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=tahoetv\nkeyPassword=%s\n' "$RUNNER_TEMP/release.jks" "$STORE_PASSWORD" "$KEY_PASSWORD" > keystore.properties
       - name: Build (public, no API keys)
         shell: bash
         run: ./gradlew --no-daemon -PpublicBuild :desktop:${{ matrix.task }}
