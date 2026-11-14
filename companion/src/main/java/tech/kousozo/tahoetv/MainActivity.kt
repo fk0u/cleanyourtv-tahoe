@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Nav.detail?.let { e -> ChannelScreen(e) { Nav.detail = null } }
-                    if (!Nav.full) Column(Modifier.align(Alignment.BottomCenter)) {
+                    if (!Nav.full && !Nav.inPip) Column(Modifier.align(Alignment.BottomCenter)) {
                         val lang = PhoneRegion.language
                         MiniPlayer(Nav.tab != 1 || Nav.detail != null)
                         TabBar(listOf(
@@ -109,10 +109,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() { super.onResume(); resumed.intValue++ }
+    override fun onResume() { super.onResume(); Nav.inPip = isInPictureInPictureMode; resumed.intValue++ }
 
-    /** Live TV doesn't play on in the background (no picture-in-picture yet, see #63). */
-    override fun onStop() { super.onStop(); Playback.pause() }
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Playback.entry != null && !Playback.paused && android.os.Build.VERSION.SDK_INT >= 26) {
+            runCatching {
+                enterPictureInPictureMode(
+                    android.app.PictureInPictureParams.Builder()
+                        .setAspectRatio(android.util.Rational(16, 9))
+                        .build()
+                )
+            }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        Nav.inPip = isInPictureInPictureMode
+        if (isInPictureInPictureMode) {
+            Nav.tab = 1
+            Nav.detail = null
+        }
+    }
+
+    /** Live TV pauses when leaving unless Picture-in-Picture is active (#63). */
+    override fun onStop() { super.onStop(); if (!isInPictureInPictureMode) Playback.pause() }
 
     override fun onDestroy() { if (isFinishing) { Playback.release(); TvDiscovery.stop() }; super.onDestroy() }
 

@@ -16,7 +16,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -110,19 +112,20 @@ fun LiveScreen() {
     val shown = remember(hits, cat, Nav.favOnly, favSet) {
         hits?.filter { (cat == null || LocalTv.inCategory(it.entry, cat!!)) && (!Nav.favOnly || it.entry.channel.url in favSet || it.entry.channel.channelId in favSet) }
     }
-    Column(Modifier.fillMaxSize().then(if (full) Modifier.background(Color.Black) else Modifier.systemBarsPadding())) {
+    val fullOrPip = full || Nav.inPip
+    Column(Modifier.fillMaxSize().then(if (fullOrPip) Modifier.background(Color.Black) else Modifier.systemBarsPadding())) {
         playing?.let { e ->
-            Box(Modifier.fillMaxWidth().then(if (full) Modifier.fillMaxHeight() else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            Box(Modifier.fillMaxWidth().then(if (fullOrPip) Modifier.fillMaxHeight() else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                 .clip(RoundedCornerShape(22.dp)).aspectRatio(16f / 9f)).background(Color.Black)
                 .semantics { contentDescription = "Siaran ${e.name}" }) {
-                PlayerStage(e, full, onFull = { full = !full }) { dir -> Playback.zap(c, shown?.map { it.entry } ?: list, dir) }
+                PlayerStage(e, fullOrPip, onFull = { full = !full }) { dir -> Playback.zap(c, shown?.map { it.entry } ?: list, dir) }
             }
         }
-        if (full) return@Column
+        if (fullOrPip) return@Column
         val lang = PhoneRegion.language
-        val linkPrefs = remember { Sync.prefs(c) }
-        val tvHost = linkPrefs.getString("host", "").orEmpty()
-        val tvToken = linkPrefs.getString("token", "").orEmpty()
+        val activeDev = remember(Pairing.tick) { Sync.devices(c).active() }
+        val tvHost = activeDev?.host.orEmpty()
+        val tvToken = activeDev?.token.orEmpty()
         val tvLink = remember(tvHost, tvToken) {
             if (tvHost.isNotEmpty() && tvToken.isNotEmpty()) tech.kousozo.tahoetv.core.TvLink.shared(tvHost, tvToken) else null
         }
@@ -178,6 +181,18 @@ fun LiveScreen() {
     }
 }
 
+/** Launches system share sheet with a Tahoe TV channel link (#63). */
+fun shareChannel(c: android.content.Context, e: LocalTv.Entry) {
+    val text = "${e.name} — Tahoe TV\nhttps://tahoe.kousozo.tech/?channel=${Uri.encode(e.channel.channelId)}"
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(android.content.Intent.EXTRA_TEXT, text)
+    }
+    runCatching {
+        c.startActivity(android.content.Intent.createChooser(send, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.share")))
+    }
+}
+
 /** Under the player: name, show on now, format badge, ♥ and the channel page. */
 @Composable
 private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
@@ -197,12 +212,14 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
         RoundGlass(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (fav) "Hapus dari favorit" else "Tambah ke favorit",
             tint = if (fav) Tahoe.Bad else Tahoe.Text) { Channels.toggleFav(c, e) }
         Spacer(Modifier.width(8.dp))
+        RoundGlass(Icons.Rounded.Share, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.share")) { shareChannel(c, e) }
+        Spacer(Modifier.width(8.dp))
         RoundGlass(Icons.Rounded.Info, "Halaman saluran") { Nav.detail = e }
-        val p = remember { Sync.prefs(c) }
-        if (p.getString("token", "").orEmpty().isNotEmpty()) {
+        val activeDev = remember(Pairing.tick) { Sync.devices(c).active() }
+        if (activeDev != null) {
             Spacer(Modifier.width(8.dp))
             RoundGlass(Icons.Rounded.Cast, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "connect.play_on_tv")) {
-                tech.kousozo.tahoetv.core.TvLink.shared(p.getString("host", "").orEmpty(), p.getString("token", "").orEmpty())
+                tech.kousozo.tahoetv.core.TvLink.shared(activeDev.host, activeDev.token)
                     .sessionLoad(e.channel.channelId, e.channel.url, e.name)
             }
         }
@@ -211,8 +228,10 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
 
 @Composable
 private fun TvConnectBar(state: org.json.JSONObject, link: tech.kousozo.tahoetv.core.TvLink, lang: String) {
+    val c = LocalContext.current
     val channel = state.optString("channel", "")
     if (channel.isEmpty()) return
+    val channelId = state.optString("channelId", "")
     val paused = state.optBoolean("paused", !state.optBoolean("playing", true))
     val number = state.optInt("number", 0)
     val label = tech.kousozo.tahoetv.core.I18n.get(lang, if (paused) "connect.paused_on_tv" else "connect.playing_on_tv", channel)
@@ -226,6 +245,18 @@ private fun TvConnectBar(state: org.json.JSONObject, link: tech.kousozo.tahoetv.
         Column(Modifier.weight(1f)) {
             Text(label, color = Tahoe.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (number > 0) Text("#$number", color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono)
+        }
+        IconButton({
+            val match = Channels.entries?.firstOrNull {
+                (channelId.isNotEmpty() && it.channel.channelId == channelId) ||
+                    it.name.equals(channel, ignoreCase = true)
+            }
+            if (match != null) {
+                Playback.play(c, match)
+                link.sessionStop()
+            }
+        }, Modifier.size(34.dp)) {
+            Icon(Icons.Rounded.Smartphone, tech.kousozo.tahoetv.core.I18n.get(lang, "connect.continue_on_phone"), tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
         }
         IconButton({ if (paused) link.sessionPlay() else link.sessionPause() }, Modifier.size(34.dp)) {
             Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (paused) "Putar" else "Jeda", tint = Tahoe.Text, modifier = Modifier.size(20.dp))
@@ -290,6 +321,7 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
     }
     var shownAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var settings by remember { mutableStateOf(false) }
+    var zoomFill by remember { mutableStateOf(false) }
     if (settings) PlayerSettingsSheet { settings = false }
     var visible by remember { mutableStateOf(true) }
     val busy = Playback.message != null
@@ -309,11 +341,45 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
         }
     }
     fun poke() { shownAt = System.currentTimeMillis() }
-    Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {
-        if (visible && !busy && !touchExploration) visible = false else poke()
-    }) {
-        AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } },
-            Modifier.fillMaxSize(), update = { it.player = player })
+    val tapMod = if (touchExploration) {
+        Modifier.clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { poke() }
+    } else {
+        Modifier.pointerInput(busy, zoomFill) {
+            detectTapGestures(
+                onTap = { if (visible && !busy) visible = false else poke() },
+                onDoubleTap = { offset ->
+                    val w = size.width.toFloat().coerceAtLeast(1f)
+                    when {
+                        offset.x < w / 3f -> {
+                            player.seekTo(maxOf(0L, player.currentPosition - 10_000L))
+                            player.play()
+                            poke()
+                        }
+                        offset.x > w * 2f / 3f -> {
+                            seekForward(player, 10_000L)
+                            poke()
+                        }
+                        else -> {
+                            zoomFill = !zoomFill
+                            poke()
+                        }
+                    }
+                },
+            )
+        }
+    }
+    Box(Modifier.fillMaxSize().then(tapMod)) {
+        AndroidView({
+            PlayerView(it).apply {
+                this.player = player
+                useController = false
+                resizeMode = if (zoomFill) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                layoutParams = ViewGroup.LayoutParams(-1, -1)
+            }
+        }, Modifier.fillMaxSize(), update = {
+            it.player = player
+            it.resizeMode = if (zoomFill) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+        })
         val slate = Playback.slate
         if (slate != null) ChannelSlate(e, slate, full, zap)
         else Playback.message?.let {
@@ -322,7 +388,7 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
             else ChannelLoader(e.name, Modifier.fillMaxSize().semantics { liveRegion = LiveRegionMode.Polite; contentDescription = "Memuat ${e.name}" })
         }
         // the slate brings its own actions: the player controls would sit on top of it
-        androidx.compose.animation.AnimatedVisibility(visible && slate == null, Modifier.fillMaxSize(),
+        androidx.compose.animation.AnimatedVisibility(visible && slate == null && !Nav.inPip, Modifier.fillMaxSize(),
             enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
             Box(Modifier.fillMaxSize().background(if (busy) Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Black.copy(alpha = 0.45f)))
                 else Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.6f))))) {
@@ -330,7 +396,27 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                     Pill("LIVE", Tahoe.Bad, filled = true); Spacer(Modifier.width(8.dp))
                     Text(e.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
+                val lang = PhoneRegion.language
                 Row(Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                    IconButton({ poke(); zoomFill = !zoomFill }) {
+                        Icon(Icons.Rounded.AspectRatio, tech.kousozo.tahoetv.core.I18n.get(lang, if (zoomFill) "player.zoom_fit" else "player.zoom_fill"), tint = Color.White)
+                    }
+                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                        IconButton({
+                            poke()
+                            (c as? Activity)?.let { act ->
+                                runCatching {
+                                    act.enterPictureInPictureMode(
+                                        android.app.PictureInPictureParams.Builder()
+                                            .setAspectRatio(android.util.Rational(16, 9))
+                                            .build()
+                                    )
+                                }
+                            }
+                        }) {
+                            Icon(Icons.Rounded.PictureInPictureAlt, tech.kousozo.tahoetv.core.I18n.get(lang, "player.pip"), tint = Color.White)
+                        }
+                    }
                     IconButton({ poke(); settings = true }) { Icon(Icons.Rounded.Settings, "Setelan pemutar: kualitas dan latensi", tint = Color.White) }
                     IconButton({ poke(); onFull() }) {
                         Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (full) "Keluar dari layar penuh" else "Layar penuh", tint = Color.White)
@@ -458,6 +544,8 @@ object Nav {
     var playUrl by mutableStateOf<String?>(null)
     /** Live TV player is full screen: the tab bar hides. */
     var full by mutableStateOf(false)
+    /** Android Picture-in-Picture window active (#63). */
+    var inPip by mutableStateOf(false)
     /** Channel page open over the tabs, or null. */
     var detail by mutableStateOf<LocalTv.Entry?>(null)
     /** The channel in Beranda's hero (tints the app when nothing plays). */

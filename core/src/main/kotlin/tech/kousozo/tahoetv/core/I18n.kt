@@ -155,6 +155,12 @@ object I18n {
         "connect.rename" to "Rename TV",
         "connect.forget" to "Forget",
         "connect.active" to "Connected",
+        "connect.continue_on_phone" to "Watch here",
+
+        "player.pip" to "Picture in Picture",
+        "player.zoom_fill" to "Fill screen",
+        "player.zoom_fit" to "Fit screen",
+        "player.share" to "Share channel",
 
         "simple.mode" to "Simple Mode",
         "simple.mode_desc" to "Larger text, bigger tiles, easy controls",
@@ -313,6 +319,12 @@ object I18n {
         "connect.rename" to "Ubah nama TV",
         "connect.forget" to "Lupakan",
         "connect.active" to "Aktif",
+        "connect.continue_on_phone" to "Lanjut di HP",
+
+        "player.pip" to "Gambar dalam Gambar (PiP)",
+        "player.zoom_fill" to "Penuhi layar",
+        "player.zoom_fit" to "Sesuaikan layar",
+        "player.share" to "Bagikan saluran",
 
         "simple.mode" to "Mode Sederhana",
         "simple.mode_desc" to "Teks & kartu besar, kontrol mudah",
@@ -471,6 +483,12 @@ object I18n {
         "connect.rename" to "重命名电视",
         "connect.forget" to "忘记设备",
         "connect.active" to "已连接",
+        "connect.continue_on_phone" to "在手机上继续",
+
+        "player.pip" to "画中画",
+        "player.zoom_fill" to "填充画面",
+        "player.zoom_fit" to "适应画面",
+        "player.share" to "分享频道",
 
         "simple.mode" to "简易模式",
         "simple.mode_desc" to "大字体、大图标、简洁遥控",
