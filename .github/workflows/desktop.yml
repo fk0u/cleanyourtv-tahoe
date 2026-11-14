@@ -67,8 +67,9 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         shell: bash
         run: |
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=tahoetv\nkeyPassword=%s\n' "$RUNNER_TEMP/release.jks" "$STORE_PASSWORD" "$KEY_PASSWORD" > keystore.properties
+          JKS="${RUNNER_TEMP//\\//}/release.jks"
+          echo "$KEYSTORE_B64" | base64 -d > "$JKS"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=tahoetv\nkeyPassword=%s\n' "$JKS" "$STORE_PASSWORD" "$KEY_PASSWORD" > keystore.properties
       - name: Linux packaging dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fakeroot dpkg-dev binutils
@@ -107,8 +108,9 @@ jobs:
         shell: bash
         run: |
           test -n "$KEYSTORE_B64" || { echo "::error::ANDROID_KEYSTORE_B64 secret missing"; exit 1; }
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=tahoetv\nkeyPassword=%s\n' "$RUNNER_TEMP/release.jks" "$STORE_PASSWORD" "$KEY_PASSWORD" > keystore.properties
+          JKS="${RUNNER_TEMP//\\//}/release.jks"
+          echo "$KEYSTORE_B64" | base64 -d > "$JKS"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=tahoetv\nkeyPassword=%s\n' "$JKS" "$STORE_PASSWORD" "$KEY_PASSWORD" > keystore.properties
       - name: Build Android APKs (public, no API keys)
         shell: bash
         run: |
