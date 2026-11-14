@@ -218,7 +218,7 @@ object IptvServer {
 
             loadedSources.add(sourceName)
             for (ch in list) {
-                val clean = ch.name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "ch" }
+                val clean = ch.channelId.replace('.', '-').ifEmpty { "ch" }
                 var id = clean
                 var idx = 1
                 while (id in existingIds) {

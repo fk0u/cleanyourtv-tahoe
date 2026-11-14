@@ -46,4 +46,30 @@ class ViewerTest {
         assertEquals(2, abroad.arrange(listOf(news, local)).size)
         assertEquals(null, Viewer(country = "JP", region = "Tokyo", channelCountries = listOf("ID")).nearRegion)
     }
+
+    @Test fun stableChannelIdsMatchAcrossUrlRotationsAndMigrateLegacyUrls() {
+        val withTvgId = M3u.Channel("Metro TV HD", "https://old.example/metro.m3u8", null, "News", tvgId = "MetroTV.id")
+        val withoutTvgId = M3u.Channel("Trans 7 (720p)", "https://old.example/t7.m3u8", null, "Entertainment")
+        assertEquals("metrotv.id", withTvgId.channelId)
+        assertEquals("trans7", withoutTvgId.channelId)
+
+        var v = Viewer(country = "ID", categories = setOf("Entertainment"))
+            .toggleFavorite(withTvgId)
+        assertTrue(v.isFavorite(withTvgId))
+        assertEquals(listOf("metrotv.id"), v.favorites)
+
+        // Stream URL rotates in a refreshed playlist, but tvg-id stays the same
+        val rotatedMetro = withTvgId.copy(url = "https://new-cdn.example/metro-v2.m3u8")
+        val eMetro = LocalTv.Entry(rotatedMetro, "Metro TV", LocalTv.Category.News, false, false, false, 10)
+        val eT7 = LocalTv.Entry(withoutTvgId, "Trans7", LocalTv.Category.Entertainment, false, false, false, 1)
+        assertEquals(listOf("Metro TV", "Trans7"), v.arrange(listOf(eT7, eMetro)).map { it.name })
+
+        // Legacy URL-keyed favourites still arrange properly and migrate cleanly to channelId
+        val legacy = Viewer(country = "ID", favorites = listOf(withoutTvgId.url, "metrotv.id"), schema = 1)
+        assertEquals(listOf("Trans7", "Metro TV"), legacy.arrange(listOf(eMetro, eT7)).map { it.name })
+        val migrated = legacy.migrateFavorites(listOf(rotatedMetro, withoutTvgId))
+        assertEquals(listOf("trans7", "metrotv.id"), migrated.favorites)
+        assertEquals(2, migrated.schema)
+        assertEquals(2, Viewer.fromJson(migrated.toJson()).schema)
+    }
 }
