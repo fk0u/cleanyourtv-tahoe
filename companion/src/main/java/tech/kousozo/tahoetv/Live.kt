@@ -458,6 +458,8 @@ object Nav {
     var playUrl by mutableStateOf<String?>(null)
     /** Live TV player is full screen: the tab bar hides. */
     var full by mutableStateOf(false)
+    /** Android Picture-in-Picture window active (#63). */
+    var inPip by mutableStateOf(false)
     /** Channel page open over the tabs, or null. */
     var detail by mutableStateOf<LocalTv.Entry?>(null)
     /** The channel in Beranda's hero (tints the app when nothing plays). */
