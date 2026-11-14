@@ -322,7 +322,30 @@ class IptvHandler(SimpleHTTPRequestHandler):
     epg_cache = None       # (bytes, fetched_at): the guide is kept 6 h instead of downloaded per request
     epg_lock = threading.Lock()      # one guide download at a time
 
+    def is_local_host(self, host_header):
+        if not host_header:
+            return True
+        host = host_header.split(":")[0].strip().lower()
+        if host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") or host.endswith(".local"):
+            return True
+        return host == get_lan_ip()
+
+    def is_allowed_origin(self, origin):
+        if not origin:
+            return False
+        try:
+            parsed = urllib.parse.urlparse(origin)
+            host = (parsed.hostname or "").lower()
+            port = parsed.port or (443 if parsed.scheme == "https" else 80)
+            return self.is_local_host(host) and (port == self.server.server_address[1] or port in (80, 443))
+        except Exception:
+            return False
+
     def do_OPTIONS(self):
+        origin = self.headers.get("Origin")
+        if origin and not self.is_allowed_origin(origin):
+            self.send_error(403, "Forbidden Origin")
+            return
         self.send_response(204)
         self.send_cors_headers()
         self.end_headers()
@@ -331,10 +354,13 @@ class IptvHandler(SimpleHTTPRequestHandler):
         self.do_GET()
 
     def send_cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Range, User-Agent, Referer, Accept, Content-Type")
-        self.send_header("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
+        origin = self.headers.get("Origin")
+        if origin and self.is_allowed_origin(origin):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Range, User-Agent, Referer, Accept, Content-Type")
+            self.send_header("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
+            self.send_header("Vary", "Origin")
 
     def get_base_url(self):
         host_header = self.headers.get("Host")
@@ -343,6 +369,11 @@ class IptvHandler(SimpleHTTPRequestHandler):
         return f"http://{get_lan_ip()}:{self.server.server_address[1]}"
 
     def do_GET(self):
+        host = self.headers.get("Host")
+        if not self.is_local_host(host):
+            self.send_error(400, "Invalid Host header")
+            return
+
         url = urllib.parse.urlparse(self.path)
         path = url.path
         query = urllib.parse.parse_qs(url.query)
@@ -701,7 +732,7 @@ class IptvHandler(SimpleHTTPRequestHandler):
 """
         for g in groups:
             count = sum(1 for c in self.channels if c.group == g)
-            html_content += f"""      <button class="pill" onclick="selectGroup('{html.escape(g)}', this)">{html.escape(g)} ({count})</button>\n"""
+            html_content += f"""      <button class="pill" data-group="{html.escape(g, quote=True)}" onclick="selectGroup(this.dataset.group, this)">{html.escape(g)} ({count})</button>\n"""
 
         html_content += f"""    </div>
 
@@ -807,7 +838,17 @@ class IptvHandler(SimpleHTTPRequestHandler):
     const drmBox = document.getElementById('drmInfoBox');
     if (info.drm_type || info.drm_key) {
       drmBox.style.display = 'block';
-      drmBox.innerHTML = `<strong>DRM Terdeteksi:</strong> ${info.drm_type || 'Custom'} ${info.drm_key ? '<br><code>' + info.drm_key + '</code>' : ''}`;
+      drmBox.textContent = '';
+      const strong = document.createElement('strong');
+      strong.textContent = 'DRM Terdeteksi: ';
+      drmBox.appendChild(strong);
+      drmBox.appendChild(document.createTextNode((info.drm_type || 'Custom') + ' '));
+      if (info.drm_key) {
+        drmBox.appendChild(document.createElement('br'));
+        const code = document.createElement('code');
+        code.textContent = info.drm_key;
+        drmBox.appendChild(code);
+      }
     } else {
       drmBox.style.display = 'none';
     }
@@ -880,6 +921,7 @@ class IptvHandler(SimpleHTTPRequestHandler):
         body = html_content.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
         self.send_header("Content-Length", str(len(body)))
         self.send_cors_headers()
         self.end_headers()
@@ -1115,10 +1157,24 @@ class IptvHandler(SimpleHTTPRequestHandler):
     def serve_api_channels(self, query):
         base_url = self.get_base_url()
         group_filter = query.get("group", [None])[0]
-        data = [
-            {**c.to_dict(base_url), "health": self.health.get(c.cid, "unknown")} for c in self.channels
-            if (not group_filter or c.group.lower() == group_filter.lower()) and self.wanted(c, query)
-        ]
+        client_ip = self.client_address[0]
+        is_local = client_ip in ("127.0.0.1", "::1") or client_ip == get_lan_ip()
+        origin = self.headers.get("Origin")
+        include_secrets = is_local and (not origin or self.is_allowed_origin(origin))
+
+        data = []
+        for c in self.channels:
+            if group_filter and c.group.lower() != group_filter.lower():
+                continue
+            if not self.wanted(c, query):
+                continue
+            item = c.to_dict(base_url)
+            if not include_secrets:
+                item.pop("raw_url", None)
+                item.pop("drm_key", None)
+            item["health"] = self.health.get(c.cid, "unknown")
+            data.append(item)
+
         body = json.dumps({"count": len(data), "channels": data}, ensure_ascii=False, indent=2).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
