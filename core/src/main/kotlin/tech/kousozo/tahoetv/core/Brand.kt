@@ -91,7 +91,14 @@ object Brand {
     // ----------------------------------------------------------------- voice
     /** Product name as written everywhere (never "TahoeTV" or "TAHOE TV" in body copy). */
     const val NAME = "Tahoe TV"
-    const val TAGLINE = "Semua tontonan rumah, tenang dan rapi."
+    const val TAGLINE = "Tahoe TV: TV yang tenang dan mudah, untuk seisi rumah."
+
+    @JvmStatic
+    fun tagline(lang: String): String = when (lang.lowercase()) {
+        "en" -> "Tahoe TV: calm, simple TV for the whole family."
+        "zh" -> "Tahoe TV：安静、简单，全家都会用的电视。"
+        else -> TAGLINE
+    }
 
     /** Every token as name → value, for docs and the tokens.json sync test. */
     fun tokens(): Map<String, Any> = linkedMapOf(

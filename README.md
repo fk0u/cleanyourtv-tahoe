@@ -5,7 +5,8 @@
 <h1 align="center">Tahoe TV</h1>
 
 <p align="center">
-  <b>A free, open-source, tvOS-style (Liquid Glass) home screen for Android TV, with free live TV,<br>
+  <b>Tahoe TV: calm, simple TV for the whole family.<br>
+  A free, open-source, calm glass-style home screen for Android TV, with free live TV,<br>
   plus companion apps for Android phones, macOS and Windows.</b><br>
   Built for cheap TVs: made and tested on a <b>Xiaomi Mi TV Stick (Android 9, 1 GB RAM)</b>.
 </p>
@@ -50,7 +51,7 @@ where live TV behaves like a normal TV (▲ ▼ to change channel, a clear "what
 
 ## Why Tahoe TV?
 
-- 📺 **A beautiful home screen that stays light.** tvOS 26 style without heavy real-time blur, so it runs smoothly on a 1 GB TV stick.
+- 📺 **A beautiful home screen that stays light.** Calm glass-style look without heavy real-time blur, so it runs smoothly on a 1 GB TV stick.
 - 👵 **Easy for everyone.** Big readable tiles, one-step navigation with the remote, and live TV that works like a native TV: ▲ ▼ changes channel, the guide shows what's on now. (Consistent channel numbers for every country's lineup are coming.)
 - 🗣️ **Your language first.** First-run setup on TV, phone and desktop starts with the language (English, Bahasa Indonesia, 中文), then your country, city, prayer times, channels and favourites.
 - 🌍 **Free live TV.** 1,000+ free channels today (Indonesia first: national, regional, "near you", news, sports…) with a program guide, from public sources. Every country is next ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)).
@@ -86,24 +87,19 @@ Updates arrive by themselves: the TV, phone and desktop apps check GitHub releas
 <details>
 <summary>More screenshots (full size)</summary>
 
-| Who's watching? | Home |
+| Home | **Prayer times & adhan** |
 |---|---|
-| ![Profiles](docs/screenshots/v2/01-profil.jpg) | ![Home](docs/screenshots/v2/02-beranda.jpg) |
-| **Prayer times & adhan** | **Phone notifications & music** |
-| ![Prayer times](docs/screenshots/v2/05-jadwal-shalat.jpg) | ![Phone notifications](docs/screenshots/v2/08-notifikasi-hp.jpg) |
-| **Connect a phone (QR + code)** | **Energy-saving screensaver** |
-| ![Connect phone](docs/screenshots/v2/09-hubungkan-hp.jpg) | ![Screensaver](docs/screenshots/v2/10-screensaver.jpg) |
-
-Some screenshots use the device owner's personal wallpaper, which isn't in this repo. The apps' text is in Indonesian
-for now; English is coming in [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56).
+| ![Home](docs/screenshots/v2/02-beranda.jpg) | ![Prayer times](docs/screenshots/v2/05-jadwal-shalat.jpg) |
+| **Phone notifications & music** | **Connect a phone (QR + code)** |
+| ![Phone notifications](docs/screenshots/v2/08-notifikasi-hp.jpg) | ![Connect phone](docs/screenshots/v2/09-hubungkan-hp.jpg) |
 </details>
 
 ## Features
 
 ### 📺 TV (Android TV launcher)
-- **tvOS 26 look:** glass material, tiles with lift and shine, a macOS-style dock, Launchpad with a Games shelf, an editorial hero (YouTube trending, popular on Netflix) and app-opening transitions.
+- **Calm, cinematic look:** glass-style tiles with lift and shine, a floating dock, Launchpad with a Games shelf, an editorial hero (YouTube trending, popular on Netflix) and app-opening transitions.
 - **Profiles:** Me, Guest and **Kids**. Kids is locked with a 4-digit PIN and only shows kids' & documentary channels and allowed apps. The PIN can be reset from a paired phone.
-- **Live TV:** channels by category, program guide, favorites and recently watched, channel numbers, 30-second pause/skip, an Apple TV-style loader, and quality + latency options.
+- **Live TV:** channels by category, program guide, favorites and recently watched, channel numbers, 30-second pause/skip, a calm fullscreen loader, and quality + latency options.
 - **Smart source picking:** live sources first; recorded/stale broadcasts skipped; hold **OK** to mark a source "not live". Fallback decoders + **FFmpeg** for AC-3/E-AC-3/DTS/MP2 audio.
 - **Control Center:** volume, phone music, Wi-Fi, Bluetooth, wallpaper, weather, prayer times, assistant, home, sleep timer, **Send log** and updates.
 - **Prayer times & adhan**, hourly/7-day **weather** (Open-Meteo), **Gemini assistant**, **Home Assistant**, **gamepads** and an energy-saving **screensaver**.
@@ -197,4 +193,4 @@ Thanks to everyone who has helped build Tahoe TV:
 - Players: [Media3/ExoPlayer](https://github.com/androidx/media) (Apache 2.0), FFmpeg decoder from [Jellyfin media3-ffmpeg-decoder](https://github.com/jellyfin/jellyfin-androidx-media) (FFmpeg: LGPL 2.1+), [hls.js](https://github.com/video-dev/hls.js) (Apache 2.0), [Shaka Player](https://github.com/shaka-project/shaka-player) (Apache 2.0). Phone server: [NanoHTTPD](https://github.com/NanoHttpd/nanohttpd). ADB: [dadb](https://github.com/mobile-dev-inc/dadb). QR: [ZXing](https://github.com/zxing/zxing).
 - Channels & guides: [iptv-org](https://github.com/iptv-org/iptv), [yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia), [dhanytv](https://github.com/dhasap/dhanytv) by @dhasap (free Indonesian TV only), [epg.pw](https://epg.pw). Tahoe hosts no streams.
 - Data: [Open-Meteo](https://open-meteo.com/) · [Aladhan](https://aladhan.com/prayer-times-api) · [TMDB](https://www.themoviedb.org/) (this product isn't endorsed or certified by TMDB) · YouTube Data API · Gemini API.
-- Inspired by [cleanyourtv](https://github.com/Gathin23/cleanyourtv). Not an Apple product; "tvOS", "macOS" and "Liquid Glass" are trademarks of Apple Inc.
+- Inspired by [cleanyourtv](https://github.com/Gathin23/cleanyourtv). Independent open-source project; not an Apple product or affiliated with Apple Inc.

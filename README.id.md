@@ -5,7 +5,8 @@
 <h1 align="center">Tahoe TV</h1>
 
 <p align="center">
-  <b>Beranda Android TV bergaya tvOS (Liquid Glass) yang gratis dan open source, lengkap dengan Live TV gratis,<br>
+  <b>Tahoe TV: TV yang tenang dan mudah, untuk seisi rumah.<br>
+  Beranda Android TV bergaya kaca yang gratis dan open source, lengkap dengan Live TV gratis,<br>
   plus app pendamping untuk HP Android, macOS, dan Windows.</b><br>
   Ringan untuk TV murah: dibuat dan diuji di <b>Xiaomi Mi TV Stick (Android 9, RAM 1 GB)</b>.
 </p>
@@ -50,7 +51,7 @@ dengan Live TV yang terasa seperti TV biasa (▲ ▼ untuk ganti saluran, jelas 
 
 ## Kenapa Tahoe TV?
 
-- 📺 **Beranda TV yang cantik dan ringan.** Gaya tvOS 26 tanpa blur berat, jadi tetap lancar di TV stick 1 GB.
+- 📺 **Beranda TV yang cantik dan ringan.** Gaya kaca yang tenang tanpa blur berat, jadi tetap lancar di TV stick 1 GB.
 - 👵 **Mudah untuk semua orang.** Tile besar yang mudah dibaca, navigasi satu langkah dengan remote, dan Live TV seperti TV biasa: ▲ ▼ ganti saluran, jadwal menampilkan acara yang sedang tayang. (Nomor saluran yang konsisten untuk tiap negara menyusul.)
 - 🗣️ **Bahasamu duluan.** Setup awal di TV, HP, dan desktop dimulai dari bahasa (English, Bahasa Indonesia, 中文), lalu negara, kota, jadwal shalat, saluran, dan favorit.
 - 🌍 **Live TV gratis.** 1.000+ saluran gratis (Indonesia dulu: nasional, TVRI daerah, TV lokal "dekat kamu", berita, olahraga…) dengan jadwal acara, dari sumber publik. Berikutnya semua negara ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)).
@@ -86,23 +87,19 @@ Pembaruan berikutnya datang sendiri: TV, HP, dan desktop memeriksa rilis GitHub 
 <details>
 <summary>Screenshot lainnya (ukuran penuh)</summary>
 
-| Siapa yang menonton? | Beranda |
+| Beranda | **Jadwal shalat & adzan** |
 |---|---|
-| ![Layar profil](docs/screenshots/v2/01-profil.jpg) | ![Beranda](docs/screenshots/v2/02-beranda.jpg) |
-| **Jadwal shalat & adzan** | **Notifikasi & musik dari HP** |
-| ![Jadwal shalat](docs/screenshots/v2/05-jadwal-shalat.jpg) | ![Notifikasi HP](docs/screenshots/v2/08-notifikasi-hp.jpg) |
-| **Hubungkan HP (QR + kode)** | **Screensaver hemat energi** |
-| ![Hubungkan HP](docs/screenshots/v2/09-hubungkan-hp.jpg) | ![Screensaver](docs/screenshots/v2/10-screensaver.jpg) |
-
-Wallpaper pada sebagian screenshot adalah foto pribadi pemilik perangkat dan tidak ada di repo ini.
+| ![Beranda](docs/screenshots/v2/02-beranda.jpg) | ![Jadwal shalat](docs/screenshots/v2/05-jadwal-shalat.jpg) |
+| **Notifikasi & musik dari HP** | **Hubungkan HP (QR + kode)** |
+| ![Notifikasi HP](docs/screenshots/v2/08-notifikasi-hp.jpg) | ![Hubungkan HP](docs/screenshots/v2/09-hubungkan-hp.jpg) |
 </details>
 
 ## Fitur
 
 ### 📺 TV (launcher Android TV)
-- **Tampilan tvOS 26:** material kaca, tile dengan efek lift dan kilau, dock ala macOS, Launchpad dengan rak Game, hero editorial (trending YouTube, populer di Netflix), dan transisi buka aplikasi.
+- **Tampilan tenang dan sinematik:** material kaca dengan efek lift dan kilau, dock mengambang, Launchpad dengan rak Game, hero editorial (trending YouTube, populer di Netflix), dan transisi buka aplikasi.
 - **Profil:** Saya, Tamu, dan **Anak**. Profil Anak dikunci PIN 4 angka, hanya menampilkan saluran Anak & Dokumenter dan aplikasi yang diizinkan. PIN bisa diatur ulang dari HP yang sudah dipasangkan.
-- **Live TV:** saluran per kategori, jadwal acara, favorit dan terakhir ditonton, nomor saluran, tunda/maju 30 detik, loading ala Apple TV, serta pilihan kualitas + latensi.
+- **Live TV:** saluran per kategori, jadwal acara, favorit dan terakhir ditonton, nomor saluran, tunda/maju 30 detik, loading layar penuh yang tenang, serta pilihan kualitas + latensi.
 - **Pintar memilih sumber:** sumber hidup diputar duluan; siaran rekaman/basi dilewati; tahan **OK** untuk menandai sumber "bukan live". Dekoder cadangan + **FFmpeg** untuk audio AC-3/E-AC-3/DTS/MP2.
 - **Pusat Kontrol:** volume, musik dari HP, Wi-Fi, Bluetooth, wallpaper, cuaca, shalat, asisten, rumah, timer tidur, **Kirim log**, dan pembaruan.
 - **Jadwal shalat & adzan** (Kemenag RI lewat Aladhan), **cuaca** per jam/7 hari (Open-Meteo), **asisten Gemini**, **Home Assistant**, **gamepad**, dan **screensaver** hemat energi.
@@ -195,4 +192,4 @@ Terima kasih untuk semua yang sudah ikut membangun Tahoe TV:
 - Pemutar: [Media3/ExoPlayer](https://github.com/androidx/media) (Apache 2.0), dekoder FFmpeg dari [Jellyfin media3-ffmpeg-decoder](https://github.com/jellyfin/jellyfin-androidx-media) (FFmpeg: LGPL 2.1+), [hls.js](https://github.com/video-dev/hls.js) (Apache 2.0). Server HP: [NanoHTTPD](https://github.com/NanoHttpd/nanohttpd). ADB: [dadb](https://github.com/mobile-dev-inc/dadb). QR: [ZXing](https://github.com/zxing/zxing).
 - Saluran & jadwal TV: [iptv-org](https://github.com/iptv-org/iptv), [yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia), [dhanytv](https://github.com/dhasap/dhanytv) oleh @dhasap (hanya bagian TV gratis Indonesia), [epg.pw](https://epg.pw). Tahoe tidak meng-host siaran apa pun.
 - Data: [Open-Meteo](https://open-meteo.com/) · [Aladhan](https://aladhan.com/prayer-times-api) · [TMDB](https://www.themoviedb.org/) (produk ini tidak didukung atau disertifikasi TMDB) · YouTube Data API · Gemini API.
-- Terinspirasi dari [cleanyourtv](https://github.com/Gathin23/cleanyourtv). Bukan produk Apple; "tvOS", "macOS", dan "Liquid Glass" adalah merek Apple Inc.
+- Terinspirasi dari [cleanyourtv](https://github.com/Gathin23/cleanyourtv). Proyek open source independen; bukan produk Apple dan tidak berafiliasi dengan Apple Inc.
