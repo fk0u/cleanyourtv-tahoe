@@ -36,4 +36,32 @@ class DockGridTest {
         assertTrue(DockGrid.sliceBounds(14, rowIndex = 3, cols = 6).isEmpty())
         assertTrue(DockGrid.sliceBounds(0, rowIndex = 0, cols = 6).isEmpty())
     }
+
+    @Test fun clampRowMovesOffEmptyDock() {
+        assertEquals(2, DockGrid.clampRow(row = 5, dockSize = 4, padRowCount = 2))
+        assertEquals(1, DockGrid.clampRow(row = 0, dockSize = 0, padRowCount = 2))
+        assertEquals(-1, DockGrid.clampRow(row = 0, dockSize = 0, padRowCount = 0))
+        assertEquals(-2, DockGrid.clampRow(row = -5, dockSize = 4, padRowCount = 2))
+    }
+
+    @Test fun moveHorizontalDoesNotWrapEdges() {
+        assertEquals(0, DockGrid.moveHorizontal(col = 0, dc = -1, rowCount = 4))
+        assertEquals(1, DockGrid.moveHorizontal(col = 2, dc = -1, rowCount = 4))
+        assertEquals(3, DockGrid.moveHorizontal(col = 2, dc = 1, rowCount = 4))
+        assertEquals(3, DockGrid.moveHorizontal(col = 3, dc = 1, rowCount = 4))
+    }
+
+    @Test fun nextVerticalRowAndTargetColRestorePositions() {
+        // Skips empty hero and dock rows when moving from chips (-2) down to launchpad (1)
+        assertEquals(1, DockGrid.nextVerticalRow(row = -2, dr = 1, dockSize = 0, heroCount = 0, padRowCount = 2, chipCount = 3))
+        // Normal step down from hero (-1) to dock (0)
+        assertEquals(0, DockGrid.nextVerticalRow(row = -1, dr = 1, dockSize = 5, heroCount = 1, padRowCount = 2, chipCount = 3))
+        // Blocked beyond bottom launchpad row
+        assertEquals(2, DockGrid.nextVerticalRow(row = 2, dr = 1, dockSize = 5, heroCount = 1, padRowCount = 2, chipCount = 3))
+
+        assertEquals(2, DockGrid.targetColForRow(targetRow = -2, currentCol = 4, chipCol = 2, dockCol = 3, targetRowCount = 4))
+        assertEquals(0, DockGrid.targetColForRow(targetRow = -1, currentCol = 4, chipCol = 2, dockCol = 3, targetRowCount = 1))
+        assertEquals(1, DockGrid.targetColForRow(targetRow = 0, currentCol = 0, chipCol = 2, dockCol = 5, targetRowCount = 2))
+        assertEquals(2, DockGrid.targetColForRow(targetRow = 1, currentCol = 2, chipCol = 0, dockCol = 3, targetRowCount = 6))
+    }
 }

@@ -576,9 +576,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
     }
 
     void clampFocus() {
-        if (row > rows()) row = rows();
-        if (row == 0 && dock.isEmpty()) row = rows() > 0 ? 1 : -1;
-        col = Math.max(0, Math.min(col, rowLen(row) - 1));
+        row = DockGrid.clampRow(row, dock.size(), rows());
+        col = DockGrid.clampCol(col, rowLen(row));
     }
 
     App focusedApp() {
@@ -595,21 +594,16 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     void move(int dr, int dc) {
         if (dc != 0) {
-            int n = col + dc;
-            if (n < 0 || n >= rowLen(row)) return; // ends never wrap or fall through
-            col = n;
+            int nextCol = DockGrid.moveHorizontal(col, dc, rowLen(row));
+            if (nextCol == col) return; // ends never wrap or fall through
+            col = nextCol;
         } else {
-            int target = row + dr;
-            if (target == 0 && dock.isEmpty()) target += dr;
-            if (target == -1 && rowLen(-1) == 0) target += dr;
-            if (target < -2 || target > rows() || rowLen(target) == 0) return;
+            int target = DockGrid.nextVerticalRow(row, dr, dock.size(), rowLen(-1), rows(), chipViews.size());
+            if (target == row || rowLen(target) == 0) return;
             if (row == -2) chipCol = col;
             if (row == 0) lastDockCol = col;
-            if (target == -2) col = chipCol;
-            else if (target == -1) col = 0;
-            else if (target == 0) col = lastDockCol;
+            col = DockGrid.targetColForRow(target, col, chipCol, lastDockCol, rowLen(target));
             row = target;
-            col = Math.min(col, rowLen(row) - 1);
         }
         render(true);
     }

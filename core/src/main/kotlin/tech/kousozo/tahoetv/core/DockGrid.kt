@@ -23,11 +23,51 @@ object DockGrid {
         return (itemCount + c - 1) / c
     }
 
+    /** Clamps focused row index across chips (-2), hero (-1), dock (0), and launchpad rows (1..[padRowCount]). */
+    @JvmStatic
+    fun clampRow(row: Int, dockSize: Int, padRowCount: Int): Int {
+        var r = minOf(row, padRowCount)
+        if (r == 0 && dockSize <= 0) r = if (padRowCount > 0) 1 else -1
+        return r.coerceAtLeast(-2)
+    }
+
     /** Clamps focused column index into [0, rowCount - 1], returning 0 if the row is empty. */
     @JvmStatic
     fun clampCol(col: Int, rowCount: Int): Int {
         if (rowCount <= 0) return 0
         return col.coerceIn(0, rowCount - 1)
+    }
+
+    /** Steps horizontally by [dc] within [0, rowCount - 1] without wrapping or falling through. */
+    @JvmStatic
+    fun moveHorizontal(col: Int, dc: Int, rowCount: Int): Int {
+        val next = col + dc
+        return if (next in 0 until rowCount) next else col
+    }
+
+    /** Computes the next row for a vertical step [dr], skipping empty dock/hero rows, or returns [row] if blocked. */
+    @JvmStatic
+    fun nextVerticalRow(row: Int, dr: Int, dockSize: Int, heroCount: Int, padRowCount: Int, chipCount: Int): Int {
+        if (dr == 0) return row
+        var target = row + dr
+        while ((target == 0 && dockSize <= 0) || (target == -1 && heroCount <= 0)) {
+            target += dr
+        }
+        if (target < -2 || target > padRowCount) return row
+        if (target == -2 && chipCount <= 0) return row
+        return target
+    }
+
+    /** Resolves and clamps the target column for [targetRow], restoring remembered chip/dock positions. */
+    @JvmStatic
+    fun targetColForRow(targetRow: Int, currentCol: Int, chipCol: Int, dockCol: Int, targetRowCount: Int): Int {
+        val preferred = when (targetRow) {
+            -2 -> chipCol
+            -1 -> 0
+            0 -> dockCol
+            else -> currentCol
+        }
+        return clampCol(preferred, targetRowCount)
     }
 
     /** Returns the 0-based index slice `[start..endInclusive]` for row [rowIndex] of [total] items. */
