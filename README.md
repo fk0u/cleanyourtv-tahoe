@@ -72,7 +72,7 @@ where live TV behaves like a normal TV (▲ ▼ to change channel, a clear "what
 | **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | Install → Live TV |
 | A launcher already, want to install by hand | [`tahoe-launcher.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-launcher.apk) | See [docs/INSTALL.md](docs/INSTALL.md) |
 
-Updates arrive by themselves: the TV, phone and desktop apps check GitHub releases (Control Center → **About**).
+Updates are checked automatically: the TV, phone and desktop apps check GitHub releases (Control Center → **About**) so you can download and install them.
 
 ## Screenshots
 

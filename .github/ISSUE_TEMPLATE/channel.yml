@@ -1,6 +1,6 @@
 name: 📡 Saluran bermasalah
 description: Saluran tidak tayang, salah siaran, atau ingin menambah saluran gratis
-labels: [bug, live-tv]
+labels: [live-tv]
 body:
   - type: input
     id: channel

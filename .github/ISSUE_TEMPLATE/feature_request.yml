@@ -7,7 +7,9 @@ body:
     attributes:
       label: Platform
       multiple: true
-      options: [TV (launcher), HP (Android), Desktop, Semua]
+      options: [TV (launcher), HP (Android), Desktop macOS, Desktop Windows, Semua]
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
