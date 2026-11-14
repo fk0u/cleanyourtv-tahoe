@@ -102,9 +102,9 @@ Most of it is set from the phone app. Build defaults are in [`launcher/src/main/
 | `dock_size` | `6` | Dock slots (4–7) |
 | `columns` | `5` | Launchpad columns |
 | `dock_apps` | YouTube, Netflix, BitTV, Spotify, TikTok, Vidio | Initial dock (package names); missing apps are skipped |
-| `user_name` | `Al-Ghani` | Name in the greeting, profile and lock screen |
-| `avatar_url` | GitHub photo | Profile photo (cached on the TV) |
-| `city`, `latitude`, `longitude` | Samarinda | Weather & prayer times |
+| `user_name` | `Tahoe` | Name in the greeting, profile and lock screen |
+| `avatar_url` | (empty) | Profile photo (cached on the TV) |
+| `city`, `latitude`, `longitude` | (empty) | Weather & prayer times (set via onboarding) |
 | `wallpaper_minutes` | `10` | Wallpaper change interval |
 
 Dock changes made with the hold-OK menu are saved on the TV per profile.
