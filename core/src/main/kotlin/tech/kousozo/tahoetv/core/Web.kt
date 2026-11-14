@@ -28,6 +28,26 @@ object Web {
 
     fun get(url: String, timeoutMs: Int = 10_000): String = request("GET", url, null, timeoutMs)
 
+    fun open(url: String, timeoutMs: Int = 30_000): HttpURLConnection {
+        val c = URL(url).openConnection() as HttpURLConnection
+        c.connectTimeout = 8000; c.readTimeout = timeoutMs; c.requestMethod = "GET"
+        c.setRequestProperty("User-Agent", STREAM_UA)
+        c.setRequestProperty("Accept-Encoding", "gzip, deflate")
+        return c
+    }
+
+    fun stream(url: String, timeoutMs: Int = 30_000): java.io.InputStream {
+        val c = open(url, timeoutMs)
+        val code = c.responseCode
+        if (code >= 400) throw java.io.IOException("HTTP $code")
+        val input = body(c) ?: throw java.io.IOException("Empty body")
+        return if (url.endsWith(".gz", ignoreCase = true) && c.contentEncoding?.lowercase() != "gzip") {
+            java.util.zip.GZIPInputStream(input)
+        } else {
+            input
+        }
+    }
+
     fun request(method: String, url: String, body: String?, timeoutMs: Int = 20_000): String {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 8000; c.readTimeout = timeoutMs; c.requestMethod = method

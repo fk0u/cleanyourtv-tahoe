@@ -119,7 +119,9 @@ public class Live extends Activity {
                 String guideUrl = cfg.getString("epg_url", "");
                 List<String> guides = new java.util.ArrayList<>();
                 for (String cc : TvViewer.get(c).getCountries()) for (String g : tech.kousozo.tahoetv.core.Region.guides(cc)) if (!guides.contains(g)) guides.add(g);
-                Epg e = guideUrl.isEmpty() ? Epg.Companion.load(guides) : Epg.Companion.load(guideUrl);
+                java.util.Set<String> channelNames = new java.util.HashSet<>();
+                if (cached != null) for (LocalTv.Entry entry : cached) channelNames.add(entry.getName());
+                Epg e = guideUrl.isEmpty() ? Epg.Companion.load(guides, channelNames) : Epg.Companion.load(guideUrl, channelNames);
                 main.post(() -> { epg = e; guide.accept(e); });
             } catch (Exception ex) { main.post(failed); }
         });

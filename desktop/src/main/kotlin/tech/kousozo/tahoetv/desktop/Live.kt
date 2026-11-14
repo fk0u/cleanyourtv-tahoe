@@ -59,7 +59,7 @@ fun LiveScreen() {
     val epgUrl = Settings.epg
     val viewer = Settings.viewer
     val countries = viewer.countries
-    LaunchedEffect(epgUrl, countries) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct()) }.getOrNull() } }
+    LaunchedEffect(epgUrl, countries, channels) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct(), channels?.map { it.name }?.toSet()) }.getOrNull() } }
     val playlist = Settings.playlist
     var statusMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var checkingDone by remember { mutableStateOf(false) }
