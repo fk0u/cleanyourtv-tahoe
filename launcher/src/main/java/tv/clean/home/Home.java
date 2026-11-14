@@ -35,7 +35,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     final Handler ui = new Handler(Looper.getMainLooper());
     SharedPreferences prefs;
-    int W, H, dockSize, cols;
+    int W, H, dockSize, cols, rawCols;
     float M, tileW, tileH, gap, padTileW, padTileH, padGap, padStep;
     FrameLayout root, dockLayer, pad, padRowsView;
     Hero hero;
@@ -74,7 +74,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
         About.dailyCheck(this);
         Live.fetch(this, l -> {}, e -> {}, () -> {}); // load channels + check every server now, so Live TV starts instantly
         dockSize = Math.max(4, Math.min(7, getResources().getInteger(R.integer.dock_size)));
-        cols = Math.max(4, Math.min(7, getResources().getInteger(R.integer.columns)));
+        rawCols = Math.max(4, Math.min(7, getResources().getInteger(R.integer.columns)));
+        cols = TvViewer.simpleMode(this) ? Math.min(rawCols, 4) : rawCols;
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         setContentView(root);
@@ -172,7 +173,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         hero.block.setClipChildren(false); hero.setClipChildren(false);
 
         // Dock (macOS style): centred glass shelf, tiles magnify toward the focused one.
-        tileW = dp(118); tileH = tileW * 9 / 16; gap = dp(16);
+        applyLayoutMetrics();
         dockLayer = new FrameLayout(this);
         dockLayer.setClipChildren(false); dockLayer.setClipToPadding(false);
         root.setClipChildren(false);
@@ -197,9 +198,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
         pad.addView(padTitle, at(M, dp(36), -1, -1));
         padRowsView = new FrameLayout(this); padRowsView.setClipChildren(false);
         pad.addView(padRowsView, new FrameLayout.LayoutParams(-1, -1));
-        padGap = dp(22);
-        padTileW = (W - 2 * M - (cols - 1) * padGap) / cols; padTileH = padTileW * 9 / 16;
-        padStep = padTileH + dp(46);
+        applyLayoutMetrics();
+        applyTextScale();
 
         showProfiles(); // boot: "Siapa yang menonton?"
         buildChips();
@@ -297,22 +297,49 @@ public class Home extends Activity implements Companion.Listener, Tools {
         } catch (Exception e) { return null; }
     }
 
+    void applyLayoutMetrics() {
+        boolean simple = TvViewer.simpleMode(this);
+        cols = simple ? Math.min(rawCols, 4) : rawCols;
+        tileW = dp(simple ? 146 : 118); tileH = tileW * 9 / 16; gap = dp(simple ? 18 : 16);
+        padGap = dp(22);
+        padTileW = (W - 2 * M - (cols - 1) * padGap) / cols; padTileH = padTileW * 9 / 16;
+        padStep = padTileH + dp(simple ? 52 : 46);
+    }
+
+    void applyTextScale() {
+        boolean simple = TvViewer.simpleMode(this);
+        if (greeting != null) greeting.setTextSize(simple ? 15f : 12f);
+        if (clock != null) clock.setTextSize(simple ? 30f : 26f);
+        if (heroActionText != null) heroActionText.setTextSize(simple ? 18f : 15f);
+        if (tooltip != null) tooltip.setTextSize(simple ? 16f : 13f);
+        if (padTitle != null) padTitle.setTextSize(simple ? 32f : Ui.HEADLINE);
+    }
+
+    void applySimpleMode() {
+        applyLayoutMetrics();
+        applyTextScale();
+        buildChips();
+        loadApps();
+        render(false);
+    }
+
     void buildChips() {
         chips.removeAllViews(); chipViews.clear(); chipActions.clear();
         addChip(R.drawable.ic_cloud, "Cuaca", this::openWeather);
         addChip(R.drawable.ic_moon_star, "Shalat", this::openPrayer);
-        if (phoneMedia != null) addChip(R.drawable.ic_music, "", this::openControl);
-        if (gamepad) addChip(R.drawable.ic_gamepad_2, null, () -> { if (row == 0) lastDockCol = col; openPad(); });
+        if (phoneMedia != null) addChip(R.drawable.ic_music, "", this::openControl).setContentDescription("Musik dari HP");
+        if (gamepad) addChip(R.drawable.ic_gamepad_2, null, () -> { if (row == 0) lastDockCol = col; openPad(); }).setContentDescription("Kontrol Gamepad");
         addChip(R.drawable.ic_tv, "Jadwal TV", () -> start(new Intent(this, Live.class)));
         if (!kids()) { // no assistant or phone pairing in the kids profile
             addChip(R.drawable.ic_sparkles, "Tanya", this::openAssistant);
-            addChip(R.drawable.ic_smartphone, null, this::openPair);
+            addChip(R.drawable.ic_smartphone, null, this::openPair).setContentDescription("Hubungkan HP");
         }
         // Profile photo chip opens Control Center.
         LinearLayout av = new LinearLayout(this);
         av.setPadding((int) dp(3), (int) dp(3), (int) dp(3), (int) dp(3));
         av.setBackground(new GlassDrawable(dp(20), Ui.GLASS, dp(1)));
         av.addView(Avatar.view(this, 30, !guest() && !kids()));
+        av.setContentDescription("Pusat Kontrol");
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = (int) dp(8);
         chips.addView(av, lp); chipViews.add(av); chipActions.add(this::openControl);
         updateChips();
@@ -326,9 +353,10 @@ public class Home extends Activity implements Companion.Listener, Tools {
         ImageView i = Ui.icon(this, icon, 18, Ui.TEXT); i.setTag("i");
         c.addView(i);
         if (text != null) {
-            TextView t = Ui.text(this, 14, 500, Ui.TEXT); t.setText(text); t.setTag("t");
+            TextView t = Ui.text(this, TvViewer.simpleMode(this) ? 17 : 14, 500, Ui.TEXT); t.setText(text); t.setTag("t");
             t.setPadding((int) dp(8), 0, 0, 0);
             c.addView(t);
+            c.setContentDescription(text);
         }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = (int) dp(8);
         chips.addView(c, lp); chipViews.add(c); chipActions.add(action);
@@ -341,6 +369,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         TextView tv = chipViews.get(i).findViewWithTag("t");
         if (iv != null && icon != 0) iv.setImageResource(icon);
         if (tv != null) tv.setText(text);
+        if (text != null && !text.isEmpty()) chipViews.get(i).setContentDescription(text);
     }
 
     void updateChips() {
@@ -502,7 +531,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         for (int i = 0; i < apps.size(); i++) {
             Tile t = new Tile(this, apps.get(i), padTileW, padTileH);
             padRowsView.addView(t, at(M + i * (padTileW + padGap), y, padTileW, padTileH + dp(36)));
-            TextView label = Ui.text(this, 13, 500, Ui.TEXT); label.setText(apps.get(i).label);
+            TextView label = Ui.text(this, TvViewer.simpleMode(this) ? 16 : 13, 500, Ui.TEXT); label.setText(apps.get(i).label);
             label.setGravity(Gravity.CENTER); label.setAlpha(0); label.setTag("label");
             FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams((int) padTileW, -2); ll.topMargin = (int) (padTileH + dp(14));
             t.addView(label, ll);
@@ -662,7 +691,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
             Trending.Video v = trending.get(trendIndex % trending.size());
             hero.context(v.thumb);
             hero.text("Trending di YouTube · #" + (trendIndex % trending.size() + 1), v.title, v.channel + (v.views.isEmpty() ? "" : "  ·  " + v.views));
-            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Putar video");
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Putar video"); heroAction.setContentDescription("Putar video");
             if (row == 0) ui.postDelayed(trendTick, 7000); // hold still while the button is focused
             return;
         }
@@ -670,7 +699,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
             Trending.Video v = netflix.get(trendIndex % netflix.size());
             hero.context(v.thumb);
             hero.text("Populer di Netflix · #" + (trendIndex % netflix.size() + 1), v.title, v.channel);
-            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Buka Netflix");
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Buka Netflix"); heroAction.setContentDescription("Buka Netflix");
             if (row == 0) ui.postDelayed(trendTick, 7000);
             return;
         }
@@ -678,12 +707,12 @@ public class Home extends Activity implements Companion.Listener, Tools {
         else hero.context(null);
         if (a != null && a.pkg.equals(LiveTv.PKG)) {
             hero.text("Bawaan Tahoe", "Live TV", "Trans TV, Trans7, RCTI, SCTV, TVRI dan TV lokal · jadwal acara");
-            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Tonton Live TV");
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Tonton Live TV"); heroAction.setContentDescription("Tonton Live TV");
             return;
         }
         if (a != null) {
             hero.text(a.system ? "Aplikasi sistem" : "Di dock", a.label, "Tahan OK untuk opsi");
-            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Buka " + a.label);
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Buka " + a.label); heroAction.setContentDescription("Buka " + a.label);
             return;
         }
         // Idle: editorial date + weather + next prayer (+ phone music).

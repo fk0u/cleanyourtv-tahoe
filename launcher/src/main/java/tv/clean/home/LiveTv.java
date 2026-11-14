@@ -55,7 +55,7 @@ public class LiveTv extends Activity {
     LinearLayout guide, rows;
     FrameLayout osd;                       // on-screen display: top + bottom scrims with all the info
     Loader loading;
-    TextView bLive, bNum, bName, bMeta, bNow, bNowTime, bNext, bNextTime, bStatus, bCat, tTemp, tCond, tDay, tTime, logoText;
+    TextView bLive, bNum, bName, bMeta, bNow, bNowTime, bNext, bNextTime, bStatus, bCat, tTemp, tCond, tDay, tTime, logoText, numOverlay;
     android.widget.ImageView logo;
     View progress;
     FrameLayout progressTrack;
@@ -86,6 +86,13 @@ public class LiveTv extends Activity {
 
         osd = buildOsd();
         root.addView(osd, new FrameLayout.LayoutParams(-1, -1));
+
+        numOverlay = Ui.text(this, 52, 700, Ui.TEXT);
+        numOverlay.setPadding((int) dp(30), (int) dp(16), (int) dp(30), (int) dp(16));
+        numOverlay.setBackground(new GlassDrawable(dp(20), Ui.GLASS, dp(1)));
+        numOverlay.setGravity(Gravity.CENTER);
+        numOverlay.setVisibility(View.GONE);
+        root.addView(numOverlay, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
 
         // channel list (left)
         guide = new LinearLayout(this); guide.setOrientation(LinearLayout.VERTICAL);
@@ -253,10 +260,20 @@ public class LiveTv extends Activity {
 
     /** Number keys (TV remote or phone): type 1–3 digits, it tunes 1.5 s after the last one. */
     int typed = 0;
-    final Runnable tuneTyped = () -> { if (typed > 0) tune(typed - 1); typed = 0; };
+    final Runnable tuneTyped = () -> {
+        if (numOverlay != null) numOverlay.setVisibility(View.GONE);
+        if (typed > 0) tune(typed - 1);
+        typed = 0;
+    };
     void digit(int n) {
         typed = typed >= 100 ? n : typed * 10 + n;
-        bNum.setText(String.format(java.util.Locale.ROOT, "%03d", typed)); osd.animate().alpha(1).setDuration(Ui.FAST).start();
+        String txt = String.format(java.util.Locale.ROOT, "%03d", typed);
+        bNum.setText(txt); osd.animate().alpha(1).setDuration(Ui.FAST).start();
+        if (numOverlay != null) {
+            numOverlay.setText(txt);
+            numOverlay.setContentDescription("Saluran " + typed);
+            numOverlay.setVisibility(View.VISIBLE);
+        }
         ui.removeCallbacks(tuneTyped); ui.postDelayed(tuneTyped, 1500);
     }
 
@@ -457,9 +474,10 @@ public class LiveTv extends Activity {
         main.addView(tile, new LinearLayout.LayoutParams((int) dp(150), (int) dp(100)));
 
         LinearLayout id = new LinearLayout(this); id.setOrientation(LinearLayout.VERTICAL);
-        bNum = Ui.text(this, 44, 700, Ui.TEXT); bNum.setIncludeFontPadding(false);
-        bName = Ui.text(this, Ui.HEADLINE, 800, Ui.TEXT); bName.setLetterSpacing(0.02f);
-        bMeta = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_2);
+        boolean simple = TvViewer.simpleMode(this);
+        bNum = Ui.text(this, simple ? 52 : 44, 700, Ui.TEXT); bNum.setIncludeFontPadding(false);
+        bName = Ui.text(this, simple ? 32 : Ui.HEADLINE, 800, Ui.TEXT); bName.setLetterSpacing(0.02f);
+        bMeta = Ui.text(this, simple ? 16 : Ui.CAPTION, 500, Ui.TEXT_2);
         bStatus = Ui.text(this, Ui.BODY, 600, 0xFFFF8A80); bStatus.setVisibility(View.GONE);
         id.addView(bNum); id.addView(bName); id.addView(bMeta); id.addView(bStatus);
         LinearLayout.LayoutParams il = new LinearLayout.LayoutParams(0, -2, 1); il.leftMargin = (int) dp(20);
@@ -473,8 +491,8 @@ public class LiveTv extends Activity {
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.leftMargin = (int) dp(8);
         chips.addView(bCat, cl);
         right.addView(chips);
-        bNowTime = Ui.text(this, Ui.BODY, 600, Ui.TEXT); bNow = Ui.text(this, Ui.BODY, 700, Ui.TEXT);
-        bNextTime = Ui.text(this, Ui.BODY, 500, Ui.TEXT_2); bNext = Ui.text(this, Ui.BODY, 500, Ui.TEXT_2);
+        bNowTime = Ui.text(this, simple ? 19 : Ui.BODY, 600, Ui.TEXT); bNow = Ui.text(this, simple ? 19 : Ui.BODY, 700, Ui.TEXT);
+        bNextTime = Ui.text(this, simple ? 18 : Ui.BODY, 500, Ui.TEXT_2); bNext = Ui.text(this, simple ? 18 : Ui.BODY, 500, Ui.TEXT_2);
         LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2); rl.topMargin = (int) dp(10);
         right.addView(scheduleRow(bNowTime, bNow), rl);
         LinearLayout.LayoutParams rl2 = new LinearLayout.LayoutParams(-1, -2); rl2.topMargin = (int) dp(8);
@@ -598,7 +616,7 @@ public class LiveTv extends Activity {
         dg.setColor(live == null ? 0x55FFFFFF : live ? Ui.GOOD : Ui.LIVE); dot.setBackground(dg);
         LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams((int) dp(7), (int) dp(7)); dl.rightMargin = (int) dp(8);
         r.addView(dot, dl);
-        TextView num = Ui.text(this, Ui.CAPTION, 600, Ui.TEXT_3); num.setText(String.format(java.util.Locale.ROOT, "%03d", k + 1));
+        TextView num = Ui.text(this, TvViewer.simpleMode(this) ? 16 : Ui.CAPTION, 600, Ui.TEXT_3); num.setText(String.format(java.util.Locale.ROOT, "%03d", k + 1));
         r.addView(num, new LinearLayout.LayoutParams((int) dp(34), -2));
         FrameLayout tile = new FrameLayout(this);
         android.graphics.drawable.GradientDrawable tg = new android.graphics.drawable.GradientDrawable(); tg.setColor(0xF5FFFFFF); tg.setCornerRadius(dp(8));
@@ -610,19 +628,20 @@ public class LiveTv extends Activity {
         Logos.into(e.getChannel().getLogo(), iv, it, e.getName());
         r.addView(tile, new LinearLayout.LayoutParams((int) dp(54), (int) dp(36)));
         LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
-        TextView name = Ui.text(this, Ui.BODY, 600, Ui.TEXT); name.setText(e.getName()); name.setShadowLayer(0, 0, 0, 0);
+        TextView name = Ui.text(this, TvViewer.simpleMode(this) ? 20 : Ui.BODY, 600, Ui.TEXT); name.setText(e.getName()); name.setShadowLayer(0, 0, 0, 0);
         List<Epg.Programme> s = epg == null ? null : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         Epg.Programme p = s != null && !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
         Epg.Programme nx = null;
         if (s != null) for (Epg.Programme q : s) if (q.getStart().isAfter(now)) { nx = q; break; }
         boolean reminded = nx != null && Reminder.isSet(this, e.getChannel().getUrl(), nx.getStart().toEpochMilli());
-        TextView sub = Ui.text(this, Ui.CAPTION, 500, reminded ? Ui.ACCENT : Ui.TEXT_3); sub.setShadowLayer(0, 0, 0, 0);
+        TextView sub = Ui.text(this, TvViewer.simpleMode(this) ? 16 : Ui.CAPTION, 500, reminded ? Ui.ACCENT : Ui.TEXT_3); sub.setShadowLayer(0, 0, 0, 0);
         sub.setText(reminded ? "🔔 " + java.time.format.DateTimeFormatter.ofPattern("HH.mm").withZone(java.time.ZoneId.systemDefault()).format(nx.getStart()) + "  " + nx.getTitle()
                 : p != null ? p.getTitle() : e.getCategory().getLabel());
         col.addView(name); col.addView(sub);
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -2, 1); cp.leftMargin = (int) dp(12);
         r.addView(col, cp);
         if (fav.contains(e.getChannel().getUrl())) { TextView star = Ui.text(this, Ui.BODY, 700, Ui.SUN); star.setText("★"); r.addView(star); }
+        r.setContentDescription((k + 1) + ". " + e.getName() + ", " + sub.getText());
         r.setOnFocusChangeListener((v, f) -> {
             if (f && k + 20 >= renderedEnd && renderedEnd < list.size()) ensureRowsThrough(renderedEnd + ROW_STEP);
             v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null);
@@ -666,16 +685,43 @@ public class LiveTv extends Activity {
 
     @Override public boolean onKeyDown(int code, KeyEvent e) {
         boolean open = guide.getVisibility() == View.VISIBLE;
-        if (code == KeyEvent.KEYCODE_BACK) { if (open) guide.setVisibility(View.GONE); else finish(); return true; }
+        if (code == KeyEvent.KEYCODE_BACK) {
+            if (typed > 0) {
+                ui.removeCallbacks(tuneTyped);
+                typed = 0;
+                if (numOverlay != null) numOverlay.setVisibility(View.GONE);
+                return true;
+            }
+            if (open) guide.setVisibility(View.GONE); else finish(); return true;
+        }
         if (open) return super.onKeyDown(code, e);
         if (code >= KeyEvent.KEYCODE_0 && code <= KeyEvent.KEYCODE_9) { digit(code - KeyEvent.KEYCODE_0); return true; }
+        if (code == KeyEvent.KEYCODE_DEL) {
+            if (typed > 0) {
+                ui.removeCallbacks(tuneTyped);
+                typed /= 10;
+                if (typed == 0) {
+                    if (numOverlay != null) numOverlay.setVisibility(View.GONE);
+                } else {
+                    String txt = String.format(java.util.Locale.ROOT, "%03d", typed);
+                    bNum.setText(txt);
+                    if (numOverlay != null) { numOverlay.setText(txt); numOverlay.setContentDescription("Saluran " + typed); }
+                    ui.postDelayed(tuneTyped, 1500);
+                }
+            } else {
+                back();
+            }
+            return true;
+        }
         if (code == KeyEvent.KEYCODE_LAST_CHANNEL) { back(); return true; }
         switch (code) {
             case KeyEvent.KEYCODE_DPAD_UP: tune(index - 1); return true;
             case KeyEvent.KEYCODE_DPAD_DOWN: tune(index + 1); return true;
             case KeyEvent.KEYCODE_CHANNEL_UP: tune(index + 1); return true;
             case KeyEvent.KEYCODE_CHANNEL_DOWN: tune(index - 1); return true;
-            case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: e.startTracking(); return true; // tap = list, hold = "not live"
+            case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
+                if (typed > 0) { ui.removeCallbacks(tuneTyped); tuneTyped.run(); return true; }
+                e.startTracking(); return true; // tap = list, hold = "not live"
             case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_MENU: openGuide(); return true;
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: case KeyEvent.KEYCODE_MEDIA_PLAY: case KeyEvent.KEYCODE_MEDIA_PAUSE:
                 if (player != null) { boolean pause = code == KeyEvent.KEYCODE_MEDIA_PAUSE || (code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE && player.getPlayWhenReady());

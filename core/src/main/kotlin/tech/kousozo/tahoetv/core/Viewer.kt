@@ -32,6 +32,8 @@ data class Viewer @JvmOverloads constructor(
     val schema: Int = 2,
     /** Monotonic revision for phone↔TV merge sync (#111). */
     val revision: Long = 0L,
+    /** Large text & simplified layout for elderly / low-vision viewers (#90, #64). */
+    val simpleMode: Boolean = false,
 ) {
     val done get() = country.isNotBlank()
 
@@ -76,6 +78,7 @@ data class Viewer @JvmOverloads constructor(
     fun toJson(): String = JSONObject()
         .put("schema", schema)
         .put("revision", revision)
+        .put("simpleMode", simpleMode)
         .put("language", language).put("country", country).put("city", city).put("lat", lat ?: JSONObject.NULL).put("lon", lon ?: JSONObject.NULL)
         .put("region", region).put("timeZone", timeZone).put("prayer", prayer).put("prayerMethod", prayerMethod)
         .put("channelCountries", JSONArray(channelCountries)).put("categories", JSONArray(categories.toList())).put("favorites", JSONArray(favorites))
@@ -95,6 +98,7 @@ data class Viewer @JvmOverloads constructor(
                 categories = list("categories").toSet(), favorites = list("favorites"),
                 schema = j.optInt("schema", 2),
                 revision = j.optLong("revision", 0L),
+                simpleMode = j.optBoolean("simpleMode", false),
             )
         }
 

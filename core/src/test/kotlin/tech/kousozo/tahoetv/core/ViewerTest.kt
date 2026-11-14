@@ -9,8 +9,9 @@ class ViewerTest {
         LocalTv.Entry(M3u.Channel(name, "https://x/$name.m3u8", null, null), name, cat, false, false, false, 99)
 
     @Test fun roundTripsThroughJson() {
-        val v = Viewer("zh", "JP", "Tokyo", 35.68, 139.69, "Tokyo", "Asia/Tokyo", true, 3, listOf("JP", "ID"), setOf("News"), listOf("u1", "u2"))
+        val v = Viewer("zh", "JP", "Tokyo", 35.68, 139.69, "Tokyo", "Asia/Tokyo", true, 3, listOf("JP", "ID"), setOf("News"), listOf("u1", "u2"), simpleMode = true)
         assertEquals(v, Viewer.fromJson(v.toJson()))
+        assertTrue(!Viewer.fromJson("{}").simpleMode)
         assertEquals(Viewer(), Viewer.fromJson(null))
         assertEquals(Viewer(), Viewer.fromJson("not json"))
     }
