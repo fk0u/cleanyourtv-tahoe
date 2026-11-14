@@ -57,14 +57,15 @@ Build publik tanpa key: `./gradlew -PpublicBuild assembleRelease` (key lalu diis
 ## App desktop
 
 Unduh dari [Releases](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest): `TahoeTV-macos-arm64.dmg` (Apple Silicon),
-`TahoeTV-macos-intel.dmg`, atau `TahoeTV-windows.msi`.
+`TahoeTV-macos-intel.dmg`, `TahoeTV-windows.msi`, atau `TahoeTV-linux-amd64.deb` (Debian / Ubuntu amd64).
 
 - **macOS:** app belum dinotarisasi Apple. Saat pertama dibuka: klik kanan app → **Buka** → **Buka**.
 - **Windows:** SmartScreen bisa memperingatkan; pilih **More info → Run anyway**.
+- **Debian / Ubuntu:** pasang lewat terminal dengan `sudo apt install ./TahoeTV-linux-amd64.deb` (dependensi ikut dipasang otomatis), atau buka lewat penginstal paket. TV Live terbuka di mode app Chromium/Chrome jika terpasang, atau browser default.
 - Data app: `~/.tahoetv/` (playlist kustom di `~/.tahoetv/playlists/`, log diagnostik `diag.log`, jadwal rekaman). Rekaman di `~/Movies/Tahoe TV` (macOS) atau `~/Videos/Tahoe TV`.
 - Server IPTV LAN aktif otomatis (Setelan → Server IPTV), atau dari terminal: `./tools/start-iptv-server.sh`.
 
-Build sendiri: `./gradlew -PpublicBuild :desktop:packageDmg` (atau `packageMsi` di Windows). Jalankan langsung: `./gradlew :desktop:run`.
+Build sendiri: `./gradlew -PpublicBuild :desktop:packageDmg` (`packageMsi` di Windows, `packageDeb` di Debian/Ubuntu dengan `fakeroot dpkg-dev binutils`). Jalankan langsung: `./gradlew :desktop:run`.
 
 ## Kontrol remote
 

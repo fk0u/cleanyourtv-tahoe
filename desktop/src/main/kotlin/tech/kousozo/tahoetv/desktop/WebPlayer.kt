@@ -94,14 +94,33 @@ object WebPlayer {
         "&ids=" + URLEncoder.encode(ids.joinToString(","), "UTF-8") + "&s=$seq"
 
     private fun launch(url: String): String? {
-        edge()?.let { exe ->
-            // the URL is one argument to the exe itself (no cmd.exe, so '&' in it isn't taken as a command separator)
-            if (runCatching { ProcessBuilder(exe.path, "--app=$url", "--new-window").start() }.isSuccess) return null
+        (edge()?.path ?: linuxBrowser())?.let { exe ->
+            // the URL is one argument to the exe itself (no cmd.exe/shell, so '&' in it isn't taken as a command separator)
+            if (runCatching { ProcessBuilder(exe, "--app=$url", "--new-window").start() }.isSuccess) return null
         }
         return runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)); null }
+            .recoverCatching {
+                if (System.getProperty("os.name").orEmpty().lowercase().contains("linux")) {
+                    ProcessBuilder("xdg-open", url).start()
+                    null
+                } else throw it
+            }
             .getOrElse { DiagLog.error("live", "web player tidak bisa dibuka", it); "Browser tidak bisa dibuka. Buka sendiri: $url" }
     }
 
     private fun edge(): File? = listOfNotNull(System.getenv("ProgramFiles(x86)"), System.getenv("ProgramFiles"), System.getenv("LOCALAPPDATA"))
         .map { File(it, "Microsoft/Edge/Application/msedge.exe") }.firstOrNull { it.isFile }
+
+    private fun linuxBrowser(): String? {
+        if (!System.getProperty("os.name").orEmpty().lowercase().contains("linux")) return null
+        val pathDirs = System.getenv("PATH").orEmpty().split(File.pathSeparator).filter { it.isNotBlank() }
+        val names = listOf("google-chrome", "google-chrome-stable", "chromium", "chromium-browser")
+        for (dir in pathDirs) {
+            for (name in names) {
+                val f = File(dir, name)
+                if (f.isFile && f.canExecute()) return f.absolutePath
+            }
+        }
+        return null
+    }
 }

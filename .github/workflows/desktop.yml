@@ -46,6 +46,10 @@ jobs:
             task: packageMsi
             out: desktop/build/compose/binaries/main/msi/*.msi
             suffix: windows
+          - os: ubuntu-latest   # Debian / Ubuntu (x86_64)
+            task: packageDeb
+            out: desktop/build/compose/binaries/main/deb/*.deb
+            suffix: linux-amd64
     runs-on: ${{ matrix.os }}
     environment: ${{ (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') && 'release' || '' }}
     steps:
@@ -65,6 +69,9 @@ jobs:
         run: |
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=tahoetv\nkeyPassword=%s\n' "$RUNNER_TEMP/release.jks" "$STORE_PASSWORD" "$KEY_PASSWORD" > keystore.properties
+      - name: Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fakeroot dpkg-dev binutils
       - name: Build (public, no API keys)
         shell: bash
         run: ./gradlew --no-daemon -PpublicBuild :desktop:${{ matrix.task }}
