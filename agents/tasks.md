@@ -6,14 +6,14 @@
 
 ## 🔴 NOW — trust patch `3.2.x` (ship before any international push)
 
-- [ ] #102 CH+ goes down a channel (inverted on TV, phone, desktop)  ⟨UI/UX⟩ {S}
-- [ ] #103 Red colour key = "Exit" in the legend but marks the stream "not live"  ⟨UI/UX⟩ {S}
-- [ ] #78 Owner's name/photo/city as public defaults (+ no personal photos in screenshots → #99)  ⟨CEO·Creative⟩ {S}
-- [ ] #92 Desktop installers bundle a debug-signed launcher  ⟨DevOps⟩ {S}
-- [ ] #104 EPG loaded whole into memory → OOM with big guides  ⟨SWE⟩ {M}
+- [x] #102 CH+ goes down a channel (inverted on TV, phone, desktop)  ⟨UI/UX⟩ {S} · merged in #116
+- [ ] #103 Red colour key = "Exit" in the legend but marks the stream "not live"  ⟨UI/UX⟩ {S} · PR #119
+- [ ] #78 Owner's name/photo/city as public defaults (+ no personal photos in screenshots → #99)  ⟨CEO·Creative⟩ {S} · PR #120
+- [ ] #92 Desktop installers bundle a debug-signed launcher  ⟨DevOps⟩ {S} · PR #121
+- [ ] #104 EPG loaded whole into memory → OOM with big guides  ⟨SWE⟩ {M} · PR #117
 - [ ] #45 Truncated update accepted as complete (+ checksums)  ⟨DevOps·QA⟩ {S}
 - [ ] Private advisories GHSA-34j8 (phone↔TV link), GHSA-x8v7 (desktop server), GHSA-cp6v (release key)  ⟨SWE·CTO·DevOps⟩ {M}
-- [ ] #114 Slate follow-ups: OSD covers slate on TV, wrong reason, calmer layout, one tested state machine  ⟨UI/UX·Creative·QA⟩ {S}
+- [ ] #114 Slate follow-ups: OSD covers slate on TV, wrong reason, calmer layout, one tested state machine  ⟨UI/UX·Creative·QA⟩ {S} · PR #118
 - [ ] Real-device pass on the Mi TV Stick: TV onboarding (#85) and TV slate (#87) have never run on a TV  ⟨QA⟩ {S}
 
 ## 🟠 NEXT — `3.3 International`
