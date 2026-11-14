@@ -35,7 +35,13 @@
   - #56 (`I18n` EN/ID/中文 tables in `:core`, localized `PlayPrefs`/`Scan`/`TvLink`/`HlsRecorder`, active viewer language in desktop & companion UIs, `I18nTest`): merged in #138.
   - #91 & #99 (`Brand.tagline(lang)`, removed third-party OS trademarks from headlines/copy, aligned website CSS tokens `--cyan-deep`/`--lake-deep`/`--motion-*`, replaced personal `og:image`, added `Demo` mode `--demo`/`-Dtahoe.demo=true` & contributing privacy rules): merged in #139.
   - #75 (`HlsProxy.open` redirect delegation, `HlsProxy.trimDiscontinuity`, automatic `WebPlayer` fallback on verified live/unsupported failures in `PlayerWindow`, `HlsProxyTest`): merged in #140.
-- **Open PRs:** none (apart from Dependabot action bumps #127–#130).
+- **3.4 Simple & Connect (Batch 1) & Engineering Health:**
+  - #106 (`SourceHealth` per-line recovery + `@Synchronized` sibling-temp atomic writes + `probeAll` safe decrement): merged in #142.
+  - #107, #96, #111 (`Viewer` revision/diff/merge patches + onboarding confirmation prompt, bounded offline queue & `TvLink.shared`, `Sync` stop guard, `Companion` `/apps` 2s timeout, desktop `Snapshot` & immutable channel snapshot): merged in #143.
+  - #108, #109 (Deferred/windowed TV guide inflate + `refreshRow`, memoized live search & filters in desktop & phone, bounded `LruCache` + downsampling on desktop, phone, and TV `Avatar`): merged in #144.
+  - #65 (Plain-language glossary in `BRAND.md`, EN/ID/中文 `I18n` status/badge keys, calmer desktop/TV/phone/web UI copy): merged in #145.
+  - #100, #57, #98, #60 (Single `gradle.properties` version -> generated `TahoeVersion`, PR lint/website checks + `desktop.yml` `verify` gate & tag match, Gradle Dependabot, multi-stage website Docker build, Now/Next/Later EN/ID roadmaps): merged in #146.
+- **Open PRs:** none (apart from Dependabot bumps).
 - **Private security advisories:** Patches merged to main in #124, #125, #126. Ready to publish with 3.2.1 release.
 - **Review board** (DevOps, UI/UX, CTO, CEO, Creative, Frontend, SWE, QA) filed #88 and #90–#111, plus comments on #43 #45 #56 #57 #64 #65 #71 #75 #76 #77 #78 #81 #90 #96 #100. Priorities are in `agents/tasks.md`; direction is in `agents/plans.md`.
 
@@ -74,5 +80,5 @@ export JAVA_HOME=<jdk17>/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk
 ## Next 3 concrete steps
 
 1. Real-device testing on Mi TV Stick: TV onboarding (#85) and TV slate (#87).
-2. Begin **3.4 Simple & Connect**: native-TV controls & Simple Mode (#90), phone↔TV protocol v2 (#93), and Tahoe Connect (#88).
-3. Continuous engineering health: release pipeline & branch protection (#100), Android lint/tests in CI (#57), and `Home.java`/`IptvServer.kt` refactor (#95).
+2. Continue **3.4 Simple & Connect (Batch 2)**: native-TV controls & Simple Mode (#90), accessibility (#64), phone↔TV protocol v2 (#93), and Tahoe Connect (#88).
+3. Continuous engineering health: `Home.java`/`IptvServer.kt` split (#95) and remaining offline/Android unit coverage. Note locally: Gradle 8.14 needs JDK 17 (e.g. `~/.gradle/jdks/temurin-17/Contents/Home`) whenever build scripts change, as Android Studio's JBR 25 hits Groovy class version 69.
