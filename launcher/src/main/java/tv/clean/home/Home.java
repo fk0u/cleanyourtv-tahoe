@@ -243,14 +243,38 @@ public class Home extends Activity implements Companion.Listener, Tools {
                 }, () -> { closeSheet(); cancel.run(); })), () -> { closeSheet(); cancel.run(); }));
     }
 
-    /** Asks for the kids PIN; [ok] runs only when it's right. A short pause after each wrong try slows guessing. */
+    /** Asks for the kids PIN; [ok] runs only when it's right. Progressive delays slow brute-force guessing. */
     void verifyPin(String title, Runnable ok) {
-        openSheet(new Sheets.PinPad(this, title, "Masukkan PIN orang tua", (pad, pin) -> {
-            if (Kids.checkPin(this, pin)) { closeSheet(); ok.run(); return; }
-            pad.fail("PIN salah. Coba lagi.");
-            pad.setEnabled(false); pad.setAlpha(0.6f);
-            ui.postDelayed(() -> { pad.setEnabled(true); pad.setAlpha(1f); }, 2000);
-        }, this::closeSheet));
+        Runnable[] lock = new Runnable[1];
+        boolean[] refreshMsg = {true};
+        Sheets.PinPad sheet = new Sheets.PinPad(this, title, "Masukkan PIN orang tua", (pad, pin) -> {
+            if (Kids.pinLockLeftMs(this) > 0) { refreshMsg[0] = true; lock[0].run(); return; }
+            if (Kids.checkPin(this, pin)) { Kids.clearPinBackoff(this); closeSheet(); ok.run(); return; }
+            int sec = Kids.recordWrongPin(this);
+            pad.fail("PIN salah. Tunggu " + sec + " dtk.");
+            refreshMsg[0] = false;
+            lock[0].run();
+        }, this::closeSheet);
+        lock[0] = () -> {
+            long left = Kids.pinLockLeftMs(this);
+            if (left <= 0) {
+                sheet.setEnabled(true); sheet.setAlpha(1f);
+                sheet.status("Masukkan PIN orang tua", false);
+                return;
+            }
+            sheet.setEnabled(false); sheet.setAlpha(0.6f);
+            if (refreshMsg[0]) {
+                long sec = (left + 999) / 1000;
+                sheet.status("Terlalu banyak salah PIN. Coba lagi dalam " + sec + " dtk.", true);
+            }
+            refreshMsg[0] = true;
+            ui.postDelayed(() -> {
+                if (!sheet.isAttachedToWindow()) return;
+                lock[0].run();
+            }, Math.min(left, 1000L));
+        };
+        openSheet(sheet);
+        if (Kids.pinLockLeftMs(this) > 0) lock[0].run();
     }
 
     boolean guest() { return "guest".equals(prefs.getString("profile", "main")); }

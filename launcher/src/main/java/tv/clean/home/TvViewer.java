@@ -25,12 +25,14 @@ final class TvViewer {
                     .putString("province", v.getRegion());
         } else e.remove("city").remove("latitude").remove("longitude").remove("province"); // no city: nothing left over
         e.apply();
-        if (!prayer(c)) { // off (or no city): drop today's times and the pending adhan alarm
-            Prayer.prefs(c).edit().remove("prayer2").remove("prayer2_date").apply();
+        if (!prayer(c)) { // off (or no city): drop today's and tomorrow's times and cancel alarms
+            Prayer.prefs(c).edit().remove("prayer2").remove("prayer2_date")
+                    .remove("prayer2_tomorrow").remove("prayer2_tomorrow_date").remove("prayer2_retry").apply();
             Prayer.schedule(c); // no next prayer → cancels the alarm
         }
         // new place or prayer settings: weather and prayer times are fetched again
-        c.getSharedPreferences("home", Context.MODE_PRIVATE).edit().remove("weather2_at").remove("prayer2_date").apply();
+        c.getSharedPreferences("home", Context.MODE_PRIVATE).edit().remove("weather2_at").remove("prayer2_date")
+                .remove("prayer2_tomorrow_date").remove("prayer2_retry").apply();
         if (!before.getCountries().equals(v.getCountries())) { Live.cached = null; Live.epg = null; } // other channel countries
         else Live.cached = null; // categories / favourite order: re-arranged on the next load
         c.getSharedPreferences("live", Context.MODE_PRIVATE).edit()

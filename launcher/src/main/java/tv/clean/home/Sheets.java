@@ -360,6 +360,10 @@ final class Sheets {
                     .withEndAction(() -> scroll.animate().translationX(0).setDuration(60).start()).start()).start();
         }
 
+        void status(String msg, boolean err) {
+            hint = msg; error = err; pin = ""; rebuild();
+        }
+
         /** Keeps the title, message and dots in view: scroll only as far as the focused key needs (Grid scrolls it to the top). */
         @Override void render() {
             super.render();
@@ -380,10 +384,11 @@ final class Sheets {
         @Override public boolean key(KeyEvent e) {
             int k = e.getKeyCode();
             if (e.getAction() == KeyEvent.ACTION_DOWN) {
+                if (k == KeyEvent.KEYCODE_BACK) { cancel.run(); return true; }
+                if (!isEnabled()) return true;
                 if (k >= KeyEvent.KEYCODE_0 && k <= KeyEvent.KEYCODE_9) { type(String.valueOf(k - KeyEvent.KEYCODE_0)); return true; }
                 if (k == KeyEvent.KEYCODE_DEL) { erase(); return true; }
-                if (k == KeyEvent.KEYCODE_BACK) { cancel.run(); return true; }
-            }
+            } else if (!isEnabled()) return true;
             return super.key(e);
         }
     }
