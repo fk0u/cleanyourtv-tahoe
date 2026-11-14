@@ -52,18 +52,37 @@ object HlsProxy {
         }
     }
 
-    private fun open(url: String, headers: Map<String, String>): HttpURLConnection {
-        var u = url
-        repeat(5) { // follow redirects by hand: HttpURLConnection won't cross http↔https, which CDNs do
-            val c = URI(u).toURL().openConnection() as HttpURLConnection
-            c.connectTimeout = 8000; c.readTimeout = 15000; c.instanceFollowRedirects = false
-            c.setRequestProperty("User-Agent", tech.kousozo.tahoetv.core.Web.STREAM_UA); headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
-            if (c.responseCode in 300..399) { u = URI(u).resolve(c.getHeaderField("Location")).toString(); c.disconnect() } else return c
-        }
-        error("too many redirects")
-    }
+    private fun open(url: String, headers: Map<String, String>): HttpURLConnection =
+        tech.kousozo.tahoetv.core.Web.openFollowingRedirects(url, 15_000, headers, connectTimeoutMs = 8000)
 
     private val URI_ATTR = Regex("""URI="([^"]+)"""")
+
+    /** Strip pre-roll segments before the last `#EXT-X-DISCONTINUITY` (that has trailing segments) so
+     *  JavaFX MediaPlayer does not stall or fail on codec/timestamp switches in live media playlists. */
+    internal fun trimDiscontinuity(playlist: String): String {
+        val lines = playlist.replace("\r\n", "\n").lines()
+        val discIdx = lines.indices.lastOrNull { i ->
+            lines[i].trim().equals("#EXT-X-DISCONTINUITY", ignoreCase = true) &&
+                lines.drop(i + 1).any { it.trim().startsWith("#EXTINF", ignoreCase = true) }
+        } ?: return playlist
+        val firstSeg = lines.indexOfFirst { it.trim().startsWith("#EXTINF", ignoreCase = true) }
+        if (firstSeg < 0 || discIdx < firstSeg) return playlist
+        val droppedSegs = lines.subList(firstSeg, discIdx).count { it.trim().startsWith("#EXTINF", ignoreCase = true) }
+        val header = lines.take(firstSeg).mapNotNull { line ->
+            val t = line.trim()
+            when {
+                t.startsWith("#EXT-X-DISCONTINUITY", ignoreCase = true) -> null
+                t.startsWith("#EXT-X-PROGRAM-DATE-TIME", ignoreCase = true) -> null
+                t.startsWith("#EXT-X-MEDIA-SEQUENCE:", ignoreCase = true) -> {
+                    val seq = t.substringAfter(':').trim().toLongOrNull()
+                    if (seq != null) "#EXT-X-MEDIA-SEQUENCE:${seq + droppedSegs}" else line
+                }
+                else -> line
+            }
+        }
+        val tail = lines.drop(discIdx + 1).dropWhile { it.trim().equals("#EXT-X-DISCONTINUITY", ignoreCase = true) }
+        return (header + tail).joinToString("\n")
+    }
 
     /** What JavaFX gets instead of the source's playlist: a master playlist without its dead variants (JavaFX plays the
      *  first variant and never switches; sources often keep the master up while a variant gives 403/404), capped to the
@@ -72,8 +91,8 @@ object HlsProxy {
         tech.kousozo.tahoetv.core.HlsProbe.dropDeadVariants(text, base, headers, 5000)
             ?.let { tech.kousozo.tahoetv.core.PlayPrefs.capVariants(it, Settings.quality.maxHeight) }
 
-    /** Absolute-ise every URL in a playlist and point it back at the relay. */
-    fun rewrite(text: String, base: String, headers: Map<String, String>): String = text.lineSequence().joinToString("\n") { line ->
+    /** Absolute-ise every URL in a playlist (after trimming discontinuity pre-rolls) and point it back at the relay. */
+    fun rewrite(text: String, base: String, headers: Map<String, String>): String = trimDiscontinuity(text).lineSequence().joinToString("\n") { line ->
         when {
             line.isBlank() -> line
             line.startsWith("#") -> URI_ATTR.replace(line) { m -> "URI=\"" + wrap(URI(base).resolve(m.groupValues[1]).toString(), headers) + "\"" }
