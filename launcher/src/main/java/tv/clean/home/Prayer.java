@@ -25,24 +25,33 @@ final class Prayer {
             {"Dzuhur", "Dhuhr", "1"}, {"Ashar", "Asr", "1"}, {"Maghrib", "Maghrib", "1"}, {"Isya", "Isha", "1"}};
 
     static SharedPreferences prefs(Context c) { return c.getSharedPreferences("home", Context.MODE_PRIVATE); }
-    static String today() { return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date()); }
+    static java.util.TimeZone tz(Context c) { return java.util.TimeZone.getTimeZone(TvViewer.get(c).getZone()); }
+    static String today(Context c) {
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        f.setTimeZone(tz(c));
+        return f.format(new Date());
+    }
 
     static void fetchIfStale(Context c, Runnable done, android.os.Handler ui) {
         SharedPreferences p = prefs(c);
-        if (today().equals(p.getString("prayer2_date", ""))) { ui.post(done); return; }
+        String td = today(c);
+        if (td.equals(p.getString("prayer2_date", ""))) { ui.post(done); return; }
         if (!TvViewer.prayer(c)) { p.edit().remove("prayer2").apply(); ui.post(done); return; } // turned off in onboarding
         Net.bg.execute(() -> {
             try {
-                String js = Net.get("https://api.aladhan.com/v1/timings/" + new SimpleDateFormat("dd-MM-yyyy", Locale.US).format(new Date())
+                java.util.TimeZone zone = tz(c);
+                SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy", Locale.US);
+                df.setTimeZone(zone);
+                String js = Net.get("https://api.aladhan.com/v1/timings/" + df.format(new Date())
                         + "?latitude=" + Cfg.s(c, "latitude", R.string.latitude) + "&longitude=" + Cfg.s(c, "longitude", R.string.longitude)
-                        + "&method=" + TvViewer.prayerMethod(c) + "&timezonestring=" + java.net.URLEncoder.encode(java.util.TimeZone.getDefault().getID(), "UTF-8"));
+                        + "&method=" + TvViewer.prayerMethod(c) + "&timezonestring=" + java.net.URLEncoder.encode(zone.getID(), "UTF-8"));
                 JSONObject data = new JSONObject(js).getJSONObject("data");
                 JSONObject t = data.getJSONObject("timings"), h = data.getJSONObject("date").getJSONObject("hijri");
                 StringBuilder sb = new StringBuilder();
                 for (String[] x : TIMES) sb.append(x[0]).append('=').append(t.getString(x[1]).substring(0, 5)).append(';');
                 String hijri = h.getString("day") + " " + h.getJSONObject("month").getString("en") + " " + h.getString("year") + " H";
                 if (!TvViewer.prayer(c)) { ui.post(done); return; } // turned off while this was loading
-                p.edit().putString("prayer2", sb.toString()).putString("prayer2_date", today()).putString("hijri", hijri).apply();
+                p.edit().putString("prayer2", sb.toString()).putString("prayer2_date", td).putString("hijri", hijri).apply();
                 schedule(c);
                 ui.post(done);
             } catch (Exception ignored) {}
@@ -52,11 +61,12 @@ final class Prayer {
     static LinkedHashMap<String, Long> times(Context c) {
         LinkedHashMap<String, Long> out = new LinkedHashMap<>();
         SharedPreferences p = prefs(c);
-        if (!today().equals(p.getString("prayer2_date", ""))) return out;
+        if (!today(c).equals(p.getString("prayer2_date", ""))) return out;
+        java.util.TimeZone zone = tz(c);
         for (String part : p.getString("prayer2", "").split(";")) {
             String[] kv = part.split("=");
             if (kv.length != 2) continue;
-            Calendar cal = Calendar.getInstance();
+            Calendar cal = Calendar.getInstance(zone);
             cal.set(Calendar.HOUR_OF_DAY, Integer.parseInt(kv[1].substring(0, 2)));
             cal.set(Calendar.MINUTE, Integer.parseInt(kv[1].substring(3, 5)));
             cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
@@ -181,11 +191,15 @@ final class Prayer {
             Object[] n = next(c);
             LinearLayout left = new LinearLayout(c); left.setOrientation(LinearLayout.VERTICAL);
             TextView eb = Ui.eyebrow(c, Ui.TEXT_3);
-            eb.setText(new SimpleDateFormat("EEE d", Locale.getDefault()).format(new Date()) + "  ·  " + prefs(c).getString("hijri", ""));
+            SimpleDateFormat ebFmt = new SimpleDateFormat("EEE d", Locale.getDefault());
+            ebFmt.setTimeZone(tz(c));
+            eb.setText(ebFmt.format(new Date()) + "  ·  " + prefs(c).getString("hijri", ""));
             TextView title = Ui.text(c, Ui.TITLE, 600, Ui.TEXT);
             title.setText(n == null ? "Sampai jumpa besok" : (String) n[0]);
             TextView big = Ui.text(c, Ui.DISPLAY, 200, Ui.TEXT); big.setEllipsize(null);
-            big.setText(n == null ? "" : new SimpleDateFormat("HH.mm", Locale.getDefault()).format(new Date((Long) n[1])));
+            SimpleDateFormat hmFmt = new SimpleDateFormat("HH.mm", Locale.getDefault());
+            hmFmt.setTimeZone(tz(c));
+            big.setText(n == null ? "" : hmFmt.format(new Date((Long) n[1])));
             TextView meta = Ui.text(c, Ui.BODY, 400, Ui.TEXT_2);
             meta.setText((n == null ? "" : "dalam " + countdown((Long) n[1]) + "  ·  ") + Cfg.s(c, "city", R.string.city) + "  ·  " + tech.kousozo.tahoetv.core.Prayer.name(TvViewer.prayerMethod(c)));
             left.addView(eb);
@@ -231,7 +245,9 @@ final class Prayer {
             LinearLayout txt = new LinearLayout(c); txt.setOrientation(LinearLayout.VERTICAL); txt.setPadding((int) (8 * d), 0, 0, 0);
             TextView nm = Ui.text(c, 15, next ? 700 : 500, past ? Ui.TEXT_3 : Ui.TEXT); nm.setText(name); nm.setTag("n");
             TextView sub = Ui.text(c, 12.5f, 400, Ui.TEXT_3); sub.setTag("s");
-            sub.setText(new SimpleDateFormat("HH:mm", Locale.US).format(new Date(time)) + (next ? "  ·  berikutnya" : past ? "  ·  sudah lewat" : ""));
+            SimpleDateFormat rowFmt = new SimpleDateFormat("HH:mm", Locale.US);
+            rowFmt.setTimeZone(tz(c));
+            sub.setText(rowFmt.format(new Date(time)) + (next ? "  ·  berikutnya" : past ? "  ·  sudah lewat" : ""));
             txt.addView(nm); txt.addView(sub);
             r.addView(txt, new LinearLayout.LayoutParams(0, -2, 1));
             if (adzanCapable(name)) {

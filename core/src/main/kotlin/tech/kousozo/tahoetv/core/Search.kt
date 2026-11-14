@@ -22,7 +22,7 @@ object Search {
                 all(e.name) -> 1 to Hit(e, null)
                 all(e.channel.group.orEmpty() + " " + e.category.label) -> 2 to Hit(e, null)
                 else -> {
-                    val show = epg?.schedule(e.name, now).orEmpty().take(12) // about the next day
+                    val show = epg?.schedule(e.name, now, e.channel.tvgId).orEmpty().take(12) // about the next day
                         .firstOrNull { all(it.title) || (it.desc != null && all(it.desc)) } ?: return@mapNotNull null
                     (if (show.start <= now) 3 else 4) to Hit(e, show)
                 }

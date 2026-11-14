@@ -70,12 +70,13 @@ fun HomeScreen(onLive: () -> Unit) {
     val viewer = Settings.viewer
     // after onboarding: no city = no weather/prayer; prayer only when switched on, with the chosen method and time zone
     val hasCity = !viewer.done || viewer.lat != null
+    val lang = Settings.lang
     LaunchedEffect(lat, lon, viewer, Settings.youtube, Settings.tmdb) {
         withContext(Dispatchers.IO) {
-            weather = if (hasCity) Web.weather(lat, lon) else null
-            prayer = if (hasCity && (!viewer.done || viewer.prayer)) Web.prayer(lat, lon, if (viewer.done) viewer.prayerMethod else 20, viewer.zone) else emptyList()
-            val yt = Settings.youtube.takeIf { it.isNotBlank() }?.let { Web.youtubeTrending(it) }.orEmpty()
-            val nf = Settings.tmdb.takeIf { it.isNotBlank() }?.let { Web.netflixPopular(it) }.orEmpty()
+            weather = if (hasCity) Web.weather(lat, lon, lang) else null
+            prayer = if (hasCity && (!viewer.done || viewer.prayer)) Web.prayer(lat, lon, if (viewer.done) viewer.prayerMethod else 20, viewer.zone, lang) else emptyList()
+            val yt = Settings.youtube.takeIf { it.isNotBlank() }?.let { Web.youtubeTrending(it, viewer.country.ifBlank { "ID" }, lang) }.orEmpty()
+            val nf = Settings.tmdb.takeIf { it.isNotBlank() }?.let { Web.netflixPopular(it, viewer.country.ifBlank { "ID" }) }.orEmpty()
             heroes = (0 until maxOf(yt.size, nf.size)).flatMap { listOfNotNull(yt.getOrNull(it), nf.getOrNull(it)) }
         }
     }
@@ -285,7 +286,7 @@ private fun AssistantPanel() {
         busy = true; q = ""
         scope.launch {
             val a = withContext(Dispatchers.IO) {
-                runCatching { Web.ask(Settings.gemini, Settings.geminiModel, question, Settings.city, history.takeLast(6)) }.getOrElse { "Gagal: ${it.message}" }
+                runCatching { Web.ask(Settings.gemini, Settings.geminiModel, question, Settings.city, history.takeLast(6), Settings.lang) }.getOrElse { "Gagal: ${it.message}" }
             }
             history += "user" to question; history += "model" to a
             answer = a; busy = false

@@ -345,14 +345,17 @@ public class Home extends Activity implements Companion.Listener, Tools {
         if (clock == null) return;
         Date now = new Date();
         boolean h24 = android.text.format.DateFormat.is24HourFormat(this);
-        clock.setText(new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", Locale.getDefault()).format(now));
-        int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        java.util.TimeZone tz = Prayer.tz(this);
+        SimpleDateFormat cf = new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", Locale.getDefault());
+        cf.setTimeZone(tz);
+        clock.setText(cf.format(now));
+        int h = Calendar.getInstance(tz).get(Calendar.HOUR_OF_DAY);
         String g = h < 4 ? "Selamat malam" : h < 11 ? "Selamat pagi" : h < 15 ? "Selamat siang" : h < 18 ? "Selamat sore" : "Selamat malam";
         String name = guest() || kids() ? "" : Cfg.s(this, "user_name", R.string.user_name);
         greeting.setText(name.isEmpty() ? g : g + ", " + name);
         updateChips();
         if (row != 0 || focusedApp() == null) renderHero();
-        if (!Prayer.today().equals(prefs.getString("prayer2_date", ""))) Prayer.fetchIfStale(this, this::updateChips, ui);
+        if (!Prayer.today(this).equals(prefs.getString("prayer2_date", ""))) Prayer.fetchIfStale(this, this::updateChips, ui);
     }
 
     // ---------------------------------------------------------------- apps

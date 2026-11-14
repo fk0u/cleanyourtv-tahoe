@@ -20,20 +20,22 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import tech.kousozo.tahoetv.core.Epg;
+import tech.kousozo.tahoetv.core.OnboardingText;
+import tech.kousozo.tahoetv.core.Region;
 import tech.kousozo.tahoetv.core.SourceHealth;
 import tech.kousozo.tahoetv.core.LocalTv;
 import tech.kousozo.tahoetv.core.Sources;
+import tech.kousozo.tahoetv.core.Viewer;
 import tech.kousozo.tahoetv.core.Web;
 
-/** "Jadwal TV": what's on now and next on Indonesian channels, local TV first ("Dekat kamu" by province,
- *  national, TVRI regional, local). Choosing a channel plays it in Tahoe's built-in Live TV player. Channels: free Indonesian TV from iptv-org + dhanytv (no paid/DRM channels);
- *  guide: dhanytv + epg.pw (both replaceable via Config). */
+/** "Jadwal TV": what's on now and next on channels from the viewer's configured regions, local TV first when applicable.
+ *  Choosing a channel plays it in Tahoe's built-in Live TV player. */
 public class Live extends Activity {
     static final String TV_APP = "com.live_streaming_tv.online_tv"; // BitTV
     static List<LocalTv.Entry> cached; static Epg epg; static long cachedAt;   // survive re-opening; refreshed every 6 h
 
     final Handler ui = new Handler(Looper.getMainLooper());
-    final DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault());
+    DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault());
     TextView title, sub, dName, dCat, dNow, dDesc, dNext, dHint;
     LinearLayout cats, rows;
     List<LocalTv.Entry> all = new ArrayList<>(), list = new ArrayList<>();
@@ -45,6 +47,7 @@ public class Live extends Activity {
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = getSharedPreferences("live", MODE_PRIVATE);
+        hm = DateTimeFormatter.ofPattern("HH.mm").withZone(TvViewer.get(this).getZone());
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Ui.NIGHT);
         LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
@@ -102,25 +105,30 @@ public class Live extends Activity {
         Net.bg.execute(() -> {
             try {
                 SharedPreferences cfg = Cfg.p(c);
+                Viewer vw = TvViewer.get(c);
                 if (!fresh) {
-                    String province = cfg.getString("province", "");
-                    if (province.isEmpty()) { // learn it once from the configured city ("Samarinda" → "Kalimantan Timur")
-                        Web.Place p = Web.INSTANCE.geocode(Cfg.s(c, "city", R.string.city));
+                    String province = vw.getDone()
+                            ? (vw.getNearRegion() == null ? "" : vw.getNearRegion())
+                            : cfg.getString("province", "");
+                    if (province.isEmpty() && !vw.getDone()) { // learn it once before onboarding from the configured city
+                        Web.Place p = Web.INSTANCE.geocode(Cfg.s(c, "city", R.string.city), vw.getLanguage());
                         if (p != null && !p.getRegion().isEmpty()) { province = p.getRegion(); cfg.edit().putString("province", province).apply(); }
                     }
-                    // built-in sources (+ a custom playlist from the phone/desktop), loads all channels unfiltered
-                    tech.kousozo.tahoetv.core.Viewer vw = TvViewer.get(c);
-                    if (vw.getDone()) province = vw.getNearRegion() == null ? "" : vw.getNearRegion(); // onboarding (#77)
-                    // the onboarding's channel countries (Indonesia before onboarding), then its categories and favourite order
-                    List<LocalTv.Entry> l = vw.arrange(LocalTv.INSTANCE.arrange(Sources.loadCountries(cfg.getString("playlist_url", ""), vw.getCountries()), province));
+                    // built-in sources (+ a custom playlist from the phone/desktop)
+                    List<LocalTv.Entry> l = vw.arrange(LocalTv.INSTANCE.arrange(
+                            Sources.loadCountries(cfg.getString("playlist_url", ""), vw.getCountries()),
+                            province, vw.getCountries()));
                     probe(c, l);
                     main.post(() -> { cached = l; cachedAt = System.currentTimeMillis(); list.accept(l); });
                 }
                 String guideUrl = cfg.getString("epg_url", "");
                 List<String> guides = new java.util.ArrayList<>();
-                for (String cc : TvViewer.get(c).getCountries()) for (String g : tech.kousozo.tahoetv.core.Region.guides(cc)) if (!guides.contains(g)) guides.add(g);
+                for (String cc : vw.getCountries()) for (String g : Region.guides(cc)) if (!guides.contains(g)) guides.add(g);
                 java.util.Set<String> channelNames = new java.util.HashSet<>();
-                if (cached != null) for (LocalTv.Entry entry : cached) channelNames.add(entry.getName());
+                if (cached != null) for (LocalTv.Entry entry : cached) {
+                    channelNames.add(entry.getName());
+                    if (entry.getChannel().getTvgId() != null) channelNames.add(entry.getChannel().getTvgId());
+                }
                 Epg e = guideUrl.isEmpty() ? Epg.Companion.load(guides, channelNames) : Epg.Companion.load(guideUrl, channelNames);
                 main.post(() -> { epg = e; guide.accept(e); });
             } catch (Exception ex) { main.post(failed); }
@@ -138,7 +146,13 @@ public class Live extends Activity {
     }
 
     String subtitle(String province) {
-        return (province.isEmpty() ? "TV Indonesia" : "TV lokal " + province) + "  ·  OK untuk menonton di Live TV";
+        Viewer vw = TvViewer.get(this);
+        String lang = vw.getLanguage();
+        String place = (!vw.getDone() || vw.getNearRegion() != null) && !province.isEmpty() ? province : "";
+        if (!place.isEmpty()) return "TV lokal " + place + "  ·  OK untuk menonton di Live TV";
+        List<String> names = new ArrayList<>();
+        for (String cc : vw.getCountries()) names.add(Region.name(cc, lang));
+        return "TV " + String.join(", ", names) + "  ·  OK untuk menonton di Live TV";
     }
 
     void ready(List<LocalTv.Entry> l) {
@@ -160,9 +174,10 @@ public class Live extends Activity {
 
     void buildCats() {
         cats.removeAllViews();
+        String lang = TvViewer.get(this).getLanguage();
         addCat(null, "Semua");
         for (LocalTv.Category c : LocalTv.Category.values())
-            for (LocalTv.Entry e : all) if (LocalTv.INSTANCE.inCategory(e, c)) { addCat(c, c.getLabel()); break; }
+            for (LocalTv.Entry e : all) if (LocalTv.INSTANCE.inCategory(e, c)) { addCat(c, OnboardingText.INSTANCE.category(lang, c)); break; }
     }
 
     void addCat(LocalTv.Category c, String label) {
@@ -195,15 +210,16 @@ public class Live extends Activity {
     }
 
     Epg.Programme onAir(LocalTv.Entry e, Instant now) {
-        List<Epg.Programme> s = epg == null ? null : epg.schedule(e.getName(), now);
+        List<Epg.Programme> s = epg == null ? null : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         return s != null && !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
     }
 
     void detail(LocalTv.Entry e) {
         Instant now = Instant.now();
-        dCat.setText(e.getCategory().getLabel() + (e.getNear() ? "  ·  dekat kamu" : "") + (e.getPartTime() ? "  ·  tidak 24 jam" : ""));
+        String lang = TvViewer.get(this).getLanguage();
+        dCat.setText(OnboardingText.INSTANCE.category(lang, e.getCategory()) + (e.getNear() ? "  ·  dekat kamu" : "") + (e.getPartTime() ? "  ·  tidak 24 jam" : ""));
         dName.setText(e.getName());
-        List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now);
+        List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         Epg.Programme p = onAir(e, now);
         dNow.setText(p != null ? p.getTitle() + "   " + hm.format(p.getStart()) + "–" + hm.format(p.getStop()) : epg == null ? "Memuat jadwal…" : "Jadwal acara tidak tersedia");
         dDesc.setText(p != null && p.getDesc() != null ? p.getDesc() : "");

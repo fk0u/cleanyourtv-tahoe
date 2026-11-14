@@ -7,18 +7,30 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
-/** XMLTV programme guide, matched to playlist channels by name (free guides rarely share ids with free playlists). */
-class Epg private constructor(private val byName: Map<String, List<Programme>>) {
+/** XMLTV programme guide, matched to playlist channels by `tvg-id` first, then by normalized channel name. */
+class Epg private constructor(
+    private val byName: Map<String, List<Programme>>,
+    private val byId: Map<String, List<Programme>> = emptyMap(),
+) {
     data class Programme(val start: Instant, val stop: Instant, val title: String, val desc: String?)
 
-    /** Now + upcoming programmes for a channel name, empty when the guide doesn't know it. */
-    fun schedule(channelName: String, now: Instant = Instant.now()): List<Programme> =
-        byName[norm(channelName)].orEmpty().filter { it.stop > now }
+    /** Now + upcoming programmes for a channel (`tvg-id` first when provided, else normalized channel name). */
+    @JvmOverloads
+    fun schedule(channelName: String, now: Instant = Instant.now(), tvgId: String? = null): List<Programme> {
+        val fromId = tvgId?.trim()?.takeIf { it.isNotEmpty() }?.let { id ->
+            byId[id.lowercase()] ?: byId[norm(id)]
+        }
+        return (fromId ?: byName[norm(channelName)]).orEmpty().filter { it.stop > now }
+    }
+
+    /** Now + upcoming programmes for a parsed [M3u.Channel]. */
+    fun schedule(channel: M3u.Channel, now: Instant = Instant.now()): List<Programme> =
+        schedule(channel.name, now, channel.tvgId)
 
     val size get() = byName.size
 
     companion object {
-        val EMPTY = Epg(emptyMap())
+        val EMPTY = Epg(emptyMap(), emptyMap())
 
         /** Free daily XMLTV for Indonesian channels (epg.pw). */
         const val DEFAULT = "https://epg.pw/xmltv/epg_ID.xml"
@@ -31,7 +43,7 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
         private val ATTR = Regex("""(start|stop|channel)="([^"]+)"""")   // XMLTV doesn't fix attribute order (epg.pw: channel first)
 
         /** "Metro TV HD", "METRO TV" and "MetroTV" all become "metrotv". */
-        fun norm(s: String) = s.lowercase().replace(Regex("\\b(hd|sd|fhd|uhd|4k|indonesia|tv indonesia)\\b"), "")
+        fun norm(s: String) = s.lowercase().replace(Regex("\\b(hd|sd|fhd|uhd|4k)\\b"), "")
             .replace(Regex("\\(.*?\\)|\\[.*?]"), "").replace(Regex("[^a-z0-9]"), "")
 
         private fun unescape(s: String) = s.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").trim()
@@ -45,9 +57,11 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
             maxPerChannel: Int = 100,
             maxTotal: Int = 10_000
         ): Epg = runCatching {
+            val rawFilter = channelFilter?.map { it.trim().lowercase() }?.filter { it.isNotEmpty() }?.toSet()
             val normFilter = channelFilter?.map { norm(it) }?.filter { it.isNotEmpty() }?.toSet()
             val names = HashMap<String, String>()
             val out = HashMap<String, MutableList<Programme>>()
+            val outById = HashMap<String, MutableList<Programme>>()
             var channel: String? = null
             var start: String? = null
             var stop: String? = null
@@ -66,13 +80,13 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
                         g[1].isNotEmpty() -> {
                             channel = g[1]
                             val cid = channel
-                            if (cid !in names && (normFilter == null || normFilter.contains(norm(cid)))) {
+                            if (cid !in names && (normFilter == null || rawFilter!!.contains(cid.lowercase()) || normFilter.contains(norm(cid)))) {
                                 names[cid] = norm(cid)
                             }
                         }
                         m.groups[2] != null -> channel?.let { cid ->
                             val n = norm(unescape(g[2]))
-                            if (normFilter == null || normFilter.contains(n) || normFilter.contains(norm(cid))) {
+                            if (normFilter == null || rawFilter!!.contains(cid.lowercase()) || normFilter.contains(n) || normFilter.contains(norm(cid))) {
                                 if (cid !in names || names[cid] == norm(cid)) {
                                     names[cid] = n
                                 }
@@ -109,16 +123,23 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
                         m.groups[5] != null -> if (!skipProg && desc == null) desc = unescape(g[5]).takeIf { it.isNotEmpty() }?.take(160)
                         g[6].isNotEmpty() -> {
                             if (!skipProg) {
-                                val name = names[progChannel]
+                                val cid = progChannel
+                                val name = names[cid]
                                 val t = title
-                                if (name != null && t != null && !PLACEHOLDER.matches(t) && start != null && stop != null) {
+                                if (cid != null && name != null && t != null && !PLACEHOLDER.matches(t) && start != null && stop != null) {
                                     runCatching {
                                         val s = OffsetDateTime.parse(start, TIME).toInstant()
                                         val e = OffsetDateTime.parse(stop, TIME).toInstant()
                                         if ((windowStart == null || e > windowStart) && (windowEnd == null || s < windowEnd)) {
+                                            val prog = Programme(s, e, t, desc)
                                             val list = out.getOrPut(name) { mutableListOf() }
                                             if (list.size < maxPerChannel) {
-                                                list += Programme(s, e, t, desc)
+                                                list += prog
+                                                outById.getOrPut(cid.lowercase()) { mutableListOf() } += prog
+                                                val normId = norm(cid)
+                                                if (normId.isNotEmpty() && normId != cid.lowercase()) {
+                                                    outById.getOrPut(normId) { mutableListOf() } += prog
+                                                }
                                                 totalCount++
                                             }
                                         }
@@ -131,8 +152,9 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
                     }
                 }
             }
-            // sort, then drop duplicates/overlaps some guides contain (same show listed twice)
-            Epg(out.mapValues { (_, l) -> l.sortedBy { it.start }.fold(mutableListOf<Programme>()) { acc, p -> if (acc.isEmpty() || p.start >= acc.last().stop) acc += p; acc } })
+            fun dedup(map: Map<String, MutableList<Programme>>): Map<String, List<Programme>> =
+                map.mapValues { (_, l) -> l.sortedBy { it.start }.fold(mutableListOf<Programme>()) { acc, p -> if (acc.isEmpty() || p.start >= acc.last().stop) acc += p; acc } }
+            Epg(dedup(out), dedup(outById))
         }.getOrDefault(EMPTY)
 
         @JvmOverloads
@@ -166,12 +188,14 @@ class Epg private constructor(private val byName: Map<String, List<Programme>>) 
             now: Instant = Instant.now()
         ): Epg {
             val merged = HashMap<String, List<Programme>>()
+            val mergedById = HashMap<String, List<Programme>>()
             urls.forEach { u ->
-                runCatching { load(u, channelFilter, now) }.getOrNull()?.byName?.forEach { (k, v) ->
-                    merged.putIfAbsent(k, v)
+                runCatching { load(u, channelFilter, now) }.getOrNull()?.let { g ->
+                    g.byName.forEach { (k, v) -> merged.putIfAbsent(k, v) }
+                    g.byId.forEach { (k, v) -> mergedById.putIfAbsent(k, v) }
                 }
             }
-            return Epg(merged)
+            return Epg(merged, mergedById)
         }
     }
 }

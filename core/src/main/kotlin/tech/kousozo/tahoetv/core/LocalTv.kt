@@ -18,7 +18,10 @@ object LocalTv {
         Tvri("TVRI Daerah"),
         Local("TV Daerah"),
         Vod("VOD & Film"),
-        Other("Lainnya"),
+        Other("Lainnya");
+
+        /** Category name in [lang] ("en", "id", "zh"). */
+        fun label(lang: String): String = OnboardingText.category(lang, this)
     }
 
     /** `alternates`: other streams of the same channel (other sources), tried when `channel` fails. */
@@ -114,13 +117,13 @@ object LocalTv {
             url.contains(".mov") || url.contains(".webm") || l.startsWith("vod ") || group.contains("film on demand")
     }
 
-    fun classify(c: M3u.Channel, near: List<String>): Entry {
+    @JvmOverloads
+    fun classify(c: M3u.Channel, near: List<String>, home: Boolean = true): Entry {
         val name = cleanName(c.name)
         val l = name.lowercase()
         val group = c.group?.lowercase().orEmpty()
-        val url = c.url.lowercase()
-        val nat = NATIONAL.indexOf(l).takeIf { it >= 0 }
-        val isNear = near.any { it in l }
+        val nat = if (home) NATIONAL.indexOf(l).takeIf { it >= 0 } else null
+        val isNear = home && near.any { it in l }
 
         val isVod = isVod(c)
 
@@ -167,12 +170,13 @@ object LocalTv {
                 l.contains("tv9") || l.contains("madani") || l.contains("nabawi")
 
         val cat = when {
-            FOREIGN.containsMatchIn(c.name) -> Category.Other
+            home && FOREIGN.containsMatchIn(c.name) -> Category.Other
             isVod -> Category.Vod
             nat != null -> Category.National
+            !home && ("national" in group || "public" in group) -> Category.National
             isSports -> Category.Sports
             isMovies -> Category.Movies
-            l.startsWith("tvri ") -> Category.Tvri
+            home && l.startsWith("tvri ") -> Category.Tvri
             isKids -> Category.Kids
             isNews -> Category.News
             isDoc -> Category.Documentary
@@ -188,14 +192,19 @@ object LocalTv {
 
     /** Classify, merge duplicates (best stream first: 24/7, then no special headers; the rest become backups),
      *  and sort near → category → rank → name. */
-    fun arrange(channels: List<M3u.Channel>, province: String?): List<Entry> {
-        val near = nearKeywords(province)
-        return channels.map { classify(it, near) }
+    @JvmOverloads
+    fun arrange(channels: List<M3u.Channel>, province: String?, countries: List<String> = listOf(Region.HOME)): List<Entry> {
+        val home = Region.HOME in countries
+        val near = if (home) nearKeywords(province) else emptyList()
+        return channels.map { classify(it, near, home) }
             .groupBy { "${it.name.lowercase()}|${it.category.name}" }.values.map { dupes ->
                 val sorted = dupes.sortedWith(compareBy({ it.partTime }, { it.channel.headers.isNotEmpty() }))
                 sorted.first().copy(alternates = sorted.drop(1).map { it.channel })
             }
-            .sortedWith(compareBy({ it.rank >= PRIORITY.size }, { !it.near }, { it.category.ordinal }, { it.rank }, { it.partTime }, { it.name.lowercase() }))
+            .sortedWith(
+                if (home) compareBy({ it.rank >= PRIORITY.size }, { !it.near }, { it.category.ordinal }, { it.rank }, { it.partTime }, { it.name.lowercase() })
+                else compareBy({ it.category.ordinal }, { it.partTime }, { it.channel.logo.isNullOrBlank() }, { it.name.lowercase() })
+            )
     }
 
     fun inCategory(e: Entry, c: Category) = if (c == Category.Near) e.near else e.category == c

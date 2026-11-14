@@ -84,4 +84,28 @@ class EpgTest {
         assertEquals("Show 5-1", shows.first().title)
         assertTrue(epg.schedule("Channel 1", Instant.parse("2026-11-08T00:00:00Z")).isEmpty())
     }
+
+    @Test fun matchesByTvgIdAndPreservesCountryWordsInNorm() {
+        assertEquals("tvindonesia", Epg.norm("TV HD Indonesia"))
+        assertEquals("radioindonesia", Epg.norm("Radio Indonesia"))
+        val xmlIntl = """
+            <tv>
+              <channel id="BBCNews.uk"><display-name>BBC World News</display-name></channel>
+              <programme start="20261108100000 +0000" stop="20261108120000 +0000" channel="BBCNews.uk"><title>World News</title></programme>
+            </tv>
+        """.trimIndent()
+        val epg = Epg.parse(xmlIntl, channelFilter = setOf("BBCNews.uk"))
+        val now = Instant.parse("2026-11-08T10:30:00Z")
+        val byId = epg.schedule("BBC News UK", now, tvgId = "BBCNews.uk")
+        assertEquals(listOf("World News"), byId.map { it.title })
+    }
+
+    @Test fun localizesWeatherLabelAndCompactNumbers() {
+        assertEquals("Clear", Web.weatherLabel(0, "en"))
+        assertEquals("晴", Web.weatherLabel(0, "zh"))
+        assertEquals("Cerah", Web.weatherLabel(0, "id"))
+        assertEquals("6.4 M", Web.compact(6_400_000, "en"))
+        assertEquals("6.4 jt", Web.compact(6_400_000, "id"))
+        assertEquals("640 万", Web.compact(6_400_000, "zh"))
+    }
 }

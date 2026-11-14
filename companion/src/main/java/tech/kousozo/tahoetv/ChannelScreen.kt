@@ -42,7 +42,7 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
     // the clock ticks (the show on now, its progress and "Berikutnya" roll over), and source checks that finish later show up
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(5_000); now = Instant.now() } }
-    val schedule = remember(Channels.epg, e, now) { Channels.epg?.schedule(e.name, now).orEmpty() }
+    val schedule = remember(Channels.epg, e, now) { Channels.epg?.schedule(e.name, now, e.channel.tvgId).orEmpty() }
     val cur = schedule.firstOrNull()?.takeIf { it.start <= now }
     val today = java.time.LocalDate.now()
     val later = schedule.filter { it.start > now && it.start.atZone(java.time.ZoneId.systemDefault()).toLocalDate() == today }.take(8)

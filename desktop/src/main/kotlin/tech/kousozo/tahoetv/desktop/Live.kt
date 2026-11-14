@@ -59,7 +59,15 @@ fun LiveScreen() {
     val epgUrl = Settings.epg
     val viewer = Settings.viewer
     val countries = viewer.countries
-    LaunchedEffect(epgUrl, countries, channels) { epg = null; epg = withContext(Dispatchers.IO) { runCatching { Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct(), channels?.map { it.name }?.toSet()) }.getOrNull() } }
+    LaunchedEffect(epgUrl, countries, channels) {
+        epg = null
+        epg = withContext(Dispatchers.IO) {
+            runCatching {
+                val filter = channels?.flatMap { listOfNotNull(it.name, it.tvgId) }?.toSet()
+                Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct(), filter)
+            }.getOrNull()
+        }
+    }
     val playlist = Settings.playlist
     var statusMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var checkingDone by remember { mutableStateOf(false) }
@@ -97,7 +105,7 @@ fun LiveScreen() {
     }
     val province = Settings.nearProvince
     // the viewer's categories and favourite order (onboarding) on top of the usual arrangement
-    val entries = remember(channels, province, viewer) { viewer.arrange(LocalTv.arrange(channels.orEmpty(), province)) }
+    val entries = remember(channels, province, viewer) { viewer.arrange(LocalTv.arrange(channels.orEmpty(), province, countries)) }
     val names = remember(entries) { entries.associate { it.channel.url to it.name } }
     val byUrl = remember(entries) { entries.associateBy { it.channel.url } }
     fun isChannelLive(e: LocalTv.Entry): Boolean? {
@@ -338,7 +346,7 @@ private fun Detail(
                 if (e.channel.headers.isNotEmpty()) Badge("RELAY", Tahoe.Accent)
             }
 
-            val s = epg?.schedule(e.name, now).orEmpty()
+            val s = epg?.schedule(e.name, now, e.channel.tvgId).orEmpty()
             val cur = s.firstOrNull()?.takeIf { it.start <= now }
             Text(if (cur != null) "SEDANG TAYANG" else e.category.label.uppercase(), fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold)
             Text(cur?.title ?: e.name, fontSize = 26.sp, fontWeight = FontWeight.Bold, lineHeight = 31.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
