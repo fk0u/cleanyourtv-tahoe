@@ -41,7 +41,12 @@
   - #108, #109 (Deferred/windowed TV guide inflate + `refreshRow`, memoized live search & filters in desktop & phone, bounded `LruCache` + downsampling on desktop, phone, and TV `Avatar`): merged in #144.
   - #65 (Plain-language glossary in `BRAND.md`, EN/ID/中文 `I18n` status/badge keys, calmer desktop/TV/phone/web UI copy): merged in #145.
   - #100, #57, #98, #60 (Single `gradle.properties` version -> generated `TahoeVersion`, PR lint/website checks + `desktop.yml` `verify` gate & tag match, Gradle Dependabot, multi-stage website Docker build, Now/Next/Later EN/ID roadmaps): merged in #146.
-- **Open PRs:** none (apart from Dependabot bumps).
+- **3.4 Simple & Connect (Batch 2) & Hardening:**
+  - #153 (Dependabot & build dependencies sync across workflows and Gradle/Compose versions): merged in #153.
+  - #43, #46 (Standby Adzan today/tomorrow cache, midnight Subuh rollover, `00:05` refresh + backoff retry, `goAsync()` + wake lock; persistent exponential Kids PIN lockout `2s -> 30s -> 300s` + `android:allowBackup="false"` on launcher & companion): merged in #154.
+  - #93, #88 (Phone↔TV `Protocol` v2 with typed envelopes, acks & keep-alive; Tahoe Connect P0–P1 device picker sheet, active target pill, handoff `watch`/`stop`, now-playing mirror): merged in #155.
+  - #90, #64, #34 (Simple Mode `Viewer.simpleMode` toggle & larger TV layout/font scale, TalkBack `contentDescription` & touch-exploration player controls, native TV `numOverlay` pill with OK confirm & `KEYCODE_DEL`/`KEYCODE_LAST_CHANNEL`): merged in #156.
+- **Open PRs:** none.
 - **Private security advisories:** Patches merged to main in #124, #125, #126. Ready to publish with 3.2.1 release.
 - **Review board** (DevOps, UI/UX, CTO, CEO, Creative, Frontend, SWE, QA) filed #88 and #90–#111, plus comments on #43 #45 #56 #57 #64 #65 #71 #75 #76 #77 #78 #81 #90 #96 #100. Priorities are in `agents/tasks.md`; direction is in `agents/plans.md`.
 
@@ -79,6 +84,6 @@ export JAVA_HOME=<jdk17>/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk
 
 ## Next 3 concrete steps
 
-1. Real-device testing on Mi TV Stick: TV onboarding (#85) and TV slate (#87).
-2. Continue **3.4 Simple & Connect (Batch 2)**: native-TV controls & Simple Mode (#90), accessibility (#64), phone↔TV protocol v2 (#93), and Tahoe Connect (#88).
+1. Real-device testing on Mi TV Stick: TV onboarding (#85), TV slate (#87), standby Adzan (#43), Simple Mode & native TV controls (#90, #34), and phone↔TV handoff (#93, #88).
+2. Finish **Tahoe Connect P2–P3 (#88)** on top of protocol v2 (#93): desktop target support, queue/remote polish, and end-to-end real-device verification.
 3. Continuous engineering health: `Home.java`/`IptvServer.kt` split (#95) and remaining offline/Android unit coverage. Note locally: Gradle 8.14 needs JDK 17 (e.g. `~/.gradle/jdks/temurin-17/Contents/Home`) whenever build scripts change, as Android Studio's JBR 25 hits Groovy class version 69.
