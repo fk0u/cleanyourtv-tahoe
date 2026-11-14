@@ -169,6 +169,8 @@ class TvLink(val host: String, private val token: String, private val onState: (
     fun sessionPause() = sendProtocol(Protocol.SessionControl("pause"), withLegacy = false)
     fun sessionStop() = sendProtocol(Protocol.SessionControl("stop"), withLegacy = false)
 
+    data class PairResult(val token: String, val id: String, val name: String, val role: String)
+
     companion object {
         private const val MAX_PENDING = 64
         @Volatile private var sharedLink: TvLink? = null
@@ -190,18 +192,31 @@ class TvLink(val host: String, private val token: String, private val onState: (
             return if (h.contains(":")) "http://$h" else "http://$h:8765"
         }
 
-        /** POST /pair with the 6-digit code shown on the TV. Returns the token, or throws with the TV's error. Blocks. */
+        /** POST /pair with the 6-digit code shown on the TV. Returns [PairResult] (token + metadata), or throws. */
         @JvmOverloads
-        fun pair(host: String, code: String, lang: String = "id"): String {
+        fun pairWithInfo(host: String, code: String, lang: String = "id", deviceName: String = ""): PairResult {
             val base = httpBase(host)
-            val res = JSONObject(runCatching { Web.request("POST", "$base/pair", JSONObject().put("code", code).toString(), 5000) }
+            val body = JSONObject().put("code", code).apply {
+                if (deviceName.isNotBlank()) put("deviceName", deviceName.trim())
+            }.toString()
+            val res = JSONObject(runCatching { Web.request("POST", "$base/pair", body, 5000) }
                 .getOrElse { throw java.io.IOException(when {
                     "HTTP 429" in "${it.message}" -> I18n.get(lang, "pair.too_many")
                     "HTTP 4" in "${it.message}" -> I18n.get(lang, "pair.invalid_code")
                     else -> I18n.get(lang, "pair.unreachable")
                 }) })
-            return res.optString("token").ifEmpty { throw java.io.IOException(res.optString("error", I18n.get(lang, "pair.failed"))) }
+            val token = res.optString("token").ifEmpty { throw java.io.IOException(res.optString("error", I18n.get(lang, "pair.failed"))) }
+            return PairResult(
+                token = token,
+                id = res.optString("id").ifBlank { host.trim() },
+                name = res.optString("name").ifBlank { "Tahoe TV" },
+                role = res.optString("role").ifBlank { "owner" },
+            )
         }
+
+        /** POST /pair with the 6-digit code shown on the TV. Returns the token, or throws with the TV's error. Blocks. */
+        @JvmOverloads
+        fun pair(host: String, code: String, lang: String = "id"): String = pairWithInfo(host, code, lang).token
 
         /** The TV's diagnostic report for "Send log" (GET /log). Blocks; throws when the TV can't be reached. */
         fun fetchLog(host: String, token: String): String =

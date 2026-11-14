@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,7 +50,12 @@ import tech.kousozo.tahoetv.core.TvLink
 fun RemoteScreen() {
     val c = LocalContext.current
     val p = remember { Sync.prefs(c) }
-    val host = p.getString("host", "").orEmpty(); val token = p.getString("token", "").orEmpty()
+    val devState = remember(Pairing.tick) { Sync.devices(c) }
+    val activeDev = devState.active()
+    val host = activeDev?.host ?: p.getString("host", "").orEmpty()
+    val token = activeDev?.token ?: p.getString("token", "").orEmpty()
+    val tvName = activeDev?.name?.ifBlank { "Tahoe TV" } ?: "Tahoe TV"
+    var showDevices by remember { mutableStateOf(false) }
     var online by remember { mutableStateOf(false) }
     var tv by remember { mutableStateOf<org.json.JSONObject?>(null) } // volume / channel reported by the TV
     // TvLink calls back on its network thread; change screen state on the main thread only.
@@ -67,25 +73,28 @@ fun RemoteScreen() {
     fun key(k: String) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); link?.key(k) }
 
 
+    if (showDevices) TvDevicesSheet({ showDevices = false }) { Nav.tab = 0 }
+
     Column(
         Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState())
             .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = TabInset + 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        // TV pill
+        // TV pill (tap to switch TV / inspect mDNS devices)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(if (online) Tahoe.Good else Tahoe.Faint))
             Spacer(Modifier.width(10.dp))
             Row(Modifier.weight(1f).clip(RoundedCornerShape(50)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(50))
-                .padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                .clickable { showDevices = true }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Tv, null, tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(10.dp))
-                Column {
-                    Text("Tahoe TV", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Column(Modifier.weight(1f)) {
+                    Text(tvName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val channel = tv?.optString("channel").orEmpty()
                     Text(if (link == null) "Belum dipasangkan" else if (!online) "Menyambung…"
                         else if (channel.isNotEmpty()) "Live · %03d %s".format(tv?.optInt("number") ?: 0, channel) else "Tersambung · $host", fontSize = 12.sp, color = Tahoe.Dim)
                 }
+                Icon(Icons.Rounded.ExpandMore, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "connect.devices"), tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
             }
             Spacer(Modifier.width(10.dp))
             RoundKey(Icons.Rounded.Settings, "Setelan TV", 44.dp) { key("settings") }
