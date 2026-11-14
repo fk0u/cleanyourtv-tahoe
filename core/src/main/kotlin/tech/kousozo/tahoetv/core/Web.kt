@@ -25,7 +25,7 @@ object Web {
 
     /** Sent with every stream request on TV, phone and desktop (some servers answer one client and not another).
      *  Bumped with the release version. */
-    const val STREAM_UA = "TahoeTV/3.2.0"
+    const val STREAM_UA = "TahoeTV/${TahoeVersion.VERSION}"
 
     @JvmOverloads
     fun get(url: String, timeoutMs: Int = 10_000, headers: Map<String, String>? = null): String =

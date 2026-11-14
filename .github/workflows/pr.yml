@@ -4,6 +4,8 @@ name: PR Checks
 
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -23,7 +25,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Website bundle check
+        run: sh website/build.sh
       - name: JVM tests (core, desktop)
         run: ./gradlew --no-daemon -PpublicBuild :core:test :desktop:test
-      - name: Compile the Android apps
-        run: ./gradlew --no-daemon -PpublicBuild :launcher:assembleDebug :companion:assembleDebug
+      - name: Compile and lint the Android apps
+        run: ./gradlew --no-daemon -PpublicBuild :launcher:assembleDebug :companion:assembleDebug :launcher:lintDebug :companion:lintDebug

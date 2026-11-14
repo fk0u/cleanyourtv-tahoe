@@ -44,6 +44,10 @@ jobs:
         run: |
           if [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$KEY" ]; then
             echo "::notice::DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY not set: built only, not deployed."
+            {
+              echo "### Website Deploy Skipped"
+              echo "Site built into \`website/_site\` and uploaded as the \`website\` artifact. SSH deployment was skipped because \`DEPLOY_HOST\`, \`DEPLOY_USER\`, or \`DEPLOY_SSH_KEY\` is not configured."
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           DEST="${DEST:-/var/www/tahoe.kousozo.tech}"; PORT="${PORT:-22}"
