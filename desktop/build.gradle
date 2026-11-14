@@ -21,7 +21,7 @@ dependencies {
     implementation compose.material3
     implementation compose.materialIconsExtended
     implementation "org.json:json:20250517"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.11.0"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:2.2.0"
     ["base", "graphics", "controls", "media", "swing"].each { implementation "org.openjfx:javafx-$it:21.0.5:$fx" }
 }
