@@ -13,7 +13,14 @@
   - the worldwide README with 中文 (#89);
   - this folder (#112).
 - **Released:** `v3.2.0` (2026-11-13, all 5 assets). New work goes under a fresh `## Belum dirilis` heading in the CHANGELOG. The 3.2.0 notes include a "Diketahui" (known issues) list.
-- **Open PRs:** none. #76 closed with #87; its follow-ups are in **#114**.
+- **Trust Patch 3.2.x Progress:**
+  - #102 (CH+ direction): merged in #116.
+  - #103 (Red key legend): merged in #119.
+  - #78 (Owner personal defaults clean): merged in #120.
+  - #92 (Desktop installer release-signed bundled launcher): merged in #121.
+  - #104 (EPG streaming parser & OOM prevention): merged in #117.
+  - #114 (Slate follow-ups & calmer layout): merged in #118.
+- **Open PRs:** #122 (agents docs update).
 - **Private security advisories (drafts):** GHSA-34j8-5cp5-rcmv, GHSA-x8v7-r42c-7qqj, GHSA-cp6v-7p8f-hpvx. Fix in private, then publish; never move them to public issues.
 - **Review board** (DevOps, UI/UX, CTO, CEO, Creative, Frontend, SWE, QA) filed #88 and #90–#111, plus comments on #43 #45 #56 #57 #64 #65 #71 #75 #76 #77 #78 #81 #90 #96 #100. Priorities are in `agents/tasks.md`; direction is in `agents/plans.md`.
 
