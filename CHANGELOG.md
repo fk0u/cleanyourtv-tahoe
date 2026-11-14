@@ -7,6 +7,8 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ### Perbaikan
 - **Launcher release-signed di installer desktop (#92).** Memperbaiki alur CI build desktop (`desktop.yml`) agar mendekode keystore rilis sebelum mem-bundle `launcher-release.apk` ke dalam installer desktop (DMG & MSI), sehingga APK launcher yang dikirimkan ke TV selalu ditandatangani release key resmi (bukan debug key).
+- **Hapus data pribadi pemilik dari nilai default publik (#78).** Menghapus nama pribadi, URL foto avatar, kota, dan koordinat geografis dari nilai bawaan launcher dan aplikasi desktop agar privasi pemilik terjaga dan seluruh data lokasi diatur murni via onboarding pengguna.
+- **Legenda tombol warna merah remote (#103).** Memperbaiki legenda di banner OSD Live TV: tombol merah fisik remote kini tertulis jelas sebagai penanda siaran rekaman / "Bukan live" (sesuai aksi tombol merah fisik `PROG_RED`), sedangkan tombol `↩` (Back) tetap menjadi petunjuk untuk keluar siaran.
 - **Arah ganti saluran CH+/CH− (#102).** Tombol CHANNEL UP (CH+) di remote fisik TV dan tombol rocker CH atas di remote HP kini menaikkan nomor saluran (saluran berikutnya), dan CHANNEL DOWN (CH−) / rocker bawah menurunkan nomor saluran. Tombol arah D-pad ▲/▼ di TV tetap berfungsi alami sesuai daftar saluran (▲ ke item sebelumnya di atas, ▼ ke item berikutnya di bawah).
 
 ## 3.2.0

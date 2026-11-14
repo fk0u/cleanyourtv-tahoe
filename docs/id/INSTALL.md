@@ -98,9 +98,9 @@ Sebagian besar diatur dari app HP. Default build ada di [`launcher/src/main/res/
 | `dock_size` | `6` | Slot dock (4–7) |
 | `columns` | `5` | Kolom Launchpad |
 | `dock_apps` | YouTube, Netflix, BitTV, Spotify, TikTok, Vidio | Isi dock awal (nama paket); yang tidak terpasang dilewati |
-| `user_name` | `Al-Ghani` | Nama di sapaan, profil, dan layar kunci |
-| `avatar_url` | foto GitHub | Foto profil (di-cache di TV) |
-| `city`, `latitude`, `longitude` | Samarinda | Cuaca & jadwal shalat |
+| `user_name` | `Tahoe` | Nama di sapaan, profil, dan layar kunci |
+| `avatar_url` | (kosong) | Foto profil (di-cache di TV) |
+| `city`, `latitude`, `longitude` | (kosong) | Cuaca & jadwal shalat (diatur via onboarding) |
 | `wallpaper_minutes` | `10` | Interval ganti wallpaper |
 
 Susunan dock yang diubah lewat menu tahan-OK disimpan di TV per profil.
