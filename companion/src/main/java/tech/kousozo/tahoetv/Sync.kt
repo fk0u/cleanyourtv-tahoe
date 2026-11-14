@@ -224,15 +224,17 @@ object TvDiscovery {
                                 val ver = resolved.attributes["ver"]?.let { String(it, Charsets.UTF_8) }
                                 val item = tech.kousozo.tahoetv.core.Scan.Found(host, resolved.serviceName, ver, adb = false, tahoe = true)
                                 main.post {
-                                    discovered.removeAll { it.ip == host || it.name == item.name }
-                                    discovered.add(item)
-                                    if (id.isNotEmpty()) {
-                                        val cur = Sync.devices(app)
-                                        val updated = cur.updateHost(id, host)
-                                        if (updated != cur) Sync.saveDevices(app, updated)
-                                    }
+                                    runCatching {
+                                        discovered.removeAll { it.ip == host || it.name == item.name }
+                                        discovered.add(item)
+                                        if (id.isNotEmpty()) {
+                                            val cur = Sync.devices(app)
+                                            val updated = cur.updateHost(id, host)
+                                            if (updated != cur) Sync.saveDevices(app, updated)
+                                        }
+                                    }.onFailure { tech.kousozo.tahoetv.core.DiagLog.error("nsd", "onServiceResolved", it) }
                                 }
-                            }
+                            }.onFailure { tech.kousozo.tahoetv.core.DiagLog.error("nsd", "resolveService", it) }
                         }
                     })
                 }
@@ -240,7 +242,10 @@ object TvDiscovery {
             override fun onServiceLost(serviceInfo: android.net.nsd.NsdServiceInfo) {
                 runCatching {
                     val name = serviceInfo.serviceName
-                    main.post { discovered.removeAll { it.name == name } }
+                    main.post {
+                        runCatching { discovered.removeAll { it.name == name } }
+                            .onFailure { tech.kousozo.tahoetv.core.DiagLog.error("nsd", "onServiceLost", it) }
+                    }
                 }
             }
             override fun onDiscoveryStopped(serviceType: String) {}

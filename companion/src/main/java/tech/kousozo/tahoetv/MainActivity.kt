@@ -72,6 +72,7 @@ class MainActivity : ComponentActivity() {
         if (b == null) pairFrom(intent)
         val dark = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         runCatching { enableEdgeToEdge(dark, dark) }
+            .onFailure { tech.kousozo.tahoetv.core.DiagLog.error("app", "enableEdgeToEdge", it) }
         Channels.loadFavs(this)
         Playback.loadPrefs(this)
         PhoneRegion.load(this)

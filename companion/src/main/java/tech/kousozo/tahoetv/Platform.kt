@@ -10,7 +10,7 @@ fun wifiAddress(c: Context): String? = runCatching {
     val cm = c.getSystemService(ConnectivityManager::class.java) ?: return@runCatching null
     val lp = cm.activeNetwork?.let { cm.getLinkProperties(it) } ?: return@runCatching null
     lp.linkAddresses.map { it.address }.firstOrNull { it is Inet4Address && !it.isLoopbackAddress }?.hostAddress
-}.getOrNull()
+}.onFailure { tech.kousozo.tahoetv.core.DiagLog.error("platform", "wifiAddress", it) }.getOrNull()
 
 /** The launcher APK shipped in assets, copied to a file dadb can push. */
 fun bundledLauncher(c: Context): File = File(c.cacheDir, "tahoe-launcher.apk").also { f ->

@@ -1,3 +1,4 @@
+# Defense-in-depth keep rules (release builds currently keep minifyEnabled false to protect Kotlin 2.4 metadata).
 -dontobfuscate
 -keep class tech.kousozo.tahoetv.** { *; }
 -keep class * extends androidx.lifecycle.ViewModel { *; }
