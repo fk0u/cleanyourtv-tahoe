@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
         Report.install(this)
         if (b == null) pairFrom(intent)
         val dark = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-        enableEdgeToEdge(dark, dark)
+        runCatching { enableEdgeToEdge(dark, dark) }
         Channels.loadFavs(this)
         Playback.loadPrefs(this)
         PhoneRegion.load(this)
@@ -296,7 +296,7 @@ fun HomeScreen(resumeTick: Int) {
                     Column(Modifier.weight(1f)) {
                         Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.region_language"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Text(tech.kousozo.tahoetv.core.Region.name(PhoneRegion.code, lang) + " · " +
-                            tech.kousozo.tahoetv.core.OnboardingText.LANGUAGE_NAMES.getValue(lang) +
+                            (tech.kousozo.tahoetv.core.OnboardingText.LANGUAGE_NAMES[lang] ?: lang) +
                             " · " + PhoneRegion.viewer.countries.let { l -> l.take(5).joinToString(" ") { tech.kousozo.tahoetv.core.Region.flag(it) } + if (l.size > 5) " +${l.size - 5}" else "" },
                             color = Tahoe.Dim, fontSize = 12.sp, maxLines = 1)
                     }
