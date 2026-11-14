@@ -7,7 +7,7 @@
 <p align="center">
   <b>Tahoe TV: calm, simple TV for the whole family.<br>
   A free, open-source, calm glass-style home screen for Android TV, with free live TV,<br>
-  plus companion apps for Android phones, macOS and Windows.</b><br>
+  plus companion apps for Android phones, macOS, Windows and Debian/Ubuntu Linux.</b><br>
   Built for cheap TVs: made and tested on a <b>Xiaomi Mi TV Stick (Android 9, 1 GB RAM)</b>.
 </p>
 
@@ -16,7 +16,7 @@
   <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/fk0u/cleanyourtv-tahoe/total?label=downloads&color=3DDC84"></a>
   <a href="https://github.com/fk0u/cleanyourtv-tahoe/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/fk0u/cleanyourtv-tahoe?style=flat&color=F5B301"></a>
   <a href="https://github.com/fk0u/cleanyourtv-tahoe/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/fk0u/cleanyourtv-tahoe?color=9B5DE5"></a>
-  <img alt="Platforms" src="https://img.shields.io/badge/platform-Android%20TV%20%7C%20Android%20%7C%20macOS%20%7C%20Windows-555">
+  <img alt="Platforms" src="https://img.shields.io/badge/platform-Android%20TV%20%7C%20Android%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux-555">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-lightgrey"></a>
   <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-30D158"></a>
 </p>
@@ -57,7 +57,7 @@ where live TV behaves like a normal TV (▲ ▼ to change channel, a clear "what
 - 🌍 **Free live TV.** 1,000+ free channels today (Indonesia first: national, regional, "near you", news, sports…) with a program guide, from public sources. Every country is next ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)).
 - ⚡ **Plays right away.** Working sources play first; reruns of yesterday's broadcast and dead sources are skipped automatically. Choose quality (Auto/1080p/720p/480p) and latency.
 - 📱 **Your phone is the remote and the control center.** Full remote, type on the TV, send photos, watch on the phone, install Tahoe on the TV over Wi-Fi without a computer.
-- 💻 **Desktop app (macOS & Windows).** Live TV, recording (DVR), an IPTV server for the whole home, and TV remote + screen mirroring.
+- 💻 **Desktop app (macOS, Windows & Linux).** Live TV, recording (DVR), an IPTV server for the whole home, and TV remote + screen mirroring.
 - 👨‍👩‍👧 **Family profiles.** Me, Guest and **Kids** (PIN-locked, kids' channels only).
 - 🕌 **Prayer times & adhan**, weather, Gemini assistant, Home Assistant.
 - 🔓 **Free, open source (MIT), no ads, no root.**
@@ -70,6 +70,7 @@ where live TV behaves like a normal TV (▲ ▼ to change channel, a clear "what
 | **An Android phone** only | [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) | Watch live TV on the phone, or use it as a TV remote |
 | **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | Open → Live TV. First time: right-click → **Open** (the app isn't notarized yet) |
 | **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | Install → Live TV |
+| **Debian / Ubuntu** (64-bit) | [`TahoeTV-linux-amd64.deb`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-linux-amd64.deb) | `sudo apt install ./TahoeTV-linux-amd64.deb` → Live TV |
 | A launcher already, want to install by hand | [`tahoe-launcher.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-launcher.apk) | See [docs/INSTALL.md](docs/INSTALL.md) |
 
 Updates are checked automatically: the TV, phone and desktop apps check GitHub releases (Control Center → **About**) so you can download and install them.

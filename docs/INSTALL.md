@@ -60,14 +60,15 @@ Public build without keys: `./gradlew -PpublicBuild assembleRelease` (keys are t
 ## Desktop app
 
 Download from [Releases](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest): `TahoeTV-macos-arm64.dmg` (Apple Silicon),
-`TahoeTV-macos-intel.dmg` or `TahoeTV-windows.msi`.
+`TahoeTV-macos-intel.dmg`, `TahoeTV-windows.msi`, or `TahoeTV-linux-amd64.deb` (Debian / Ubuntu amd64).
 
 - **macOS:** the app isn't notarized by Apple yet. The first time: right-click the app → **Open** → **Open**.
 - **Windows:** SmartScreen may warn; choose **More info → Run anyway**. Live TV plays in a Microsoft Edge app window (built into Windows 10/11).
+- **Debian / Ubuntu:** install with `sudo apt install ./TahoeTV-linux-amd64.deb` (dependencies are resolved automatically), or open with your software installer. Live TV opens in Chromium/Chrome app mode when available, or your default browser.
 - App data: `~/.tahoetv/` (custom playlists in `~/.tahoetv/playlists/`, diagnostic log `diag.log`, recording schedule). Recordings go to `~/Movies/Tahoe TV` (macOS) or `~/Videos/Tahoe TV`.
 - The LAN IPTV server starts automatically (Settings → IPTV Server), or from a terminal: `./tools/start-iptv-server.sh`.
 
-Build it yourself: `./gradlew -PpublicBuild :desktop:packageDmg` (or `packageMsi` on Windows). Run directly: `./gradlew :desktop:run`.
+Build it yourself: `./gradlew -PpublicBuild :desktop:packageDmg` (`packageMsi` on Windows, `packageDeb` on Debian/Ubuntu with `fakeroot dpkg-dev binutils`). Run directly: `./gradlew :desktop:run`.
 
 ## Remote control
 

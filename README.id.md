@@ -7,7 +7,7 @@
 <p align="center">
   <b>Tahoe TV: TV yang tenang dan mudah, untuk seisi rumah.<br>
   Beranda Android TV bergaya kaca yang gratis dan open source, lengkap dengan Live TV gratis,<br>
-  plus app pendamping untuk HP Android, macOS, dan Windows.</b><br>
+  plus app pendamping untuk HP Android, macOS, Windows, dan Linux Debian/Ubuntu.</b><br>
   Ringan untuk TV murah: dibuat dan diuji di <b>Xiaomi Mi TV Stick (Android 9, RAM 1 GB)</b>.
 </p>
 
@@ -16,7 +16,7 @@
   <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases"><img alt="Unduhan" src="https://img.shields.io/github/downloads/fk0u/cleanyourtv-tahoe/total?label=unduhan&color=3DDC84"></a>
   <a href="https://github.com/fk0u/cleanyourtv-tahoe/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/fk0u/cleanyourtv-tahoe?style=flat&color=F5B301"></a>
   <a href="https://github.com/fk0u/cleanyourtv-tahoe/graphs/contributors"><img alt="Kontributor" src="https://img.shields.io/github/contributors/fk0u/cleanyourtv-tahoe?label=kontributor&color=9B5DE5"></a>
-  <img alt="Platform" src="https://img.shields.io/badge/platform-Android%20TV%20%7C%20Android%20%7C%20macOS%20%7C%20Windows-555">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Android%20TV%20%7C%20Android%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux-555">
   <a href="LICENSE"><img alt="Lisensi MIT" src="https://img.shields.io/badge/lisensi-MIT-lightgrey"></a>
   <a href="docs/id/CONTRIBUTING.md"><img alt="PR dipersilakan" src="https://img.shields.io/badge/PR-dipersilakan-30D158"></a>
 </p>
@@ -57,7 +57,7 @@ dengan Live TV yang terasa seperti TV biasa (▲ ▼ untuk ganti saluran, jelas 
 - 🌍 **Live TV gratis.** 1.000+ saluran gratis (Indonesia dulu: nasional, TVRI daerah, TV lokal "dekat kamu", berita, olahraga…) dengan jadwal acara, dari sumber publik. Berikutnya semua negara ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)).
 - ⚡ **Langsung tayang.** Sumber yang hidup diputar duluan; siaran ulang dan sumber mati dilewati otomatis. Pilih kualitas (Otomatis/1080p/720p/480p) dan latensi.
 - 📱 **HP jadi remote dan pusat kendali.** Remote lengkap, ketik ke TV, kirim foto, nonton di HP, pasang Tahoe ke TV lewat Wi-Fi tanpa laptop.
-- 💻 **App desktop (macOS & Windows).** Live TV, rekam acara (DVR), server IPTV untuk seluruh rumah, serta remote + cermin layar TV.
+- 💻 **App desktop (macOS, Windows & Linux).** Live TV, rekam acara (DVR), server IPTV untuk seluruh rumah, serta remote + cermin layar TV.
 - 👨‍👩‍👧 **Profil keluarga.** Saya, Tamu, dan **Anak** (dikunci PIN, hanya saluran anak).
 - 🕌 **Jadwal shalat & adzan**, cuaca, asisten Gemini, Home Assistant.
 - 🔓 **Gratis, open source (MIT), tanpa iklan, tanpa root.**
@@ -70,6 +70,7 @@ dengan Live TV yang terasa seperti TV biasa (▲ ▼ untuk ganti saluran, jelas 
 | **HP Android** saja | [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) | Nonton Live TV di HP, atau jadi remote TV |
 | **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | Buka → TV Live. Pertama kali: klik kanan → **Buka** (app belum dinotarisasi) |
 | **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | Pasang → TV Live |
+| **Debian / Ubuntu** (64-bit) | [`TahoeTV-linux-amd64.deb`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-linux-amd64.deb) | `sudo apt install ./TahoeTV-linux-amd64.deb` → TV Live |
 | Sudah ada launcher, mau pasang manual | [`tahoe-launcher.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-launcher.apk) | Lihat [docs/id/INSTALL.md](docs/id/INSTALL.md) |
 
 Pembaruan diperiksa otomatis: TV, HP, dan desktop memeriksa rilis GitHub (Pusat Kontrol → **Tentang**) untuk kamu unduh dan pasang.

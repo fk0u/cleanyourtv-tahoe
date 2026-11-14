@@ -10,8 +10,8 @@
   const english = {};
   $$("[data-i18n]").forEach(el => { english[el.dataset.i18n] = el.textContent; });
   const OS = (() => { const u = navigator.userAgent; const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
-    if (/Android/i.test(u)) return "android"; if (/Win/i.test(p)) return "windows"; if (/Mac/i.test(p) && !/iPhone|iPad/.test(u) && !(navigator.maxTouchPoints > 1)) return "mac"; /* iPads in desktop mode report Mac */ return ""; })();
-  const OS_LABEL = { android: "· Android", windows: "· Windows", mac: "· macOS" };
+    if (/Android/i.test(u)) return "android"; if (/Win/i.test(p)) return "windows"; if (/Mac/i.test(p) && !/iPhone|iPad/.test(u) && !(navigator.maxTouchPoints > 1)) return "mac"; if (/Linux/i.test(p + " " + u) && !/Android/i.test(u)) return "linux"; /* iPads in desktop mode report Mac */ return ""; })();
+  const OS_LABEL = { android: "· Android", windows: "· Windows", mac: "· macOS", linux: "· Debian / Ubuntu" };
 
   function normLang(l) {
     if (!l) return "";
