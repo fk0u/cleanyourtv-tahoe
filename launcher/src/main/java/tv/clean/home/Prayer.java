@@ -24,49 +24,99 @@ final class Prayer {
             {"Imsak", "Imsak", "0"}, {"Subuh", "Fajr", "1"}, {"Syuruq", "Sunrise", "0"},
             {"Dzuhur", "Dhuhr", "1"}, {"Ashar", "Asr", "1"}, {"Maghrib", "Maghrib", "1"}, {"Isya", "Isha", "1"}};
 
+    static final String ACTION_ALARM = "tv.clean.home.PRAYER_ALARM";
+    static final String ACTION_REFRESH = "tv.clean.home.PRAYER_REFRESH";
+
     static SharedPreferences prefs(Context c) { return c.getSharedPreferences("home", Context.MODE_PRIVATE); }
     static java.util.TimeZone tz(Context c) { return java.util.TimeZone.getTimeZone(TvViewer.get(c).getZone()); }
-    static String today(Context c) {
+    static String dateKey(java.util.TimeZone zone, Date d) {
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-        f.setTimeZone(tz(c));
-        return f.format(new Date());
+        f.setTimeZone(zone);
+        return f.format(d);
+    }
+    static String today(Context c) { return dateKey(tz(c), new Date()); }
+    static String tomorrow(Context c) {
+        Calendar cal = Calendar.getInstance(tz(c));
+        cal.add(Calendar.DAY_OF_YEAR, 1);
+        return dateKey(cal.getTimeZone(), cal.getTime());
     }
 
     static void fetchIfStale(Context c, Runnable done, android.os.Handler ui) {
         SharedPreferences p = prefs(c);
-        String td = today(c);
-        if (td.equals(p.getString("prayer2_date", ""))) { ui.post(done); return; }
-        if (!TvViewer.prayer(c)) { p.edit().remove("prayer2").apply(); ui.post(done); return; } // turned off in onboarding
+        java.util.TimeZone zone = tz(c);
+        Date now = new Date();
+        Calendar cal = Calendar.getInstance(zone);
+        cal.setTime(now);
+        cal.add(Calendar.DAY_OF_YEAR, 1);
+        Date nextDay = cal.getTime();
+        String td = dateKey(zone, now), tm = dateKey(zone, nextDay);
+        if (!TvViewer.prayer(c)) {
+            p.edit().remove("prayer2").remove("prayer2_date")
+                    .remove("prayer2_tomorrow").remove("prayer2_tomorrow_date").remove("prayer2_retry").apply();
+            cancelAll(c);
+            ui.post(done);
+            return; // turned off in onboarding
+        }
+        // Promote yesterday's pre-fetched tomorrow timings immediately on rollover so Subuh still fires offline.
+        if (!td.equals(p.getString("prayer2_date", "")) && td.equals(p.getString("prayer2_tomorrow_date", ""))) {
+            String cached = p.getString("prayer2_tomorrow", "");
+            if (!cached.isEmpty()) p.edit().putString("prayer2", cached).putString("prayer2_date", td).apply();
+        }
+        if (td.equals(p.getString("prayer2_date", "")) && tm.equals(p.getString("prayer2_tomorrow_date", ""))) {
+            ui.post(done);
+            return;
+        }
         Net.bg.execute(() -> {
             try {
-                java.util.TimeZone zone = tz(c);
-                SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy", Locale.US);
-                df.setTimeZone(zone);
-                String js = Net.get("https://api.aladhan.com/v1/timings/" + df.format(new Date())
-                        + "?latitude=" + Cfg.s(c, "latitude", R.string.latitude) + "&longitude=" + Cfg.s(c, "longitude", R.string.longitude)
-                        + "&method=" + TvViewer.prayerMethod(c) + "&timezonestring=" + java.net.URLEncoder.encode(zone.getID(), "UTF-8"));
-                JSONObject data = new JSONObject(js).getJSONObject("data");
-                JSONObject t = data.getJSONObject("timings"), h = data.getJSONObject("date").getJSONObject("hijri");
-                StringBuilder sb = new StringBuilder();
-                for (String[] x : TIMES) sb.append(x[0]).append('=').append(t.getString(x[1]).substring(0, 5)).append(';');
-                String hijri = h.getString("day") + " " + h.getJSONObject("month").getString("en") + " " + h.getString("year") + " H";
-                if (!TvViewer.prayer(c)) { ui.post(done); return; } // turned off while this was loading
-                p.edit().putString("prayer2", sb.toString()).putString("prayer2_date", td).putString("hijri", hijri).apply();
+                SharedPreferences.Editor ed = p.edit();
+                if (!td.equals(p.getString("prayer2_date", ""))) {
+                    String[] todayData = fetchDay(c, zone, now, true);
+                    if (!TvViewer.prayer(c)) { ui.post(done); return; }
+                    ed.putString("prayer2", todayData[0]).putString("prayer2_date", td).putString("hijri", todayData[1]);
+                }
+                if (!tm.equals(p.getString("prayer2_tomorrow_date", ""))) {
+                    String[] tomorrowData = fetchDay(c, zone, nextDay, false);
+                    if (!TvViewer.prayer(c)) { ui.post(done); return; }
+                    ed.putString("prayer2_tomorrow", tomorrowData[0]).putString("prayer2_tomorrow_date", tm);
+                }
+                ed.remove("prayer2_retry").apply();
+                cancelRetry(c);
                 schedule(c);
+            } catch (Exception e) {
+                tech.kousozo.tahoetv.core.DiagLog.error("prayer", "gagal memuat jadwal shalat", e);
+                scheduleRetry(c);
+            } finally {
                 ui.post(done);
-            } catch (Exception ignored) {}
+            }
         });
     }
 
-    static LinkedHashMap<String, Long> times(Context c) {
+    private static String[] fetchDay(Context c, java.util.TimeZone zone, Date day, boolean withHijri) throws Exception {
+        SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy", Locale.US);
+        df.setTimeZone(zone);
+        String js = Net.get("https://api.aladhan.com/v1/timings/" + df.format(day)
+                + "?latitude=" + Cfg.s(c, "latitude", R.string.latitude) + "&longitude=" + Cfg.s(c, "longitude", R.string.longitude)
+                + "&method=" + TvViewer.prayerMethod(c) + "&timezonestring=" + java.net.URLEncoder.encode(zone.getID(), "UTF-8"));
+        JSONObject data = new JSONObject(js).getJSONObject("data");
+        JSONObject t = data.getJSONObject("timings");
+        StringBuilder sb = new StringBuilder();
+        for (String[] x : TIMES) sb.append(x[0]).append('=').append(t.getString(x[1]).substring(0, 5)).append(';');
+        String hijri = "";
+        if (withHijri) {
+            JSONObject h = data.getJSONObject("date").getJSONObject("hijri");
+            hijri = h.getString("day") + " " + h.getJSONObject("month").getString("en") + " " + h.getString("year") + " H";
+        }
+        return new String[]{sb.toString(), hijri};
+    }
+
+    private static LinkedHashMap<String, Long> parseTimes(String raw, java.util.TimeZone zone, int dayOffset) {
         LinkedHashMap<String, Long> out = new LinkedHashMap<>();
-        SharedPreferences p = prefs(c);
-        if (!today(c).equals(p.getString("prayer2_date", ""))) return out;
-        java.util.TimeZone zone = tz(c);
-        for (String part : p.getString("prayer2", "").split(";")) {
+        if (raw == null || raw.isEmpty()) return out;
+        for (String part : raw.split(";")) {
             String[] kv = part.split("=");
             if (kv.length != 2) continue;
             Calendar cal = Calendar.getInstance(zone);
+            if (dayOffset != 0) cal.add(Calendar.DAY_OF_YEAR, dayOffset);
             cal.set(Calendar.HOUR_OF_DAY, Integer.parseInt(kv[1].substring(0, 2)));
             cal.set(Calendar.MINUTE, Integer.parseInt(kv[1].substring(3, 5)));
             cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
@@ -75,13 +125,31 @@ final class Prayer {
         return out;
     }
 
+    static LinkedHashMap<String, Long> times(Context c) {
+        SharedPreferences p = prefs(c);
+        String td = today(c);
+        String raw = td.equals(p.getString("prayer2_date", "")) ? p.getString("prayer2", "")
+                : td.equals(p.getString("prayer2_tomorrow_date", "")) ? p.getString("prayer2_tomorrow", "") : "";
+        return parseTimes(raw, tz(c), 0);
+    }
+
+    static LinkedHashMap<String, Long> tomorrowTimes(Context c) {
+        SharedPreferences p = prefs(c);
+        if (!tomorrow(c).equals(p.getString("prayer2_tomorrow_date", ""))) return new LinkedHashMap<>();
+        return parseTimes(p.getString("prayer2_tomorrow", ""), tz(c), 1);
+    }
+
     static boolean adzanCapable(String name) { for (String[] x : TIMES) if (x[0].equals(name)) return x[2].equals("1"); return false; }
     static boolean adzanOn(Context c, String name) { return adzanCapable(name) && prefs(c).getBoolean("adzan_" + name, true); }
 
-    /** Next of the five daily prayers after now: {name, epochMs} or null. */
-    static Object[] next(Context c) {
+    /** Next of the five daily prayers after now: {name, epochMs} or null. Rolls over to tomorrow's Subuh after Isya. */
+    static Object[] next(Context c) { return next(c, System.currentTimeMillis()); }
+
+    static Object[] next(Context c, long afterMs) {
         for (Map.Entry<String, Long> e : times(c).entrySet())
-            if (adzanCapable(e.getKey()) && e.getValue() > System.currentTimeMillis()) return new Object[]{e.getKey(), e.getValue()};
+            if (adzanCapable(e.getKey()) && e.getValue() > afterMs) return new Object[]{e.getKey(), e.getValue()};
+        for (Map.Entry<String, Long> e : tomorrowTimes(c).entrySet())
+            if (adzanCapable(e.getKey()) && e.getValue() > afterMs) return new Object[]{e.getKey(), e.getValue()};
         return null;
     }
 
@@ -90,34 +158,109 @@ final class Prayer {
         return m >= 60 ? (m / 60) + " j " + (m % 60) + " m" : m + " menit";
     }
 
-    /** One alarm for the next prayer; the receiver re-arms the following one. */
-    static void schedule(Context c) {
-        AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
-        Object[] n = next(c);
-        PendingIntent pi = PendingIntent.getBroadcast(c, 0, new Intent(c, Alarm.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        am.cancel(pi);
-        if (n != null) {
-            c.getSharedPreferences("home", Context.MODE_PRIVATE).edit().putString("alarm_for", (String) n[0]).apply();
-            // Android 12+ needs the "Alarms & reminders" grant for exact alarms; without it, a slightly inexact
-            // alarm (usually within a minute) beats crashing the launcher.
-            if (android.os.Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms())
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, (Long) n[1], pi);
-            else am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, (Long) n[1], pi);
-        }
+    private static PendingIntent alarmPi(Context c) {
+        return PendingIntent.getBroadcast(c, 0, new Intent(c, Alarm.class).setAction(ACTION_ALARM),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    /** Fires at prayer time: banner over any app, adzan if enabled, then arms the next one. */
+    private static PendingIntent refreshPi(Context c) {
+        return PendingIntent.getBroadcast(c, 1, new Intent(c, Alarm.class).setAction(ACTION_REFRESH),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    private static PendingIntent retryPi(Context c) {
+        return PendingIntent.getBroadcast(c, 2, new Intent(c, Alarm.class).setAction(ACTION_REFRESH),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    private static void cancelRetry(Context c) {
+        AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        if (am != null) am.cancel(retryPi(c));
+    }
+
+    private static void setExactOrIdle(AlarmManager am, long atMs, PendingIntent pi) {
+        // Android 12+ needs the "Alarms & reminders" grant for exact alarms; without it, a slightly inexact
+        // alarm (usually within a minute) beats crashing the launcher.
+        if (android.os.Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms())
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, pi);
+        else am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, pi);
+    }
+
+    static void cancelAll(Context c) {
+        AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        am.cancel(alarmPi(c));
+        am.cancel(refreshPi(c));
+        am.cancel(retryPi(c));
+    }
+
+    private static void scheduleRetry(Context c) {
+        if (!TvViewer.prayer(c)) return;
+        AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        SharedPreferences p = prefs(c);
+        int attempt = p.getInt("prayer2_retry", 0);
+        long[] delaysMs = {5 * 60_000L, 15 * 60_000L, 60 * 60_000L};
+        long delay = delaysMs[Math.min(attempt, delaysMs.length - 1)];
+        p.edit().putInt("prayer2_retry", attempt + 1).apply();
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, retryPi(c));
+    }
+
+    /** Schedules an alarm just after midnight (00:05) to promote/prefetch tomorrow's prayer schedule. */
+    private static void scheduleMidnightRefresh(Context c, AlarmManager am) {
+        Calendar cal = Calendar.getInstance(tz(c));
+        cal.add(Calendar.DAY_OF_YEAR, 1);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 5);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), refreshPi(c));
+    }
+
+    /** One alarm for the next prayer (including tomorrow's Subuh after Isya) plus a 00:05 refresh alarm. */
+    static void schedule(Context c) { scheduleAfter(c, System.currentTimeMillis()); }
+
+    private static void scheduleAfter(Context c, long afterMs) {
+        AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        PendingIntent pi = alarmPi(c);
+        am.cancel(pi);
+        if (!TvViewer.prayer(c)) {
+            cancelAll(c);
+            return;
+        }
+        Object[] n = next(c, afterMs);
+        if (n != null) {
+            prefs(c).edit().putString("alarm_for", (String) n[0]).apply();
+            setExactOrIdle(am, (Long) n[1], pi);
+        }
+        scheduleMidnightRefresh(c, am);
+    }
+
+    /** Fires at prayer time (or 00:05 / retry refresh): banner over any app, adzan if enabled, then arms the next one. */
     public static class Alarm extends BroadcastReceiver {
         @Override public void onReceive(Context c, Intent i) {
-            if (!TvViewer.prayer(c)) return; // turned off since this alarm was set
+            if (!TvViewer.prayer(c)) { cancelAll(c); return; } // turned off since this alarm was set
+            android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+            PendingResult pending = goAsync();
+            if (ACTION_REFRESH.equals(i.getAction())) {
+                fetchIfStale(c, () -> { schedule(c); pending.finish(); }, main);
+                return;
+            }
             String name = prefs(c).getString("alarm_for", "");
             Notif.banner(c, null, "Waktu shalat", "Waktunya shalat " + name, Cfg.s(c, "city", R.string.city) + " dan sekitarnya");
             if (adzanOn(c, name)) play(c, name);
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> schedule(c), 90_000);
+            // Re-arm immediately via AlarmManager (without Handler.postDelayed) so standby cannot drop the chain.
+            long firedCutoff = System.currentTimeMillis() + 65_000L;
+            scheduleAfter(c, firedCutoff);
+            fetchIfStale(c, () -> {
+                scheduleAfter(c, Math.max(System.currentTimeMillis(), firedCutoff));
+                pending.finish();
+            }, main);
         }
     }
 
-    /** Re-arm after reboot (alarms do not survive one); fetch today's times if needed. */
+    /** Re-arm after reboot (alarms do not survive one); fetch today's and tomorrow's times if needed. */
     public static class Boot extends BroadcastReceiver {
         @Override public void onReceive(Context c, Intent i) {
             PendingResult r = goAsync();
@@ -147,6 +290,7 @@ final class Prayer {
         try {
             MediaPlayer p = new MediaPlayer();
             p.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            p.setWakeMode(c.getApplicationContext(), android.os.PowerManager.PARTIAL_WAKE_LOCK);
             if (file != null) p.setDataSource(file.getPath());
             else try (android.content.res.AssetFileDescriptor fd = c.getResources().openRawResourceFd(raw)) { p.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength()); }
             p.setOnCompletionListener(mp -> { mp.release(); if (player == mp) player = null; next.run(); });

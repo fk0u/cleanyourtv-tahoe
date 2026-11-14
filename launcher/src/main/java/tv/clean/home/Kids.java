@@ -64,13 +64,32 @@ final class Kids {
         byte[] salt = new byte[16];
         new SecureRandom().nextBytes(salt);
         String s = hex(salt);
-        prefs(c).edit().putString("kids_salt", s).putString("kids_pin", hash(s, pin)).apply();
+        prefs(c).edit().putString("kids_salt", s).putString("kids_pin", hash(s, pin))
+                .remove("kids_pin_fails").remove("kids_pin_until").apply();
     }
 
     static boolean checkPin(Context c, String pin) {
         SharedPreferences p = prefs(c);
         String want = p.getString("kids_pin", null), salt = p.getString("kids_salt", "");
         return want != null && MessageDigest.isEqual(want.getBytes(), hash(salt, pin).getBytes());
+    }
+
+    static long pinLockLeftMs(Context c) {
+        return Math.max(0L, prefs(c).getLong("kids_pin_until", 0L) - System.currentTimeMillis());
+    }
+
+    static int recordWrongPin(Context c) {
+        SharedPreferences p = prefs(c);
+        int fails = p.getInt("kids_pin_fails", 0) + 1;
+        int sec = fails >= 5 ? 300 : fails >= 3 ? 30 : 2;
+        p.edit().putInt("kids_pin_fails", fails)
+                .putLong("kids_pin_until", System.currentTimeMillis() + sec * 1000L).apply();
+        tech.kousozo.tahoetv.core.DiagLog.add("kids", "PIN Anak salah ke-" + fails + ", jeda " + sec + " dtk");
+        return sec;
+    }
+
+    static void clearPinBackoff(Context c) {
+        prefs(c).edit().remove("kids_pin_fails").remove("kids_pin_until").apply();
     }
 
     static String hash(String salt, String pin) {
