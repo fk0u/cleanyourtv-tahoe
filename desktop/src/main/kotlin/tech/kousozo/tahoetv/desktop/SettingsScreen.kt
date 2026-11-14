@@ -193,7 +193,12 @@ private fun AboutUpdates() {
     val scope = rememberCoroutineScope()
     val current = System.getProperty("jpackage.app-version") ?: "dev"
     val os = System.getProperty("os.name").lowercase(); val arm = System.getProperty("os.arch").contains("aarch64")
-    val asset = when { "win" in os -> "TahoeTV-windows.msi"; arm -> "TahoeTV-macos-arm64.dmg"; else -> "TahoeTV-macos-intel.dmg" }
+    val asset = when {
+        "win" in os -> "TahoeTV-windows.msi"
+        "linux" in os -> "TahoeTV-linux-amd64.deb"
+        arm -> "TahoeTV-macos-arm64.dmg"
+        else -> "TahoeTV-macos-intel.dmg"
+    }
     var latest by remember { mutableStateOf<tech.kousozo.tahoetv.core.Updates.Release?>(null) }
     var state by remember { mutableStateOf("Mengecek pembaruan…") }
     LaunchedEffect(Unit) {
@@ -211,12 +216,19 @@ private fun AboutUpdates() {
                     runCatching {
                         val hash = withContext(Dispatchers.IO) { r.checksumFor(asset) }
                         withContext(Dispatchers.IO) { tech.kousozo.tahoetv.core.Updates.download(r.assets.getValue(asset), out, hash) { p -> state = "Mengunduh… $p%" } }
-                        state = "Selesai. Buka penginstal, lalu tutup aplikasi ini."
-                        java.awt.Desktop.getDesktop().open(out)
+                        state = if ("linux" in os) "Selesai. Buka ${out.name} atau jalankan: sudo apt install ./${out.name}" else "Selesai. Buka penginstal, lalu tutup aplikasi ini."
+                        runCatching { java.awt.Desktop.getDesktop().open(out) }.onFailure {
+                            if ("linux" in os) ProcessBuilder("xdg-open", out.absolutePath).start() else throw it
+                        }
                     }.onFailure { state = "Gagal mengunduh: ${it.message}" }
                 }
             }
-        GhostButton("Halaman rilis", Icons.Rounded.OpenInBrowser) { java.awt.Desktop.getDesktop().browse(java.net.URI(r?.page ?: tech.kousozo.tahoetv.core.Updates.PAGE)) }
+        GhostButton("Halaman rilis", Icons.Rounded.OpenInBrowser) {
+            val uri = java.net.URI(r?.page ?: tech.kousozo.tahoetv.core.Updates.PAGE)
+            runCatching { java.awt.Desktop.getDesktop().browse(uri) }.onFailure {
+                if ("linux" in os) runCatching { ProcessBuilder("xdg-open", uri.toString()).start() }
+            }
+        }
     }
     r?.let { Text("Catatan rilis ${it.version} (${it.date})\n\n" + it.notes.replace(Regex("(?m)^#+\\s*"), "").replace("**", ""), color = Tahoe.Dim, fontSize = 13.sp) }
 }
