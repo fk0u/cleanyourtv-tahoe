@@ -5,7 +5,14 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Unreleased (Belum dirilis)
 
+### Baru
+- **ID saluran stabil lintas rotasi URL (#94).** Menambahkan `M3u.Channel.channelId` (`tvg-id` ternormalisasi atau slug nama bersih), dukungan migrasi favorit pada `Viewer` (`schema = 2`), dan ID rute konsisten di server IPTV desktop.
+- **Aset web player bundel lokal tanpa CDN (#81).** `hls.min.js` dan `shaka-player.compiled.js` kini dibundel langsung di `:desktop` dan disajikan dari `/assets/` sehingga pemutar web tetap berjalan di jaringan lokal tanpa internet/CDN eksternal.
+- **Situs web bahasa 中文 & peningkatan aksesibilitas (#110).** Menambahkan tombol bahasa 中文 (`zh-Hans`) beserta terjemahan lengkap di `website/`, fallback font CJK, navigasi keyboard pada tab fitur (`ArrowLeft`/`ArrowRight`/`Home`/`End`), serta jeda otomatis karusel saat hover atau fokus keyboard.
+- **Kebijakan sumber saluran & tata kelola komunitas (#101, #97).** Menambahkan `docs/SOURCES.md` (aturan siaran gratis/tanpa DRM dan kebijakan penghapusan 7 hari dalam tiga bahasa), `MAINTAINERS.md`, `.github/FUNDING.yml`, serta templat PR berbahasa Inggris.
+
 ### Perbaikan
+- **Dukungan pengalihan lintas protokol http ↔ https (#105).** Menambahkan `Web.openFollowingRedirects` (hingga 5 hop, mendukung `Location` relatif dan perpindahan skema `http`/`https`) di `:core` untuk `Web`, `HlsProbe`, `Sources`, dan `HlsRecorder`.
 - **Pengamanan alur CI rilis dan dependensi aksi (GHSA-cp6v-7p8f-hpvx).** Mengunci semua third-party GitHub Actions ke commit SHA permanen, menambahkan konfigurasi Dependabot mingguan untuk pembaruan Actions otomatis, serta membatasi akses rahasia penandatanganan keystore rilis hanya pada environment rilis (tag versi resmi atau branch main).
 - **Pengamanan link HP ↔ TV Companion (GHSA-34j8-5cp5-rcmv).** Membatasi ukuran body endpoint pairing `/pair` maksimal 1 KB sebelum parsing guna mencegah serangan penghabisan memori/penyimpanan TV, mengalihkan pengiriman token autentikasi dari query parameter URL ke header HTTP `Authorization: Bearer` / handshake WebSocket, serta menyediakan fungsi pencabutan token (`revoke`).
 - **Pengamanan server IPTV desktop (GHSA-x8v7-r42c-7qqj).** Membatasi CORS hanya untuk origin lokal tepercaya, memvalidasi header Host terhadap alamat lokal komputer guna mencegah serangan DNS rebinding, menerapkan Content-Security-Policy (CSP) serta sanitasi DOM (textContent) pada dasbor pemutar, dan melindungi URL serta kunci DRM pribadi agar tidak terekspos ke halaman web pihak ketiga.

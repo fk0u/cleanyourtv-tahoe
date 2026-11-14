@@ -1,6 +1,6 @@
 # handsoff.md — pick up from here
 
-> `[HANDOFF] from=review-board+main-agent · to=next human/agent · date=2026-11-13`
+> `[HANDOFF] from=review-board+main-agent · to=next human/agent · date=2026-11-14`
 
 ## State of the repo
 
@@ -24,7 +24,13 @@
   - GHSA-x8v7-r42c-7qqj (Desktop IPTV server Host/CORS/XSS/secrets): merged in #124.
   - GHSA-34j8-5cp5-rcmv (Companion pairing DoS & Authorization header): merged in #125.
   - GHSA-cp6v-7p8f-hpvx (Actions SHA pinning, Dependabot & release env): merged in #126.
-- **Open PRs:** none.
+- **3.3 International Progress (Batch 1):**
+  - #105 (`Web.openFollowingRedirects` for `http` ↔ `https` redirects across `Web`, `HlsProbe`, `Sources`, `HlsRecorder`): merged in #131.
+  - #94 (Stable `M3u.Channel.channelId`, `Viewer` schema v2 favourite migration, `IptvServer` stable IDs): merged in #132.
+  - #81 (Local bundled `hls.min.js` & `shaka-player.compiled.js` under `/assets/` in `:desktop`, zero external CDN in CSP): merged in #133.
+  - #101 & #97 (Trilingual `docs/SOURCES.md` 7-day takedown policy, `MAINTAINERS.md`, `.github/FUNDING.yml`, English PR template): merged in #134.
+  - #110 (Website `中文` language toggle, 116 keys in `i18n.js`, `zh-Hans` `hreflang`, CJK font fallbacks, ARIA tabs keyboard navigation, slideshow hover/focus pause): merged in #135.
+- **Open PRs:** none (apart from Dependabot action bumps #127–#130).
 - **Private security advisories:** Patches merged to main in #124, #125, #126. Ready to publish with 3.2.1 release.
 - **Review board** (DevOps, UI/UX, CTO, CEO, Creative, Frontend, SWE, QA) filed #88 and #90–#111, plus comments on #43 #45 #56 #57 #64 #65 #71 #75 #76 #77 #78 #81 #90 #96 #100. Priorities are in `agents/tasks.md`; direction is in `agents/plans.md`.
 
@@ -63,5 +69,5 @@ export JAVA_HOME=<jdk17>/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk
 ## Next 3 concrete steps
 
 1. Real-device testing on Mi TV Stick: TV onboarding (#85) and TV slate (#87).
-2. Start 3.3 International: #94 stable channel ids, then #56 strings in EN/ID/中文.
-3. #105 http↔https redirects counted as dead and #81 bundle hls.js/Shaka.
+2. Continue 3.3 International: #56 strings in EN/ID/中文, #80 de-Indonesianise `:core`, #79 prayer/time zone per region.
+3. #75 Desktop playback engine (libmpv/libVLC behind a `Player` interface), #91 brand wording/palette/icon, and #99 clean screenshot set.

@@ -1,6 +1,6 @@
 # tasks.md — Tahoe TV
 
-> `[STATE] 0x03 · release=v3.2.0 · board=8 · issues=+24 · advisories=3 (private) · updated=2026-11-13`
+> `[STATE] 0x04 · release=v3.2.0 · board=8 · issues=+24 · advisories=3 (private, patched) · updated=2026-11-14`
 > One list, ordered by what unblocks the most. Every line links to its issue; tick it when the issue closes.
 > Format: `[ ] #N  title  ⟨roles⟩  {size: S/M/L}`
 
@@ -19,15 +19,15 @@
 ## 🟠 NEXT — `3.3 International`
 
 - [ ] #71 epic · #77 onboarding (TV real-device test pending) · #56 strings EN/ID/中文 · #80 de-Indonesianise core · #79 prayer/time zone per region
-- [ ] #94 Stable channel IDs (favourites, numbers, handoff, EPG)  ⟨CTO⟩ {M}
-- [ ] #105 http↔https redirects counted as dead  ⟨SWE⟩ {S}
-- [ ] #81 Bundle hls.js/Shaka (no CDN), headless JS smoke test  ⟨Frontend·QA⟩ {S}
+- [x] #94 Stable channel IDs (favourites, numbers, handoff, EPG)  ⟨CTO⟩ {M} · merged in #132 (`tvg-id`/slug `channelId`, `Viewer` schema v2)
+- [x] #105 http↔https redirects counted as dead  ⟨SWE⟩ {S} · merged in #131 (`Web.openFollowingRedirects`)
+- [x] #81 Bundle hls.js/Shaka (no CDN), headless JS smoke test  ⟨Frontend·QA⟩ {S} · merged in #133 (`/assets/*` in `desktop`)
 - [ ] #75 Desktop playback engine (libmpv/libVLC behind a `Player` interface)  ⟨CTO⟩ {L}
-- [ ] #101 SOURCES.md + takedown policy, no DRM bypass, app-store stance  ⟨CEO⟩ {S}
+- [x] #101 SOURCES.md + takedown policy, no DRM bypass, app-store stance  ⟨CEO⟩ {S} · merged in #134 (`docs/SOURCES.md`)
 - [ ] #91 Brand wording without Apple vocabulary, palette, icon  ⟨Creative⟩ {M}
 - [ ] #99 Demo mode + clean screenshot set in EN/ID/中文  ⟨Creative⟩ {M}
-- [ ] #110 Website a11y + 中文 button  ⟨Frontend⟩ {S} `good first issue`
-- [ ] #97 Community plumbing: Weblate, MAINTAINERS, FUNDING, English issues  ⟨CEO·DevOps⟩ {S}
+- [x] #110 Website a11y + 中文 button  ⟨Frontend⟩ {S} `good first issue` · merged in #135
+- [x] #97 Community plumbing: Weblate, MAINTAINERS, FUNDING, English issues  ⟨CEO·DevOps⟩ {S} · merged in #134 (`MAINTAINERS.md`, `FUNDING.yml`, English PR template)
 
 ## 🟡 NEXT — `3.4 Simple & Connect`
 
