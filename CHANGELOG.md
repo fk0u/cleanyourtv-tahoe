@@ -6,6 +6,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 ## Belum dirilis
 
 ### Perbaikan
+- **Verifikasi ukuran dan checksum pembaruan aplikasi OTA (#45).** Pengunduhan pembaruan di TV, ponsel, dan desktop kini memeriksa integritas ukuran unduhan terhadap header `Content-Length` (menghapus file `.part` dan membatalkan jika koneksi terputus di tengah jalan), mendukung resolusi pengalihan (redirect) URL relatif, memverifikasi hash SHA-256 dari aset rilis, serta menerbitkan `SHA256SUMS` di alur rilis GitHub.
 - **Launcher release-signed di installer desktop (#92).** Memperbaiki alur CI build desktop (`desktop.yml`) agar mendekode keystore rilis sebelum mem-bundle `launcher-release.apk` ke dalam installer desktop (DMG & MSI), sehingga APK launcher yang dikirimkan ke TV selalu ditandatangani release key resmi (bukan debug key).
 - **Hapus data pribadi pemilik dari nilai default publik (#78).** Menghapus nama pribadi, URL foto avatar, kota, dan koordinat geografis dari nilai bawaan launcher dan aplikasi desktop agar privasi pemilik terjaga dan seluruh data lokasi diatur murni via onboarding pengguna.
 - **Legenda tombol warna merah remote (#103).** Memperbaiki legenda di banner OSD Live TV: tombol merah fisik remote kini tertulis jelas sebagai penanda siaran rekaman / "Bukan live" (sesuai aksi tombol merah fisik `PROG_RED`), sedangkan tombol `↩` (Back) tetap menjadi petunjuk untuk keluar siaran.

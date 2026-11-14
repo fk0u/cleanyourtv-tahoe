@@ -210,7 +210,8 @@ private fun AboutUpdates() {
                 scope.launch {
                     val out = java.io.File(System.getProperty("user.home"), "Downloads/$asset")
                     runCatching {
-                        withContext(Dispatchers.IO) { tech.kousozo.tahoetv.core.Updates.download(r.assets.getValue(asset), out) { p -> state = "Mengunduh… $p%" } }
+                        val hash = withContext(Dispatchers.IO) { r.checksumFor(asset) }
+                        withContext(Dispatchers.IO) { tech.kousozo.tahoetv.core.Updates.download(r.assets.getValue(asset), out, hash) { p -> state = "Mengunduh… $p%" } }
                         state = "Selesai. Buka penginstal, lalu tutup aplikasi ini."
                         java.awt.Desktop.getDesktop().open(out)
                     }.onFailure { state = "Gagal mengunduh: ${it.message}" }
