@@ -23,9 +23,15 @@ final class Avatar {
         Net.bg.execute(() -> {
             try {
                 if (!f.exists() && !url.isEmpty()) Net.download(url, f);
-                Bitmap bm = BitmapFactory.decodeFile(f.getPath());
+                BitmapFactory.Options o = new BitmapFactory.Options(); o.inJustDecodeBounds = true;
+                BitmapFactory.decodeFile(f.getPath(), o);
+                o.inSampleSize = 1; while (Math.max(o.outWidth, o.outHeight) / (o.inSampleSize * 2) >= 256) o.inSampleSize *= 2;
+                o.inJustDecodeBounds = false;
+                Bitmap bm = BitmapFactory.decodeFile(f.getPath(), o);
                 if (bm == null) return;
-                cached = Bitmap.createScaledBitmap(bm, 256, 256, true);
+                Bitmap scaled = Bitmap.createScaledBitmap(bm, 256, 256, true);
+                if (scaled != bm) bm.recycle();
+                cached = scaled;
                 ui.post(() -> done.accept(cached));
             } catch (Exception ignored) {}
         });

@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -170,14 +169,35 @@ fun Chip(text: String, icon: ImageVector? = null) = Row(
     Text(text, fontSize = 14.sp, color = Tahoe.Text)
 }
 
-/** Remote images (thumbnails, logos) with a small in-memory cache. */
+/** Remote images (thumbnails, logos) with a byte-bounded LRU memory cache. */
 object Images {
-    private val cache = ConcurrentHashMap<String, ImageBitmap>()
-    suspend fun load(url: String): ImageBitmap? = cache[url] ?: withContext(Dispatchers.IO) {
+    private const val MAX_BYTES = 16L * 1024 * 1024
+    private val cache = LinkedHashMap<String, ImageBitmap>(128, 0.75f, true)
+    private var cacheBytes = 0L
+
+    private fun sizeOf(b: ImageBitmap) = (b.width.toLong() * b.height.toLong() * 4L).coerceAtLeast(1L)
+
+    @Synchronized private fun getCached(url: String): ImageBitmap? = cache[url]
+
+    @Synchronized private fun putCached(url: String, bmp: ImageBitmap) {
+        val sz = sizeOf(bmp)
+        if (sz > MAX_BYTES) return
+        cache.put(url, bmp)?.let { old -> cacheBytes -= sizeOf(old) }
+        cacheBytes += sz
+        val it = cache.entries.iterator()
+        while (cacheBytes > MAX_BYTES && it.hasNext()) {
+            val eldest = it.next()
+            cacheBytes -= sizeOf(eldest.value)
+            it.remove()
+        }
+    }
+
+    suspend fun load(url: String): ImageBitmap? = getCached(url) ?: withContext(Dispatchers.IO) {
         runCatching {
             val c = java.net.URI(url).toURL().openConnection().apply { connectTimeout = 6000; readTimeout = 10000; setRequestProperty("User-Agent", "TahoeTV") }
-            org.jetbrains.skia.Image.makeFromEncoded(c.getInputStream().use { it.readBytes() }).toComposeImageBitmap()
-        }.getOrNull()?.also { cache[url] = it }
+            val bytes = try { c.getInputStream().use { it.readBytes() } } finally { (c as? java.net.HttpURLConnection)?.disconnect() }
+            org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap()
+        }.getOrNull()?.also { putCached(url, it) }
     }
 }
 
