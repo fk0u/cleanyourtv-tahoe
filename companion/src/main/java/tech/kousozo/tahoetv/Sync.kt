@@ -24,9 +24,11 @@ class Sync : NotificationListenerService() {
     private var ws: WebSocketClient? = null
     private var media: MediaController? = null
     private var retry = 0
+    @Volatile private var stopped = false
 
     override fun onListenerConnected() {
         Report.install(this) // Android can start this service without the activity: crashes here are logged too
+        stopped = false
         inst = this
         connect()
         val msm = getSystemService(MediaSessionManager::class.java)
@@ -35,9 +37,16 @@ class Sync : NotificationListenerService() {
         sessions(msm.getActiveSessions(me))
     }
 
-    override fun onListenerDisconnected() { inst = null; ws?.close() }
+    override fun onListenerDisconnected() {
+        stopped = true
+        inst = null
+        ui.removeCallbacksAndMessages(null)
+        ws?.close()
+        ws = null
+    }
 
     fun connect() {
+        if (stopped) return
         val p = prefs(this)
         val host = p.getString("host", "").orEmpty(); val token = p.getString("token", "").orEmpty()
         if (host.isEmpty() || token.isEmpty()) { status.value = "Belum dipasangkan"; return }
@@ -48,7 +57,7 @@ class Sync : NotificationListenerService() {
                 override fun onMessage(m: String) { ui.post { command(m) } }
                 override fun onClose(code: Int, reason: String, remote: Boolean) {
                     status.value = if (reason == "pair first" || reason == "unpaired") "Dilepas dari TV, pasangkan ulang" else "Terputus, menyambung ulang…"
-                    if ("pair" !in reason) ui.postDelayed({ connect() }, minOf(30_000L, 1000L shl minOf(retry++, 5)))
+                    if (!stopped && "pair" !in reason) ui.postDelayed({ if (!stopped) connect() }, minOf(30_000L, 1000L shl minOf(retry++, 5)))
                 }
                 override fun onError(e: Exception) {}
             }.also { it.connect() }

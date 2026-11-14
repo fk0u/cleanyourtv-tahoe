@@ -94,9 +94,9 @@ public class Onboarding extends Activity {
                 new ArrayList<>(countries), new LinkedHashSet<>(categories), new ArrayList<>(favorites));
     }
 
-    /** A phone sent its onboarding (Companion "viewer" message): take it and finish. */
+    /** A phone sent its onboarding or incremental patch (Companion "viewer"/"viewer_patch"): merge and finish. */
     static void fromPhone(android.content.Context c, String json) {
-        Viewer v = Viewer.fromJson(json);
+        Viewer v = Viewer.applyPatch(TvViewer.get(c), json);
         if (!v.getDone()) return;
         TvViewer.save(c, v);
         if (open != null) open.runOnUiThread(open::finish);

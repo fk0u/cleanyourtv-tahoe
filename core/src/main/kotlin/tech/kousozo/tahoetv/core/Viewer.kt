@@ -30,6 +30,8 @@ data class Viewer @JvmOverloads constructor(
     val favorites: List<String> = emptyList(),
     /** Schema version for preference storage migration. */
     val schema: Int = 2,
+    /** Monotonic revision for phone↔TV merge sync (#111). */
+    val revision: Long = 0L,
 ) {
     val done get() = country.isNotBlank()
 
@@ -73,6 +75,7 @@ data class Viewer @JvmOverloads constructor(
 
     fun toJson(): String = JSONObject()
         .put("schema", schema)
+        .put("revision", revision)
         .put("language", language).put("country", country).put("city", city).put("lat", lat ?: JSONObject.NULL).put("lon", lon ?: JSONObject.NULL)
         .put("region", region).put("timeZone", timeZone).put("prayer", prayer).put("prayerMethod", prayerMethod)
         .put("channelCountries", JSONArray(channelCountries)).put("categories", JSONArray(categories.toList())).put("favorites", JSONArray(favorites))
@@ -91,7 +94,48 @@ data class Viewer @JvmOverloads constructor(
                 channelCountries = list("channelCountries").mapNotNull { Region.country(it) },
                 categories = list("categories").toSet(), favorites = list("favorites"),
                 schema = j.optInt("schema", 2),
+                revision = j.optLong("revision", 0L),
             )
+        }
+
+        /** Produces a minimal phone↔TV patch envelope (`favorites.set` when only favourites changed, otherwise `region.set`). */
+        @JvmStatic fun diff(before: Viewer, after: Viewer): JSONObject {
+            val rev = maxOf(before.revision, after.revision) + 1L
+            val root = JSONObject().put("t", "viewer_patch").put("revision", rev)
+            if (before.copy(favorites = after.favorites, revision = after.revision) == after) {
+                return root.put("kind", "favorites.set").put("favorites", JSONArray(after.favorites))
+            }
+            return root.put("kind", "region.set").put("viewer", JSONObject(after.copy(revision = rev).toJson()))
+        }
+
+        /** Merges an incoming phone patch envelope or legacy full Viewer JSON into [current], discarding stale revisions
+         *  and preserving TV-added favourites when applying region changes (#111). */
+        @JvmStatic fun applyPatch(current: Viewer, rawJson: String?): Viewer {
+            val j = runCatching { JSONObject(rawJson ?: return current) }.getOrNull() ?: return current
+            val type = j.optString("t")
+            val incRev = j.optLong("revision", 0L)
+            if (incRev > 0L && current.revision > incRev) return current
+            if (type == "viewer_patch") {
+                return when (j.optString("kind")) {
+                    "favorites.set" -> {
+                        val arr = j.optJSONArray("favorites") ?: return current
+                        val favs = (0 until arr.length()).mapNotNull { arr.optString(it).takeIf { s -> s.isNotBlank() } }
+                        current.copy(favorites = favs, revision = maxOf(current.revision, incRev))
+                    }
+                    else -> {
+                        val vObj = j.optJSONObject("viewer") ?: return current
+                        val incoming = fromJson(vObj.toString())
+                        if (!incoming.done) return current
+                        val mergedFavs = (incoming.favorites + current.favorites).distinct()
+                        incoming.copy(favorites = mergedFavs, revision = maxOf(current.revision, maxOf(incRev, incoming.revision)))
+                    }
+                }
+            }
+            val incoming = fromJson(rawJson)
+            if (!incoming.done) return current
+            if (incoming.revision > 0L && current.revision > incoming.revision) return current
+            val mergedFavs = (incoming.favorites + current.favorites).distinct()
+            return incoming.copy(favorites = mergedFavs, revision = maxOf(current.revision, incoming.revision))
         }
 
         /** Defaults for a viewer in [country]: prayer on where most people pray, that country's method, its channels. */

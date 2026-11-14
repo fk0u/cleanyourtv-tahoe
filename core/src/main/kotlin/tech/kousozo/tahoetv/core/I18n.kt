@@ -130,6 +130,11 @@ object I18n {
         "pair.pin_digits" to "PIN must be 4 digits",
         "pair.not_paired" to "This phone isn't paired with the TV yet",
 
+        "sync.ask_title" to "Apply to TV?",
+        "sync.ask_body" to "Use this phone's language, channels, and favourites on the paired TV as well?",
+        "sync.ask_yes" to "Yes, apply to TV",
+        "sync.ask_no" to "Phone only",
+
         "rec.dropped" to "Stream disconnected: %s",
         "rec.encrypted" to "Stream is encrypted and can't be recorded.",
         "rec.unopenable" to "Can't open stream: %s",
@@ -262,6 +267,11 @@ object I18n {
         "pair.pin_digits" to "PIN harus 4 angka",
         "pair.not_paired" to "HP ini belum dipasangkan dengan TV",
 
+        "sync.ask_title" to "Pakai pengaturan HP ini di TV?",
+        "sync.ask_body" to "Terapkan pilihan bahasa, saluran, dan favorit dari HP ini ke TV yang tersambung?",
+        "sync.ask_yes" to "Ya, terapkan ke TV",
+        "sync.ask_no" to "Di HP saja",
+
         "rec.dropped" to "Siaran terputus: %s",
         "rec.encrypted" to "Siaran terenkripsi, tidak bisa direkam.",
         "rec.unopenable" to "Siaran tidak bisa dibuka: %s",
@@ -393,6 +403,11 @@ object I18n {
         "pair.failed" to "失败",
         "pair.pin_digits" to "PIN 必须是 4 位数字",
         "pair.not_paired" to "此手机尚未与电视配对",
+
+        "sync.ask_title" to "应用到电视？",
+        "sync.ask_body" to "是否同时将此手机的语言、频道和收藏设置应用到已连接的电视？",
+        "sync.ask_yes" to "是，同步到电视",
+        "sync.ask_no" to "仅保存在手机",
 
         "rec.dropped" to "直播已断开：%s",
         "rec.encrypted" to "直播已加密，无法录制。",

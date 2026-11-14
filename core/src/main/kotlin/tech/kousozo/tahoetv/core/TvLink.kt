@@ -1,6 +1,7 @@
 package tech.kousozo.tahoetv.core
 
 import java.net.URI
+import java.util.concurrent.ConcurrentLinkedQueue
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
 import org.json.JSONObject
@@ -14,6 +15,7 @@ class TvLink(val host: String, private val token: String, private val onState: (
     @Volatile var onCommand: (JSONObject) -> Unit = {}
     @Volatile private var ws: WebSocketClient? = null
     @Volatile private var wanted = false
+    private val pending = ConcurrentLinkedQueue<String>()
     val connected get() = ws?.isOpen == true
 
     /** Connects and keeps reconnecting (every 2 s) until [close]: the TV may be asleep, restarting, or Wi-Fi dropped. */
@@ -37,7 +39,10 @@ class TvLink(val host: String, private val token: String, private val onState: (
         wsUri(),
         mapOf("Authorization" to "Bearer $token")
     ) {
-            override fun onOpen(h: ServerHandshake) = onState(true)
+            override fun onOpen(h: ServerHandshake) {
+                flushPending()
+                onState(true)
+            }
             override fun onMessage(m: String) {
                 val o = runCatching { JSONObject(m) }.getOrNull() ?: return
                 if (o.optString("t") == "state") onTvState(o) else onCommand(o)
@@ -48,13 +53,41 @@ class TvLink(val host: String, private val token: String, private val onState: (
 
     fun close() { wanted = false; ws?.close(); ws = null }
 
-    /** Fire and forget. The socket can close between the isOpen check and send (TV to standby, Wi-Fi blip), and
-     *  send then throws: that crashed the phone remote, so a lost key is just dropped. */
-    private fun send(o: JSONObject) { runCatching { ws?.takeIf { it.isOpen }?.send(o.toString()) } }
+    private fun sendRaw(msg: String): Boolean {
+        val sock = ws ?: return false
+        if (!sock.isOpen) return false
+        return runCatching { sock.send(msg); true }.getOrElse { false }
+    }
+
+    private fun flushPending() {
+        while (true) {
+            val next = synchronized(pending) { pending.peek() } ?: break
+            if (!sendRaw(next)) break
+            synchronized(pending) { pending.poll() }
+        }
+    }
+
+    /** Sends [o] now if connected, or queues up to 64 messages to flush once connected. */
+    private fun send(o: JSONObject) {
+        val msg = o.toString()
+        if (!sendRaw(msg)) {
+            synchronized(pending) {
+                while (pending.size >= MAX_PENDING) pending.poll()
+                pending.offer(msg)
+            }
+            if (wanted && !connected) connect()
+        }
+    }
+
+    internal fun pendingCount(): Int = pending.size
+    internal fun enqueueForTest(o: JSONObject) = send(o)
+
     /** up, down, left, right, ok, back, home, menu, apps, mute, settings, livetv, ch_up, ch_down, 0–9, play_pause, rewind, ffwd */
     fun key(k: String) = send(JSONObject().put("t", "key").put("k", k))
     /** The phone's onboarding choices ([Viewer] JSON): the TV takes them and skips its own onboarding (#77). */
     fun viewer(json: String) = send(JSONObject().put("t", "viewer").put("v", json))
+    /** Delta or region sync patch ([Viewer.diff]) sent over an ordered link queue (#111). */
+    fun viewerPatch(patch: JSONObject) = send(JSONObject(patch.toString()).put("t", "viewer_patch"))
     fun launch(pkg: String) = send(JSONObject().put("t", "launch").put("pkg", pkg))
     fun url(u: String) = send(JSONObject().put("t", "url").put("u", u))
     fun ask(q: String) = send(JSONObject().put("t", "ask").put("q", q))
@@ -68,6 +101,21 @@ class TvLink(val host: String, private val token: String, private val onState: (
     fun sleep(minutes: Int) = send(JSONObject().put("t", "sleep").put("m", minutes))
 
     companion object {
+        private const val MAX_PENDING = 64
+        @Volatile private var sharedLink: TvLink? = null
+
+        /** One app-scoped ordered link per target (host, token), reused instead of throwaway sockets (#96). */
+        @JvmStatic @Synchronized fun shared(host: String, token: String): TvLink {
+            val h = host.trim()
+            val cur = sharedLink
+            if (cur != null && cur.host.trim() == h && cur.token == token) {
+                if (!cur.connected) cur.open()
+                return cur
+            }
+            cur?.close()
+            return TvLink(h, token).also { it.open(); sharedLink = it }
+        }
+
         private fun httpBase(host: String): String {
             val h = host.trim()
             return if (h.contains(":")) "http://$h" else "http://$h:8765"

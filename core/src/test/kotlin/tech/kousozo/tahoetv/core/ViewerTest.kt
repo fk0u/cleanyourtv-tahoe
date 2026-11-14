@@ -72,4 +72,62 @@ class ViewerTest {
         assertEquals(2, migrated.schema)
         assertEquals(2, Viewer.fromJson(migrated.toJson()).schema)
     }
+
+    @Test fun phoneFavoritesPatchUpdatesFavoritesWithoutOverwritingTvCityOrCategories() {
+        val tvBefore = Viewer(
+            language = "id",
+            country = "ID",
+            city = "Bandung",
+            lat = -6.9,
+            lon = 107.6,
+            categories = setOf("News", "Kids"),
+            favorites = listOf("tvri"),
+            revision = 4L,
+        )
+        val phoneBefore = Viewer(language = "id", country = "ID", favorites = listOf("tvri"), revision = 4L)
+        val phoneAfter = phoneBefore.copy(favorites = listOf("tvri", "kompastv"))
+        val patch = Viewer.diff(phoneBefore, phoneAfter)
+        assertEquals("favorites.set", patch.getString("kind"))
+
+        val merged = Viewer.applyPatch(tvBefore, patch.toString())
+        assertEquals(listOf("tvri", "kompastv"), merged.favorites)
+        assertEquals("Bandung", merged.city)
+        assertEquals(setOf("News", "Kids"), merged.categories)
+        assertEquals(5L, merged.revision)
+    }
+
+    @Test fun phoneRegionPatchMergesTvFavoritesAndIgnoresStaleRevisions() {
+        val tvCurrent = Viewer(
+            language = "en",
+            country = "US",
+            favorites = listOf("tv-only-fav"),
+            revision = 10L,
+        )
+        val phoneBefore = Viewer(language = "en", country = "US", favorites = listOf("phone-fav"), revision = 10L)
+        val phoneAfter = phoneBefore.copy(city = "Seattle", channelCountries = listOf("US", "JP"))
+        val patch = Viewer.diff(phoneBefore, phoneAfter)
+        assertEquals("region.set", patch.getString("kind"))
+
+        val merged = Viewer.applyPatch(tvCurrent, patch.toString())
+        assertEquals("Seattle", merged.city)
+        assertEquals(listOf("US", "JP"), merged.channelCountries)
+        assertEquals(listOf("phone-fav", "tv-only-fav"), merged.favorites)
+        assertEquals(11L, merged.revision)
+
+        val stale = Viewer.diff(
+            Viewer(language = "id", country = "ID", revision = 2L),
+            Viewer(language = "id", country = "ID", city = "Surabaya", revision = 2L)
+        )
+        val ignored = Viewer.applyPatch(merged, stale.toString())
+        assertEquals(merged, ignored)
+    }
+
+    @Test fun tvLinkQueuesMessagesWhileOfflineAndCapsQueue() {
+        val link = TvLink("127.0.0.1", "tok")
+        for (i in 1..70) {
+            link.enqueueForTest(org.json.JSONObject().put("t", "key").put("k", "$i"))
+        }
+        assertEquals(64, link.pendingCount())
+        link.close()
+    }
 }

@@ -133,7 +133,8 @@ final class Companion extends NanoWSD {
                 JSONArray[] out = new JSONArray[1];
                 java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
                 ui.post(() -> { out[0] = l.apps(); done.countDown(); });
-                done.await();
+                if (!done.await(2, java.util.concurrent.TimeUnit.SECONDS) || out[0] == null)
+                    return json(Response.Status.SERVICE_UNAVAILABLE, new JSONObject().put("error", "TV busy"));
                 return json(Response.Status.OK, new JSONObject().put("apps", out[0]));
             }
             if (uri.equals("/upload") && s.getMethod() == Method.POST) return upload(s);
@@ -263,6 +264,7 @@ final class Companion extends NanoWSD {
                     switch (t) {
                         case "key": l.onKey(m.optString("k")); break;
                         case "viewer": Onboarding.fromPhone(ctx, m.optString("v")); break; // the phone's onboarding (#77)
+                        case "viewer_patch": Onboarding.fromPhone(ctx, m.toString()); break; // incremental phone sync (#111)
                         case "launch": l.onLaunch(m.optString("pkg")); break;
                         case "url": l.onUrl(m.optString("u")); break;
                         case "ask": l.onAsk(m.optString("q")); break;
