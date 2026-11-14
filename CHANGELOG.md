@@ -3,6 +3,12 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
+## 3.3.1
+
+### Perbaikan
+- **Perbaikan *force close* berulang di aplikasi HP (`:companion`) & rilis Android.** Menonaktifkan minifikasi/obfuskasi R8 pada build rilis Android (`companion/build.gradle`, `launcher/build.gradle`) yang sebelumnya merusak metadata Kotlin 2.4, mengaburkan konstruktor `SetupModel` (`ViewModel`), menghapus kelas API 34 `androidx.graphics.path` serta kelas dasar `androidx.media3.decoder` yang dipanggil JNI FFmpeg, dan menyertakan ABI `x86_64` bersama `armeabi-v7a`/`arm64-v8a` dengan aturan ProGuard penuh (`-dontobfuscate` & `-keep`).
+- **Keamanan *main thread*, pencatatan diagnostik, & siklus hidup layanan Android HP.** Memastikan pembaruan status Compose (`Sync.status`) dan callback mDNS (`TvDiscovery`) berjalan aman di *main thread*, membersihkan listener `MediaSessionManager` saat layanan berhenti (`onListenerDisconnected`/`onDestroy`), mencatat kegagalan `enableEdgeToEdge`/`wifiAddress`/NSD ke `DiagLog`, serta menyetel nama paket secara eksplisit pada `PendingIntent` OTA Android 14+.
+
 ## 3.3.0
 
 ### Baru
