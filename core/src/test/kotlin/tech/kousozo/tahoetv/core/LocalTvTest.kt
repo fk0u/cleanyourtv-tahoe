@@ -44,4 +44,16 @@ class LocalTvTest {
         assertEquals(false, rcti.partTime)          // the 24/7 stream leads
         assertEquals(1, rcti.alternates.size)       // the other one is kept as a backup
     }
+
+    @Test fun classifiesInternationalPlaylistsWithoutIndonesianBias() {
+        val us = listOf(
+            M3u.Channel("ABC News (1080p)", "https://example.com/abc.m3u8", "https://example.com/abc.png", "News"),
+            M3u.Channel("PBS National", "https://example.com/pbs.m3u8", null, "Public"),
+            M3u.Channel("FTV (Taiwan)", "https://example.com/ftv.m3u8", "https://example.com/ftv.png", "Entertainment"),
+        )
+        val arranged = LocalTv.arrange(us, null, countries = listOf("TW", "US"))
+        assertEquals(Category.National, arranged.first { it.name == "PBS National" }.category)
+        assertEquals(Category.News, arranged.first { it.name == "ABC News" }.category)
+        assertEquals(Category.Entertainment, arranged.first { it.name == "FTV" }.category)
+    }
 }

@@ -326,7 +326,7 @@ public class LiveTv extends Activity {
         bLive.setText(liveLabel());
         Logos.into(e.getChannel().getLogo(), logo, logoText, e.getName());
         Instant now = Instant.now();
-        List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now);
+        List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         Epg.Programme p = !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
         Epg.Programme n = s.size() > (p != null ? 1 : 0) ? s.get(p != null ? 1 : 0) : null;
         bNowTime.setText(p != null ? hm.format(p.getStart()) + " – " + hm.format(p.getStop()) : "Sekarang");
@@ -470,7 +470,7 @@ public class LiveTv extends Activity {
         if (TvViewer.hasCity(this)) Net.bg.execute(() -> {
             try {
                 double lat = Double.parseDouble(Cfg.s(this, "latitude", R.string.latitude)), lon = Double.parseDouble(Cfg.s(this, "longitude", R.string.longitude));
-                tech.kousozo.tahoetv.core.Web.Weather wx = tech.kousozo.tahoetv.core.Web.INSTANCE.weather(lat, lon);
+                tech.kousozo.tahoetv.core.Web.Weather wx = tech.kousozo.tahoetv.core.Web.INSTANCE.weather(lat, lon, TvViewer.get(this).getLanguage());
                 if (wx != null) ui.post(() -> { tTemp.setText(wx.getTempC() + "°"); tCond.setText(wx.getLabel() + "  ·  " + Cfg.s(this, "city", R.string.city)); });
             } catch (Exception ignored) {}
         });
@@ -533,7 +533,7 @@ public class LiveTv extends Activity {
         r.addView(tile, new LinearLayout.LayoutParams((int) dp(54), (int) dp(36)));
         LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
         TextView name = Ui.text(this, Ui.BODY, 600, Ui.TEXT); name.setText(e.getName()); name.setShadowLayer(0, 0, 0, 0);
-        List<Epg.Programme> s = epg == null ? null : epg.schedule(e.getName(), now);
+        List<Epg.Programme> s = epg == null ? null : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         Epg.Programme p = s != null && !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
         Epg.Programme nx = null;
         if (s != null) for (Epg.Programme q : s) if (q.getStart().isAfter(now)) { nx = q; break; }

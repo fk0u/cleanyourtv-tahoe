@@ -400,7 +400,7 @@ object PlayerWindow {
         root.setOnMouseClicked { m -> if (m.button == MouseButton.PRIMARY && m.clickCount == 2) toggleFull() }
         st.setOnHidden { generation++; watchdog?.stop(); release(); spinTimer.stop(); SwingUtilities.invokeLater { onStatus(CLOSED) } }
         ticker.play()
-        Thread { Web.weather(Settings.lat, Settings.lon)?.let { w -> Platform.runLater { weather = "${w.tempC}° ${w.label}"; refreshInfo() } } }.start()
+        Thread { Web.weather(Settings.lat, Settings.lon, Settings.lang)?.let { w -> Platform.runLater { weather = "${w.tempC}° ${w.label}"; refreshInfo() } } }.start()
         stage = st
     }
 
