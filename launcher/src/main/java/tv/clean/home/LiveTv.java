@@ -136,20 +136,57 @@ public class LiveTv extends Activity {
                     hideSlate(); slateRetries = 0;
                 }
             }
+            @Override public void onIsPlayingChanged(boolean isPlaying) {
+                if (Home.live != null) Home.live.pushState();
+            }
         });
 
         Live.fetch(this, all -> {
             List<LocalTv.Entry> l = Kids.channels(this, all); // kids profile: kids' and documentary channels only
             list = l;
             if (l.isEmpty()) { loading.setText(Kids.on(this) ? "Belum ada saluran anak yang bisa diputar." : "Tidak ada saluran."); return; }
-            String want = getIntent().getStringExtra("url"), last = prefs.getString("last", null);
-            int i = 0;
-            for (int k = 0; k < l.size(); k++) if (l.get(k).getChannel().getUrl().equals(want != null ? want : last)) { i = k; break; }
+            String wantId = getIntent().getStringExtra("channelId");
+            String wantUrl = getIntent().getStringExtra("url"), last = prefs.getString("last", null);
+            int i = findChannelIndex(wantId, wantUrl != null ? wantUrl : last);
+            if (i < 0) i = 0;
             guideDirty = true;
             if (guide.getVisibility() == View.VISIBLE) buildRows();
             tune(i);
         }, e -> { epg = e; if (guide.getVisibility() == View.VISIBLE) buildRows(); else guideDirty = true; if (index >= 0) showBanner(); }, () -> loading.setText("Daftar saluran tidak bisa dimuat. Cek internet."));
         ui.post(watchdog);
+    }
+
+    @Override protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String cid = intent.getStringExtra("channelId"), u = intent.getStringExtra("url");
+        if ((cid != null && !cid.isEmpty()) || (u != null && !u.isEmpty())) tuneByChannel(cid, u);
+    }
+
+    int findChannelIndex(String channelId, String url) {
+        if (channelId != null && !channelId.isEmpty()) {
+            for (int k = 0; k < list.size(); k++) {
+                LocalTv.Entry e = list.get(k);
+                if (channelId.equals(e.getChannel().getChannelId())) return k;
+                for (M3u.Channel a : e.getAlternates()) if (channelId.equals(a.getChannelId())) return k;
+            }
+        }
+        if (url != null && !url.isEmpty()) {
+            for (int k = 0; k < list.size(); k++) {
+                LocalTv.Entry e = list.get(k);
+                if (url.equals(e.getChannel().getUrl())) return k;
+                for (M3u.Channel a : e.getAlternates()) if (url.equals(a.getUrl())) return k;
+            }
+        }
+        return -1;
+    }
+
+    void tuneByChannel(String channelId, String url) {
+        int i = findChannelIndex(channelId, url);
+        if (i >= 0) {
+            if (guide.getVisibility() == View.VISIBLE) guide.setVisibility(View.GONE);
+            tune(i);
+        }
     }
 
     // ------------------------------------------------------------------ playback
@@ -787,8 +824,8 @@ public class LiveTv extends Activity {
         return super.onKeyUp(code, e);
     }
 
-    @Override protected void onStop() { super.onStop(); if (live == this) live = null; if (player != null) player.pause(); }
-    @Override protected void onStart() { super.onStart(); live = this; if (player != null && index >= 0) player.play(); }
+    @Override protected void onStop() { super.onStop(); if (live == this) live = null; if (player != null) player.pause(); if (Home.live != null) Home.live.pushState(); }
+    @Override protected void onStart() { super.onStart(); live = this; if (player != null && index >= 0) player.play(); if (Home.live != null) Home.live.pushState(); }
     @Override protected void onDestroy() { ui.removeCallbacksAndMessages(null); if (player != null) player.release(); player = null; super.onDestroy(); }
 
     // ------------------------------------------------------------------ app tile
