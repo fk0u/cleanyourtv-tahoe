@@ -6,6 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.json.JSONObject
+import tech.kousozo.tahoetv.core.Protocol
 
 class IptvServerTest {
     @Test
@@ -50,6 +51,48 @@ class IptvServerTest {
             assertEquals(200, dashCon.responseCode)
             val html = dashCon.inputStream.bufferedReader().readText()
             assertTrue(html.contains("Tahoe IPTV Server"))
+
+            // Test /info
+            val infoCon = URI("$baseUrl/info").toURL().openConnection() as HttpURLConnection
+            assertEquals(200, infoCon.responseCode)
+            val infoJson = JSONObject(infoCon.inputStream.bufferedReader().readText())
+            assertEquals("desktop", infoJson.getString("role"))
+            assertEquals("Tahoe Desktop", infoJson.getString("name"))
+            assertEquals(Protocol.VERSION, infoJson.getInt("proto"))
+            assertTrue(infoJson.getInt("channels") > 0)
+
+            // Test GET /api/connect
+            val getConnectCon = URI("$baseUrl/api/connect").toURL().openConnection() as HttpURLConnection
+            assertEquals(200, getConnectCon.responseCode)
+            val stateJson = JSONObject(getConnectCon.inputStream.bufferedReader().readText())
+            assertEquals("device.state", stateJson.getString("type"))
+            assertEquals("state", stateJson.getString("t"))
+            assertTrue(stateJson.getJSONObject("body").has("session"))
+
+            // Test POST /api/connect (valid stop envelope)
+            val stopCon = (URI("$baseUrl/api/connect").toURL().openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                outputStream.use {
+                    it.write(Protocol.encode(Protocol.SessionControl("stop"), id = "msg-1").toString().toByteArray(Charsets.UTF_8))
+                }
+            }
+            assertEquals(200, stopCon.responseCode)
+            val ackJson = JSONObject(stopCon.inputStream.bufferedReader().readText())
+            assertEquals("ack", ackJson.getString("type"))
+            assertEquals("msg-1", ackJson.getJSONObject("body").getString("ackId"))
+
+            // Test POST /api/connect (invalid payload)
+            val badCon = (URI("$baseUrl/api/connect").toURL().openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                outputStream.use { it.write("not-json".toByteArray(Charsets.UTF_8)) }
+            }
+            assertEquals(400, badCon.responseCode)
+            val errJson = JSONObject(badCon.errorStream.bufferedReader().readText())
+            assertEquals("error", errJson.getString("type"))
+            assertEquals("bad_request", errJson.getJSONObject("body").getString("code"))
         } finally {
             IptvServer.stop()
             assertTrue(!IptvServer.isRunning.value)

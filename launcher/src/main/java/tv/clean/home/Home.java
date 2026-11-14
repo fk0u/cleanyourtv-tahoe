@@ -22,6 +22,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import tech.kousozo.tahoetv.core.DockGrid;
 
 /** Tahoe TV home, tvOS 26 style: full-bleed editorial hero, top bar chips, macOS-style dock with magnification,
  *  Launchpad (games shelf + all apps), sheets (weather, prayer, control center, assistant, pairing).
@@ -75,7 +76,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
         Live.fetch(this, l -> {}, e -> {}, () -> {}); // load channels + check every server now, so Live TV starts instantly
         dockSize = Math.max(4, Math.min(7, getResources().getInteger(R.integer.dock_size)));
         rawCols = Math.max(4, Math.min(7, getResources().getInteger(R.integer.columns)));
-        cols = TvViewer.simpleMode(this) ? Math.min(rawCols, 4) : rawCols;
+        cols = DockGrid.effectiveCols(rawCols, TvViewer.simpleMode(this));
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         setContentView(root);
@@ -299,7 +300,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     void applyLayoutMetrics() {
         boolean simple = TvViewer.simpleMode(this);
-        cols = simple ? Math.min(rawCols, 4) : rawCols;
+        cols = DockGrid.effectiveCols(rawCols, simple);
         tileW = dp(simple ? 146 : 118); tileH = tileW * 9 / 16; gap = dp(simple ? 18 : 16);
         padGap = dp(22);
         padTileW = (W - 2 * M - (cols - 1) * padGap) / cols; padTileH = padTileW * 9 / 16;
