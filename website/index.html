@@ -15,6 +15,7 @@
 <link rel="apple-touch-icon" href="assets/app-icon-1024.png">
 <link rel="alternate" hreflang="en" href="https://tahoe.kousozo.tech/?lang=en">
 <link rel="alternate" hreflang="id" href="https://tahoe.kousozo.tech/?lang=id">
+<link rel="alternate" hreflang="zh-Hans" href="https://tahoe.kousozo.tech/?lang=zh">
 <link rel="alternate" hreflang="x-default" href="https://tahoe.kousozo.tech/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,7 +37,7 @@
   </nav>
   <div class="nav-right">
     <div class="lang" role="group" aria-label="Language">
-      <button data-lang="en">EN</button><button data-lang="id">ID</button>
+      <button data-lang="en">EN</button><button data-lang="id">ID</button><button data-lang="zh">中文</button>
     </div>
     <a class="gh" href="https://github.com/fk0u/cleanyourtv-tahoe" aria-label="GitHub">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
@@ -82,11 +83,11 @@
   <h2 class="reveal" data-i18n="features.title">One home for everything you watch</h2>
   <p class="sub reveal" data-i18n="features.sub">The same smart live TV engine on every screen, with a look that feels like a real Apple TV.</p>
   <div class="tabs reveal" role="tablist">
-    <button role="tab" class="on" aria-selected="true" aria-controls="panel-tv" data-tab="tv">📺 <span data-i18n="tab.tv">TV</span></button>
-    <button role="tab" aria-selected="false" aria-controls="panel-phone" data-tab="phone">📱 <span data-i18n="tab.phone">Phone</span></button>
-    <button role="tab" aria-selected="false" aria-controls="panel-desktop" data-tab="desktop">💻 <span data-i18n="tab.desktop">Desktop</span></button>
+    <button role="tab" id="tab-tv" class="on" aria-selected="true" aria-controls="panel-tv" tabindex="0" data-tab="tv">📺 <span data-i18n="tab.tv">TV</span></button>
+    <button role="tab" id="tab-phone" aria-selected="false" aria-controls="panel-phone" tabindex="-1" data-tab="phone">📱 <span data-i18n="tab.phone">Phone</span></button>
+    <button role="tab" id="tab-desktop" aria-selected="false" aria-controls="panel-desktop" tabindex="-1" data-tab="desktop">💻 <span data-i18n="tab.desktop">Desktop</span></button>
   </div>
-  <div class="grid features" role="tabpanel" id="panel-tv" data-panel="tv">
+  <div class="grid features" role="tabpanel" id="panel-tv" aria-labelledby="tab-tv" tabindex="0" data-panel="tv">
     <article class="card reveal"><i>✨</i><h3 data-i18n="f.tv1.t">tvOS-style glass</h3><p data-i18n="f.tv1.d">Glass tiles with lift and shine, a macOS-style dock, Launchpad and an editorial hero — smooth on cheap hardware.</p></article>
     <article class="card reveal"><i>📡</i><h3 data-i18n="f.tv2.t">Smart live TV</h3><p data-i18n="f.tv2.d">Working sources play first; reruns and dead links are skipped. Guide, favorites, channel numbers, pause & skip.</p></article>
     <article class="card reveal"><i>🎚️</i><h3 data-i18n="f.tv3.t">Quality & latency</h3><p data-i18n="f.tv3.d">Auto, 1080p, 720p or 480p, and how close to live you want to be: low, standard or stable.</p></article>
@@ -94,7 +95,7 @@
     <article class="card reveal"><i>🎛️</i><h3 data-i18n="f.tv5.t">Control Center</h3><p data-i18n="f.tv5.d">Volume, Wi-Fi, Bluetooth, wallpaper, weather, sleep timer, assistant and updates in one place.</p></article>
     <article class="card reveal"><i>🕌</i><h3 data-i18n="f.tv6.t">Prayer times & more</h3><p data-i18n="f.tv6.d">Prayer times with adhan, weather, a Gemini assistant, Home Assistant and gamepad support.</p></article>
   </div>
-  <div class="grid features" role="tabpanel" id="panel-phone" data-panel="phone" hidden>
+  <div class="grid features" role="tabpanel" id="panel-phone" aria-labelledby="tab-phone" tabindex="0" data-panel="phone" hidden>
     <article class="card reveal"><i>🪄</i><h3 data-i18n="f.ph1.t">Install without a computer</h3><p data-i18n="f.ph1.d">Set up Tahoe on your TV over Wi-Fi: debloat, name, city, dock and keys. Restore the TV any time.</p></article>
     <article class="card reveal"><i>🕹️</i><h3 data-i18n="f.ph2.t">The remote you wanted</h3><p data-i18n="f.ph2.d">Swipe pad, volume slider, numbers, media keys, power, sleep timer, and typing straight onto the TV.</p></article>
     <article class="card reveal"><i>📺</i><h3 data-i18n="f.ph3.t">Live TV in your pocket</h3><p data-i18n="f.ph3.d">Mini player, channel pages, favorites and search, with colors that follow the channel you watch.</p></article>
@@ -102,7 +103,7 @@
     <article class="card reveal"><i>🔐</i><h3 data-i18n="f.ph5.t">QR pairing</h3><p data-i18n="f.ph5.d">Scan the code on the TV and you're connected. Each phone gets its own token.</p></article>
     <article class="card reveal"><i>🧾</i><h3 data-i18n="f.ph6.t">Send log</h3><p data-i18n="f.ph6.d">One tap collects phone + TV logs for a bug report, without tokens or passwords.</p></article>
   </div>
-  <div class="grid features" role="tabpanel" id="panel-desktop" data-panel="desktop" hidden>
+  <div class="grid features" role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop" tabindex="0" data-panel="desktop" hidden>
     <article class="card reveal"><i>🖥️</i><h3 data-i18n="f.pc1.t">Live TV on macOS & Windows</h3><p data-i18n="f.pc1.d">Live/offline status per channel, categories and search by channel or show.</p></article>
     <article class="card reveal"><i>⏺️</i><h3 data-i18n="f.pc2.t">Record shows</h3><p data-i18n="f.pc2.d">Schedule from the guide and watch the recordings on any TV or phone at home.</p></article>
     <article class="card reveal"><i>🏠</i><h3 data-i18n="f.pc3.t">IPTV server for the home</h3><p data-i18n="f.pc3.d">One playlist and guide for TVs, phones, VLC, Kodi and TiviMate, with a header relay.</p></article>
@@ -227,6 +228,7 @@
     <a href="https://github.com/fk0u/cleanyourtv-tahoe">GitHub</a> ·
     <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases">Releases</a> ·
     <a href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/CHANGELOG.md">Changelog</a> ·
+    <a href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/docs/SOURCES.md" data-i18n="foot.sources">Sources</a> ·
     <a href="https://github.com/fk0u/cleanyourtv-tahoe/security/advisories/new" data-i18n="foot.security">Report a security issue</a>
   </p>
   <p class="fine" data-i18n="foot.fine">Not an Apple product. “tvOS”, “macOS” and “Liquid Glass” are trademarks of Apple Inc. Tahoe hosts no streams.</p>
