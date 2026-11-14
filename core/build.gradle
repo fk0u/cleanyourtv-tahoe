@@ -13,5 +13,30 @@ dependencies {
     testImplementation "org.jetbrains.kotlin:kotlin-test:2.2.0"
 }
 
+def versionGenDir = layout.buildDirectory.dir("generated/source/version/kotlin")
+def tahoeVersion = project.property("tahoe.version").toString()
+def tahoeVersionCode = project.property("tahoe.versionCode").toString().toInteger()
+
+def generateVersion = tasks.register("generateVersion") {
+    inputs.property("version", tahoeVersion)
+    inputs.property("versionCode", tahoeVersionCode)
+    outputs.dir(versionGenDir)
+    doLast {
+        def out = versionGenDir.get().file("tech/kousozo/tahoetv/core/TahoeVersion.kt").asFile
+        out.parentFile.mkdirs()
+        out.text = """package tech.kousozo.tahoetv.core
+
+/** Build version constants generated from root gradle.properties. */
+object TahoeVersion {
+    const val VERSION = "$tahoeVersion"
+    const val VERSION_CODE = $tahoeVersionCode
+}
+"""
+    }
+}
+
+sourceSets.main.kotlin.srcDir(versionGenDir)
+tasks.named("compileKotlin").configure { dependsOn(generateVersion) }
+
 // pass -Dbrand.write=true through to the test JVM (BrandTokensTest regenerates docs/brand/tokens.json)
 tasks.named("test") { systemProperty "brand.write", System.getProperty("brand.write", "false"); outputs.upToDateWhen { false } }

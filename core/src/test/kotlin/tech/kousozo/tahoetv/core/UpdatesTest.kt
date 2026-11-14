@@ -126,4 +126,12 @@ class UpdatesTest {
             tempDir.deleteRecursively()
         }
     }
+
+    @Test fun versionMatchesGradlePropertiesAndStreamUa() {
+        val file = listOf(File("../gradle.properties"), File("gradle.properties")).first { it.isFile }
+        val props = java.util.Properties().apply { file.inputStream().use(::load) }
+        assertEquals(props.getProperty("tahoe.version"), TahoeVersion.VERSION)
+        assertEquals(props.getProperty("tahoe.versionCode").toInt(), TahoeVersion.VERSION_CODE)
+        assertEquals("TahoeTV/${TahoeVersion.VERSION}", Web.STREAM_UA)
+    }
 }
