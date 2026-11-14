@@ -9,7 +9,8 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { scroll-behavior: smooth; scroll-padding-top: 80px; }
-body { margin: 0; background: var(--night); color: var(--text); font: 400 16px/1.6 Outfit, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+body { margin: 0; background: var(--night); color: var(--text); font: 400 16px/1.6 Outfit, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+:is(a, button, summary, [tabindex]):focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 a { color: inherit; }
 img { max-width: 100%; display: block; }
 h1, h2, h3 { line-height: 1.12; margin: 0; letter-spacing: -.02em; }
@@ -34,7 +35,7 @@ h3 { font-size: 19px; font-weight: 600; }
 .nav .links a:hover { color: var(--text); }
 .nav-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
 .lang { display: flex; background: var(--glass); border: 1px solid var(--stroke); border-radius: 99px; padding: 3px; }
-.lang button { background: none; border: 0; color: var(--text2); font: 600 13px Outfit, sans-serif; padding: 5px 10px; border-radius: 99px; cursor: pointer; }
+.lang button { background: none; border: 0; color: var(--text2); font: 600 13px Outfit, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; padding: 5px 10px; border-radius: 99px; cursor: pointer; }
 .lang button.on { background: var(--text); color: var(--night); }
 .gh { display: flex; align-items: center; gap: 6px; text-decoration: none; background: var(--glass); border: 1px solid var(--stroke); border-radius: 99px; padding: 6px 12px; font-size: 14px; font-weight: 600; }
 @media (max-width: 860px) { .nav .links { display: none; } }
@@ -85,7 +86,7 @@ h3 { font-size: 19px; font-weight: 600; }
 .card i { font-style: normal; font-size: 28px; display: block; margin-bottom: 14px; }
 .card p { color: var(--text2); margin: 8px 0 0; font-size: 15px; }
 .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 28px; }
-.tabs button { background: var(--glass); border: 1px solid var(--stroke); color: var(--text2); padding: 10px 20px; border-radius: 99px; font: 600 15px Outfit, sans-serif; cursor: pointer; transition: all .25s; }
+.tabs button { background: var(--glass); border: 1px solid var(--stroke); color: var(--text2); padding: 10px 20px; border-radius: 99px; font: 600 15px Outfit, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; cursor: pointer; transition: all .25s; }
 .tabs button.on { background: var(--text); color: var(--night); }
 
 /* screenshots */
