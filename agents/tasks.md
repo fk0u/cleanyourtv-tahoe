@@ -1,6 +1,6 @@
 # tasks.md — Tahoe TV
 
-> `[STATE] 0x04 · release=v3.2.0 · board=8 · issues=+24 · advisories=3 (private, patched) · updated=2026-11-14`
+> `[STATE] 0x05 · release=v3.3.0 (code 26) · updated=2026-11-14`
 > One list, ordered by what unblocks the most. Every line links to its issue; tick it when the issue closes.
 > Format: `[ ] #N  title  ⟨roles⟩  {size: S/M/L}`
 
@@ -49,9 +49,10 @@
 
 - [x] #100 Release pipeline: one version source, tests before publish, Dependabot (#146)  ⟨DevOps·QA⟩
 - [x] #57 Android lint in CI + website bundle check on PRs & main (#146)  ⟨QA·CTO⟩
-- [ ] #95 Split `Home.java` / `IptvServer.kt` (`DockGrid` & `ServerPages` extracted in #160)  ⟨CTO⟩ `help wanted`
+- [x] #95 Split `Home.java` / `IptvServer.kt` (`DockGrid` & `ServerPages` in #160; focus navigation math, `RemoteController.java` & `ServerRelay.kt` in #162)  ⟨CTO⟩
 - [x] #98 Now/Next/Later EN/ID roadmap & release cadence (#146)  ⟨CEO⟩
-- [x] #44 Docs & issue template audit (`config.yml`, `channel.yml`, `feature_request.yml`, `README`, `SECURITY.md`)
+- [x] #44 Docs & issue template audit (`config.yml`, `channel.yml`, `feature_request.yml`, `README`, `SECURITY.md`) · merged in #161
+- [x] Debian / Ubuntu (`.deb`) desktop packaging (`TahoeTV-linux-amd64.deb`), Linux OTA asset, Chromium/Chrome `--app` & `xdg-open` launch, and web/docs (#163)  ⟨DevOps·UI/UX⟩
 
 ## ⚪ LATER (parked, not closed)
 
@@ -59,7 +60,5 @@
 
 ## ✅ Done this session (for context)
 
-- `#69 #70 #72 #73 #74 #82 #83 #84 #85 #86 #87 #89 #112 #113` merged · `v3.1.0` and **`v3.2.0`** released · history rewritten (no co-author lines to Claude)
-- #76 (slate) closed by #87; its follow-ups live in #114
-- Review-board notes posted on merged PRs #82 #84 #85 #87 #89
-- Open PRs: none (besides the one updating this file)
+- `#37 #44 #63 #88 #95` closed · `#158 #159 #160 #161 #162 #163` merged · **`v3.3.0`** (code `26`) prepared with Debian/Ubuntu `.deb` desktop support
+- Open PRs: none (besides the release prep PR)
