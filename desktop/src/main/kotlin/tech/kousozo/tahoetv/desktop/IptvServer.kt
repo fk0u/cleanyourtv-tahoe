@@ -937,7 +937,7 @@ setInterval(poll, 1500);
 <header>
   <div>
     <h1>Tahoe IPTV Server <span class="badge">ONLINE</span></h1>
-    <div style="font-size: 13px; color: var(--dim); margin-top: 4px;">$total saluran · $relays relay header · Sumber: ${esc(sourcesSnapshot.joinToString(", "))}</div>
+    <div style="font-size: 13px; color: var(--dim); margin-top: 4px;">$total saluran siap ditonton · Sumber: ${esc(sourcesSnapshot.joinToString(", "))}</div>
   </div>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
     <button class="btn primary" onclick="copy('$base/playlist.m3u', 'Playlist Master disalin!')">📋 Salin M3U Master</button>

@@ -334,26 +334,27 @@ private fun Detail(
                 else Text(e.name, color = Color.Black, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(16.dp))
+            val lang = Settings.lang
 
             // Channel Status Line
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 val (stText, stColor) = when (isLive) {
-                    true -> "Server LIVE & Aktif" to Tahoe.Good
-                    false -> "Server OFFLINE" to Tahoe.Bad
-                    null -> "Memeriksa Koneksi..." to Tahoe.Dim
+                    true -> tech.kousozo.tahoetv.core.I18n.get(lang, "live.status_live") to Tahoe.Good
+                    false -> tech.kousozo.tahoetv.core.I18n.get(lang, "live.status_offline") to Tahoe.Bad
+                    null -> tech.kousozo.tahoetv.core.I18n.get(lang, "live.status_checking") to Tahoe.Dim
                 }
                 Box(Modifier.size(8.dp).clip(CircleShape).background(stColor))
                 Text(stText, fontSize = 12.sp, color = stColor, fontWeight = FontWeight.SemiBold)
 
                 if (e.category == LocalTv.Category.Vod) Badge("VOD", Color(0xFFFF2D55))
-                if (e.channel.drm) Badge("DRM", Color(0xFFFF9F0A))
-                if (e.channel.url.contains(".mpd", true)) Badge("DASH", Color(0xFFBF5AF2))
-                if (e.channel.headers.isNotEmpty()) Badge("RELAY", Tahoe.Accent)
+                if (e.channel.drm || e.channel.url.contains(".mpd", true)) {
+                    Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_web"), Tahoe.Accent)
+                }
             }
 
             val s = epg?.schedule(e.name, now, e.channel.tvgId).orEmpty()
             val cur = s.firstOrNull()?.takeIf { it.start <= now }
-            Text(if (cur != null) "SEDANG TAYANG" else e.category.label.uppercase(), fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold)
+            Text(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "live.playing_now") else e.category.label.uppercase(), fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold)
             Text(cur?.title ?: e.name, fontSize = 26.sp, fontWeight = FontWeight.Bold, lineHeight = 31.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
             cur?.desc?.let { Text(it, fontSize = 13.sp, color = Tahoe.Dim, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis) }
             cur?.let { p ->
@@ -361,7 +362,6 @@ private fun Detail(
                 LinearProgressIndicator({ f }, Modifier.fillMaxWidth().padding(top = 6.dp).height(4.dp).clip(RoundedCornerShape(2.dp)), color = Tahoe.Text, trackColor = Tahoe.Stroke)
                 Row { Text(HM.format(p.start), fontSize = 12.sp, color = Tahoe.Faint); Spacer(Modifier.weight(1f)); Text(HM.format(p.stop), fontSize = 12.sp, color = Tahoe.Faint) }
             }
-            val lang = Settings.lang
             val isPlaying = e.channel.url == playingUrl
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!isPlaying) PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), Icons.Rounded.PlayArrow) { onWatch(e) }

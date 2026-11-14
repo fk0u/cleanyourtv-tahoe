@@ -34,8 +34,8 @@ fun SetupScreen(onExit: () -> Unit, m: SetupModel = viewModel()) {
         }
     }
     when (m.step) {
-        SetupModel.Step.Scan -> Page("Langkah 1 dari 5", "Cari TV", "HP dan TV harus di Wi-Fi yang sama.") {
-            Note("Di TV, nyalakan debugging sekali saja:\n1. Setelan → Preferensi Perangkat → Tentang → tekan \"Build\" 7×\n2. Kembali → Opsi developer → USB debugging: AKTIF", Icons.Rounded.Info)
+        SetupModel.Step.Scan -> Page("Langkah 1 dari 5", "Cari TV", "Pastikan HP dan TV terhubung ke Wi-Fi yang sama.") {
+            Note("Aktifkan izin sambungan TV (cukup sekali saja):\n1. Buka Setelan TV → Tentang → tekan \"Build\" 7×\n2. Kembali → Opsi developer → aktifkan USB debugging", Icons.Rounded.Info)
             Section(when {
                 m.noWifi -> "HP belum tersambung ke Wi-Fi."
                 m.scanning && m.found.isEmpty() -> "Mencari TV di jaringan…"
@@ -45,7 +45,7 @@ fun SetupScreen(onExit: () -> Unit, m: SetupModel = viewModel()) {
             if (m.scanning) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
             m.found.forEach { f ->
                 GlassCard(onClick = {
-                    if (f.adb) m.connect(f.ip) else Toast.makeText(c, "Nyalakan USB debugging di TV dulu, lalu pindai ulang", Toast.LENGTH_SHORT).show()
+                    if (f.adb) m.connect(f.ip) else Toast.makeText(c, "Aktifkan izin sambungan di Setelan TV dulu, lalu pindai ulang", Toast.LENGTH_SHORT).show()
                 }) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Icon(Icons.Rounded.Tv, null, tint = if (f.adb) Tahoe.Accent else Tahoe.Faint)

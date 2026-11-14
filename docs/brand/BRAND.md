@@ -147,3 +147,18 @@ Sumber kebenaran: [`core/.../Brand.kt`](../../core/src/main/kotlin/tech/kousozo/
 | Desktop (Compose) | `desktop/.../Ui.kt` | Sama seperti ponsel, latar `CANVAS` |
 | Launcher TV (Java) | `launcher/.../Ui.java` | `Ui.ACCENT = Brand.CYAN`, `Ui.TITLE = Brand.TV_TITLE`, dst. |
 | Desainer | `docs/brand/tokens.json` | Impor ke Figma Variables / Stitch |
+
+## 10. Glosarium bahasa awam / Plain-Language Glossary & Tone
+
+Antarmuka TahoeTV memakai bahasa yang akrab bagi penonton TV rumah tangga (bukan istilah developer/server):
+
+| Istilah teknis (hindari di UI) | Bahasa awam ID | Bahasa awam EN | Bahasa awam ZH |
+|---|---|---|---|
+| `M3U` / `playlist` | daftar saluran / saluran TV | channels / channel list | 频道列表 |
+| `EPG` / `XMLTV` | jadwal acara / panduan TV | TV guide / schedule | 节目表 / 节目单 |
+| `Relay` / `proxy` / `relay header` | jalur putar (otomatis, sembunyikan detail) | playback route (hide internal count) | 播放通道（隐藏内部细节） |
+| `DASH` / `DRM` / `stream` | Siaran Web (`WEB`) / saluran / siaran | Web Stream (`WEB`) / channel | 网页频道 (`WEB`) / 频道 |
+| `Server LIVE & Aktif` / `OFFLINE` | Siap ditonton / Sedang tidak tersedia | Ready to watch / Unavailable right now | 可观看 / 暂时无法播放 |
+| `Sumber 3/4` | (otomatis berpindah tanpa angka teknis) | (auto-switch quietly) | （自动切换备用线路） |
+| `USB debugging` / `ADB` | izin sambungan TV | TV connection permission | 电视连接权限 |
+

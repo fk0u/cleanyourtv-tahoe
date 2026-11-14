@@ -184,8 +184,8 @@ public class LiveTv extends Activity {
             LocalTv.Entry e = list.get(index);
             boolean marked = SourceHealth.isBanned(e.getChannel().getUrl());
             for (M3u.Channel a : e.getAlternates()) marked |= SourceHealth.isBanned(a.getUrl());
-            bStatus.setText(marked ? "Saluran ini sedang tidak bisa diputar. Tahan OK untuk memulihkan sumber yang ditandai \"bukan live\", atau ▼ untuk saluran berikutnya."
-                    : "Saluran ini sedang tidak bisa diputar. Tekan ▼ untuk saluran berikutnya.");
+            bStatus.setText(marked ? "Saluran ini sedang bermasalah. Tahan OK untuk mencoba semua sumber lagi, atau tekan ▼ untuk saluran berikutnya."
+                    : "Saluran ini sedang bermasalah. Tekan ▼ untuk saluran berikutnya.");
             bStatus.setVisibility(View.GONE); loading.setVisibility(View.GONE); dismissBanner();
             showSlate(sawRecording ? tech.kousozo.tahoetv.core.Slate.Reason.Recording : tech.kousozo.tahoetv.core.Slate.Reason.Offline);
             return;
