@@ -64,11 +64,30 @@ class IptvServerSecurityTest {
             assertTrue(chLocal.has("raw_url"))
             assertTrue(chLocal.has("drm_key"))
 
-            // 4. Dashboard must include CSP header
+            // 4. Dashboard and watch pages must enforce strict CSP and serve bundled local player scripts (no CDN)
             val conDash = URI("$baseUrl/").toURL().openConnection() as HttpURLConnection
             assertEquals(200, conDash.responseCode)
             val csp = conDash.getHeaderField("Content-Security-Policy")
             assertTrue(csp != null && csp.contains("default-src 'self'"), "Dashboard must enforce CSP")
+            assertFalse(csp.contains("cloudflare.com"), "Dashboard CSP must not depend on external CDN")
+            val dashHtml = conDash.inputStream.bufferedReader().readText()
+            assertTrue(dashHtml.contains("/assets/shaka-player.compiled.js"))
+            assertFalse(dashHtml.contains("cdnjs.cloudflare.com"))
+
+            val conWatch = URI("$baseUrl/watch").toURL().openConnection() as HttpURLConnection
+            assertEquals(200, conWatch.responseCode)
+            val watchCsp = conWatch.getHeaderField("Content-Security-Policy")
+            assertTrue(watchCsp != null && !watchCsp.contains("jsdelivr.net"), "Watch CSP must not depend on external CDN")
+            val watchHtml = conWatch.inputStream.bufferedReader().readText()
+            assertTrue(watchHtml.contains("/assets/hls.min.js"))
+            assertFalse(watchHtml.contains("cdn.jsdelivr.net"))
+
+            for (asset in listOf("/assets/hls.min.js", "/assets/shaka-player.compiled.js")) {
+                val assetCon = URI("$baseUrl$asset").toURL().openConnection() as HttpURLConnection
+                assertEquals(200, assetCon.responseCode)
+                assertTrue(assetCon.contentType.orEmpty().contains("javascript"), "Expected JS content-type for $asset")
+                assertTrue(assetCon.inputStream.readBytes().size > 10_000, "Asset $asset should be non-trivial size")
+            }
         } finally {
             IptvServer.stop()
         }

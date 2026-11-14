@@ -268,6 +268,7 @@ object IptvServer {
         try {
             when {
                 path == "/" || path == "/index.html" -> serveDashboard(ex)
+                path == "/assets/hls.min.js" || path == "/assets/shaka-player.compiled.js" -> serveAsset(ex, path.removePrefix("/"))
                 path == "/watch" -> serveWatch(ex, query)
                 path == "/api/watch" -> serveWatchApi(ex, query)
                 path == "/playlist.m3u" || path == "/all.m3u" -> servePlaylist(ex, query)
@@ -680,8 +681,24 @@ object IptvServer {
             .replace("__SLATE__", slateJson())
         val body = html.toByteArray(Charsets.UTF_8)
         ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
-        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
+        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
         ex.responseHeaders.add("Cache-Control", "no-store")
+        ex.sendResponseHeaders(200, body.size.toLong())
+        ex.responseBody.use { it.write(body) }
+    }
+
+    private fun serveAsset(ex: HttpExchange, resourcePath: String) {
+        val body = IptvServer::class.java.getResourceAsStream("/$resourcePath")?.use { it.readBytes() }
+            ?: run { ex.sendResponseHeaders(404, -1); ex.close(); return }
+        sendCors(ex)
+        ex.responseHeaders.add("Content-Type", "application/javascript; charset=utf-8")
+        ex.responseHeaders.add("Cache-Control", "public, max-age=86400")
+        if (ex.requestMethod.equals("HEAD", true)) {
+            ex.responseHeaders.set("Content-Length", "${body.size}")
+            ex.sendResponseHeaders(200, -1)
+            ex.close()
+            return
+        }
         ex.sendResponseHeaders(200, body.size.toLong())
         ex.responseBody.use { it.write(body) }
     }
@@ -689,7 +706,7 @@ object IptvServer {
     private val WATCH_HTML = """<!DOCTYPE html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__ — Tahoe TV</title>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<script src="/assets/hls.min.js"></script>
 <style>
   html,body{margin:0;height:100%;background:#000;color:#f5f5f7;font-family:"Segoe UI",-apple-system,system-ui,sans-serif;overflow:hidden}
   video{position:fixed;inset:0;width:100%;height:100%;background:#000}
@@ -867,7 +884,7 @@ setInterval(poll, 1500);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tahoe IPTV Server</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.compiled.js"></script>
+<script src="/assets/shaka-player.compiled.js"></script>
 <style>
   :root { --bg: #07080d; --surface: rgba(255,255,255,0.06); --hover: rgba(255,255,255,0.12); --border: rgba(255,255,255,0.1); --text: #f5f5f7; --dim: #86868b; --accent: #0a84ff; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1045,7 +1062,7 @@ setInterval(poll, 1500);
         val body = html.toByteArray(Charsets.UTF_8)
         sendCors(ex)
         ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
-        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
+        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
         ex.sendResponseHeaders(200, body.size.toLong())
         ex.responseBody.use { it.write(body) }
     }
