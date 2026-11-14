@@ -24,26 +24,57 @@ class Sync : NotificationListenerService() {
     private var ws: WebSocketClient? = null
     private var connectedHost: String = ""
     private var media: MediaController? = null
+    private var msm: MediaSessionManager? = null
+    private var sessionsListener: MediaSessionManager.OnActiveSessionsChangedListener? = null
     private var retry = 0
     @Volatile private var stopped = false
+
+    private fun setStatus(text: String) {
+        if (Looper.myLooper() == Looper.getMainLooper()) status.value = text else ui.post { status.value = text }
+    }
+
+    private fun unregisterSessions() {
+        val listener = sessionsListener ?: return
+        sessionsListener = null
+        runCatching { msm?.removeOnActiveSessionsChangedListener(listener) }
+        runCatching { media?.unregisterCallback(cb) }
+        media = null
+    }
 
     override fun onListenerConnected() {
         Report.install(this) // Android can start this service without the activity: crashes here are logged too
         stopped = false
         inst = this
         connect()
-        val msm = getSystemService(MediaSessionManager::class.java)
-        val me = ComponentName(this, Sync::class.java)
-        msm.addOnActiveSessionsChangedListener({ sessions(it) }, me, ui)
-        sessions(msm.getActiveSessions(me))
+        runCatching {
+            val mgr = getSystemService(MediaSessionManager::class.java) ?: return@runCatching
+            msm = mgr
+            unregisterSessions()
+            val listener = MediaSessionManager.OnActiveSessionsChangedListener { sessions(it) }
+            sessionsListener = listener
+            val me = ComponentName(this, Sync::class.java)
+            mgr.addOnActiveSessionsChangedListener(listener, me, ui)
+            sessions(mgr.getActiveSessions(me))
+        }
     }
 
     override fun onListenerDisconnected() {
         stopped = true
         inst = null
+        unregisterSessions()
         ui.removeCallbacksAndMessages(null)
-        ws?.close()
+        runCatching { ws?.close() }
         ws = null
+    }
+
+    override fun onDestroy() {
+        stopped = true
+        inst = null
+        unregisterSessions()
+        ui.removeCallbacksAndMessages(null)
+        runCatching { ws?.close() }
+        ws = null
+        super.onDestroy()
     }
 
     fun connect() {
@@ -53,24 +84,24 @@ class Sync : NotificationListenerService() {
         val host = dev?.host ?: p.getString("host", "").orEmpty()
         val token = dev?.token ?: p.getString("token", "").orEmpty()
         if (host.isEmpty() || token.isEmpty()) {
-            ws?.close(); ws = null; connectedHost = ""
-            status.value = "Belum dipasangkan"
+            runCatching { ws?.close() }; ws = null; connectedHost = ""
+            setStatus("Belum dipasangkan")
             return
         }
         if (ws?.isOpen == true && connectedHost == host) return
-        if (ws != null && connectedHost != host) { ws?.close(); ws = null }
+        if (ws != null && connectedHost != host) { runCatching { ws?.close() }; ws = null }
         connectedHost = host
         ws = try {
             object : WebSocketClient(URI("ws://$host:8765/ws?token=$token")) {
-                override fun onOpen(h: ServerHandshake) { retry = 0; status.value = "Tersambung ke $host"; ui.post { sendMedia() } }
+                override fun onOpen(h: ServerHandshake) { retry = 0; setStatus("Tersambung ke $host"); ui.post { sendMedia() } }
                 override fun onMessage(m: String) { ui.post { command(m) } }
                 override fun onClose(code: Int, reason: String, remote: Boolean) {
-                    status.value = if (reason == "pair first" || reason == "unpaired") "Dilepas dari TV, pasangkan ulang" else "Terputus, menyambung ulang…"
+                    setStatus(if (reason == "pair first" || reason == "unpaired") "Dilepas dari TV, pasangkan ulang" else "Terputus, menyambung ulang…")
                     if (!stopped && "pair" !in reason) ui.postDelayed({ if (!stopped) connect() }, minOf(30_000L, 1000L shl minOf(retry++, 5)))
                 }
                 override fun onError(e: Exception) {}
             }.also { it.connect() }
-        } catch (e: Exception) { status.value = "Alamat TV tidak valid"; null }
+        } catch (e: Exception) { setStatus("Alamat TV tidak valid"); null }
     }
 
     /** The socket can close between isOpen and send (TV standby, Wi-Fi blip); send then throws, so drop it quietly. */
@@ -186,26 +217,36 @@ object TvDiscovery {
                     mgr.resolveService(serviceInfo, object : android.net.nsd.NsdManager.ResolveListener {
                         override fun onResolveFailed(si: android.net.nsd.NsdServiceInfo, err: Int) {}
                         override fun onServiceResolved(resolved: android.net.nsd.NsdServiceInfo) {
-                            @Suppress("DEPRECATION")
-                            val host = resolved.host?.hostAddress ?: return
-                            val id = resolved.attributes["id"]?.let { String(it, Charsets.UTF_8) }.orEmpty()
-                            val ver = resolved.attributes["ver"]?.let { String(it, Charsets.UTF_8) }
-                            val item = tech.kousozo.tahoetv.core.Scan.Found(host, resolved.serviceName, ver, adb = false, tahoe = true)
-                            main.post {
-                                discovered.removeAll { it.ip == host || it.name == item.name }
-                                discovered.add(item)
-                                if (id.isNotEmpty()) {
-                                    val cur = Sync.devices(app)
-                                    val updated = cur.updateHost(id, host)
-                                    if (updated != cur) Sync.saveDevices(app, updated)
+                            runCatching {
+                                @Suppress("DEPRECATION")
+                                val host = resolved.host?.hostAddress ?: return@runCatching
+                                val id = resolved.attributes["id"]?.let { String(it, Charsets.UTF_8) }.orEmpty()
+                                val ver = resolved.attributes["ver"]?.let { String(it, Charsets.UTF_8) }
+                                val item = tech.kousozo.tahoetv.core.Scan.Found(host, resolved.serviceName, ver, adb = false, tahoe = true)
+                                main.post {
+                                    runCatching {
+                                        discovered.removeAll { it.ip == host || it.name == item.name }
+                                        discovered.add(item)
+                                        if (id.isNotEmpty()) {
+                                            val cur = Sync.devices(app)
+                                            val updated = cur.updateHost(id, host)
+                                            if (updated != cur) Sync.saveDevices(app, updated)
+                                        }
+                                    }.onFailure { tech.kousozo.tahoetv.core.DiagLog.error("nsd", "onServiceResolved", it) }
                                 }
-                            }
+                            }.onFailure { tech.kousozo.tahoetv.core.DiagLog.error("nsd", "resolveService", it) }
                         }
                     })
                 }
             }
             override fun onServiceLost(serviceInfo: android.net.nsd.NsdServiceInfo) {
-                main.post { discovered.removeAll { it.name == serviceInfo.serviceName } }
+                runCatching {
+                    val name = serviceInfo.serviceName
+                    main.post {
+                        runCatching { discovered.removeAll { it.name == name } }
+                            .onFailure { tech.kousozo.tahoetv.core.DiagLog.error("nsd", "onServiceLost", it) }
+                    }
+                }
             }
             override fun onDiscoveryStopped(serviceType: String) {}
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { stop() }

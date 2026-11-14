@@ -45,9 +45,10 @@ android {
     }
     buildTypes {
         release {
-            ndk { abiFilters "armeabi-v7a", "arm64-v8a" } // TV sticks and phones are ARM: no x86 FFmpeg libraries in the APK
-            minifyEnabled true
-            shrinkResources true
+            ndk { abiFilters "armeabi-v7a", "arm64-v8a", "x86_64" }
+            // Keep R8 disabled to preserve Kotlin 2.4 :core metadata and Media3 FFmpeg JNI callbacks.
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             signingConfig ksFile.exists() ? signingConfigs.release : signingConfigs.debug
         }

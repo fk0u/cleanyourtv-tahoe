@@ -68,7 +68,8 @@ fun install(c: Context, apk: File) {
     val id = pi.createSession(PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL))
     pi.openSession(id).use { s ->
         s.openWrite("tahoe", 0, apk.length()).use { o -> apk.inputStream().use { it.copyTo(o) }; s.fsync(o) }
-        s.commit(PendingIntent.getBroadcast(c, id, Intent(c, OtaDone::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE).intentSender)
+        val doneIntent = Intent(c, OtaDone::class.java).setPackage(c.packageName)
+        s.commit(PendingIntent.getBroadcast(c, id, doneIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE).intentSender)
     }
 }
 
