@@ -13,7 +13,7 @@
 - [x] #104 EPG loaded whole into memory → OOM with big guides  ⟨SWE⟩ {M} · merged in #117
 - [x] #114 Slate follow-ups: OSD covers slate on TV, wrong reason, calmer layout, one tested state machine  ⟨UI/UX·Creative·QA⟩ {S} · merged in #118
 - [x] #45 Truncated update accepted as complete (+ checksums)  ⟨DevOps·QA⟩ {S} · merged in #123
-- [ ] Private advisories GHSA-34j8 (phone↔TV link), GHSA-x8v7 (desktop server), GHSA-cp6v (release key)  ⟨SWE·CTO·DevOps⟩ {M}
+- [x] Private advisories GHSA-34j8 (phone↔TV link, #125), GHSA-x8v7 (desktop server, #124), GHSA-cp6v (release key, #126)  ⟨SWE·CTO·DevOps⟩ {M}
 - [ ] Real-device pass on the Mi TV Stick: TV onboarding (#85) and TV slate (#87) have never run on a TV  ⟨QA⟩ {S}
 
 ## 🟠 NEXT — `3.3 International`

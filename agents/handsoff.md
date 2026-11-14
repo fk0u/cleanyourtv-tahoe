@@ -21,8 +21,11 @@
   - #104 (EPG streaming parser & OOM prevention): merged in #117.
   - #114 (Slate follow-ups & calmer layout): merged in #118.
   - #45 (Truncated update verification & SHA-256): merged in #123.
+  - GHSA-x8v7-r42c-7qqj (Desktop IPTV server Host/CORS/XSS/secrets): merged in #124.
+  - GHSA-34j8-5cp5-rcmv (Companion pairing DoS & Authorization header): merged in #125.
+  - GHSA-cp6v-7p8f-hpvx (Actions SHA pinning, Dependabot & release env): merged in #126.
 - **Open PRs:** none.
-- **Private security advisories (drafts):** GHSA-34j8-5cp5-rcmv, GHSA-x8v7-r42c-7qqj, GHSA-cp6v-7p8f-hpvx. Fix in private, then publish; never move them to public issues.
+- **Private security advisories:** Patches merged to main in #124, #125, #126. Ready to publish with 3.2.1 release.
 - **Review board** (DevOps, UI/UX, CTO, CEO, Creative, Frontend, SWE, QA) filed #88 and #90–#111, plus comments on #43 #45 #56 #57 #64 #65 #71 #75 #76 #77 #78 #81 #90 #96 #100. Priorities are in `agents/tasks.md`; direction is in `agents/plans.md`.
 
 ## Rules of the house (don't break these)
@@ -59,6 +62,6 @@ export JAVA_HOME=<jdk17>/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk
 
 ## Next 3 concrete steps
 
-1. Private security advisories (drafts): GHSA-34j8 (phone↔TV link token/crypto), GHSA-x8v7 (desktop server host-header/CSRF/local binding), GHSA-cp6v (release signing key rotation/storage).
-2. Test 3.2.0 on the Mi TV Stick: TV onboarding, TV slate, and phone→TV handoff. Install the TV from the phone app, not the desktop (#92).
-3. Start 3.3: #94 stable channel ids, then #56 strings in EN/ID/中文.
+1. Real-device testing on Mi TV Stick: TV onboarding (#85) and TV slate (#87).
+2. Start 3.3 International: #94 stable channel ids, then #56 strings in EN/ID/中文.
+3. #105 http↔https redirects counted as dead and #81 bundle hls.js/Shaka.
