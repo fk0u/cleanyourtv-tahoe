@@ -34,11 +34,11 @@
 
 ## 🟡 NEXT — `3.4 Simple & Connect`
 
-- [ ] #90 Native-TV controls + Simple Mode (numbers, CH±, last channel, big text)  ⟨CEO·UI/UX⟩ {M}
-- [ ] #64 Accessibility (TalkBack, focus ring, 48 dp, font scale)
+- [x] #90 Native-TV controls + Simple Mode (numbers, CH±, last channel, big text, #34)  ⟨CEO·UI/UX⟩ {M} · merged in #156
+- [x] #64 Accessibility (TalkBack, focus ring, 48 dp, font scale) · merged in #156
 - [x] #65 Plain-language UI pass (glossary + desktop/TV/phone jargon removal, #145)
-- [ ] #93 Phone↔TV protocol v2 (typed, versioned, acks, keep-alive)  ⟨CTO⟩ {M}
-- [ ] #88 **Tahoe Connect** — control the TV/desktop from the phone (Spotify Connect / AirPlay style)  ⟨CTO·CEO⟩ {L}
+- [x] #93 Phone↔TV protocol v2 (typed, versioned, acks, keep-alive)  ⟨CTO⟩ {M} · merged in #155
+- [ ] #88 **Tahoe Connect** — control the TV/desktop from the phone (Spotify Connect / AirPlay style)  ⟨CTO·CEO⟩ {L} · P0–P1 (device picker sheet, active target pill, handoff `watch`/`stop`, now-playing mirror) merged in #155; P2–P3 pending
 - [x] #111 Phone→TV onboarding sync: merge, not overwrite (#143)  ⟨QA⟩ {S}
 - [x] #96 Thread-safety in link/players · #107 Sync reconnect loop · #106 SourceHealth save race (#142, #143)
 - [x] #108 TV guide performance (windowed inflate + single-row refresh) · #109 phone/desktop recomposition + image caches (#144)
