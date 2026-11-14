@@ -88,16 +88,18 @@ final class Sheets {
 
         View tile(Item it) {
             Context ctx = getContext();
+            boolean simple = TvViewer.simpleMode(ctx);
             LinearLayout t = new LinearLayout(ctx); t.setOrientation(LinearLayout.VERTICAL);
             t.setPadding((int) (14 * d), (int) (11 * d), (int) (14 * d), (int) (11 * d));
+            t.setContentDescription(it.title + (it.sub != null && !it.sub.isEmpty() ? ", " + it.sub : ""));
             LinearLayout top = new LinearLayout(ctx); top.setGravity(Gravity.CENTER_VERTICAL);
-            ImageView g = Ui.icon(ctx, it.icon, 20, Ui.TEXT); g.setTag("g");
-            TextView ti = Ui.text(ctx, 15, 600, Ui.TEXT); ti.setText(it.title); ti.setTag("t");
+            ImageView g = Ui.icon(ctx, it.icon, simple ? 24 : 20, Ui.TEXT); g.setTag("g");
+            TextView ti = Ui.text(ctx, simple ? 18 : 15, 600, Ui.TEXT); ti.setText(it.title); ti.setTag("t");
             LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1); tl.leftMargin = (int) (12 * d);
             top.addView(g); top.addView(ti, tl);
             t.addView(top);
             if (it.sub != null && !it.sub.isEmpty()) {
-                TextView s = Ui.text(ctx, 12.5f, 400, Ui.TEXT_2); s.setText(it.sub); s.setTag("s");
+                TextView s = Ui.text(ctx, simple ? 14.5f : 12.5f, 400, Ui.TEXT_2); s.setText(it.sub); s.setTag("s");
                 s.setPadding((int) (32 * d), (int) (2 * d), 0, 0);
                 t.addView(s);
             }
@@ -231,6 +233,12 @@ final class Sheets {
                 new Item(R.drawable.ic_smartphone, "Kirim log", "Laporkan masalah lewat HP", () -> { h.closeSheet(); h.sendLog(); }));
             if (h.guest()) add(switchProfile.wide());
             else add(switchProfile, new Item(R.drawable.ic_lock, "Profil Anak", Kids.hasPin(h) ? "PIN & aplikasi" : "Belum diatur", () -> { h.closeSheet(); h.openSheet(new KidsSetup(h)); }));
+            boolean simple = TvViewer.simpleMode(h);
+            add(new Item(R.drawable.ic_layout_grid, "Mode Sederhana", (simple ? "Aktif" : "Mati") + "  ·  Teks & kartu besar", () -> {
+                TvViewer.setSimpleMode(h, !simple);
+                h.applySimpleMode();
+                rebuild();
+            }).wide().on(simple));
         }
 
         static String ssid(Context c) {

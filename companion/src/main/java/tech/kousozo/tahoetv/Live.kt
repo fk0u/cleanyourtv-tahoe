@@ -278,15 +278,39 @@ private fun ChannelRow(e: LocalTv.Entry, match: Epg.Programme?, epg: Epg?, now: 
 private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap: (Int) -> Unit) {
     val c = LocalContext.current
     val player = remember { Playback.player(c) }
+    val am = remember { c.getSystemService(android.content.Context.ACCESSIBILITY_SERVICE) as? android.view.accessibility.AccessibilityManager }
+    var touchExploration by remember { mutableStateOf(am?.isTouchExplorationEnabled == true) }
+    DisposableEffect(am) {
+        if (am == null) return@DisposableEffect onDispose {}
+        val listener = android.view.accessibility.AccessibilityManager.TouchExplorationStateChangeListener { enabled ->
+            touchExploration = enabled
+        }
+        am.addTouchExplorationStateChangeListener(listener)
+        onDispose { am.removeTouchExplorationStateChangeListener(listener) }
+    }
     var shownAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var settings by remember { mutableStateOf(false) }
     if (settings) PlayerSettingsSheet { settings = false }
     var visible by remember { mutableStateOf(true) }
     val busy = Playback.message != null
-    LaunchedEffect(shownAt, busy) { visible = true; if (!busy) { delay(3000); visible = false } }
+    LaunchedEffect(shownAt, busy, touchExploration) {
+        visible = true
+        if (!busy && !touchExploration) {
+            delay(3000)
+            visible = false
+        }
+    }
+    LaunchedEffect(full, visible) {
+        val w = (c as? Activity)?.window ?: return@LaunchedEffect
+        val ic = androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
+        if (full) {
+            if (visible) ic.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            else ic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+    }
     fun poke() { shownAt = System.currentTimeMillis() }
     Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {
-        if (visible && !busy) visible = false else poke()
+        if (visible && !busy && !touchExploration) visible = false else poke()
     }) {
         AndroidView({ PlayerView(it).apply { this.player = player; useController = false; layoutParams = ViewGroup.LayoutParams(-1, -1) } },
             Modifier.fillMaxSize(), update = { it.player = player })

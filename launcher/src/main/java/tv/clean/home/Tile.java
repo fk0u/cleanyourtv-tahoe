@@ -20,6 +20,7 @@ final class Tile extends FrameLayout {
     Tile(Context c, Home.App app, float w, float h) {
         super(c);
         this.app = app; this.w = w; this.h = h; this.radius = Ui.dp(c, Ui.R_SMALL);
+        setContentDescription(app.label);
         setClipChildren(false); setClipToPadding(false);
         image = new ImageView(c);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);

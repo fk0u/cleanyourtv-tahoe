@@ -47,9 +47,18 @@ final class TvViewer {
         for (String u : v.getFavorites()) if (favs.contains(u)) order.add(u);
         for (String u : favs) if (!order.contains(u)) order.add(u);
         Viewer n = new Viewer(v.getLanguage(), v.getCountry(), v.getCity(), v.getLat(), v.getLon(), v.getRegion(), v.getTimeZone(), v.getPrayer(),
-                v.getPrayerMethod(), v.getChannelCountries(), v.getCategories(), order);
+                v.getPrayerMethod(), v.getChannelCountries(), v.getCategories(), order, v.getSchema(), v.getRevision(), v.getSimpleMode());
         Cfg.p(c).edit().putString("viewer", n.toJson()).apply();
         Live.cached = null; // the order is part of the cached list
+    }
+
+    static boolean simpleMode(Context c) { return get(c).getSimpleMode(); }
+
+    static void setSimpleMode(Context c, boolean on) {
+        Viewer v = get(c);
+        Viewer n = new Viewer(v.getLanguage(), v.getCountry(), v.getCity(), v.getLat(), v.getLon(), v.getRegion(), v.getTimeZone(), v.getPrayer(),
+                v.getPrayerMethod(), v.getChannelCountries(), v.getCategories(), v.getFavorites(), v.getSchema(), v.getRevision() + 1L, on);
+        Cfg.p(c).edit().putString("viewer", n.toJson()).apply();
     }
 
     /** Prayer times shown and adhan scheduled: on unless the onboarding turned them off (older setups keep them). */

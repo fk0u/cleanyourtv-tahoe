@@ -150,6 +150,11 @@ object I18n {
         "connect.playing_on_tv" to "On TV · %s",
         "connect.paused_on_tv" to "Paused on TV · %s",
         "connect.stop_tv" to "Stop TV",
+
+        "simple.mode" to "Simple Mode",
+        "simple.mode_desc" to "Larger text, bigger tiles, easy controls",
+        "simple.on" to "On",
+        "simple.off" to "Off",
     )
 
     private val ID = mapOf(
@@ -298,6 +303,11 @@ object I18n {
         "connect.playing_on_tv" to "Di TV · %s",
         "connect.paused_on_tv" to "Dijeda di TV · %s",
         "connect.stop_tv" to "Hentikan di TV",
+
+        "simple.mode" to "Mode Sederhana",
+        "simple.mode_desc" to "Teks & kartu besar, kontrol mudah",
+        "simple.on" to "Aktif",
+        "simple.off" to "Mati",
     )
 
     private val ZH = mapOf(
@@ -446,6 +456,11 @@ object I18n {
         "connect.playing_on_tv" to "电视正在播放 · %s",
         "connect.paused_on_tv" to "电视已暂停 · %s",
         "connect.stop_tv" to "停止电视播放",
+
+        "simple.mode" to "简易模式",
+        "simple.mode_desc" to "大字体、大图标、简洁遥控",
+        "simple.on" to "开启",
+        "simple.off" to "关闭",
     )
 
     internal val TABLES = mapOf("en" to EN, "id" to ID, "zh" to ZH)

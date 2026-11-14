@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -82,7 +84,7 @@ fun RemoteScreen() {
                     Text("Tahoe TV", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     val channel = tv?.optString("channel").orEmpty()
                     Text(if (link == null) "Belum dipasangkan" else if (!online) "Menyambung…"
-                        else if (channel.isNotEmpty()) "Live · %03d %s".format(tv?.optInt("number") ?: 0, channel) else "Tersambung · $host", fontSize = 11.sp, color = Tahoe.Dim)
+                        else if (channel.isNotEmpty()) "Live · %03d %s".format(tv?.optInt("number") ?: 0, channel) else "Tersambung · $host", fontSize = 12.sp, color = Tahoe.Dim)
                 }
             }
             Spacer(Modifier.width(10.dp))
@@ -116,8 +118,9 @@ fun RemoteScreen() {
         LaunchedEffect(tv) { tv?.let { vol = it.optInt("volume").toFloat() } }
         if (vol >= 0) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
             .padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (tv?.optBoolean("muted") == true) Icons.AutoMirrored.Rounded.VolumeOff else Icons.Rounded.VolumeUp, null, tint = Tahoe.Accent)
-            Slider(vol, { vol = it }, Modifier.weight(1f).padding(horizontal = 12.dp), valueRange = 0f..100f,
+            Icon(if (tv?.optBoolean("muted") == true) Icons.AutoMirrored.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
+                if (tv?.optBoolean("muted") == true) "Bisu" else "Volume", tint = Tahoe.Accent)
+            Slider(vol, { vol = it }, Modifier.weight(1f).padding(horizontal = 12.dp).semantics { contentDescription = "Volume TV" }, valueRange = 0f..100f,
                 onValueChangeFinished = { link?.volumeSet(vol.toInt()) })
             Text("${vol.toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(40.dp))
         }
@@ -137,8 +140,13 @@ fun RemoteScreen() {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     row.forEach { d ->
                         if (d.isEmpty()) Spacer(Modifier.size(62.dp))
-                        else Box(Modifier.size(62.dp).clip(CircleShape).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, CircleShape).clickable { key(if (d == "⟲") "prev" else d) }, // ⟲ = previous channel
-                            contentAlignment = Alignment.Center) { Text(d, fontSize = 22.sp, fontWeight = FontWeight.SemiBold) }
+                        else {
+                            val desc = if (d == "⟲") "Saluran sebelumnya" else "Angka $d"
+                            Box(Modifier.size(62.dp).clip(CircleShape).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, CircleShape)
+                                .semantics { contentDescription = desc }
+                                .clickable { key(if (d == "⟲") "prev" else d) }, // ⟲ = previous channel
+                                contentAlignment = Alignment.Center) { Text(d, fontSize = 22.sp, fontWeight = FontWeight.SemiBold) }
+                        }
                     }
                 }
             }
@@ -147,8 +155,12 @@ fun RemoteScreen() {
         // media row
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
             .padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            listOf(Icons.Rounded.FastRewind to "rewind", Icons.Rounded.PlayArrow to "play_pause", Icons.Rounded.FastForward to "ffwd", Icons.Rounded.Menu to "menu")
-                .forEach { (icon, k) -> IconButton({ key(k) }) { Icon(icon, k, tint = Tahoe.Text) } }
+            listOf(
+                Triple(Icons.Rounded.FastRewind, "rewind", "Mundur"),
+                Triple(Icons.Rounded.PlayArrow, "play_pause", "Putar atau jeda"),
+                Triple(Icons.Rounded.FastForward, "ffwd", "Maju"),
+                Triple(Icons.Rounded.Menu, "menu", "Menu"),
+            ).forEach { (icon, k, desc) -> IconButton({ key(k) }) { Icon(icon, desc, tint = Tahoe.Text) } }
         }
 
         // type into the TV's focused text field (search boxes in YouTube, Netflix, Tahoe…)
@@ -247,14 +259,14 @@ private fun DPad(onKey: (String) -> Unit) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        @Composable fun Arrow(icon: ImageVector, k: String, a: Alignment) {
+        @Composable fun Arrow(icon: ImageVector, label: String, k: String, a: Alignment) {
             val s by animateFloatAsState(if (pressed == k) 1.35f else 1f, spring(), label = "arrow")
-            Icon(icon, k, tint = if (pressed == k) Tahoe.Accent else Tahoe.Dim, modifier = Modifier.align(a).padding(18.dp).size(30.dp).scale(s))
+            Icon(icon, label, tint = if (pressed == k) Tahoe.Accent else Tahoe.Dim, modifier = Modifier.align(a).padding(18.dp).size(30.dp).scale(s))
         }
-        Arrow(Icons.Rounded.KeyboardArrowUp, "up", Alignment.TopCenter)
-        Arrow(Icons.Rounded.KeyboardArrowDown, "down", Alignment.BottomCenter)
-        Arrow(Icons.Rounded.KeyboardArrowLeft, "left", Alignment.CenterStart)
-        Arrow(Icons.Rounded.KeyboardArrowRight, "right", Alignment.CenterEnd)
+        Arrow(Icons.Rounded.KeyboardArrowUp, "Atas", "up", Alignment.TopCenter)
+        Arrow(Icons.Rounded.KeyboardArrowDown, "Bawah", "down", Alignment.BottomCenter)
+        Arrow(Icons.Rounded.KeyboardArrowLeft, "Kiri", "left", Alignment.CenterStart)
+        Arrow(Icons.Rounded.KeyboardArrowRight, "Kanan", "right", Alignment.CenterEnd)
         val s by animateFloatAsState(if (pressed == "ok") 0.92f else 1f, spring(), label = "ok")
         Box(Modifier.size(104.dp).scale(s).clip(CircleShape)
             .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.10f))))
@@ -271,7 +283,7 @@ private fun Rocker(label: String, upIcon: ImageVector, downIcon: ImageVector, up
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {
     IconButton(up, Modifier.weight(1f).fillMaxWidth()) { Icon(upIcon, "$label naik", tint = Tahoe.Text, modifier = Modifier.size(28.dp)) }
-    Text(label, fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+    Text(label, fontSize = 12.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
     IconButton(down, Modifier.weight(1f).fillMaxWidth()) { Icon(downIcon, "$label turun", tint = Tahoe.Text, modifier = Modifier.size(28.dp)) }
 }
 
