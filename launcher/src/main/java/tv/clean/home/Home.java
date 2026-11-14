@@ -970,18 +970,50 @@ public class Home extends Activity implements Companion.Listener, Tools {
         }
     }
 
+    private long stateRev = 0L;
+
+    @Override public void onSessionLoad(String channelId, String url) {
+        LiveTv tv = LiveTv.live;
+        if (tv != null) {
+            tv.ui.post(() -> tv.tuneByChannel(channelId, url));
+            return;
+        }
+        Intent i = new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        if (channelId != null && !channelId.isEmpty()) i.putExtra("channelId", channelId);
+        if (url != null && !url.isEmpty()) i.putExtra("url", url);
+        start(i);
+    }
+
+    @Override public void onSessionControl(String action) {
+        LiveTv tv = LiveTv.live;
+        if (tv == null || action == null) return;
+        tv.ui.post(() -> {
+            if ("stop".equals(action)) { tv.finish(); return; }
+            if (tv.player == null) return;
+            if ("play".equals(action)) { tv.player.play(); tv.player.seekToDefaultPosition(); tv.showBanner(); }
+            else if ("pause".equals(action)) { tv.player.pause(); tv.showBanner(); }
+            pushState();
+        });
+    }
+
     @Override public JSONObject state() {
         AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
         int max = Math.max(1, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
-        JSONObject o = new JSONObject();
-        try {
-            o.put("t", "state").put("volume", Math.round(am.getStreamVolume(AudioManager.STREAM_MUSIC) * 100f / max))
-             .put("muted", am.isStreamMute(AudioManager.STREAM_MUSIC));
-            LiveTv tv = LiveTv.live;
-            if (tv != null && tv.index >= 0 && tv.index < tv.list.size()) o.put("channel", tv.list.get(tv.index).getName()).put("number", tv.index + 1);
-            o.put("sleep", sleepLeft());
-        } catch (Exception ignored) {}
-        return o;
+        int vol = Math.round(am.getStreamVolume(AudioManager.STREAM_MUSIC) * 100f / max);
+        boolean muted = am.isStreamMute(AudioManager.STREAM_MUSIC);
+        LiveTv tv = LiveTv.live;
+        tech.kousozo.tahoetv.core.Protocol.SessionState session = null;
+        if (tv != null && tv.index >= 0 && tv.index < tv.list.size()) {
+            tech.kousozo.tahoetv.core.LocalTv.Entry e = tv.list.get(tv.index);
+            boolean playing = tv.player != null && tv.player.getPlayWhenReady();
+            session = new tech.kousozo.tahoetv.core.Protocol.SessionState(
+                    ++stateRev, e.getChannel().getChannelId(), e.getName(), tv.index + 1, playing, !playing);
+        } else {
+            session = new tech.kousozo.tahoetv.core.Protocol.SessionState(++stateRev, "", "", 0, false, false);
+        }
+        tech.kousozo.tahoetv.core.Protocol.DeviceState ds =
+                new tech.kousozo.tahoetv.core.Protocol.DeviceState(vol, muted, sleepLeft(), session);
+        return tech.kousozo.tahoetv.core.Protocol.toLegacyStateJson(ds, session);
     }
 
     // ---------------------------------------------------------------- sleep timer

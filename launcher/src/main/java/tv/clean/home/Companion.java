@@ -16,13 +16,16 @@ import java.security.SecureRandom;
 import java.util.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import tech.kousozo.tahoetv.core.Protocol;
 
 /** Phone ↔ TV link on the LAN: serves the web client, pairs phones with a 6-digit code shown on the TV,
- *  and carries remote keys, app launches, links, uploads, phone notifications and now-playing over a WebSocket.
- *  Every request except the page itself and /pair needs a token. */
+ *  and carries remote keys, app launches, session commands, uploads, phone notifications and now-playing over a WebSocket.
+ *  Every request except the page itself, /info, and /pair needs a token. */
 final class Companion extends NanoWSD {
     static final int PORT = 8765;
     static final long MAX_UPLOAD = 25L * 1024 * 1024;
+    private static final long PING_INTERVAL_MS = 25_000L;
+    private static final long SOCKET_TIMEOUT_MS = 75_000L;
 
     interface Listener {
         void onKey(String key);
@@ -38,6 +41,8 @@ final class Companion extends NanoWSD {
         void onPower();               // standby ↔ wake
         void onSleep(int minutes);    // sleep timer, 0 = off
         void onKidsPin();             // a paired phone set a new PIN for the kids profile
+        void onSessionLoad(String channelId, String url);
+        void onSessionControl(String action);
         JSONObject state();           // volume, mute, channel: sent to phones on connect and on change
         JSONArray apps();
     }
@@ -51,11 +56,30 @@ final class Companion extends NanoWSD {
     /** Pairing code: expires, locks after repeated wrong guesses (see PairGuard). */
     final tech.kousozo.tahoetv.core.PairGuard guard = new tech.kousozo.tahoetv.core.PairGuard();
     NsdManager.RegistrationListener nsdReg;
+    private java.util.concurrent.ScheduledExecutorService pingExec;
+    private final java.util.concurrent.atomic.AtomicLong serverSeq = new java.util.concurrent.atomic.AtomicLong(0);
 
     Companion(Context c, Listener l) {
         super(PORT);
         ctx = c.getApplicationContext(); this.l = l;
         prefs = c.getSharedPreferences("companion", Context.MODE_PRIVATE);
+    }
+
+    String deviceId() {
+        String id = prefs.getString("device_id", null);
+        if (id == null || id.isEmpty()) {
+            id = UUID.randomUUID().toString();
+            prefs.edit().putString("device_id", id).apply();
+        }
+        return id;
+    }
+
+    private String appVersion() {
+        try {
+            return String.valueOf(ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName);
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     /** A fresh code (OK on the "Hubungkan HP" screen); also lifts a lockout, since only someone at the TV can do it. */
@@ -65,8 +89,16 @@ final class Companion extends NanoWSD {
 
     void startAll() {
         try { start(NanoHTTPD.SOCKET_READ_TIMEOUT, true); } catch (IOException e) { return; }
+        String id = deviceId();
         NsdServiceInfo si = new NsdServiceInfo();
-        si.setServiceName("Tahoe TV"); si.setServiceType("_tahoetv._tcp"); si.setPort(PORT);
+        si.setServiceName("Tahoe TV (" + id.substring(0, 4).toUpperCase(Locale.ROOT) + ")");
+        si.setServiceType("_tahoetv._tcp");
+        si.setPort(PORT);
+        si.setAttribute("id", id);
+        si.setAttribute("proto", String.valueOf(Protocol.VERSION));
+        si.setAttribute("ver", appVersion());
+        si.setAttribute("roles", "receiver");
+        si.setAttribute("caps", "hls,dash,ac3,hevc");
         nsdReg = new NsdManager.RegistrationListener() {
             public void onRegistrationFailed(NsdServiceInfo s, int e) {}
             public void onUnregistrationFailed(NsdServiceInfo s, int e) {}
@@ -74,9 +106,27 @@ final class Companion extends NanoWSD {
             public void onServiceUnregistered(NsdServiceInfo s) {}
         };
         try { ((NsdManager) ctx.getSystemService(Context.NSD_SERVICE)).registerService(si, NsdManager.PROTOCOL_DNS_SD, nsdReg); } catch (Exception ignored) {}
+        pingExec = java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+        pingExec.scheduleAtFixedRate(this::heartbeat, PING_INTERVAL_MS, PING_INTERVAL_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    private void heartbeat() {
+        long now = System.currentTimeMillis();
+        String ping = Protocol.encode(new Protocol.Ping(now), "s-" + serverSeq.incrementAndGet(), now, deviceId(), false).toString();
+        List<Socket> snap;
+        synchronized (sockets) { snap = new ArrayList<>(sockets); }
+        for (Socket s : snap) {
+            if (now - s.lastSeenMs > SOCKET_TIMEOUT_MS) {
+                sockets.remove(s);
+                try { s.close(WebSocketFrame.CloseCode.GoingAway, "timeout", false); } catch (Exception ignored) {}
+                continue;
+            }
+            out.execute(() -> { try { s.send(ping); } catch (Exception ignored) {} });
+        }
     }
 
     void stopAll() {
+        if (pingExec != null) { pingExec.shutdownNow(); pingExec = null; }
         stop();
         try { ((NsdManager) ctx.getSystemService(Context.NSD_SERVICE)).unregisterService(nsdReg); } catch (Exception ignored) {}
     }
@@ -127,7 +177,7 @@ final class Companion extends NanoWSD {
             if (uri.equals("/pair") && s.getMethod() == Method.POST) return pair(s);
             if (uri.equals("/info")) // public: lets the phone's scanner tell a Tahoe TV from any open port
                 return json(Response.Status.OK, new JSONObject().put("app", "tahoe").put("model", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
-                        .put("version", ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName));
+                        .put("version", appVersion()).put("id", deviceId()).put("proto", Protocol.VERSION).put("roles", "receiver"));
             if (!authed(s)) return json(Response.Status.UNAUTHORIZED, new JSONObject().put("error", "pair first"));
             if (uri.equals("/apps")) {
                 JSONArray[] out = new JSONArray[1];
@@ -244,40 +294,98 @@ final class Companion extends NanoWSD {
 
     final class Socket extends WebSocket {
         final boolean ok;
+        volatile long lastSeenMs = System.currentTimeMillis();
         Socket(IHTTPSession s, boolean ok) { super(s); this.ok = ok; }
+
+        private String welcomePayload() {
+            Protocol.Welcome w = new Protocol.Welcome(
+                    Protocol.VERSION, deviceId(), "Tahoe TV", appVersion(),
+                    Arrays.asList("hls", "dash", "ac3", "hevc"));
+            return Protocol.encode(w, "s-" + serverSeq.incrementAndGet(), System.currentTimeMillis(), deviceId(), false).toString();
+        }
+
+        private void sendAsync(String payload) {
+            out.execute(() -> { try { send(payload); } catch (Exception ignored) {} });
+        }
 
         @Override protected void onOpen() {
             if (!ok) { try { close(WebSocketFrame.CloseCode.PolicyViolation, "pair first", false); } catch (IOException ignored) {} return; }
+            lastSeenMs = System.currentTimeMillis();
             sockets.add(this);
-            ui.post(() -> { String m = l.state().toString(); out.execute(() -> { try { send(m); } catch (Exception ignored) {} }); });
+            sendAsync(welcomePayload());
+            ui.post(() -> { String m = l.state().toString(); sendAsync(m); });
         }
         @Override protected void onClose(WebSocketFrame.CloseCode c, String r, boolean byRemote) { sockets.remove(this); }
-        @Override protected void onPong(WebSocketFrame f) {}
+        @Override protected void onPong(WebSocketFrame f) { lastSeenMs = System.currentTimeMillis(); }
         @Override protected void onException(IOException e) { sockets.remove(this); }
 
         @Override protected void onMessage(WebSocketFrame f) {
             if (!ok) return;
-            try {
-                JSONObject m = new JSONObject(f.getTextPayload());
-                String t = m.optString("t");
-                ui.post(() -> {
-                    switch (t) {
-                        case "key": l.onKey(m.optString("k")); break;
-                        case "viewer": Onboarding.fromPhone(ctx, m.optString("v")); break; // the phone's onboarding (#77)
-                        case "viewer_patch": Onboarding.fromPhone(ctx, m.toString()); break; // incremental phone sync (#111)
-                        case "launch": l.onLaunch(m.optString("pkg")); break;
-                        case "url": l.onUrl(m.optString("u")); break;
-                        case "ask": l.onAsk(m.optString("q")); break;
-                        case "volume": l.onVolume(m.optInt("d")); break;
-                        case "volume_set": l.onVolumeSet(m.optInt("v")); break;
-                        case "text": l.onText(m.optString("s")); break;
-                        case "power": l.onPower(); break;
-                        case "sleep": l.onSleep(m.optInt("m")); break;
-                        case "notif": l.onPhoneNotification(m.optString("app"), m.optString("title"), m.optString("text")); break;
-                        case "media": l.onPhoneMedia(m.optBoolean("stopped") ? null : m); break;
-                    }
-                });
-            } catch (Exception ignored) {}
+            lastSeenMs = System.currentTimeMillis();
+            Protocol.Decoded dec = Protocol.decode(f.getTextPayload());
+            if (dec == null) {
+                sendAsync(Protocol.error("", "bad_json", "unrecognized message", "s-" + serverSeq.incrementAndGet()).toString());
+                return;
+            }
+            Protocol.Envelope env = dec.getEnvelope();
+            String msgId = env.getId();
+            if (!Protocol.isVersionSupported(env.getV())) {
+                sendAsync(Protocol.error(msgId, "unsupported_version", "please update", "s-" + serverSeq.incrementAndGet()).toString());
+                try { close(WebSocketFrame.CloseCode.PolicyViolation, "please update", false); } catch (Exception ignored) {}
+                return;
+            }
+            Protocol.Message msg = dec.getMessage();
+            if (msg instanceof Protocol.Hello) {
+                Protocol.Hello hello = (Protocol.Hello) msg;
+                if (!Protocol.isVersionSupported(hello.getProto())) {
+                    sendAsync(Protocol.error(msgId, "unsupported_version", "please update", "s-" + serverSeq.incrementAndGet()).toString());
+                    try { close(WebSocketFrame.CloseCode.PolicyViolation, "please update", false); } catch (Exception ignored) {}
+                    return;
+                }
+                sendAsync(welcomePayload());
+                if (!msgId.isEmpty()) sendAsync(Protocol.ack(msgId, 0L, "s-" + serverSeq.incrementAndGet()).toString());
+                return;
+            }
+            if (msg instanceof Protocol.Ping) {
+                sendAsync(Protocol.encode(new Protocol.Pong(((Protocol.Ping) msg).getNonce()),
+                        "s-" + serverSeq.incrementAndGet(), System.currentTimeMillis(), deviceId(), false).toString());
+                return;
+            }
+            if (msg instanceof Protocol.Pong || msg instanceof Protocol.Ack) return;
+            if (msg instanceof Protocol.Unknown) {
+                sendAsync(Protocol.error(msgId, "unknown_type", "unsupported type: " + ((Protocol.Unknown) msg).getRawType(),
+                        "s-" + serverSeq.incrementAndGet()).toString());
+                return;
+            }
+            ui.post(() -> {
+                if (msg instanceof Protocol.Key) l.onKey(((Protocol.Key) msg).getKey());
+                else if (msg instanceof Protocol.ViewerSync) Onboarding.fromPhone(ctx, ((Protocol.ViewerSync) msg).getJson());
+                else if (msg instanceof Protocol.ViewerPatch) Onboarding.fromPhone(ctx, ((Protocol.ViewerPatch) msg).getPatch().toString());
+                else if (msg instanceof Protocol.Launch) l.onLaunch(((Protocol.Launch) msg).getPkg());
+                else if (msg instanceof Protocol.OpenUrl) l.onUrl(((Protocol.OpenUrl) msg).getUrl());
+                else if (msg instanceof Protocol.Ask) l.onAsk(((Protocol.Ask) msg).getQuery());
+                else if (msg instanceof Protocol.VolumeDelta) l.onVolume(((Protocol.VolumeDelta) msg).getDelta());
+                else if (msg instanceof Protocol.VolumeSet) l.onVolumeSet(((Protocol.VolumeSet) msg).getPercent());
+                else if (msg instanceof Protocol.TextInput) l.onText(((Protocol.TextInput) msg).getText());
+                else if (msg == Protocol.Power.INSTANCE) l.onPower();
+                else if (msg instanceof Protocol.Sleep) l.onSleep(((Protocol.Sleep) msg).getMinutes());
+                else if (msg instanceof Protocol.PhoneNotification) {
+                    Protocol.PhoneNotification n = (Protocol.PhoneNotification) msg;
+                    l.onPhoneNotification(n.getApp(), n.getTitle(), n.getText());
+                } else if (msg instanceof Protocol.PhoneMedia) {
+                    Protocol.PhoneMedia pm = (Protocol.PhoneMedia) msg;
+                    l.onPhoneMedia(pm.getStopped() ? null : pm.getRaw());
+                } else if (msg instanceof Protocol.SessionLoad) {
+                    Protocol.SessionLoad sl = (Protocol.SessionLoad) msg;
+                    l.onSessionLoad(sl.getChannelId(), sl.getUrl());
+                } else if (msg instanceof Protocol.SessionControl) {
+                    l.onSessionControl(((Protocol.SessionControl) msg).getAction());
+                }
+                if (!msgId.isEmpty()) {
+                    long rev = l.state().optLong("rev", 0L);
+                    sendAsync(Protocol.ack(msgId, rev, "s-" + serverSeq.incrementAndGet()).toString());
+                }
+            });
         }
     }
 }

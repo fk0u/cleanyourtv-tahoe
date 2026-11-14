@@ -120,12 +120,29 @@ fun LiveScreen() {
         }
         if (full) return@Column
         val lang = PhoneRegion.language
+        val linkPrefs = remember { Sync.prefs(c) }
+        val tvHost = linkPrefs.getString("host", "").orEmpty()
+        val tvToken = linkPrefs.getString("token", "").orEmpty()
+        val tvLink = remember(tvHost, tvToken) {
+            if (tvHost.isNotEmpty() && tvToken.isNotEmpty()) tech.kousozo.tahoetv.core.TvLink.shared(tvHost, tvToken) else null
+        }
+        var tvState by remember(tvLink) { mutableStateOf(tvLink?.lastTvState) }
+        DisposableEffect(tvLink) {
+            if (tvLink == null) return@DisposableEffect onDispose {}
+            val main = android.os.Handler(android.os.Looper.getMainLooper())
+            tvState = tvLink.lastTvState
+            tvLink.onTvState = { s -> main.post { tvState = s } }
+            onDispose { tvLink.onTvState = {} }
+        }
         Column(Modifier.padding(horizontal = 20.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (playing == null) {
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.kicker"), color = Tahoe.Faint, fontSize = 12.sp, fontFamily = Mono, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 12.dp))
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
             }
             playing?.let { e -> NowPlayingInfo(e, epg, now) }
+            if (tvLink != null && tvState != null) {
+                TvConnectBar(tvState!!, tvLink, lang)
+            }
             if (list == null) {
                 if (failed) Note(tech.kousozo.tahoetv.core.I18n.get(lang, "live.load_failed_retry"), Icons.Rounded.ErrorOutline)
                 else LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
@@ -184,9 +201,43 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
         val p = remember { Sync.prefs(c) }
         if (p.getString("token", "").orEmpty().isNotEmpty()) {
             Spacer(Modifier.width(8.dp))
-            RoundGlass(Icons.Rounded.Cast, "Buka Live TV di TV") {
-                tech.kousozo.tahoetv.core.TvLink.shared(p.getString("host", "").orEmpty(), p.getString("token", "").orEmpty()).launch(TV_LIVE)
+            RoundGlass(Icons.Rounded.Cast, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "connect.play_on_tv")) {
+                tech.kousozo.tahoetv.core.TvLink.shared(p.getString("host", "").orEmpty(), p.getString("token", "").orEmpty())
+                    .sessionLoad(e.channel.channelId, e.channel.url, e.name)
             }
+        }
+    }
+}
+
+@Composable
+private fun TvConnectBar(state: org.json.JSONObject, link: tech.kousozo.tahoetv.core.TvLink, lang: String) {
+    val channel = state.optString("channel", "")
+    if (channel.isEmpty()) return
+    val paused = state.optBoolean("paused", !state.optBoolean("playing", true))
+    val number = state.optInt("number", 0)
+    val label = tech.kousozo.tahoetv.core.I18n.get(lang, if (paused) "connect.paused_on_tv" else "connect.playing_on_tv", channel)
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Tahoe.Glass)
+            .border(1.dp, Tahoe.Stroke, RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.Tv, null, tint = Tahoe.Text, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, color = Tahoe.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (number > 0) Text("#$number", color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono)
+        }
+        IconButton({ if (paused) link.sessionPlay() else link.sessionPause() }, Modifier.size(34.dp)) {
+            Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (paused) "Putar" else "Jeda", tint = Tahoe.Text, modifier = Modifier.size(20.dp))
+        }
+        IconButton({ link.key("ch_down") }, Modifier.size(34.dp)) {
+            Icon(Icons.Rounded.SkipPrevious, "Saluran sebelumnya", tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
+        }
+        IconButton({ link.key("ch_up") }, Modifier.size(34.dp)) {
+            Icon(Icons.Rounded.SkipNext, "Saluran berikutnya", tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
+        }
+        IconButton({ link.sessionStop() }, Modifier.size(34.dp)) {
+            Icon(Icons.Rounded.Stop, tech.kousozo.tahoetv.core.I18n.get(lang, "connect.stop_tv"), tint = Tahoe.Bad, modifier = Modifier.size(18.dp))
         }
     }
 }

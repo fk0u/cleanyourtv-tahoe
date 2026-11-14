@@ -2,21 +2,32 @@ package tech.kousozo.tahoetv.core
 
 import java.net.URI
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicLong
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
 import org.json.JSONObject
 
 /** Remote control of a TV running Tahoe over its paired WebSocket (port 8765). Works without ADB, e.g. on TV boxes
- *  where Tahoe was installed from a USB stick. Same messages as the launcher's web remote. */
+ *  where Tahoe was installed from a USB stick. Uses protocol v2 envelopes ([Protocol]) with v1 compatibility. */
 class TvLink(val host: String, private val token: String, private val onState: (Boolean) -> Unit = {}) {
-    /** Latest {"t":"state"} from the TV: volume (0–100), muted, channel, number. */
+    /** Latest {"t":"state"} from the TV: volume (0–100), muted, channel, channelId, number, playing, rev. */
     @Volatile var onTvState: (JSONObject) -> Unit = {}
+    /** Latest typed [Protocol.SessionState] from the TV (#88). */
+    @Volatile var onSessionState: (Protocol.SessionState) -> Unit = {}
+    /** Latest state JSON observed over this link (for immediate display when switching screens). */
+    @Volatile var lastTvState: JSONObject? = null
+        private set
     /** Other messages from the TV, e.g. {"t":"send_log"} when "Kirim log" is pressed on the TV. */
     @Volatile var onCommand: (JSONObject) -> Unit = {}
     @Volatile private var ws: WebSocketClient? = null
     @Volatile private var wanted = false
+    @Volatile private var peerProto = Protocol.VERSION
+    @Volatile private var lastSessionRev = -1L
+    private val seq = AtomicLong(0L)
     private val pending = ConcurrentLinkedQueue<String>()
     val connected get() = ws?.isOpen == true
+
+    private fun nextId(): String = "c-${seq.incrementAndGet()}"
 
     /** Connects and keeps reconnecting (every 2 s) until [close]: the TV may be asleep, restarting, or Wi-Fi dropped. */
     fun open() { wanted = true; connect() }
@@ -40,16 +51,63 @@ class TvLink(val host: String, private val token: String, private val onState: (
         mapOf("Authorization" to "Bearer $token")
     ) {
             override fun onOpen(h: ServerHandshake) {
+                val hello = Protocol.encode(
+                    Protocol.Hello(
+                        proto = Protocol.VERSION,
+                        role = "controller",
+                        caps = listOf("remote", "connect"),
+                    ),
+                    id = nextId(),
+                ).toString()
+                sendRaw(hello)
                 flushPending()
                 onState(true)
             }
             override fun onMessage(m: String) {
-                val o = runCatching { JSONObject(m) }.getOrNull() ?: return
-                if (o.optString("t") == "state") onTvState(o) else onCommand(o)
+                val dec = Protocol.decode(m) ?: return
+                when (val msg = dec.message) {
+                    is Protocol.Welcome -> peerProto = msg.proto
+                    is Protocol.Ping -> sendRaw(Protocol.encode(Protocol.Pong(msg.nonce), id = nextId()).toString())
+                    is Protocol.Pong, is Protocol.Ack -> Unit
+                    is Protocol.Error -> onCommand(JSONObject(dec.envelope.body.toString()).put("t", "error"))
+                    is Protocol.DeviceState -> handleDeviceState(msg)
+                    is Protocol.SessionState -> handleSessionState(msg)
+                    Protocol.SendLog -> onCommand(JSONObject().put("t", "send_log"))
+                    else -> {
+                        val o = runCatching { JSONObject(m) }.getOrNull() ?: JSONObject(dec.envelope.body.toString())
+                        onCommand(o)
+                    }
+                }
             }
             override fun onClose(code: Int, reason: String, remote: Boolean) { onState(false); retry() }
             override fun onError(e: Exception) {}
         }
+
+    private fun handleDeviceState(ds: Protocol.DeviceState) {
+        val s = ds.session
+        val sessionToUse = if (s != null && s.rev > 0L && s.rev < lastSessionRev) null else s
+        if (sessionToUse != null && sessionToUse.rev > lastSessionRev) lastSessionRev = sessionToUse.rev
+        val stateJson = Protocol.toLegacyStateJson(ds, sessionToUse)
+        lastTvState = stateJson
+        onTvState(stateJson)
+        if (sessionToUse != null) onSessionState(sessionToUse)
+    }
+
+    private fun handleSessionState(s: Protocol.SessionState) {
+        if (s.rev > 0L && s.rev < lastSessionRev) return
+        lastSessionRev = s.rev
+        val prev = lastTvState
+        val ds = Protocol.DeviceState(
+            volume = prev?.optInt("volume", 0) ?: 0,
+            muted = prev?.optBoolean("muted", false) ?: false,
+            sleep = prev?.optInt("sleep", 0) ?: 0,
+            session = s,
+        )
+        val stateJson = Protocol.toLegacyStateJson(ds, s)
+        lastTvState = stateJson
+        onTvState(stateJson)
+        onSessionState(s)
+    }
 
     fun close() { wanted = false; ws?.close(); ws = null }
 
@@ -79,26 +137,37 @@ class TvLink(val host: String, private val token: String, private val onState: (
         }
     }
 
+    private fun sendProtocol(msg: Protocol.Message, withLegacy: Boolean = true) =
+        send(Protocol.encode(msg, id = nextId(), withLegacy = withLegacy))
+
     internal fun pendingCount(): Int = pending.size
     internal fun enqueueForTest(o: JSONObject) = send(o)
 
     /** up, down, left, right, ok, back, home, menu, apps, mute, settings, livetv, ch_up, ch_down, 0–9, play_pause, rewind, ffwd */
-    fun key(k: String) = send(JSONObject().put("t", "key").put("k", k))
+    fun key(k: String) = sendProtocol(Protocol.Key(k))
     /** The phone's onboarding choices ([Viewer] JSON): the TV takes them and skips its own onboarding (#77). */
-    fun viewer(json: String) = send(JSONObject().put("t", "viewer").put("v", json))
+    fun viewer(json: String) = sendProtocol(Protocol.ViewerSync(json))
     /** Delta or region sync patch ([Viewer.diff]) sent over an ordered link queue (#111). */
-    fun viewerPatch(patch: JSONObject) = send(JSONObject(patch.toString()).put("t", "viewer_patch"))
-    fun launch(pkg: String) = send(JSONObject().put("t", "launch").put("pkg", pkg))
-    fun url(u: String) = send(JSONObject().put("t", "url").put("u", u))
-    fun ask(q: String) = send(JSONObject().put("t", "ask").put("q", q))
-    fun volume(d: Int) = send(JSONObject().put("t", "volume").put("d", d))
-    fun volumeSet(percent: Int) = send(JSONObject().put("t", "volume_set").put("v", percent))
+    fun viewerPatch(patch: JSONObject) = sendProtocol(Protocol.ViewerPatch(patch))
+    fun launch(pkg: String) = sendProtocol(Protocol.Launch(pkg))
+    fun url(u: String) = sendProtocol(Protocol.OpenUrl(u))
+    fun ask(q: String) = sendProtocol(Protocol.Ask(q))
+    fun volume(d: Int) = sendProtocol(Protocol.VolumeDelta(d))
+    fun volumeSet(percent: Int) = sendProtocol(Protocol.VolumeSet(percent))
     /** Replaces the text of the focused field on the TV. */
-    fun text(s: String) = send(JSONObject().put("t", "text").put("s", s))
+    fun text(s: String) = sendProtocol(Protocol.TextInput(s))
     /** Standby ↔ wake. */
-    fun power() = send(JSONObject().put("t", "power"))
+    fun power() = sendProtocol(Protocol.Power)
     /** Sleep timer in minutes, 0 = off. */
-    fun sleep(minutes: Int) = send(JSONObject().put("t", "sleep").put("m", minutes))
+    fun sleep(minutes: Int) = sendProtocol(Protocol.Sleep(minutes))
+
+    /** Tahoe Connect (#88): tune a specific channel on the TV by stable channelId (fallback url). */
+    @JvmOverloads
+    fun sessionLoad(channelId: String, url: String = "", name: String = "", startAt: Long = 0L) =
+        sendProtocol(Protocol.SessionLoad(channelId = channelId, url = url, name = name, startAt = startAt), withLegacy = false)
+    fun sessionPlay() = sendProtocol(Protocol.SessionControl("play"), withLegacy = false)
+    fun sessionPause() = sendProtocol(Protocol.SessionControl("pause"), withLegacy = false)
+    fun sessionStop() = sendProtocol(Protocol.SessionControl("stop"), withLegacy = false)
 
     companion object {
         private const val MAX_PENDING = 64

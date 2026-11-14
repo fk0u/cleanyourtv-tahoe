@@ -145,6 +145,11 @@ object I18n {
         "rec.encrypted" to "Stream is encrypted and can't be recorded.",
         "rec.unopenable" to "Can't open stream: %s",
         "rec.not_hls" to "Not an HLS stream.",
+
+        "connect.play_on_tv" to "Play on TV",
+        "connect.playing_on_tv" to "On TV · %s",
+        "connect.paused_on_tv" to "Paused on TV · %s",
+        "connect.stop_tv" to "Stop TV",
     )
 
     private val ID = mapOf(
@@ -288,6 +293,11 @@ object I18n {
         "rec.encrypted" to "Siaran terenkripsi, tidak bisa direkam.",
         "rec.unopenable" to "Siaran tidak bisa dibuka: %s",
         "rec.not_hls" to "Bukan siaran HLS.",
+
+        "connect.play_on_tv" to "Putar di TV",
+        "connect.playing_on_tv" to "Di TV · %s",
+        "connect.paused_on_tv" to "Dijeda di TV · %s",
+        "connect.stop_tv" to "Hentikan di TV",
     )
 
     private val ZH = mapOf(
@@ -431,6 +441,11 @@ object I18n {
         "rec.encrypted" to "直播已加密，无法录制。",
         "rec.unopenable" to "无法打开直播流：%s",
         "rec.not_hls" to "不是 HLS 直播流。",
+
+        "connect.play_on_tv" to "在电视上播放",
+        "connect.playing_on_tv" to "电视正在播放 · %s",
+        "connect.paused_on_tv" to "电视已暂停 · %s",
+        "connect.stop_tv" to "停止电视播放",
     )
 
     internal val TABLES = mapOf("en" to EN, "id" to ID, "zh" to ZH)
