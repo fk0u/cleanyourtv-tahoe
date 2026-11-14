@@ -1,6 +1,7 @@
 package tech.kousozo.tahoetv.core
 
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.net.URLEncoder
 import java.time.LocalDate
@@ -30,19 +31,50 @@ object Web {
     fun get(url: String, timeoutMs: Int = 10_000, headers: Map<String, String>? = null): String =
         request("GET", url, null, timeoutMs, headers)
 
-    fun open(url: String, timeoutMs: Int = 30_000): HttpURLConnection {
-        val c = URL(url).openConnection() as HttpURLConnection
-        c.connectTimeout = 8000; c.readTimeout = timeoutMs; c.requestMethod = "GET"
-        c.setRequestProperty("User-Agent", STREAM_UA)
-        c.setRequestProperty("Accept-Encoding", "gzip, deflate")
-        return c
+    fun open(url: String, timeoutMs: Int = 30_000): HttpURLConnection =
+        openFollowingRedirects(url, timeoutMs)
+
+    /** Opens a GET connection following HTTP redirects (including cross-protocol http <-> https, which
+     *  HttpURLConnection skips by default), resolving relative Location headers up to 5 hops. */
+    @JvmOverloads
+    fun openFollowingRedirects(
+        url: String,
+        timeoutMs: Int = 30_000,
+        headers: Map<String, String> = emptyMap(),
+        range: String? = null,
+        connectTimeoutMs: Int = 8000,
+        userAgent: String = STREAM_UA,
+    ): HttpURLConnection {
+        var u = url
+        repeat(6) {
+            val c = URI(u).toURL().openConnection() as HttpURLConnection
+            c.connectTimeout = connectTimeoutMs; c.readTimeout = timeoutMs
+            c.instanceFollowRedirects = false; c.requestMethod = "GET"
+            c.setRequestProperty("User-Agent", userAgent)
+            c.setRequestProperty("Accept-Encoding", "gzip, deflate")
+            headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+            if (!range.isNullOrEmpty()) c.setRequestProperty("Range", range)
+            val code = c.responseCode
+            if (code in listOf(301, 302, 303, 307, 308)) {
+                val loc = c.getHeaderField("Location")?.takeIf { it.isNotBlank() }
+                    ?: run { c.disconnect(); throw java.io.IOException("Redirect without Location from $u") }
+                c.disconnect()
+                u = URI(u).resolve(loc).toString()
+            } else {
+                return c
+            }
+        }
+        throw java.io.IOException("Too many redirects: $url")
     }
 
     fun stream(url: String, timeoutMs: Int = 30_000): java.io.InputStream {
-        val c = open(url, timeoutMs)
+        val c = openFollowingRedirects(url, timeoutMs)
         val code = c.responseCode
-        if (code >= 400) throw java.io.IOException("HTTP $code")
-        val input = body(c) ?: throw java.io.IOException("Empty body")
+        if (code >= 400) {
+            c.disconnect()
+            throw java.io.IOException("HTTP $code")
+        }
+        val input = body(c) ?: run { c.disconnect(); throw java.io.IOException("Empty body") }
         return if (url.endsWith(".gz", ignoreCase = true) && c.contentEncoding?.lowercase() != "gzip") {
             java.util.zip.GZIPInputStream(input)
         } else {
@@ -52,18 +84,27 @@ object Web {
 
     @JvmOverloads
     fun request(method: String, url: String, body: String?, timeoutMs: Int = 20_000, headers: Map<String, String>? = null): String {
-        val c = URL(url).openConnection() as HttpURLConnection
-        c.connectTimeout = 8000; c.readTimeout = timeoutMs; c.requestMethod = method
-        c.setRequestProperty("User-Agent", "TahoeTV")
-        headers?.forEach { (k, v) -> c.setRequestProperty(k, v) }
-        if (body != null) {
-            c.doOutput = true; c.setRequestProperty("Content-Type", "application/json")
-            c.outputStream.use { it.write(body.toByteArray()) }
+        val c = if (method.equals("GET", ignoreCase = true) && body == null) {
+            openFollowingRedirects(url, timeoutMs, headers.orEmpty(), userAgent = "TahoeTV")
+        } else {
+            (URL(url).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 8000; readTimeout = timeoutMs; requestMethod = method
+                setRequestProperty("User-Agent", "TahoeTV")
+                headers?.forEach { (k, v) -> setRequestProperty(k, v) }
+                if (body != null) {
+                    doOutput = true; setRequestProperty("Content-Type", "application/json")
+                    outputStream.use { it.write(body.toByteArray()) }
+                }
+            }
         }
-        val code = c.responseCode
-        val text = body(c, code >= 400)?.bufferedReader()?.readText().orEmpty()
-        if (code >= 400) throw java.io.IOException("HTTP $code")
-        return text
+        try {
+            val code = c.responseCode
+            val text = body(c, code >= 400)?.bufferedReader()?.readText().orEmpty()
+            if (code >= 400) throw java.io.IOException("HTTP $code")
+            return text
+        } finally {
+            c.disconnect()
+        }
     }
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")

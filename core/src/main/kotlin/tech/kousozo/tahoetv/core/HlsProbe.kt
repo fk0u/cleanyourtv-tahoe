@@ -1,6 +1,5 @@
 package tech.kousozo.tahoetv.core
 
-import java.net.HttpURLConnection
 import java.net.URI
 import java.time.Instant
 import java.time.LocalDateTime
@@ -151,9 +150,7 @@ object HlsProbe {
 
     /** The playlist text (at most 4 MB; a bigger one is marked finished) and the URL it finally came from (after redirects). */
     fun fetch(url: String, headers: Map<String, String>, timeoutMs: Int): Pair<String, String> {
-        val con = URI(url).toURL().openConnection() as HttpURLConnection
-        con.connectTimeout = timeoutMs; con.readTimeout = timeoutMs; con.instanceFollowRedirects = true
-        con.setRequestProperty("User-Agent", Web.STREAM_UA); headers.forEach { (k, v) -> con.setRequestProperty(k, v) }
+        val con = Web.openFollowingRedirects(url, timeoutMs, headers, connectTimeoutMs = timeoutMs)
         try {
             if (con.responseCode !in 200..299) error("HTTP ${con.responseCode}")
             // manual read: InputStream.readNBytes(int) needs Android 13, and this runs on Android 9 TVs too
