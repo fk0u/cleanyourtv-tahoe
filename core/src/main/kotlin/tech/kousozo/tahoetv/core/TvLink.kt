@@ -27,7 +27,16 @@ class TvLink(val host: String, private val token: String, private val onState: (
 
     private fun retry() { if (wanted) Thread { Thread.sleep(2000); connect() }.apply { isDaemon = true }.start() }
 
-    private fun client() = object : WebSocketClient(URI("ws://${host.trim()}:8765/ws?token=$token")) {
+    private fun wsUri(): URI {
+        val h = host.trim()
+        val url = if (h.contains(":")) "ws://$h/ws" else "ws://$h:8765/ws"
+        return URI(url)
+    }
+
+    private fun client() = object : WebSocketClient(
+        wsUri(),
+        mapOf("Authorization" to "Bearer $token")
+    ) {
             override fun onOpen(h: ServerHandshake) = onState(true)
             override fun onMessage(m: String) {
                 val o = runCatching { JSONObject(m) }.getOrNull() ?: return
@@ -59,9 +68,15 @@ class TvLink(val host: String, private val token: String, private val onState: (
     fun sleep(minutes: Int) = send(JSONObject().put("t", "sleep").put("m", minutes))
 
     companion object {
+        private fun httpBase(host: String): String {
+            val h = host.trim()
+            return if (h.contains(":")) "http://$h" else "http://$h:8765"
+        }
+
         /** POST /pair with the 6-digit code shown on the TV. Returns the token, or throws with the TV's error. Blocks. */
         fun pair(host: String, code: String): String {
-            val res = JSONObject(runCatching { Web.request("POST", "http://$host:8765/pair", JSONObject().put("code", code).toString(), 5000) }
+            val base = httpBase(host)
+            val res = JSONObject(runCatching { Web.request("POST", "$base/pair", JSONObject().put("code", code).toString(), 5000) }
                 .getOrElse { throw java.io.IOException(when {
                     "HTTP 429" in "${it.message}" -> "Terlalu banyak percobaan. Tunggu sebentar, atau tekan OK di layar Hubungkan HP di TV untuk kode baru"
                     "HTTP 4" in "${it.message}" -> "Kode salah atau kedaluwarsa"
@@ -72,13 +87,13 @@ class TvLink(val host: String, private val token: String, private val onState: (
 
         /** The TV's diagnostic report for "Kirim log" (GET /log). Blocks; throws when the TV can't be reached. */
         fun fetchLog(host: String, token: String): String =
-            Web.get("http://${host.trim()}:8765/log?token=" + java.net.URLEncoder.encode(token, "UTF-8"), 8000)
+            Web.get("${httpBase(host)}/log", 8000, mapOf("Authorization" to "Bearer $token"))
 
         /** Sets a new 4-digit PIN for the TV's kids profile (forgotten PIN). Only a paired phone holds the token. Blocks. */
         fun setKidsPin(host: String, token: String, pin: String) {
             require(pin.matches(Regex("\\d{4}"))) { "PIN harus 4 angka" }
-            // the PIN goes in the body, not the URL (URLs end up in logs)
-            runCatching { Web.request("POST", "http://${host.trim()}:8765/kids_pin?token=" + java.net.URLEncoder.encode(token, "UTF-8"), JSONObject().put("pin", pin).toString(), 8000) }
+            // Auth header avoids exposing the bearer token in URL logs
+            runCatching { Web.request("POST", "${httpBase(host)}/kids_pin", JSONObject().put("pin", pin).toString(), 8000, mapOf("Authorization" to "Bearer $token")) }
                 .getOrElse { throw java.io.IOException(if ("HTTP 401" in "${it.message}") "HP ini belum dipasangkan dengan TV" else "Tidak bisa menghubungi TV") }
         }
     }
