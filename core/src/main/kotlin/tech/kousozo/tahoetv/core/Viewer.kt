@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 /** Everything the first-run onboarding asks (#77), shared by the phone and desktop (and later the TV). Stored by each
  *  app as one JSON string ([toJson] / [fromJson]); a missing field keeps its default, so older apps' data still loads. */
-data class Viewer(
+data class Viewer @JvmOverloads constructor(
     /** App language: one of [Region.LANGUAGES]. */
     val language: String = "en",
     /** Where the viewer lives (ISO 3166 alpha-2): suggestions, prayer method, "near you". Blank = onboarding not done. */
@@ -26,8 +26,10 @@ data class Viewer(
     val channelCountries: List<String> = emptyList(),
     /** Categories to show (by [LocalTv.Category] name); empty = all. Hidden ones can still be searched. */
     val categories: Set<String> = emptySet(),
-    /** Favourite channels by stream URL, in the viewer's order: they come first in the channel list. */
+    /** Favourite channels by stable [M3u.Channel.channelId] (or legacy stream URL), in the viewer's order: they come first in the channel list. */
     val favorites: List<String> = emptyList(),
+    /** Schema version for preference storage migration. */
+    val schema: Int = 2,
 ) {
     val done get() = country.isNotBlank()
 
@@ -41,17 +43,36 @@ data class Viewer(
     val countries get() = channelCountries.ifEmpty { listOfNotNull(Region.country(country) ?: Region.HOME) }
     val zone: ZoneId get() = runCatching { ZoneId.of(timeZone) }.getOrDefault(ZoneId.systemDefault())
 
+    private fun favRank(e: LocalTv.Entry, rank: Map<String, Int>): Int? =
+        rank[e.channel.channelId] ?: rank[e.channel.url]
+            ?: e.alternates.firstNotNullOfOrNull { rank[it.channelId] ?: rank[it.url] }
+
     /** The channel list as the viewer set it up: chosen categories only (favourites always stay), favourites first in
      *  their order, then the usual order. */
     fun arrange(entries: List<LocalTv.Entry>): List<LocalTv.Entry> {
         val rank = favorites.withIndex().associate { (i, u) -> u to i }
         val cats = activeCategories
         val near = LocalTv.Category.Near.name in cats
-        val shown = if (cats.isEmpty()) entries else entries.filter { it.channel.url in rank || it.category.name in cats || (near && it.near) }
-        return shown.sortedBy { rank[it.channel.url] ?: Int.MAX_VALUE } // stable: the rest keep their order
+        val shown = if (cats.isEmpty()) entries else entries.filter { favRank(it, rank) != null || it.category.name in cats || (near && it.near) }
+        return shown.sortedBy { favRank(it, rank) ?: Int.MAX_VALUE } // stable: the rest keep their order
+    }
+
+    fun isFavorite(ch: M3u.Channel): Boolean = ch.channelId in favorites || ch.url in favorites
+
+    fun toggleFavorite(ch: M3u.Channel): Viewer =
+        if (isFavorite(ch)) copy(favorites = favorites.filterNot { it == ch.channelId || it == ch.url })
+        else copy(favorites = (favorites + ch.channelId).distinct())
+
+    /** Rewrites any legacy URL-keyed favourites to stable [M3u.Channel.channelId]s when matching channels exist. */
+    fun migrateFavorites(channels: List<M3u.Channel>): Viewer {
+        if (favorites.isEmpty()) return this
+        val byUrl = channels.associate { it.url to it.channelId }
+        val mapped = favorites.map { byUrl[it] ?: it }.distinct()
+        return if (mapped == favorites && schema >= 2) this else copy(favorites = mapped, schema = 2)
     }
 
     fun toJson(): String = JSONObject()
+        .put("schema", schema)
         .put("language", language).put("country", country).put("city", city).put("lat", lat ?: JSONObject.NULL).put("lon", lon ?: JSONObject.NULL)
         .put("region", region).put("timeZone", timeZone).put("prayer", prayer).put("prayerMethod", prayerMethod)
         .put("channelCountries", JSONArray(channelCountries)).put("categories", JSONArray(categories.toList())).put("favorites", JSONArray(favorites))
@@ -69,6 +90,7 @@ data class Viewer(
                 prayer = j.optBoolean("prayer", false), prayerMethod = j.optInt("prayerMethod", 3),
                 channelCountries = list("channelCountries").mapNotNull { Region.country(it) },
                 categories = list("categories").toSet(), favorites = list("favorites"),
+                schema = j.optInt("schema", 2),
             )
         }
 

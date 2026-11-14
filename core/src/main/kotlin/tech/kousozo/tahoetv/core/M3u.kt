@@ -9,10 +9,19 @@ object M3u {
      *  A bare `license_type` on an HLS URL is not DRM: some playlists copy it onto plain streams. */
     data class Channel(val name: String, val url: String, val logo: String?, val group: String?,
                        val headers: Map<String, String> = emptyMap(), val drm: Boolean = false,
-                       val tvgId: String? = null, val drmType: String? = null, val drmKey: String? = null)
+                       val tvgId: String? = null, val drmType: String? = null, val drmKey: String? = null) {
+        /** Stable identifier across stream URL rotations: normalized tvg-id when available, otherwise name slug. */
+        val channelId: String
+            get() = tvgId?.trim()?.lowercase()?.replace(Regex("[^a-z0-9._-]+"), "-")?.trim('-')?.takeIf { it.isNotEmpty() }
+                ?: slug(name)
+    }
 
     /** Public, community-maintained list of freely available Indonesian channels (iptv-org). */
     const val DEFAULT = "https://iptv-org.github.io/iptv/countries/id.m3u"
+
+    @JvmStatic
+    fun slug(name: String): String =
+        LocalTv.cleanName(name).lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "ch" }
 
     private val attr = Regex("""([\w-]+)="([^"]*)"""")
 
