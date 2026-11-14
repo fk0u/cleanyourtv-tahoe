@@ -94,6 +94,8 @@ object PlayerWindow {
     private var currentIndex = 0
     private var failReason: String? = null
     private var failSlateReason: tech.kousozo.tahoetv.core.Slate.Reason? = null
+    private var probedLiveInSession = false
+    private var webFallbackTriedGen = -1
 
     // ---- loading overlay: dark scrim, channel logo + name, 12-tick spinner (tvOS / Apple TV style)
     private lateinit var loader: StackPane
@@ -158,6 +160,8 @@ object PlayerWindow {
         loaderLogo.image = logo?.let { runCatching { Image(it, 200.0, 120.0, true, true, true) }.getOrNull() }
         loaderTile.isVisible = loaderLogo.image != null; loaderTile.isManaged = loaderTile.isVisible
         channelStreams = streams; slateRetries = 0; slateTimer?.stop()
+        probedLiveInSession = streams.any { SourceHealth.status(it.url)?.live == true }
+        webFallbackTriedGen = -1
         start(SourceHealth.order(streams), 0, ++generation) // known-live sources first, recordings left out
         s.show(); s.toFront(); reveal()
     }
@@ -178,6 +182,27 @@ object PlayerWindow {
         val lang = Settings.lang
         val order = tech.kousozo.tahoetv.core.Slate.order(lang)
         val reason = failSlateReason ?: tech.kousozo.tahoetv.core.Slate.Reason.Offline
+        if (gen != webFallbackTriedGen && (probedLiveInSession || reason == tech.kousozo.tahoetv.core.Slate.Reason.Unsupported) &&
+            channelStreams.any { !it.drm && !it.url.substringBefore('?').endsWith(".mpd", true) }) {
+            webFallbackTriedGen = gen
+            val snapStreams = channelStreams
+            val snapTitle = titleLabel.text
+            Thread({
+                val err = WebPlayer.open(snapStreams, snapTitle, onSwitch, onStatus)
+                Platform.runLater {
+                    if (gen != generation) return@runLater
+                    if (err == null) {
+                        slateTimer?.stop()
+                        release()
+                        loading(false)
+                        stage?.hide()
+                    } else {
+                        slate(gen)
+                    }
+                }
+            }, "tahoe-web-fallback").apply { isDaemon = true }.start()
+            return
+        }
         val head = order.joinToString("\n\n") { tech.kousozo.tahoetv.core.Slate.message(it) } + "\n\n" + tech.kousozo.tahoetv.core.Slate.reason(order[0], reason)
         fail(head)
         retryBtn.text = tech.kousozo.tahoetv.core.Slate.label(lang, "retry") + " ↻"; retryBtn.isVisible = true; retryBtn.isManaged = true
@@ -249,7 +274,7 @@ object PlayerWindow {
                     if (gen != generation) return@runLater
                     if (kind == HlsProbe.Kind.REPLAY || kind == HlsProbe.Kind.STALE) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Recording; next() }
                     else if (kind == HlsProbe.Kind.DEAD) { failReason = "Server saluran ini sedang tidak mengirim siaran."; failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Offline; next() } // don't wait 20 s for it
-                    else { if (fix) relayed += c.url; begin(streams, i, gen, retry, c, next) }
+                    else { if (kind == HlsProbe.Kind.LIVE) probedLiveInSession = true; if (fix) relayed += c.url; begin(streams, i, gen, retry, c, next) }
                 }
             }, "tahoe-probe").apply { isDaemon = true }.start()
             return
