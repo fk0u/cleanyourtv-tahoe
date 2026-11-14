@@ -88,12 +88,11 @@ fun SettingsScreen() {
         Text("Menentukan daftar saluran dan jadwal acara. Teks aplikasi lainnya masih berbahasa Indonesia; terjemahan sedang dikerjakan (#56).",
             color = Tahoe.Faint, fontSize = 12.sp)
 
-        Section("Server IPTV (LAN)")
-        Text("Relay streaming IPTV lokal dengan injeksi header HTTP (Referer/User-Agent). Berbagi siaran dari koutv.m3u dan anotheriptv.m3u ke Android TV, HP, atau VLC di jaringan Wi-Fi rumah.", color = Tahoe.Dim, fontSize = 13.sp)
+        Section("Berbagi saluran di Wi-Fi rumah")
+        Text("Bagikan saluran TV ke TV lain, HP, atau pemutar di jaringan Wi-Fi rumah yang sama.", color = Tahoe.Dim, fontSize = 13.sp)
 
         val isRunning by remember { IptvServer.isRunning }
         val chCount by remember { IptvServer.channelCount }
-        val relCount by remember { IptvServer.relayCount }
         var serverStarting by remember { mutableStateOf(false) }
         var serverError by remember { mutableStateOf<String?>(null) }
 
@@ -130,8 +129,8 @@ fun SettingsScreen() {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("ONLINE", Icons.Rounded.Wifi)
-                    Text("$chCount saluran dimuat ($relCount relay header)", color = Tahoe.Text, fontSize = 14.sp)
+                    Chip("AKTIF", Icons.Rounded.Wifi)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "live.channels_loaded", chCount), color = Tahoe.Text, fontSize = 14.sp)
                 }
                 Text("Playlist Master: ${IptvServer.masterPlaylistUrl()}", color = Tahoe.Accent, fontSize = 13.sp)
                 Text("EPG Guide: ${IptvServer.epgUrl()}", color = Tahoe.Dim, fontSize = 12.sp)
