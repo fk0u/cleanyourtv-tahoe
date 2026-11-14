@@ -74,27 +74,29 @@ class TvLink(val host: String, private val token: String, private val onState: (
         }
 
         /** POST /pair with the 6-digit code shown on the TV. Returns the token, or throws with the TV's error. Blocks. */
-        fun pair(host: String, code: String): String {
+        @JvmOverloads
+        fun pair(host: String, code: String, lang: String = "id"): String {
             val base = httpBase(host)
             val res = JSONObject(runCatching { Web.request("POST", "$base/pair", JSONObject().put("code", code).toString(), 5000) }
                 .getOrElse { throw java.io.IOException(when {
-                    "HTTP 429" in "${it.message}" -> "Terlalu banyak percobaan. Tunggu sebentar, atau tekan OK di layar Hubungkan HP di TV untuk kode baru"
-                    "HTTP 4" in "${it.message}" -> "Kode salah atau kedaluwarsa"
-                    else -> "Tidak bisa menghubungi TV"
+                    "HTTP 429" in "${it.message}" -> I18n.get(lang, "pair.too_many")
+                    "HTTP 4" in "${it.message}" -> I18n.get(lang, "pair.invalid_code")
+                    else -> I18n.get(lang, "pair.unreachable")
                 }) })
-            return res.optString("token").ifEmpty { throw java.io.IOException(res.optString("error", "Gagal")) }
+            return res.optString("token").ifEmpty { throw java.io.IOException(res.optString("error", I18n.get(lang, "pair.failed"))) }
         }
 
-        /** The TV's diagnostic report for "Kirim log" (GET /log). Blocks; throws when the TV can't be reached. */
+        /** The TV's diagnostic report for "Send log" (GET /log). Blocks; throws when the TV can't be reached. */
         fun fetchLog(host: String, token: String): String =
             Web.get("${httpBase(host)}/log", 8000, mapOf("Authorization" to "Bearer $token"))
 
         /** Sets a new 4-digit PIN for the TV's kids profile (forgotten PIN). Only a paired phone holds the token. Blocks. */
-        fun setKidsPin(host: String, token: String, pin: String) {
-            require(pin.matches(Regex("\\d{4}"))) { "PIN harus 4 angka" }
+        @JvmOverloads
+        fun setKidsPin(host: String, token: String, pin: String, lang: String = "id") {
+            require(pin.matches(Regex("\\d{4}"))) { I18n.get(lang, "pair.pin_digits") }
             // Auth header avoids exposing the bearer token in URL logs
             runCatching { Web.request("POST", "${httpBase(host)}/kids_pin", JSONObject().put("pin", pin).toString(), 8000, mapOf("Authorization" to "Bearer $token")) }
-                .getOrElse { throw java.io.IOException(if ("HTTP 401" in "${it.message}") "HP ini belum dipasangkan dengan TV" else "Tidak bisa menghubungi TV") }
+                .getOrElse { throw java.io.IOException(if ("HTTP 401" in "${it.message}") I18n.get(lang, "pair.not_paired") else I18n.get(lang, "pair.unreachable")) }
         }
     }
 }

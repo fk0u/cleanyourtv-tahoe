@@ -93,9 +93,15 @@ class MainActivity : ComponentActivity() {
                     }
                     Nav.detail?.let { e -> ChannelScreen(e) { Nav.detail = null } }
                     if (!Nav.full) Column(Modifier.align(Alignment.BottomCenter)) {
+                        val lang = PhoneRegion.language
                         MiniPlayer(Nav.tab != 1 || Nav.detail != null)
-                        TabBar(listOf("Beranda" to Icons.Rounded.Home, "Live" to Icons.Rounded.LiveTv, "Remote" to Icons.Rounded.SettingsRemote,
-                            "Jelajahi" to Icons.Rounded.GridView, "Pasang" to Icons.Rounded.Tv), Nav.tab, { Nav.tab = it; Nav.detail = null })
+                        TabBar(listOf(
+                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.home") to Icons.Rounded.Home,
+                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live_short") to Icons.Rounded.LiveTv,
+                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote") to Icons.Rounded.SettingsRemote,
+                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.explore") to Icons.Rounded.GridView,
+                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.install") to Icons.Rounded.Tv,
+                        ), Nav.tab, { Nav.tab = it; Nav.detail = null })
                     }
                 }
             }
@@ -156,8 +162,9 @@ fun HomeScreen(resumeTick: Int) {
         Settings.Secure.getString(c.contentResolver, "enabled_notification_listeners").orEmpty()
             .contains(ComponentName(c, Sync::class.java).flattenToString())
     }
+    val lang = PhoneRegion.language
     val name = remember { c.getSharedPreferences("setup", 0).getString("name", "").orEmpty() }
-    val hello = when (LocalTime.now().hour) { in 4..10 -> "Selamat pagi"; in 11..14 -> "Selamat siang"; in 15..17 -> "Selamat sore"; else -> "Selamat malam" }
+    val hello = tech.kousozo.tahoetv.core.I18n.greeting(lang, LocalTime.now().hour)
     LaunchedEffect(Unit) {
         if (host.isEmpty()) Scan.run(wifiAddress(c)) { f -> if (f.tahoe && host.isEmpty()) scope.launch { host = f.ip } }
     }
@@ -179,10 +186,10 @@ fun HomeScreen(resumeTick: Int) {
             Row(Modifier.statusBarsPadding().padding(start = 20.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 BrandMark(30.dp, tint = Color.White)
                 Spacer(Modifier.weight(1f))
-                RoundGlass(if (paired) Icons.Rounded.Tv else Icons.Rounded.TvOff, if (paired) "TV tersambung" else "Sambungkan TV",
+                RoundGlass(if (paired) Icons.Rounded.Tv else Icons.Rounded.TvOff, tech.kousozo.tahoetv.core.I18n.get(lang, if (paired) "home.tv_connected" else "tv.connect_title"),
                     tint = if (paired) Tahoe.Good else Tahoe.Text) { showPair = !showPair }
                 Spacer(Modifier.width(8.dp))
-                RoundGlass(Icons.Rounded.SettingsRemote, "Remote") { Nav.tab = 2 }
+                RoundGlass(Icons.Rounded.SettingsRemote, tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote")) { Nav.tab = 2 }
             }
             if (hero != null) Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text((hello + if (name.isNotEmpty()) ", $name" else "").uppercase(), color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono, letterSpacing = 1.2.sp)
@@ -191,15 +198,15 @@ fun HomeScreen(resumeTick: Int) {
                         if (logo != null) Image(logo, null, Modifier.padding(3.dp).fillMaxSize(), contentScale = ContentScale.Fit)
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text(when { Playback.entry != null -> "Sedang kamu tonton"; recentWatched.isNotEmpty() -> "Lanjut nonton"; else -> "Saluran pilihan" },
+                    Text(when { Playback.entry != null -> tech.kousozo.tahoetv.core.I18n.get(lang, "home.now_watching"); recentWatched.isNotEmpty() -> tech.kousozo.tahoetv.core.I18n.get(lang, "home.continue_watching"); else -> tech.kousozo.tahoetv.core.I18n.get(lang, "home.featured_channel") },
                         fontSize = 14.sp, color = Tahoe.Text.copy(alpha = 0.85f))
                 }
                 Text(hero.name, fontSize = 44.sp, lineHeight = 46.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 nowOn(Channels.epg, hero, now)?.let { Text(it.title, fontSize = 15.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PillButton("Tonton", Icons.Rounded.PlayArrow) { Nav.play(hero) }
+                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), Icons.Rounded.PlayArrow) { Nav.play(hero) }
                     Spacer(Modifier.width(10.dp))
-                    RoundGlass(Icons.Rounded.Info, "Halaman ${hero.name}") { Nav.detail = hero }
+                    RoundGlass(Icons.Rounded.Info, tech.kousozo.tahoetv.core.I18n.get(lang, "home.channel_page", hero.name)) { Nav.detail = hero }
                 }
             }
         }
@@ -211,40 +218,40 @@ fun HomeScreen(resumeTick: Int) {
         }
 
         val recent = recentWatched.ifEmpty { entries.orEmpty().take(8) }
-        if (recent.isNotEmpty()) Shelf(if (recentWatched.isEmpty()) "Saluran utama" else "Terakhir ditonton", recent, now) { Nav.category(null) }
+        if (recent.isNotEmpty()) Shelf(tech.kousozo.tahoetv.core.I18n.get(lang, if (recentWatched.isEmpty()) "home.featured_channels" else "home.recently_watched"), recent, now) { Nav.category(null) }
         val favs = entries.orEmpty().filter { it.channel.url in Channels.favs }
-        if (favs.isNotEmpty()) Shelf("Favorit", favs, now) { Nav.category(null, favourites = true) }
+        if (favs.isNotEmpty()) Shelf(tech.kousozo.tahoetv.core.I18n.get(lang, "home.favorites"), favs, now) { Nav.category(null, favourites = true) }
 
         entries?.let { all ->
             val cats = LocalTv.Category.entries.map { k -> k to all.count { LocalTv.inCategory(it, k) } }.filter { it.second > 0 }
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SectionHeader("Jelajahi") { Nav.tab = 3 }
+                SectionHeader(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.explore")) { Nav.tab = 3 }
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    cats.forEach { (k, _) -> Chip(k.label, false) { Nav.category(k) } }
+                    cats.forEach { (k, _) -> Chip(k.label(lang), false) { Nav.category(k) } }
                 }
                 // bento of numbers
                 val near = all.count { it.near }
                 Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Bento("Semua saluran", all.size.toString(), Icons.Rounded.LiveTv, Modifier.weight(1f)) { Nav.category(null) }
-                    Bento(if (near > 0) "Dekat kamu" else "Kategori", (if (near > 0) near else cats.size).toString(), Icons.Rounded.Place, Modifier.weight(1f)) {
+                    Bento(tech.kousozo.tahoetv.core.I18n.get(lang, "home.all_channels"), all.size.toString(), Icons.Rounded.LiveTv, Modifier.weight(1f)) { Nav.category(null) }
+                    Bento(if (near > 0) tech.kousozo.tahoetv.core.I18n.get(lang, "home.near_you") else tech.kousozo.tahoetv.core.I18n.get(lang, "home.categories"), (if (near > 0) near else cats.size).toString(), Icons.Rounded.Place, Modifier.weight(1f)) {
                         if (near > 0) Nav.category(LocalTv.Category.Near) else Nav.tab = 3
                     }
                 }
             }
-        } ?: if (Channels.failed) Box(Modifier.padding(horizontal = 20.dp)) { Note("Daftar saluran tidak bisa dimuat. Cek internet.", Icons.Rounded.ErrorOutline) }
+        } ?: if (Channels.failed) Box(Modifier.padding(horizontal = 20.dp)) { Note(tech.kousozo.tahoetv.core.I18n.get(lang, "home.channels_failed"), Icons.Rounded.ErrorOutline) }
             else LinearProgressIndicator(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
 
         if (paired && !showPair) Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("TV kamu", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.your_tv"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
             GlassCard(onClick = { showPair = true }) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Tahoe.Good.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.Tv, null, tint = Tahoe.Good) }
                     Column(Modifier.weight(1f)) {
-                        Text("Tersambung ke TV", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.connected_tv"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Text("$host · ${Sync.status.value}", color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    PillButton("Remote", Icons.Rounded.SettingsRemote) { Nav.tab = 2 }
+                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote"), Icons.Rounded.SettingsRemote) { Nav.tab = 2 }
                 }
             }
         }
@@ -253,13 +260,13 @@ fun HomeScreen(resumeTick: Int) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text(tech.kousozo.tahoetv.core.Region.flag(PhoneRegion.code), fontSize = 26.sp)
                     Column(Modifier.weight(1f)) {
-                        Text("Wilayah & bahasa", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text(tech.kousozo.tahoetv.core.Region.name(PhoneRegion.code, PhoneRegion.language) + " · " +
-                            tech.kousozo.tahoetv.core.OnboardingText.LANGUAGE_NAMES.getValue(PhoneRegion.language) +
+                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.region_language"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(tech.kousozo.tahoetv.core.Region.name(PhoneRegion.code, lang) + " · " +
+                            tech.kousozo.tahoetv.core.OnboardingText.LANGUAGE_NAMES.getValue(lang) +
                             " · " + PhoneRegion.viewer.countries.let { l -> l.take(5).joinToString(" ") { tech.kousozo.tahoetv.core.Region.flag(it) } + if (l.size > 5) " +${l.size - 5}" else "" },
                             color = Tahoe.Dim, fontSize = 12.sp, maxLines = 1)
                     }
-                    PillButton("Ubah") { Playback.stop(); PhoneRegion.reset() }
+                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.change")) { Playback.stop(); PhoneRegion.reset() }
                 }
             }
         }
@@ -273,35 +280,36 @@ private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, cod
                    granted: Boolean, notif: Boolean, setNotif: (Boolean) -> Unit, media: Boolean, setMedia: (Boolean) -> Unit, onPaired: (String) -> Unit) {
     val c = LocalContext.current
     val scope = rememberCoroutineScope()
+    val lang = PhoneRegion.language
     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(if (paired) "TV kamu" else "Sambungkan TV", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, if (paired) "home.your_tv" else "tv.connect_title"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
         GlassCard {
             if (!paired && !open) {
-                Text("Pakai HP ini sebagai remote dan kirim siaran ke TV.", color = Tahoe.Dim, fontSize = 14.sp)
-                Row { PillButton("Sambungkan", Icons.Rounded.Link) { setOpen(true) }; Spacer(Modifier.width(8.dp)); TextButton({ Nav.tab = 4 }) { Text("Pasang Tahoe ke TV", color = Tahoe.Text) } }
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect_desc"), color = Tahoe.Dim, fontSize = 14.sp)
+                Row { PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), Icons.Rounded.Link) { setOpen(true) }; Spacer(Modifier.width(8.dp)); TextButton({ Nav.tab = 4 }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.install_on_tv"), color = Tahoe.Text) } }
                 return@GlassCard
             }
-            Text("Di TV: Pusat Kontrol → HP. Pindai QR-nya dengan kamera HP (tersambung otomatis), atau masukkan kodenya di sini.", color = Tahoe.Dim, fontSize = 13.sp)
-            Field(host, setHost, "Alamat TV (terdeteksi otomatis)", KeyboardType.Uri)
-            Field(code, { if (it.length <= 6) setCode(it.filter(Char::isDigit)) }, "Kode 6 digit", KeyboardType.NumberPassword)
-            PrimaryButton("Sambungkan", enabled = host.isNotBlank() && code.length == 6, icon = Icons.Rounded.Link) {
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pair_hint"), color = Tahoe.Dim, fontSize = 13.sp)
+            Field(host, setHost, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.host_hint"), KeyboardType.Uri)
+            Field(code, { if (it.length <= 6) setCode(it.filter(Char::isDigit)) }, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.code_hint"), KeyboardType.NumberPassword)
+            PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), enabled = host.isNotBlank() && code.length == 6, icon = Icons.Rounded.Link) {
                 scope.launch {
-                    val r = withContext(Dispatchers.IO) { runCatching { TvLink.pair(host.trim(), code) } }
+                    val r = withContext(Dispatchers.IO) { runCatching { TvLink.pair(host.trim(), code, lang) } }
                     r.onSuccess(onPaired)
-                    Toast.makeText(c, r.exceptionOrNull()?.message ?: "Tersambung", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(c, r.exceptionOrNull()?.message ?: tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connected_toast"), Toast.LENGTH_SHORT).show()
                 }
             }
             HorizontalDivider(color = Tahoe.Stroke)
             if (!granted) Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Akses notifikasi belum diizinkan", Modifier.weight(1f), fontSize = 14.sp, color = Tahoe.Dim)
-                TextButton({ c.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) { Text("Izinkan", color = Tahoe.Text) }
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.notif_needed"), Modifier.weight(1f), fontSize = 14.sp, color = Tahoe.Dim)
+                TextButton({ c.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.allow"), color = Tahoe.Text) }
             }
-            SwitchRow("Teruskan notifikasi HP ke TV", notif, setNotif)
-            SwitchRow("Tampilkan musik yang diputar", media, setMedia)
+            SwitchRow(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.forward_notifs"), notif, setNotif)
+            SwitchRow(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.show_media"), media, setMedia)
             if (host.isNotBlank()) TextButton({ c.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://${host.trim()}:8765/"))) }) {
-                Icon(Icons.Rounded.SportsEsports, null, tint = Tahoe.Text); Spacer(Modifier.width(8.dp)); Text("Buka gamepad (web)", color = Tahoe.Text)
+                Icon(Icons.Rounded.SportsEsports, null, tint = Tahoe.Text); Spacer(Modifier.width(8.dp)); Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.open_gamepad"), color = Tahoe.Text)
             }
-            if (open) TextButton({ setOpen(false) }) { Text("Tutup", color = Tahoe.Dim) }
+            if (open) TextButton({ setOpen(false) }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.close"), color = Tahoe.Dim) }
         }
     }
 }
@@ -352,6 +360,7 @@ private fun SectionHeader(title: String, onAll: () -> Unit) = Row(Modifier.fillM
 /** Tinted glass card for a category: icon, LIVE badge, label, channel count. Opens TV Live filtered to it. */
 @Composable
 fun CategoryCard(k: LocalTv.Category, count: Int, modifier: Modifier, big: Boolean = false) {
+    val lang = PhoneRegion.language
     val tint = categoryTint(k)
     Box(modifier.clip(RoundedCornerShape(22.dp))
         .background(Brush.verticalGradient(listOf(tint.copy(alpha = 0.30f), Color(0xFF0C0E14))))
@@ -361,8 +370,8 @@ fun CategoryCard(k: LocalTv.Category, count: Int, modifier: Modifier, big: Boole
             color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         Icon(categoryIcon(k), null, tint = tint, modifier = Modifier.align(if (big) Alignment.Center else Alignment.TopEnd).size(if (big) 64.dp else 26.dp))
         Column(Modifier.align(Alignment.BottomStart)) {
-            Text(k.label, fontSize = if (big) 18.sp else 15.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("$count saluran", fontSize = 12.sp, color = tint, fontWeight = FontWeight.SemiBold)
+            Text(k.label(lang), fontSize = if (big) 18.sp else 15.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.channel_count", count), fontSize = 12.sp, color = tint, fontWeight = FontWeight.SemiBold)
         }
     }
 }

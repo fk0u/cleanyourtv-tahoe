@@ -89,7 +89,7 @@ fun HomeScreen(onLive: () -> Unit) {
             HeroCarousel(heroes, Modifier.weight(2.3f).fillMaxHeight(), onLive)
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    StatCard("Cuaca", weather?.let { "${it.tempC}°" } ?: "—", weather?.label ?: Settings.city, Icons.Rounded.Cloud, Modifier.weight(1f).fillMaxHeight())
+                    StatCard(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.weather"), weather?.let { "${it.tempC}°" } ?: "—", weather?.label ?: Settings.city, Icons.Rounded.Cloud, Modifier.weight(1f).fillMaxHeight())
                     PrayerCard(next, now, Modifier.weight(1f).fillMaxHeight())
                 }
                 LiveCard(Modifier.weight(1f).fillMaxWidth(), onLive)
@@ -98,8 +98,8 @@ fun HomeScreen(onLive: () -> Unit) {
 
         // row 2: watch tiles
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Tonton", Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-            Text("Dibuka di browser", fontSize = 12.sp, color = Tahoe.Faint)
+            Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.watch"), Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.opens_browser"), fontSize = 12.sp, color = Tahoe.Faint)
         }
         BoxWithConstraints {
             val cols = if (maxWidth > 1000.dp) 8 else 4
@@ -117,8 +117,8 @@ fun HomeScreen(onLive: () -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Glass(Modifier.weight(1.6f), radius = 26, padding = 20) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Saluran nasional", Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Lihat semua", Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onLive).padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp, color = Tahoe.Dim)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.national_channels"), Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.see_all"), Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onLive).padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp, color = Tahoe.Dim)
                 }
                 tech.kousozo.tahoetv.core.LocalTv.PRIORITY.take(7).forEachIndexed { i, key ->
                     val name = PRETTY[key] ?: key
@@ -140,7 +140,7 @@ fun HomeScreen(onLive: () -> Unit) {
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Tanya Tahoe", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.ask_tahoe"), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 AssistantPanel()
             }
         }

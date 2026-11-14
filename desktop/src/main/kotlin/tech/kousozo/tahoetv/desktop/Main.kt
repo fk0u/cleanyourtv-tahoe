@@ -32,13 +32,14 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import tech.kousozo.tahoetv.core.TvAdb
 
-enum class Screen(val label: String, val icon: ImageVector) {
-    Home("Beranda", Icons.Rounded.Home),
-    Live("TV Live", Icons.Rounded.LiveTv),
-    Recordings("Rekaman", Icons.Rounded.VideoLibrary),
-    Tv("TV Rumah", Icons.Rounded.Tv),
-    Remote("Remote", Icons.Rounded.SettingsRemote),
-    Prefs("Setelan", Icons.Rounded.Settings),
+enum class Screen(private val labelKey: String, val icon: ImageVector) {
+    Home("nav.home", Icons.Rounded.Home),
+    Live("nav.live", Icons.Rounded.LiveTv),
+    Recordings("nav.recordings", Icons.Rounded.VideoLibrary),
+    Tv("nav.tv", Icons.Rounded.Tv),
+    Remote("nav.remote", Icons.Rounded.SettingsRemote),
+    Prefs("nav.prefs", Icons.Rounded.Settings);
+    val label: String get() = tech.kousozo.tahoetv.core.I18n.get(Settings.lang, labelKey)
 }
 
 /** The ADB session to the home TV, shared by "TV Rumah" (setup) and "Remote & Cermin". */
@@ -144,11 +145,12 @@ private fun TopBar() {
     var now by remember { mutableStateOf(java.time.LocalTime.now()) }
     LaunchedEffect(Unit) { while (true) { now = java.time.LocalTime.now(); kotlinx.coroutines.delay(15_000) } }
     var q by remember { mutableStateOf("") }
-    val hello = when (now.hour) { in 4..10 -> "Selamat pagi"; in 11..14 -> "Selamat siang"; in 15..17 -> "Selamat sore"; else -> "Selamat malam" }
+    val lang = Settings.lang
+    val hello = tech.kousozo.tahoetv.core.I18n.greeting(lang, now.hour)
     Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 24.dp, top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("Halo, ${Settings.name.ifBlank { "Tahoe" }}!", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text("$hello · mau nonton apa hari ini?", fontSize = 13.sp, color = Tahoe.Dim)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "greet.hello", Settings.name.ifBlank { "Tahoe" }), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "greet.subtitle", hello), fontSize = 13.sp, color = Tahoe.Dim)
         }
         Row(Modifier.width(340.dp).height(44.dp).clip(RoundedCornerShape(50)).background(Tahoe.Card)
             .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(50)).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -158,7 +160,7 @@ private fun TopBar() {
                 textStyle = androidx.compose.ui.text.TextStyle(color = Tahoe.Text, fontSize = 14.sp),
                 cursorBrush = androidx.compose.ui.graphics.SolidColor(Tahoe.Accent),
                 modifier = Modifier.weight(1f).onEnter { DeskNav.query = q.trim(); DeskNav.screen = Screen.Live },
-                decorationBox = { inner -> Box { if (q.isEmpty()) Text("Cari saluran atau acara…", color = Tahoe.Faint, fontSize = 14.sp); inner() } })
+                decorationBox = { inner -> Box { if (q.isEmpty()) Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"), color = Tahoe.Faint, fontSize = 14.sp); inner() } })
         }
         Spacer(Modifier.width(12.dp))
         Box(Modifier.height(44.dp).clip(RoundedCornerShape(50)).background(Tahoe.Card).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
@@ -169,7 +171,7 @@ private fun TopBar() {
             verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.LiveTv, null, tint = Tahoe.OnAccent, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Tonton Live", color = Tahoe.OnAccent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch_live"), color = Tahoe.OnAccent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         }
     }
 }

@@ -7,6 +7,7 @@ object PlayPrefs {
      *  that only has bigger variants plays its smallest one. */
     enum class Quality(val key: String, val label: String, val maxHeight: Int) {
         Auto("auto", "Otomatis", 0), P1080("1080", "1080p", 1080), P720("720", "720p", 720), P480("480", "480p", 480);
+        fun label(lang: String): String = I18n.get(lang, "quality.$key")
         companion object {
             @JvmStatic fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Auto
         }
@@ -17,6 +18,8 @@ object PlayPrefs {
         Low("low", "Rendah", "±8 detik di belakang siaran", 8_000),
         Standard("standard", "Standar", "±20 detik, seimbang", 20_000),
         Stable("stable", "Stabil", "±35 detik, paling sedikit jeda", 35_000);
+        fun label(lang: String): String = I18n.get(lang, "latency.$key")
+        fun note(lang: String): String = I18n.get(lang, "latency.$key.note")
         companion object {
             @JvmStatic fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Standard
         }

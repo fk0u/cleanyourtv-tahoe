@@ -114,14 +114,15 @@ fun LiveScreen() {
             }
         }
         if (full) return@Column
+        val lang = PhoneRegion.language
         Column(Modifier.padding(horizontal = 20.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (playing == null) {
-                Text("SIARAN LANGSUNG", color = Tahoe.Faint, fontSize = 12.sp, fontFamily = Mono, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 12.dp))
-                Text("TV Live", fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.kicker"), color = Tahoe.Faint, fontSize = 12.sp, fontFamily = Mono, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 12.dp))
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
             }
             playing?.let { e -> NowPlayingInfo(e, epg, now) }
             if (list == null) {
-                if (failed) Note("Daftar saluran tidak bisa dimuat. Cek internet, lalu buka lagi tab ini.", Icons.Rounded.ErrorOutline)
+                if (failed) Note(tech.kousozo.tahoetv.core.I18n.get(lang, "live.load_failed_retry"), Icons.Rounded.ErrorOutline)
                 else LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
                 return@Column
             }
@@ -130,19 +131,19 @@ fun LiveScreen() {
                 verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Search, null, tint = Tahoe.Dim, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text("Cari saluran atau acara…", color = Tahoe.Faint, fontSize = 15.sp)
+                    if (query.isEmpty()) Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"), color = Tahoe.Faint, fontSize = 15.sp)
                     androidx.compose.foundation.text.BasicTextField(query, { query = it }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Cari saluran atau acara" },
+                        modifier = Modifier.fillMaxWidth().semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint") },
                         textStyle = androidx.compose.ui.text.TextStyle(color = Tahoe.Text, fontSize = 15.sp, fontFamily = Outfit),
                         cursorBrush = androidx.compose.ui.graphics.SolidColor(Tahoe.Text))
                 }
-                if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, "Hapus pencarian", tint = Tahoe.Dim) }
+                if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(lang, "live.clear_search"), tint = Tahoe.Dim) }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Semua", cat == null && !Nav.favOnly) { cat = null; Nav.liveCategory = null; Nav.favOnly = false }
-                if (Channels.favs.isNotEmpty()) Chip("♥ Favorit", Nav.favOnly) { Nav.favOnly = !Nav.favOnly }
+                Chip(tech.kousozo.tahoetv.core.I18n.get(lang, "live.all"), cat == null && !Nav.favOnly) { cat = null; Nav.liveCategory = null; Nav.favOnly = false }
+                if (Channels.favs.isNotEmpty()) Chip(tech.kousozo.tahoetv.core.I18n.get(lang, "live.favorites_heart"), Nav.favOnly) { Nav.favOnly = !Nav.favOnly }
                 LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }.forEach { k ->
-                    Chip(k.label, k == cat) { cat = k; Nav.liveCategory = k }
+                    Chip(k.label(lang), k == cat) { cat = k; Nav.liveCategory = k }
                 }
             }
         }
@@ -442,20 +443,22 @@ private fun ChannelLoader(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun PlayerSettingsSheet(onDismiss: () -> Unit) {
     val c = LocalContext.current
+    val lang = PhoneRegion.language
     ModalBottomSheet(onDismiss, containerColor = Tahoe.Surface) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Setelan pemutar", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-            Text("Kualitas video", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "player.settings"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "player.quality"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                tech.kousozo.tahoetv.core.PlayPrefs.Quality.entries.forEach { q -> Chip(q.label, Playback.quality == q) { Playback.setQuality(c, q) } }
+                tech.kousozo.tahoetv.core.PlayPrefs.Quality.entries.forEach { q -> Chip(q.label(lang), Playback.quality == q) { Playback.setQuality(c, q) } }
             }
-            Text(if (Playback.quality.maxHeight > 0) "Paling tinggi ${Playback.quality.label}; kalau siaran tidak punya, dipakai yang terdekat di bawahnya."
-                else "Menyesuaikan kecepatan internet.", fontSize = 13.sp, color = Tahoe.Dim)
-            Text("Latensi siaran", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+            Text(if (Playback.quality.maxHeight > 0) tech.kousozo.tahoetv.core.I18n.get(lang, "player.quality_cap", Playback.quality.label(lang))
+                else tech.kousozo.tahoetv.core.I18n.get(lang, "player.quality_auto_note"), fontSize = 13.sp, color = Tahoe.Dim)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "player.latency"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                tech.kousozo.tahoetv.core.PlayPrefs.Latency.entries.forEach { l -> Chip(l.label, Playback.latency == l) { Playback.setLatency(c, l) } }
+                tech.kousozo.tahoetv.core.PlayPrefs.Latency.entries.forEach { l -> Chip(l.label(lang), Playback.latency == l) { Playback.setLatency(c, l) } }
             }
-            Text(Playback.latency.note + if (Playback.latency == tech.kousozo.tahoetv.core.PlayPrefs.Latency.Low) ". Bisa lebih sering jeda di siaran yang lambat." else ".",
+            Text(if (Playback.latency == tech.kousozo.tahoetv.core.PlayPrefs.Latency.Low) tech.kousozo.tahoetv.core.I18n.get(lang, "player.latency_low_warn", Playback.latency.note(lang))
+                else tech.kousozo.tahoetv.core.I18n.get(lang, "player.latency_note_dot", Playback.latency.note(lang)),
                 fontSize = 13.sp, color = Tahoe.Dim)
         }
     }
