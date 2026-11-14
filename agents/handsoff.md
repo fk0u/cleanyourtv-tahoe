@@ -30,6 +30,11 @@
   - #81 (Local bundled `hls.min.js` & `shaka-player.compiled.js` under `/assets/` in `:desktop`, zero external CDN in CSP): merged in #133.
   - #101 & #97 (Trilingual `docs/SOURCES.md` 7-day takedown policy, `MAINTAINERS.md`, `.github/FUNDING.yml`, English PR template): merged in #134.
   - #110 (Website `中文` language toggle, 116 keys in `i18n.js`, `zh-Hans` `hreflang`, CJK font fallbacks, ARIA tabs keyboard navigation, slideshow hover/focus pause): merged in #135.
+- **3.3 International Progress (Batch 2):**
+  - #80 & #79 (Multi-region `:core` de-Indonesianisation: `Epg.norm` & `tvg-id` indexing, parameterized `Web` `lang`/`watchRegion`, `LocalTv.arrange(..., countries)`, and `TvViewer.zone` prayer/time zone wiring across launcher/desktop/companion): merged in #137.
+  - #56 (`I18n` EN/ID/中文 tables in `:core`, localized `PlayPrefs`/`Scan`/`TvLink`/`HlsRecorder`, active viewer language in desktop & companion UIs, `I18nTest`): merged in #138.
+  - #91 & #99 (`Brand.tagline(lang)`, removed third-party OS trademarks from headlines/copy, aligned website CSS tokens `--cyan-deep`/`--lake-deep`/`--motion-*`, replaced personal `og:image`, added `Demo` mode `--demo`/`-Dtahoe.demo=true` & contributing privacy rules): merged in #139.
+  - #75 (`HlsProxy.open` redirect delegation, `HlsProxy.trimDiscontinuity`, automatic `WebPlayer` fallback on verified live/unsupported failures in `PlayerWindow`, `HlsProxyTest`): merged in #140.
 - **Open PRs:** none (apart from Dependabot action bumps #127–#130).
 - **Private security advisories:** Patches merged to main in #124, #125, #126. Ready to publish with 3.2.1 release.
 - **Review board** (DevOps, UI/UX, CTO, CEO, Creative, Frontend, SWE, QA) filed #88 and #90–#111, plus comments on #43 #45 #56 #57 #64 #65 #71 #75 #76 #77 #78 #81 #90 #96 #100. Priorities are in `agents/tasks.md`; direction is in `agents/plans.md`.
@@ -69,5 +74,5 @@ export JAVA_HOME=<jdk17>/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk
 ## Next 3 concrete steps
 
 1. Real-device testing on Mi TV Stick: TV onboarding (#85) and TV slate (#87).
-2. Continue 3.3 International: #56 strings in EN/ID/中文, #80 de-Indonesianise `:core`, #79 prayer/time zone per region.
-3. #75 Desktop playback engine (libmpv/libVLC behind a `Player` interface), #91 brand wording/palette/icon, and #99 clean screenshot set.
+2. Begin **3.4 Simple & Connect**: native-TV controls & Simple Mode (#90), phone↔TV protocol v2 (#93), and Tahoe Connect (#88).
+3. Continuous engineering health: release pipeline & branch protection (#100), Android lint/tests in CI (#57), and `Home.java`/`IptvServer.kt` refactor (#95).
