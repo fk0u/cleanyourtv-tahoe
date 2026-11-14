@@ -1,11 +1,14 @@
-## Ringkasan
-<!-- Apa yang diubah dan kenapa. Sebutkan issue: "Menutup #123". -->
+<!-- Issues and PRs in English, Bahasa Indonesia, or 中文 are all welcome! -->
 
-## Pengujian
-- [ ] `./gradlew :core:test :desktop:test` lolos
-- [ ] Modul yang disentuh terkompilasi (`:launcher:compileDebugJavaWithJavac`, `:companion:compileDebugKotlin`, `:desktop:compileKotlin`)
-- [ ] Dicoba di perangkat: <!-- TV / HP / macOS / Windows, model dan versi -->
+## Summary
+<!-- What changed and why? Reference the issue, e.g. "Closes #123". -->
 
-## Catatan
-- [ ] `CHANGELOG.md` diperbarui di bagian versi berikutnya (untuk perubahan yang terasa oleh pengguna)
-- [ ] Tidak ada API key, token, atau data pribadi di commit
+## Testing
+- [ ] `./gradlew :core:test :desktop:test --no-daemon` passed
+- [ ] Touched modules compile (`:launcher:compileDebugJavaWithJavac`, `:companion:compileDebugKotlin`, `:desktop:compileKotlin`)
+- [ ] Verified on device: <!-- TV / Phone / macOS / Windows, model and OS version -->
+
+## Checklist
+- [ ] Updated `CHANGELOG.md` under the unreleased section (for user-visible changes)
+- [ ] No API keys, signing secrets, tokens, or personal data committed
+- [ ] No paid, pirated, or DRM-circumventing channel sources added (see `docs/SOURCES.md`)

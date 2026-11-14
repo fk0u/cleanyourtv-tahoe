@@ -47,6 +47,7 @@ Good places to start: [`good first issue`](https://github.com/fk0u/cleanyourtv-t
 ## Channels & sources
 Tahoe only uses **free** broadcasts from public sources and hosts no streams. Don't propose paid, pirated or rights-infringing sources.
 For new countries, prefer the [iptv-org](https://github.com/iptv-org/iptv) lists and fix broken streams upstream there too.
+See [docs/SOURCES.md](docs/SOURCES.md) for our filtering rules and 7-day takedown policy, and [MAINTAINERS.md](MAINTAINERS.md) for review ownership.
 
 ## License
 By contributing you agree that your contribution is licensed under the [MIT License](LICENSE). Everyone taking part
