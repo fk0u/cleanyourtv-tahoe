@@ -72,7 +72,7 @@ dengan Live TV yang terasa seperti TV biasa (▲ ▼ untuk ganti saluran, jelas 
 | **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | Pasang → TV Live |
 | Sudah ada launcher, mau pasang manual | [`tahoe-launcher.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-launcher.apk) | Lihat [docs/id/INSTALL.md](docs/id/INSTALL.md) |
 
-Pembaruan berikutnya datang sendiri: TV, HP, dan desktop memeriksa rilis GitHub (Pusat Kontrol → **Tentang**).
+Pembaruan diperiksa otomatis: TV, HP, dan desktop memeriksa rilis GitHub (Pusat Kontrol → **Tentang**) untuk kamu unduh dan pasang.
 
 ## Screenshot
 

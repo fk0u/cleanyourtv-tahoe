@@ -38,7 +38,9 @@
 - [x] #64 Accessibility (TalkBack, focus ring, 48 dp, font scale) · merged in #156
 - [x] #65 Plain-language UI pass (glossary + desktop/TV/phone jargon removal, #145)
 - [x] #93 Phone↔TV protocol v2 (typed, versioned, acks, keep-alive)  ⟨CTO⟩ {M} · merged in #155
-- [ ] #88 **Tahoe Connect** — control the TV/desktop from the phone (Spotify Connect / AirPlay style)  ⟨CTO·CEO⟩ {L} · P0–P1 (device picker sheet, active target pill, handoff `watch`/`stop`, now-playing mirror) merged in #155; P2–P3 pending
+- [x] #88 **Tahoe Connect** — control the TV/desktop from the phone (Spotify Connect / AirPlay style)  ⟨CTO·CEO⟩ {L} · P0–P1 merged in #155; P2–P3 (mDNS discovery, multi-TV #37, Continue-on-Phone handoff #63, desktop `/info` & `/api/connect` receiver) merged in #158, #159, #160
+- [x] #37 Multi-TV management (`PairedDevices`, TV `/devices` & `/devices/revoke`, `NsdManager` mDNS discovery, `TvDevicesSheet`) · merged in #158
+- [x] #63 Mobile PiP, double-tap seek/zoom gestures, system channel sharing & Continue-on-Phone handoff · merged in #159
 - [x] #111 Phone→TV onboarding sync: merge, not overwrite (#143)  ⟨QA⟩ {S}
 - [x] #96 Thread-safety in link/players · #107 Sync reconnect loop · #106 SourceHealth save race (#142, #143)
 - [x] #108 TV guide performance (windowed inflate + single-row refresh) · #109 phone/desktop recomposition + image caches (#144)
@@ -47,8 +49,9 @@
 
 - [x] #100 Release pipeline: one version source, tests before publish, Dependabot (#146)  ⟨DevOps·QA⟩
 - [x] #57 Android lint in CI + website bundle check on PRs & main (#146)  ⟨QA·CTO⟩
-- [ ] #95 Split `Home.java` / `IptvServer.kt`  ⟨CTO⟩ `help wanted`
+- [ ] #95 Split `Home.java` / `IptvServer.kt` (`DockGrid` & `ServerPages` extracted in #160)  ⟨CTO⟩ `help wanted`
 - [x] #98 Now/Next/Later EN/ID roadmap & release cadence (#146)  ⟨CEO⟩
+- [x] #44 Docs & issue template audit (`config.yml`, `channel.yml`, `feature_request.yml`, `README`, `SECURITY.md`)
 
 ## ⚪ LATER (parked, not closed)
 
