@@ -4,15 +4,8 @@
 
 ## State of the repo
 
-- **main = v3.2.0**, which brought:
-  - onboarding on phone, desktop and TV (#84, #85);
-  - channels for every country (#74);
-  - the three-language slate (#87);
-  - desktop playback fixes (#82);
-  - debug builds installing next to the release app (#86);
-  - the worldwide README with 中文 (#89);
-  - this folder (#112).
-- **Released:** `v3.2.0` (2026-11-13, all 5 assets). New work goes under a fresh `## Belum dirilis` heading in the CHANGELOG. The 3.2.0 notes include a "Diketahui" (known issues) list.
+- **main = v3.3.0 (code 26)**, which adds Debian & Ubuntu `.deb` desktop support (`TahoeTV-linux-amd64.deb`, #163), Tahoe Connect P2–P3 & Multi-TV (#88, #37, #158), Mobile PiP & double-tap gestures (#63, #159), modularization of `Home.java` & `IptvServer.kt` (`DockGrid`, `RemoteController`, `ServerPages`, `ServerRelay`, #95, #160, #162), and docs/issue-template sync (#44, #161).
+- **Released:** `v3.3.0` (2026-11-14, 6 platform assets: macOS arm64/Intel DMG, Windows MSI, Debian/Ubuntu amd64 `.deb`, Android TV APK, Android Phone APK).
 - **Trust Patch 3.2.x Progress:**
   - #102 (CH+ direction): merged in #116.
   - #103 (Red key legend): merged in #119.
@@ -50,7 +43,9 @@
   - #37, #88 (Multi-TV `PairedDevices` store & unit tests, `TvLink.pairWithInfo`, launcher `Companion` `/devices` & `/devices/revoke`, `NsdManager` `TvDiscovery`, `TvDevicesSheet`, `Remote.kt` multi-TV selector): merged in #158.
   - #63, #88 (Companion Android PiP mode, double-tap `-10s`/zoom/`+10s` gestures, Zoom/Fit & PiP top-bar controls, system channel share sheet, Continue-on-Phone handoff in `TvConnectBar` & `ChannelScreen`): merged in #159.
   - #95, #88 (Extracted testable `DockGrid` layout model from `Home.java` + `ServerPages` HTML templates from `IptvServer.kt`; added desktop `GET /info` & `GET/POST /api/connect` receiver endpoints + tests): merged in #160.
-  - #44 (Issue template strictness `config.yml`/`channel.yml`/`feature_request.yml`, README update wording, SECURITY.md 7-day response SLA, and tasks/handsoff/CHANGELOG sync): docs sync PR.
+  - #44 (Issue template strictness `config.yml`/`channel.yml`/`feature_request.yml`, README update wording, SECURITY.md 7-day response SLA, and tasks/handsoff/CHANGELOG sync): merged in #161.
+  - #95 completion (`DockGrid` focus navigation math, `RemoteController.java` extracted from `Home.java`, `ServerRelay.kt` extracted from `IptvServer.kt`): merged in #162.
+  - Debian & Ubuntu `.deb` support (`TargetFormat.Deb`, `ubuntu-latest` CI `packageDeb` -> `TahoeTV-linux-amd64.deb`, Linux OTA/Chrome `--app`/`xdg-open`, website & install docs): merged in #163.
 - **Open PRs:** none.
 - **Private security advisories:** Patches merged to main in #124, #125, #126. Ready to publish with 3.2.1 release.
 - **Review board** (DevOps, UI/UX, CTO, CEO, Creative, Frontend, SWE, QA) filed #88 and #90–#111, plus comments on #43 #45 #56 #57 #64 #65 #71 #75 #76 #77 #78 #81 #90 #96 #100. Priorities are in `agents/tasks.md`; direction is in `agents/plans.md`.
@@ -89,6 +84,6 @@ export JAVA_HOME=<jdk17>/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk
 
 ## Next 3 concrete steps
 
-1. Real-device testing on Mi TV Stick: TV onboarding (#85), TV slate (#87), standby Adzan (#43), Simple Mode & native TV controls (#90, #34), and phone↔TV handoff (#93, #88).
-2. Finish **Tahoe Connect P2–P3 (#88)** on top of protocol v2 (#93): desktop target support, queue/remote polish, and end-to-end real-device verification.
-3. Continuous engineering health: `Home.java`/`IptvServer.kt` split (#95) and remaining offline/Android unit coverage. Note locally: Gradle 8.14 needs JDK 17 (e.g. `~/.gradle/jdks/temurin-17/Contents/Home`) whenever build scripts change, as Android Studio's JBR 25 hits Groovy class version 69.
+1. Real-device testing on Mi TV Stick: TV onboarding (#85), TV slate (#87), standby Adzan (#43), Simple Mode & native TV controls (#90, #34), and multi-TV phone↔TV handoff (#37, #63, #88).
+2. Verify `.deb` installation and web player launch on Ubuntu/Debian desktops and finish remaining `#71` country lineups.
+3. Keep Dependabot Gradle/Compose updates reviewed and continue unit coverage across `:companion` and `:launcher`. Note locally: Gradle 8.14 needs JDK 17 (e.g. `~/.gradle/jdks/temurin-17/Contents/Home`), as Android Studio's JBR 25 hits Groovy class version 69.
