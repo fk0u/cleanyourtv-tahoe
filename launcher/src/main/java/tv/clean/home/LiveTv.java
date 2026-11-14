@@ -62,6 +62,7 @@ public class LiveTv extends Activity {
     List<LocalTv.Entry> list = new ArrayList<>();
     Epg epg;
     int index = -1, source = 0;
+    boolean sawRecording = false;
     long sourceStarted;
     SharedPreferences prefs;
 
@@ -123,7 +124,7 @@ public class LiveTv extends Activity {
             }
             @Override public void onPlaybackStateChanged(int s) {
                 if (s == Player.STATE_READY) {
-                    if (!everReady && isRecording()) { tech.kousozo.tahoetv.core.DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); nextSource(); return; } // a finished/old playlist: not live TV, try the backup
+                    if (!everReady && isRecording()) { tech.kousozo.tahoetv.core.DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); sawRecording = true; nextSource(); return; } // a finished/old playlist: not live TV, try the backup
                     if (!everReady) tech.kousozo.tahoetv.core.DiagLog.add("live", "siap dalam " + (System.currentTimeMillis() - sourceStarted) + " ms");
                     if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), true);
                     everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE);
@@ -151,6 +152,7 @@ public class LiveTv extends Activity {
         if (index >= 0) previous = index;
         index = ((i % list.size()) + list.size()) % list.size();
         source = 0;
+        sawRecording = false;
         hideSlate(); slateRetries = 0; // another channel: a fresh start
         LocalTv.Entry e = list.get(index);
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
@@ -177,7 +179,9 @@ public class LiveTv extends Activity {
             for (M3u.Channel a : e.getAlternates()) marked |= SourceHealth.isBanned(a.getUrl());
             bStatus.setText(marked ? "Saluran ini sedang tidak bisa diputar. Tahan OK untuk memulihkan sumber yang ditandai \"bukan live\", atau ▼ untuk saluran berikutnya."
                     : "Saluran ini sedang tidak bisa diputar. Tekan ▼ untuk saluran berikutnya.");
-            bStatus.setVisibility(View.VISIBLE); loading.setVisibility(View.GONE); showSlate(); showBanner(); return;
+            bStatus.setVisibility(View.GONE); loading.setVisibility(View.GONE); dismissBanner();
+            showSlate(sawRecording ? tech.kousozo.tahoetv.core.Slate.Reason.Recording : tech.kousozo.tahoetv.core.Slate.Reason.Offline);
+            return;
         }
         M3u.Channel c = s.get(source);
         // viewer choices from Pusat Kontrol (read on every start, so a change applies from the next channel/source)
@@ -264,6 +268,7 @@ public class LiveTv extends Activity {
             if (n > 0) tune(index);
             return;
         }
+        sawRecording = true;
         SourceHealth.ban(order.get(source).getUrl());
         tech.kousozo.tahoetv.core.DiagLog.add("live", "ditandai bukan live: " + order.get(source).getUrl());
         Toast.makeText(this, "Sumber dilewati: bukan siaran langsung", Toast.LENGTH_SHORT).show();
@@ -304,6 +309,11 @@ public class LiveTv extends Activity {
     // ------------------------------------------------------------------ banner + list
 
     final Runnable hideBanner = () -> { if (bStatus.getVisibility() != View.VISIBLE) osd.animate().alpha(0).setDuration(Ui.MED).start(); };
+
+    void dismissBanner() {
+        ui.removeCallbacks(hideBanner);
+        if (osd != null) osd.animate().alpha(0).setDuration(Ui.MED).start();
+    }
 
     void showBanner() {
         if (index < 0) return;
@@ -603,62 +613,116 @@ public class LiveTv extends Activity {
 
     // ------------------------------------------------------------------ slate (#76)
 
-    FrameLayout slate; TextView slName, slStatus; LinearLayout slMessages;
+    FrameLayout slate; TextView slName, slStatus; LinearLayout slMessages, slPills;
     int slateRetries, slateGen, slateLeft;
+    tech.kousozo.tahoetv.core.Slate.Reason lastSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Offline;
 
     /** The Tahoe slate: the apology in Indonesian, English and Chinese (the viewer's language first), the reason, and
      *  what to press. Big and calm, readable from the sofa. */
     FrameLayout buildSlate() {
         FrameLayout f = new FrameLayout(this);
         f.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                new int[]{0xFF0A1A7A, 0xFF07080D, 0xFF3A1650}));
+                new int[]{tech.kousozo.tahoetv.core.Brand.LAKE_DEEP, tech.kousozo.tahoetv.core.Brand.NIGHT, tech.kousozo.tahoetv.core.Brand.CANVAS}));
         LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL); col.setGravity(Gravity.CENTER_HORIZONTAL);
         col.setPadding((int) dp(Ui.SAFE_SIDE * 3), 0, (int) dp(Ui.SAFE_SIDE * 3), 0);
         TextView brand = Ui.eyebrow(this, Ui.TEXT_3); brand.setText("Tahoe TV"); col.addView(brand);
-        slName = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); slName.setGravity(Gravity.CENTER); slName.setPadding(0, (int) dp(10), 0, (int) dp(18)); col.addView(slName);
+        slName = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); slName.setGravity(Gravity.CENTER); slName.setPadding(0, (int) dp(8), 0, (int) dp(14)); col.addView(slName);
         slMessages = new LinearLayout(this); slMessages.setOrientation(LinearLayout.VERTICAL); slMessages.setGravity(Gravity.CENTER_HORIZONTAL);
         col.addView(slMessages);
         slStatus = Ui.text(this, Ui.BODY, 400, Ui.TEXT_3); slStatus.setGravity(Gravity.CENTER); slStatus.setSingleLine(false);
-        slStatus.setPadding(0, (int) dp(22), 0, 0); col.addView(slStatus);
+        slStatus.setPadding(0, (int) dp(16), 0, (int) dp(20)); col.addView(slStatus);
+
+        slPills = new LinearLayout(this); slPills.setOrientation(LinearLayout.HORIZONTAL); slPills.setGravity(Gravity.CENTER);
+        col.addView(slPills);
+
         f.addView(col, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
         f.setVisibility(View.GONE);
         return f;
     }
 
+    View pill(String glyph, String label) {
+        LinearLayout p = new LinearLayout(this);
+        p.setOrientation(LinearLayout.HORIZONTAL);
+        p.setGravity(Gravity.CENTER_VERTICAL);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(dp(Ui.R_MED));
+        bg.setColor(0x22FFFFFF);
+        p.setBackground(bg);
+        p.setPadding((int) dp(14), (int) dp(8), (int) dp(16), (int) dp(8));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+        lp.setMargins((int) dp(6), 0, (int) dp(6), 0);
+        p.setLayoutParams(lp);
+
+        TextView g = Ui.text(this, Ui.BODY, 700, Ui.ACCENT);
+        g.setText(glyph);
+        g.setPadding(0, 0, (int) dp(8), 0);
+        p.addView(g);
+
+        TextView t = Ui.text(this, Ui.BODY, 600, Ui.TEXT);
+        t.setText(label);
+        p.addView(t);
+        return p;
+    }
+
     void showSlate() {
+        showSlate(lastSlateReason);
+    }
+
+    void showSlate(tech.kousozo.tahoetv.core.Slate.Reason reason) {
+        lastSlateReason = reason;
+        dismissBanner();
+        bStatus.setVisibility(View.GONE);
+        loading.setVisibility(View.GONE);
+
         String lang = TvViewer.get(this).getLanguage();
-        slName.setText(list.get(index).getName());
+        if (index >= 0 && index < list.size()) slName.setText(list.get(index).getName());
         slMessages.removeAllViews();
         java.util.List<String> order = tech.kousozo.tahoetv.core.Slate.order(lang);
-        for (int k = 0; k < order.size(); k++) {
-            TextView t = Ui.text(this, k == 0 ? Ui.HEADLINE : Ui.BODY + 1, k == 0 ? 600 : 400, k == 0 ? Ui.TEXT : Ui.TEXT_2);
-            t.setSingleLine(false); t.setGravity(Gravity.CENTER); t.setPadding(0, (int) dp(k == 0 ? 0 : 8), 0, 0);
-            t.setText(tech.kousozo.tahoetv.core.Slate.message(order.get(k)));
-            slMessages.addView(t);
+
+        TextView primary = Ui.text(this, Ui.HEADLINE, 600, Ui.TEXT);
+        primary.setSingleLine(false); primary.setGravity(Gravity.CENTER);
+        primary.setText(tech.kousozo.tahoetv.core.Slate.message(order.get(0)));
+        slMessages.addView(primary);
+
+        java.util.List<String> others = new ArrayList<>();
+        for (int k = 1; k < order.size(); k++) others.add(tech.kousozo.tahoetv.core.Slate.message(order.get(k)));
+        TextView sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_3);
+        sub.setSingleLine(false); sub.setGravity(Gravity.CENTER);
+        sub.setPadding(0, (int) dp(8), 0, 0);
+        sub.setText(android.text.TextUtils.join("\n", others));
+        slMessages.addView(sub);
+
+        if (slPills != null) {
+            slPills.removeAllViews();
+            slPills.addView(pill("OK", tech.kousozo.tahoetv.core.Slate.label(lang, "retry")));
+            slPills.addView(pill("▼", tech.kousozo.tahoetv.core.Slate.label(lang, "next")));
         }
+
         slate.setVisibility(View.VISIBLE);
         int my = ++slateGen;
-        if (slateRetries >= tech.kousozo.tahoetv.core.Slate.MAX_RETRIES) { slateLeft = 0; slateStatus(lang); return; }
+        if (slateRetries >= tech.kousozo.tahoetv.core.Slate.MAX_RETRIES) { slateLeft = 0; slateStatus(lang, reason); return; }
         slateLeft = tech.kousozo.tahoetv.core.Slate.RETRY_SECONDS;
-        slateStatus(lang);
+        slateStatus(lang, reason);
         ui.postDelayed(new Runnable() { @Override public void run() {
             if (my != slateGen || slate.getVisibility() != View.VISIBLE) return;
-            if (--slateLeft <= 0) { slateRetries++; retryChannel(); } else { slateStatus(lang); ui.postDelayed(this, 1000); }
+            if (--slateLeft <= 0) { slateRetries++; retryChannel(); } else { ui.postDelayed(this, 1000); }
         }}, 1000);
     }
 
-    void slateStatus(String lang) {
-        String when = slateLeft > 0 ? tech.kousozo.tahoetv.core.Slate.label(lang, "retrying").replace("%s", String.valueOf(slateLeft))
+    void slateStatus(String lang, tech.kousozo.tahoetv.core.Slate.Reason reason) {
+        String when = slateRetries < tech.kousozo.tahoetv.core.Slate.MAX_RETRIES
+                ? tech.kousozo.tahoetv.core.Slate.label(lang, "trying")
                 : tech.kousozo.tahoetv.core.Slate.label(lang, "waiting");
-        slStatus.setText(tech.kousozo.tahoetv.core.Slate.reason(tech.kousozo.tahoetv.core.Slate.order(lang).get(0), tech.kousozo.tahoetv.core.Slate.Reason.Offline)
-                + "  ·  " + when + "\nOK  " + tech.kousozo.tahoetv.core.Slate.label(lang, "retry") + "     ▼  " + tech.kousozo.tahoetv.core.Slate.label(lang, "next"));
+        slStatus.setText(tech.kousozo.tahoetv.core.Slate.reason(tech.kousozo.tahoetv.core.Slate.order(lang).get(0), reason)
+                + "  ·  " + when);
     }
 
-    void hideSlate() { slateGen++; if (slate != null) slate.setVisibility(View.GONE); }
+    void hideSlate() { slateGen++; if (slate != null) slate.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
 
     /** Every source of this channel again, best first (OK on the slate, or the background retry). */
     void retryChannel() {
         if (index < 0 || list.isEmpty()) return;
+        sawRecording = false;
         hideSlate();
         LocalTv.Entry e = list.get(index);
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());

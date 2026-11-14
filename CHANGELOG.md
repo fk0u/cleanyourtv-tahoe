@@ -7,6 +7,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ### Perbaikan
 - **Arah ganti saluran CH+/CH− (#102).** Tombol CHANNEL UP (CH+) di remote fisik TV dan tombol rocker CH atas di remote HP kini menaikkan nomor saluran (saluran berikutnya), dan CHANNEL DOWN (CH−) / rocker bawah menurunkan nomor saluran. Tombol arah D-pad ▲/▼ di TV tetap berfungsi alami sesuai daftar saluran (▲ ke item sebelumnya di atas, ▼ ke item berikutnya di bawah).
+- **Penyempurnaan tampilan siaran tidak tersedia (Slate #114).** Teks status OSD dan banner TV disembunyikan agar tidak menutupi slate saat saluran gagal. Alasan kegagalan kini melacak siaran rekaman (`sawRecording`) secara akurat di TV dan desktop. Tata letak disederhanakan agar lebih tenang: pesan utama berukuran besar, dua bahasa lainnya ditampilkan dalam baris statis yang tenang tanpa animasi berkedip, teks status 'Mencoba lagi otomatis…' menggantikan hitungan detik, petunjuk remote TV disajikan sebagai tombol kapsul (pill) dengan glif yang jelas, target sentuh tombol HP diperbesar minimal 48 dp, dan judul laporan masalah disesuaikan dengan bahasa pilihan.
 
 ## 3.2.0
 
