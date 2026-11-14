@@ -3,7 +3,7 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
-## Belum dirilis
+## Unreleased (Belum dirilis)
 
 ### Perbaikan
 - **Pengamanan alur CI rilis dan dependensi aksi (GHSA-cp6v-7p8f-hpvx).** Mengunci semua third-party GitHub Actions ke commit SHA permanen, menambahkan konfigurasi Dependabot mingguan untuk pembaruan Actions otomatis, serta membatasi akses rahasia penandatanganan keystore rilis hanya pada environment rilis (tag versi resmi atau branch main).

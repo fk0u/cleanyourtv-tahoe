@@ -149,7 +149,9 @@ three apps. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Roadmap | [ROADMAP.md](docs/ROADMAP.md) | [ROADMAP.md](docs/id/ROADMAP.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) | [CONTRIBUTING.md](docs/id/CONTRIBUTING.md) |
 | Security | [SECURITY.md](SECURITY.md) | [SECURITY.md](SECURITY.md#bahasa-indonesia) |
+| Channel sources & takedown | [SOURCES.md](docs/SOURCES.md) | [SOURCES.md](docs/SOURCES.md#bahasa-indonesia) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md#bahasa-indonesia) |
+| Maintainers | [MAINTAINERS.md](MAINTAINERS.md) | |
 | Release notes | [CHANGELOG.md](CHANGELOG.md) | (Indonesian, shown in the apps) |
 | Brand | [BRAND.md](docs/brand/BRAND.md) | |
 
@@ -192,7 +194,7 @@ Thanks to everyone who has helped build Tahoe TV:
 
 - Code: [MIT](LICENSE) © Al-Ghani ([@fk0u](https://github.com/fk0u)) and contributors.
 - Icons: [Lucide](https://lucide.dev) (ISC). Font: [Outfit](https://github.com/Outfitio/Outfit-Fonts) (SIL OFL 1.1).
-- Players: [Media3/ExoPlayer](https://github.com/androidx/media) (Apache 2.0), FFmpeg decoder from [Jellyfin media3-ffmpeg-decoder](https://github.com/jellyfin/jellyfin-androidx-media) (FFmpeg: LGPL 2.1+), [hls.js](https://github.com/video-dev/hls.js) (Apache 2.0). Phone server: [NanoHTTPD](https://github.com/NanoHttpd/nanohttpd). ADB: [dadb](https://github.com/mobile-dev-inc/dadb). QR: [ZXing](https://github.com/zxing/zxing).
+- Players: [Media3/ExoPlayer](https://github.com/androidx/media) (Apache 2.0), FFmpeg decoder from [Jellyfin media3-ffmpeg-decoder](https://github.com/jellyfin/jellyfin-androidx-media) (FFmpeg: LGPL 2.1+), [hls.js](https://github.com/video-dev/hls.js) (Apache 2.0), [Shaka Player](https://github.com/shaka-project/shaka-player) (Apache 2.0). Phone server: [NanoHTTPD](https://github.com/NanoHttpd/nanohttpd). ADB: [dadb](https://github.com/mobile-dev-inc/dadb). QR: [ZXing](https://github.com/zxing/zxing).
 - Channels & guides: [iptv-org](https://github.com/iptv-org/iptv), [yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia), [dhanytv](https://github.com/dhasap/dhanytv) by @dhasap (free Indonesian TV only), [epg.pw](https://epg.pw). Tahoe hosts no streams.
 - Data: [Open-Meteo](https://open-meteo.com/) · [Aladhan](https://aladhan.com/prayer-times-api) · [TMDB](https://www.themoviedb.org/) (this product isn't endorsed or certified by TMDB) · YouTube Data API · Gemini API.
 - Inspired by [cleanyourtv](https://github.com/Gathin23/cleanyourtv). Not an Apple product; "tvOS", "macOS" and "Liquid Glass" are trademarks of Apple Inc.
