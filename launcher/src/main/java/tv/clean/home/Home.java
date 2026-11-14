@@ -27,8 +27,9 @@ import tech.kousozo.tahoetv.core.DockGrid;
 /** Tahoe TV home, tvOS 26 style: full-bleed editorial hero, top bar chips, macOS-style dock with magnification,
  *  Launchpad (games shelf + all apps), sheets (weather, prayer, control center, assistant, pairing).
  *  Focus is a model driven by our own key handling: row -1 = top bar chips, row 0 = dock, row >= 1 = Launchpad rows. */
-public class Home extends Activity implements Companion.Listener, Tools {
+public class Home extends Activity {
     static Home live;
+    final RemoteController remote = new RemoteController(this);
 
     static final class App {
         String pkg, label; Drawable banner; Intent launch; int color; boolean system, game;
@@ -86,7 +87,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
             loadApps();
             hero.showWall(false);
             refreshData(false);
-            companion = new Companion(this, this);
+            companion = new Companion(this, remote);
             companion.startAll();
         });
         registerReceiver(new BroadcastReceiver() { public void onReceive(Context c, Intent i) { tick(); } }, new IntentFilter(Intent.ACTION_TIME_TICK));
@@ -118,6 +119,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
     }
 
     @Override protected void onDestroy() {
+        remote.cancelSleep();
         if (companion != null) companion.stopAll();
         if (live == this) live = null;
         super.onDestroy();
@@ -576,9 +578,8 @@ public class Home extends Activity implements Companion.Listener, Tools {
     }
 
     void clampFocus() {
-        if (row > rows()) row = rows();
-        if (row == 0 && dock.isEmpty()) row = rows() > 0 ? 1 : -1;
-        col = Math.max(0, Math.min(col, rowLen(row) - 1));
+        row = DockGrid.clampRow(row, dock.size(), rows());
+        col = DockGrid.clampCol(col, rowLen(row));
     }
 
     App focusedApp() {
@@ -595,21 +596,16 @@ public class Home extends Activity implements Companion.Listener, Tools {
 
     void move(int dr, int dc) {
         if (dc != 0) {
-            int n = col + dc;
-            if (n < 0 || n >= rowLen(row)) return; // ends never wrap or fall through
-            col = n;
+            int nextCol = DockGrid.moveHorizontal(col, dc, rowLen(row));
+            if (nextCol == col) return; // ends never wrap or fall through
+            col = nextCol;
         } else {
-            int target = row + dr;
-            if (target == 0 && dock.isEmpty()) target += dr;
-            if (target == -1 && rowLen(-1) == 0) target += dr;
-            if (target < -2 || target > rows() || rowLen(target) == 0) return;
+            int target = DockGrid.nextVerticalRow(row, dr, dock.size(), rowLen(-1), rows(), chipViews.size());
+            if (target == row || rowLen(target) == 0) return;
             if (row == -2) chipCol = col;
             if (row == 0) lastDockCol = col;
-            if (target == -2) col = chipCol;
-            else if (target == -1) col = 0;
-            else if (target == 0) col = lastDockCol;
+            col = DockGrid.targetColForRow(target, col, chipCol, lastDockCol, rowLen(target));
             row = target;
-            col = Math.min(col, rowLen(row) - 1);
         }
         render(true);
     }
@@ -787,7 +783,7 @@ public class Home extends Activity implements Companion.Listener, Tools {
     void openPrayer() { openSheet(new Prayer.Panel(this)); }
     void openControl() { openSheet(new Sheets.Control(this)); }
     void openPair() { if (kids()) toast("Tidak tersedia di profil Anak"); else openSheet(new Sheets.Pair(this)); }
-    void openAssistant() { if (kids()) toast("Tidak tersedia di profil Anak"); else openSheet(new Assistant(this, this)); }
+    void openAssistant() { if (kids()) toast("Tidak tersedia di profil Anak"); else openSheet(new Assistant(this, remote)); }
     void openAppMenu() { App a = focusedApp(); if (a != null) openSheet(new Sheets.AppMenu(this, a, focusedTile())); }
 
     // ---------------------------------------------------------------- keys (remote, gamepad, phone)
@@ -891,275 +887,13 @@ public class Home extends Activity implements Companion.Listener, Tools {
         else toDock(); // Home: always back to the dock
     }
 
-    // ---------------------------------------------------------------- companion (phone)
+    // ---------------------------------------------------------------- companion (phone) & sleep timer
 
-    @Override public void onKey(String key) {
-        if (globalKey(key)) return;
-        int code;
-        switch (key) {
-            case "up": code = KeyEvent.KEYCODE_DPAD_UP; break;
-            case "down": code = KeyEvent.KEYCODE_DPAD_DOWN; break;
-            case "left": code = KeyEvent.KEYCODE_DPAD_LEFT; break;
-            case "right": code = KeyEvent.KEYCODE_DPAD_RIGHT; break;
-            case "ok": code = KeyEvent.KEYCODE_DPAD_CENTER; break;
-            case "menu": code = KeyEvent.KEYCODE_MENU; break;
-            case "apps": code = KeyEvent.KEYCODE_ALL_APPS; break;
-            // phone-as-gamepad buttons
-            case "a": code = KeyEvent.KEYCODE_BUTTON_A; break;
-            case "b": code = KeyEvent.KEYCODE_BUTTON_B; break;
-            case "x": code = KeyEvent.KEYCODE_BUTTON_X; break;
-            case "y": code = KeyEvent.KEYCODE_BUTTON_Y; break;
-            case "start": code = KeyEvent.KEYCODE_BUTTON_START; break;
-            case "select": code = KeyEvent.KEYCODE_BUTTON_SELECT; break;
-            case "l1": code = KeyEvent.KEYCODE_BUTTON_L1; break;
-            case "r1": code = KeyEvent.KEYCODE_BUTTON_R1; break;
-            case "back": if (!hasWindowFocus() && Keys.inst != null) { Keys.inst.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK); return; }
-                code = KeyEvent.KEYCODE_BACK; break;
-            case "home": start(new Intent(this, Home.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)); return;
-            default: return;
-        }
-        // Launcher in front → press it here; our Live TV in front → press it there; any other app → via the accessibility helper.
-        LiveTv tv = LiveTv.live;
-        if (hasWindowFocus()) tap(code);
-        else if (tv != null && tv.hasWindowFocus()) tap(tv, code);
-        else if (Keys.inst != null) Keys.inst.press(code);
-    }
+    static final int[] SLEEP = RemoteController.SLEEP;
 
-    @Override public void onLaunch(String pkg) {
-        for (App a : all) if (a.pkg.equals(pkg)) { start(a.launch); return; }
-    }
-
-    @Override public void onUrl(String url) {
-        Uri u = Uri.parse(url);
-        Intent i = new Intent(Intent.ACTION_VIEW, u);
-        String host = u.getHost() == null ? "" : u.getHost();
-        if (host.contains("youtube.com") || host.contains("youtu.be")) i.setPackage(Trending.YT);
-        start(i);
-    }
-
-    @Override public void onAsk(String text) {
-        if (!(sheet instanceof Assistant)) openSheet(new Assistant(this, this, false));
-        if (sheet instanceof Assistant) ((Assistant) sheet).ask(text);
-    }
-
-    /** Keys from the phone remote that work anywhere, not only while the launcher has focus. */
-    boolean globalKey(String key) {
-        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-        int media = key.equals("play_pause") ? KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE : key.equals("rewind") ? KeyEvent.KEYCODE_MEDIA_REWIND
-                : key.equals("ffwd") ? KeyEvent.KEYCODE_MEDIA_FAST_FORWARD : 0;
-        if (media != 0) {
-            am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, media));
-            am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, media));
-            return true;
-        }
-        switch (key) {
-            case "mute": am.adjustSuggestedStreamVolume(AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.STREAM_MUSIC, AudioManager.FLAG_SHOW_UI); root.postDelayed(this::pushState, 300); return true;
-            case "prev": { LiveTv t = LiveTv.live; if (t != null) t.ui.post(t::back); return true; }
-            case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "8": case "9":
-                LiveTv d = LiveTv.live; // channel number entry in Live TV
-                if (d != null) d.ui.post(() -> d.digit(key.charAt(0) - '0'));
-                return true;
-            case "settings": if (kids()) return true; start(new Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
-            case "livetv": start(new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true;
-            case "ch_up": case "ch_down":
-                LiveTv tv = LiveTv.live;
-                if (tv != null) tv.ui.post(() -> tv.tune(tv.index + (key.equals("ch_up") ? 1 : -1)));
-                else start(new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                return true;
-        }
-        return false;
-    }
-
-    @Override public void onVolume(int dir) {
-        ((AudioManager) getSystemService(AUDIO_SERVICE)).adjustSuggestedStreamVolume(dir > 0 ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER,
-                AudioManager.STREAM_MUSIC, AudioManager.FLAG_SHOW_UI);
-        root.postDelayed(this::pushState, 300); // the adjustment lands a moment later
-    }
-
-    @Override public void onVolumeSet(int percent) {
-        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-        int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        am.setStreamVolume(AudioManager.STREAM_MUSIC, Math.round(Math.max(0, Math.min(100, percent)) * max / 100f), AudioManager.FLAG_SHOW_UI);
-        pushState();
-    }
-
-    @Override public void onText(String text) {
-        View f = getCurrentFocus();
-        if (hasWindowFocus() && f instanceof android.widget.EditText) { ((android.widget.EditText) f).setText(text); ((android.widget.EditText) f).setSelection(text.length()); }
-        else if (Keys.inst != null) Keys.inst.type(text);
-    }
-
-    /** Screen on → standby (Android 9+ accessibility action); asleep → wake it. */
-    @Override public void onPower() {
-        android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
-        if (pm.isInteractive()) { if (Keys.inst != null && android.os.Build.VERSION.SDK_INT >= 28) Keys.inst.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN); }
-        else {
-            @SuppressWarnings("deprecation") android.os.PowerManager.WakeLock w = pm.newWakeLock(
-                    android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK | android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP, "tahoe:remote");
-            w.acquire(3000);
-        }
-    }
-
-    private long stateRev = 0L;
-
-    @Override public void onSessionLoad(String channelId, String url) {
-        LiveTv tv = LiveTv.live;
-        if (tv != null) {
-            tv.ui.post(() -> tv.tuneByChannel(channelId, url));
-            return;
-        }
-        Intent i = new Intent(this, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        if (channelId != null && !channelId.isEmpty()) i.putExtra("channelId", channelId);
-        if (url != null && !url.isEmpty()) i.putExtra("url", url);
-        start(i);
-    }
-
-    @Override public void onSessionControl(String action) {
-        LiveTv tv = LiveTv.live;
-        if (tv == null || action == null) return;
-        tv.ui.post(() -> {
-            if ("stop".equals(action)) { tv.finish(); return; }
-            if (tv.player == null) return;
-            if ("play".equals(action)) { tv.player.play(); tv.player.seekToDefaultPosition(); tv.showBanner(); }
-            else if ("pause".equals(action)) { tv.player.pause(); tv.showBanner(); }
-            pushState();
-        });
-    }
-
-    @Override public JSONObject state() {
-        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-        int max = Math.max(1, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
-        int vol = Math.round(am.getStreamVolume(AudioManager.STREAM_MUSIC) * 100f / max);
-        boolean muted = am.isStreamMute(AudioManager.STREAM_MUSIC);
-        LiveTv tv = LiveTv.live;
-        tech.kousozo.tahoetv.core.Protocol.SessionState session = null;
-        if (tv != null && tv.index >= 0 && tv.index < tv.list.size()) {
-            tech.kousozo.tahoetv.core.LocalTv.Entry e = tv.list.get(tv.index);
-            boolean playing = tv.player != null && tv.player.getPlayWhenReady();
-            session = new tech.kousozo.tahoetv.core.Protocol.SessionState(
-                    ++stateRev, e.getChannel().getChannelId(), e.getName(), tv.index + 1, playing, !playing);
-        } else {
-            session = new tech.kousozo.tahoetv.core.Protocol.SessionState(++stateRev, "", "", 0, false, false);
-        }
-        tech.kousozo.tahoetv.core.Protocol.DeviceState ds =
-                new tech.kousozo.tahoetv.core.Protocol.DeviceState(vol, muted, sleepLeft(), session);
-        return tech.kousozo.tahoetv.core.Protocol.toLegacyStateJson(ds, session);
-    }
-
-    // ---------------------------------------------------------------- sleep timer
-    static final int[] SLEEP = {0, 15, 30, 60, 90, 120};
-    long sleepAt; // 0 = off
-    // ponytail: in-process timer; a launcher restart cancels it (AlarmManager if that ever matters)
-    final Runnable sleepNow = () -> {
-        sleepAt = 0; pushState();
-        if (Keys.inst != null && android.os.Build.VERSION.SDK_INT >= 28) Keys.inst.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
-    };
-    final Runnable sleepWarn = () -> Notif.banner(this, null, "Timer tidur", "TV standby dalam 1 menit", "Ubah atau matikan di Pusat Kontrol");
-
-    /** Minutes left, 0 = off. */
-    int sleepLeft() { return sleepAt == 0 ? 0 : (int) Math.max(1, Math.ceil((sleepAt - System.currentTimeMillis()) / 60000.0)); }
-
-    /** "Kirim log": the TV can't share files itself, so a paired phone does it. Marks the moment in the log, asks
-     *  phones with the Remote open to send it, and says how otherwise. */
-    void sendLog() {
-        tech.kousozo.tahoetv.core.DiagLog.add("user", "--- pengguna menekan Kirim log ---");
-        tech.kousozo.tahoetv.core.DiagLog.save();
-        if (companion == null || companion.pairedCount() == 0) {
-            Toast.makeText(this, "Sambungkan HP dulu (Pusat Kontrol → HP), lalu di HP: Tahoe → Remote → Kirim log.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        // a phone with the Remote open offers to share right away; otherwise the user starts it there
-        try { companion.broadcast(new org.json.JSONObject().put("t", "send_log")); } catch (Exception ignored) {}
-        Toast.makeText(this, "Di HP: buka Tahoe → Remote → Kirim log (jika Remote sudah terbuka, HP langsung menawarkannya). Log TV ikut terkirim.", Toast.LENGTH_LONG).show();
-    }
-
-    @Override public void onKidsPin() { toast("PIN profil Anak diubah dari HP"); }
-
-    @Override public void onSleep(int minutes) {
-        root.removeCallbacks(sleepNow); root.removeCallbacks(sleepWarn);
-        sleepAt = minutes <= 0 ? 0 : System.currentTimeMillis() + minutes * 60_000L;
-        if (minutes > 0) { root.postDelayed(sleepNow, minutes * 60_000L); if (minutes > 1) root.postDelayed(sleepWarn, (minutes - 1) * 60_000L); }
-        toast(minutes <= 0 ? "Timer tidur mati" : "TV standby dalam " + minutes + " menit");
-        pushState();
-    }
-
-    /** Next / previous step of SLEEP from the current timer. */
-    void stepSleep(int dir) {
-        int left = sleepLeft(), next = 0;
-        if (dir > 0) { for (int m : SLEEP) if (m > left) { next = m; break; } }
-        else for (int m : SLEEP) if (m < left) next = m;
-        onSleep(next);
-    }
-
-    /** Tell paired phones the current volume / channel. */
-    void pushState() { if (companion != null) companion.broadcast(state()); }
-
-    @Override public void onPhoneNotification(String app, String title, String text) {
-        Notif.banner(this, null, app.isEmpty() ? "HP" : app, title, text);
-    }
-
-    @Override public void onPhoneMedia(JSONObject media) {
-        boolean had = phoneMedia != null;
-        phoneMedia = media;
-        if (had != (media != null)) buildChips(); else updateChips();
-        renderHero();
-    }
-
-    @Override public void onUploaded(String kind) {
-        if (kind.equals("photo") || kind.equals("wallpaper")) { hero.loadWalls(); toast("Foto diterima dari HP"); }
-        else toast("Suara adzan disimpan");
-    }
-
-    @Override public JSONArray apps() {
-        JSONArray out = new JSONArray();
-        try { for (App a : all) out.put(new JSONObject().put("pkg", a.pkg).put("label", a.label).put("dock", dock.contains(a))); } catch (Exception ignored) {}
-        return out;
-    }
-
-    void phoneMediaCommand(String c) {
-        try { companion.broadcast(new JSONObject().put("t", "media_cmd").put("c", c)); } catch (Exception ignored) {}
-    }
-
-    // ---------------------------------------------------------------- assistant tools
-
-    @Override public String call(String name, JSONObject args) {
-        try {
-            switch (name) {
-                case "open_app": {
-                    String q = args.optString("name").toLowerCase(Locale.ROOT);
-                    for (App a : all) if (a.label.toLowerCase(Locale.ROOT).contains(q)) { ui.postDelayed(() -> { closeSheet(); start(a.launch); }, 1800); return "Membuka " + a.label; }
-                    return "Aplikasi tidak ditemukan";
-                }
-                case "youtube_search": {
-                    Intent i = new Intent(Intent.ACTION_SEARCH).setPackage(Trending.YT).putExtra("query", args.optString("query"));
-                    ui.postDelayed(() -> { closeSheet(); start(i); }, 1800);
-                    return "Mencari " + args.optString("query") + " di YouTube";
-                }
-                case "weather": {
-                    JSONObject c = weather == null ? null : weather.optJSONObject("current");
-                    JSONObject d = weather == null ? null : weather.optJSONObject("daily");
-                    if (c == null) return "Data cuaca belum ada";
-                    return Math.round(c.optDouble("temperature_2m")) + "°C, " + Weather.text(c.optInt("weather_code"))
-                            + (d == null ? "" : ", maks " + Math.round(d.optJSONArray("temperature_2m_max").optDouble(0)) + "°, peluang hujan "
-                            + d.optJSONArray("precipitation_probability_max").optInt(0) + "%");
-                }
-                case "prayer_times": {
-                    StringBuilder sb = new StringBuilder();
-                    for (Map.Entry<String, Long> en : Prayer.times(this).entrySet())
-                        sb.append(en.getKey()).append(' ').append(new SimpleDateFormat("HH:mm", Locale.US).format(new Date(en.getValue()))).append(", ");
-                    Object[] n = Prayer.next(this);
-                    return sb + (n == null ? "" : "berikutnya " + n[0] + " dalam " + Prayer.countdown((Long) n[1]));
-                }
-                case "set_volume": {
-                    AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-                    String lv = args.optString("level");
-                    if (lv.contains("naik")) onVolume(1); else if (lv.contains("turun")) onVolume(-1);
-                    else am.setStreamVolume(AudioManager.STREAM_MUSIC, Math.round(Integer.parseInt(lv.replaceAll("\\D", "")) / 100f * am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)), AudioManager.FLAG_SHOW_UI);
-                    return "Volume diatur";
-                }
-                case "next_wallpaper": hero.nextWall(); return "Wallpaper diganti";
-            }
-        } catch (Exception e) { return "Gagal: " + e.getMessage(); }
-        return "Tool tidak dikenal";
-    }
+    int sleepLeft() { return remote.sleepLeft(); }
+    void stepSleep(int dir) { remote.stepSleep(dir); }
+    void pushState() { remote.pushState(); }
+    void sendLog() { remote.sendLog(); }
+    void phoneMediaCommand(String c) { remote.phoneMediaCommand(c); }
 }
