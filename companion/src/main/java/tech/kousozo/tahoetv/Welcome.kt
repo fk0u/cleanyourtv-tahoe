@@ -21,9 +21,11 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import tech.kousozo.tahoetv.core.I18n
 import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.OnboardingText
 import tech.kousozo.tahoetv.core.Prayer
@@ -64,32 +67,32 @@ object PhoneRegion {
     }
 
     fun save(c: Context, v: Viewer) {
-        val reload = v.countries != viewer.countries || v.region != viewer.region || !viewer.done
-        p(c).edit().putString("viewer", v.toJson()).apply()
-        viewer = v; editing = false
-        Channels.setFavs(c, v.favorites)
+        val before = viewer
+        val next = v.copy(revision = maxOf(before.revision, v.revision) + 1L)
+        val reload = next.countries != before.countries || next.region != before.region || !before.done
+        p(c).edit().putString("viewer", next.toJson()).apply()
+        viewer = next; editing = false
+        Channels.setFavs(c, next.favorites)
         if (reload) Channels.reload(c) else Channels.rearrange()
-        sendToTv(c, v)
+        sendPatchToTv(c, Viewer.diff(before, next))
     }
 
-    /** A paired TV gets the same choices (it then skips or updates its own onboarding). */
-    private fun sendToTv(c: Context, v: Viewer) {
-        val p = Sync.prefs(c)
-        val host = p.getString("host", "").orEmpty(); val token = p.getString("token", "").orEmpty()
+    /** A paired TV receives only the incremental delta patch over the shared ordered link (#111). */
+    private fun sendPatchToTv(c: Context, patch: org.json.JSONObject) {
+        val sp = Sync.prefs(c)
+        if (!sp.getBoolean("sync_tv_confirmed", true)) return
+        val host = sp.getString("host", "").orEmpty(); val token = sp.getString("token", "").orEmpty()
         if (host.isEmpty() || token.isEmpty()) return
-        // sent once the socket is really open (a slow TV/network would drop a message sent on a timer); gives up after 20 s
-        var link: tech.kousozo.tahoetv.core.TvLink? = null
-        link = tech.kousozo.tahoetv.core.TvLink(host, token) { open ->
-            if (open) link?.let { l -> l.viewer(v.toJson()); Thread { Thread.sleep(1000); l.close() }.start() }
-        }.apply { open(); Thread { Thread.sleep(20_000); close() }.start() }
+        tech.kousozo.tahoetv.core.TvLink.shared(host, token).viewerPatch(patch)
     }
 
     /** A heart tapped elsewhere in the app: keep the onboarding's order, new ones last. */
     fun favoritesChanged(c: Context, favs: Set<String>) {
-        val kept = viewer.favorites.filter { it in favs }
-        val v = viewer.copy(favorites = kept + (favs - kept.toSet()))
-        p(c).edit().putString("viewer", v.toJson()).apply(); viewer = v
-        if (v.done) sendToTv(c, v) // the paired TV keeps the same favourites
+        val before = viewer
+        val kept = before.favorites.filter { it in favs }
+        val next = before.copy(favorites = kept + (favs - kept.toSet()), revision = before.revision + 1L)
+        p(c).edit().putString("viewer", next.toJson()).apply(); viewer = next
+        if (next.done) sendPatchToTv(c, Viewer.diff(before, next)) // the paired TV merges the incremental favourites patch
     }
 
     /** The onboarding is open again from Beranda (current choices preselected). */
@@ -173,11 +176,36 @@ fun WelcomeScreen() {
             }
         }
 
+        var askTvSync by remember { mutableStateOf(false) }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
-            if (step == Step.Summary) PrimaryButton(t("done"), icon = Icons.Rounded.Check) { PhoneRegion.save(c, v) }
+            if (step == Step.Summary) PrimaryButton(t("done"), icon = Icons.Rounded.Check) {
+                val sp = Sync.prefs(c)
+                val paired = sp.getString("host", "").orEmpty().isNotBlank() && sp.getString("token", "").orEmpty().isNotEmpty()
+                if (paired && !sp.getBoolean("sync_tv_asked", false)) askTvSync = true
+                else PhoneRegion.save(c, v)
+            }
             else PrimaryButton(if (step == Step.City && v.lat == null) t("skip") else t("next"), icon = Icons.Rounded.ArrowForward) { go(1) }
             if (step != Step.Language) SecondaryButton(t("back")) { go(-1) }
         }
+        if (askTvSync) AlertDialog(
+            onDismissRequest = { askTvSync = false },
+            title = { Text(I18n.get(v.language, "sync.ask_title")) },
+            text = { Text(I18n.get(v.language, "sync.ask_body")) },
+            confirmButton = {
+                TextButton({
+                    Sync.prefs(c).edit().putBoolean("sync_tv_asked", true).putBoolean("sync_tv_confirmed", true).apply()
+                    askTvSync = false
+                    PhoneRegion.save(c, v)
+                }) { Text(I18n.get(v.language, "sync.ask_yes")) }
+            },
+            dismissButton = {
+                TextButton({
+                    Sync.prefs(c).edit().putBoolean("sync_tv_asked", true).putBoolean("sync_tv_confirmed", false).apply()
+                    askTvSync = false
+                    PhoneRegion.save(c, v)
+                }) { Text(I18n.get(v.language, "sync.ask_no")) }
+            },
+        )
     }
 }
 

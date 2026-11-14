@@ -180,7 +180,7 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
         if (p.getString("token", "").orEmpty().isNotEmpty()) {
             Spacer(Modifier.width(8.dp))
             RoundGlass(Icons.Rounded.Cast, "Buka Live TV di TV") {
-                tech.kousozo.tahoetv.core.TvLink(p.getString("host", "")!!, p.getString("token", "")!!).apply { open(); Thread { Thread.sleep(1500); launch(TV_LIVE); close() }.start() }
+                tech.kousozo.tahoetv.core.TvLink.shared(p.getString("host", "").orEmpty(), p.getString("token", "").orEmpty()).launch(TV_LIVE)
             }
         }
     }

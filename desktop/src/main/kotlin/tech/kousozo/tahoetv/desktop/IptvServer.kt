@@ -2,6 +2,7 @@ package tech.kousozo.tahoetv.desktop
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshots.Snapshot
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.File
@@ -34,6 +35,7 @@ object IptvServer {
     var channelCount = mutableStateOf(0); private set
     var relayCount = mutableStateOf(0); private set
     val loadedSources = mutableStateListOf<String>()
+    @Volatile private var sourcesSnapshot: List<String> = emptyList()
 
     data class ServerChannel(
         val id: String,
@@ -167,8 +169,10 @@ object IptvServer {
         s.start()
 
         server = s
-        port.value = s.address.port
-        isRunning.value = true
+        Snapshot.withMutableSnapshot {
+            port.value = s.address.port
+            isRunning.value = true
+        }
         refreshHealth()
         Recordings.boot() // scheduled recordings run while the server does
     }
@@ -176,7 +180,9 @@ object IptvServer {
     fun stop() { // not under the lock: a reload in progress must not freeze the Stop button
         server?.stop(0)
         server = null
-        isRunning.value = false
+        Snapshot.withMutableSnapshot {
+            isRunning.value = false
+        }
     }
 
     private fun loadPlaylists(customFiles: List<String>) {
@@ -184,7 +190,7 @@ object IptvServer {
         val channels = ArrayList<ServerChannel>()
         val byId = HashMap<String, ServerChannel>()
         val idByUrl = HashMap<String, String>()
-        loadedSources.clear()
+        val newSources = ArrayList<String>()
 
         val filesToLoad = LinkedHashSet<File>()
         customFiles.forEach { filesToLoad.add(File(it)) }
@@ -216,7 +222,7 @@ object IptvServer {
         for ((sourceName, list) in groups) {
             if (list.isEmpty()) continue
 
-            loadedSources.add(sourceName)
+            newSources.add(sourceName)
             for (ch in list) {
                 val clean = ch.channelId.replace('.', '-').ifEmpty { "ch" }
                 var id = clean
@@ -236,8 +242,13 @@ object IptvServer {
         }
 
         this.channels = channels; this.byId = byId; this.idByUrl = idByUrl
-        channelCount.value = channels.size
-        relayCount.value = relays
+        this.sourcesSnapshot = newSources.toList()
+        Snapshot.withMutableSnapshot {
+            loadedSources.clear()
+            loadedSources.addAll(newSources)
+            channelCount.value = channels.size
+            relayCount.value = relays
+        }
     }
 
     private fun handleRequest(ex: HttpExchange) {
@@ -272,7 +283,7 @@ object IptvServer {
                 path == "/watch" -> serveWatch(ex, query)
                 path == "/api/watch" -> serveWatchApi(ex, query)
                 path == "/playlist.m3u" || path == "/all.m3u" -> servePlaylist(ex, query)
-                path.endsWith(".m3u") && loadedSources.any { path == "/$it" } -> servePlaylist(ex, query, path.removePrefix("/"))
+                path.endsWith(".m3u") && sourcesSnapshot.any { path == "/$it" } -> servePlaylist(ex, query, path.removePrefix("/"))
                 path == "/epg.xml" -> serveEpg(ex)
                 path.startsWith("/live/") && (path.endsWith(".m3u8") || path.endsWith(".mpd")) -> {
                     if (path.endsWith(".mpd")) {
@@ -596,8 +607,8 @@ object IptvServer {
             put("base_url", base)
             put("master_playlist", "$base/playlist.m3u")
             put("epg_url", "$base/epg.xml")
-            put("sources", JSONArray(loadedSources))
-            put("total_channels", channelCount.value)
+            put("sources", JSONArray(sourcesSnapshot))
+            put("total_channels", channels.size)
             put("relay_channels", relayCount.value)
         }
         val body = j.toString(2).toByteArray(Charsets.UTF_8)
@@ -926,7 +937,7 @@ setInterval(poll, 1500);
 <header>
   <div>
     <h1>Tahoe IPTV Server <span class="badge">ONLINE</span></h1>
-    <div style="font-size: 13px; color: var(--dim); margin-top: 4px;">$total saluran · $relays relay header · Sumber: ${esc(loadedSources.joinToString(", "))}</div>
+    <div style="font-size: 13px; color: var(--dim); margin-top: 4px;">$total saluran · $relays relay header · Sumber: ${esc(sourcesSnapshot.joinToString(", "))}</div>
   </div>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
     <button class="btn primary" onclick="copy('$base/playlist.m3u', 'Playlist Master disalin!')">📋 Salin M3U Master</button>
