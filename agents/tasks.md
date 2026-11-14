@@ -18,14 +18,17 @@
 
 ## 🟠 NEXT — `3.3 International`
 
-- [ ] #71 epic · #77 onboarding (TV real-device test pending) · #56 strings EN/ID/中文 · #80 de-Indonesianise core · #79 prayer/time zone per region
+- [ ] #71 epic · #77 onboarding (TV real-device test pending)
+- [x] #80 De-Indonesianise `:core` (`Epg.norm`, `Epg.byId`/`tvg-id`, `Web` `lang`/`watchRegion`, `LocalTv.arrange(..., countries)`)  ⟨CTO·SWE⟩ {M} · merged in #137
+- [x] #79 Prayer method & time zone per region (`TvViewer.zone` across desktop/companion/launcher `Prayer`)  ⟨UI/UX·SWE⟩ {S} · merged in #137
+- [x] #56 Trilingual EN/ID/中文 strings (`I18n` in `:core`, `PlayPrefs`/`Scan`/`TvLink`/`HlsRecorder`, desktop & companion main UI)  ⟨UI/UX·Frontend⟩ {M} · merged in #138
 - [x] #94 Stable channel IDs (favourites, numbers, handoff, EPG)  ⟨CTO⟩ {M} · merged in #132 (`tvg-id`/slug `channelId`, `Viewer` schema v2)
 - [x] #105 http↔https redirects counted as dead  ⟨SWE⟩ {S} · merged in #131 (`Web.openFollowingRedirects`)
 - [x] #81 Bundle hls.js/Shaka (no CDN), headless JS smoke test  ⟨Frontend·QA⟩ {S} · merged in #133 (`/assets/*` in `desktop`)
-- [ ] #75 Desktop playback engine (libmpv/libVLC behind a `Player` interface)  ⟨CTO⟩ {L}
+- [x] #75 Desktop player resilience (`HlsProxy.open` redirect delegation, `trimDiscontinuity`, and `WebPlayer` fallback on verified live/unsupported failures)  ⟨CTO⟩ {L} · merged in #140
 - [x] #101 SOURCES.md + takedown policy, no DRM bypass, app-store stance  ⟨CEO⟩ {S} · merged in #134 (`docs/SOURCES.md`)
-- [ ] #91 Brand wording without Apple vocabulary, palette, icon  ⟨Creative⟩ {M}
-- [ ] #99 Demo mode + clean screenshot set in EN/ID/中文  ⟨Creative⟩ {M}
+- [x] #91 Brand wording without third-party trademarks, tagline localization (`Brand.tagline`), CSS motion & Dusk/Cyan-Deep tokens  ⟨Creative⟩ {M} · merged in #139
+- [x] #99 Demo mode (`Demo` in `:core`, `--demo`/`-Dtahoe.demo=true` in desktop), `og:image` & contributing screenshot privacy rules  ⟨Creative⟩ {M} · merged in #139
 - [x] #110 Website a11y + 中文 button  ⟨Frontend⟩ {S} `good first issue` · merged in #135
 - [x] #97 Community plumbing: Weblate, MAINTAINERS, FUNDING, English issues  ⟨CEO·DevOps⟩ {S} · merged in #134 (`MAINTAINERS.md`, `FUNDING.yml`, English PR template)
 
