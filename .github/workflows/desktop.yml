@@ -86,10 +86,11 @@ jobs:
           mkdir -p dist
           cp launcher/build/outputs/apk/release/launcher-release.apk dist/tahoe-launcher.apk
           cp companion/build/outputs/apk/release/companion-release.apk dist/tahoe-tv.apk
+          (cd dist && sha256sum *.apk > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
           name: TahoeTV-android-apks
-          path: dist/*.apk
+          path: dist/*
       # Release notes = this version's section of CHANGELOG.md (also shown inside the apps).
       - if: startsWith(github.ref, 'refs/tags/')
         shell: bash
@@ -100,5 +101,5 @@ jobs:
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.apk
+          files: dist/*
           body_path: release-notes.md

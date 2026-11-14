@@ -85,9 +85,10 @@ final class About extends FrameLayout implements Sheet {
         busy = true;
         File apk = new File(home.getCacheDir(), "update.apk");
         String url = latest.getAssets().get(APK);
+        String hash = latest.checksumFor(APK);
         Net.bg.execute(() -> {
             try {
-                Updates.download(url, apk, p -> { post(() -> status.setText("Mengunduh " + latest.getVersion() + "…  " + p + "%")); return kotlin.Unit.INSTANCE; });
+                Updates.download(url, apk, hash, p -> { post(() -> status.setText("Mengunduh " + latest.getVersion() + "…  " + p + "%")); return kotlin.Unit.INSTANCE; });
                 post(() -> status.setText("Memasang… konfirmasi di layar berikutnya"));
                 install(home, apk);
             } catch (Exception e) { post(() -> { busy = false; status.setText("Gagal mengunduh: " + e.getMessage() + ". Tekan OK untuk coba lagi."); }); }

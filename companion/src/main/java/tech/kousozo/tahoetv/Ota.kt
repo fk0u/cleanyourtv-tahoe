@@ -50,7 +50,8 @@ fun UpdateCard() {
                 scope.launch {
                     val f = File(c.cacheDir, "update.apk")
                     runCatching {
-                        withContext(Dispatchers.IO) { Updates.download(r.assets.getValue(APK), f) { p -> state = "Mengunduh… $p%" } }
+                        val hash = withContext(Dispatchers.IO) { r.checksumFor(APK) }
+                        withContext(Dispatchers.IO) { Updates.download(r.assets.getValue(APK), f, hash) { p -> state = "Mengunduh… $p%" } }
                         state = "Memasang… konfirmasi di layar berikutnya"
                         withContext(Dispatchers.IO) { install(c, f) }
                     }.onFailure { state = "Gagal: ${it.message}" }
