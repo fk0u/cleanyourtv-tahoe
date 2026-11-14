@@ -10,7 +10,7 @@ dependencies {
     api "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
     compileOnly "org.json:json:20250517"              // Android ships org.json; desktop adds it itself
     testImplementation "org.json:json:20250517"
-    testImplementation "org.jetbrains.kotlin:kotlin-test:2.2.0"
+    testImplementation "org.jetbrains.kotlin:kotlin-test:2.4.21"
 }
 
 def versionGenDir = layout.buildDirectory.dir("generated/source/version/kotlin")
