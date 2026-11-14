@@ -31,12 +31,13 @@ fun CategoriesScreen() {
     val c = LocalContext.current
     LaunchedEffect(Unit) { Channels.load(c) }
     val all = Channels.entries
+    val lang = PhoneRegion.language
     var picked by remember { mutableStateOf(Nav.liveCategory) }
     Box(Modifier.fillMaxSize().systemBarsPadding()) {
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-            Text("JELAJAHI", Modifier.padding(top = 12.dp), color = Tahoe.Faint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-            Text("Pilih kategori", fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
-            Text("Saluran disusun dari TV nasional, daerah, sampai lokal.", color = Tahoe.Dim, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp))
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.explore_kicker"), Modifier.padding(top = 12.dp), color = Tahoe.Faint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.pick_category"), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.explore_desc"), color = Tahoe.Dim, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp))
             if (all == null) { LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass); return@Column }
             val cats = listOf<LocalTv.Category?>(null) + LocalTv.Category.entries.filter { k -> all.any { LocalTv.inCategory(it, k) } }
             LazyVerticalGrid(GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -56,8 +57,8 @@ fun CategoriesScreen() {
                             Icon(categoryIcon(k), null, tint = if (on) Tahoe.Bg else Tahoe.Text, modifier = Modifier.size(20.dp))
                         }
                         Column {
-                            Text(k?.label ?: "Semua saluran", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                            Text("$n saluran", fontSize = 12.sp, color = if (on) Tahoe.Text else Tahoe.Faint)
+                            Text(k?.label(lang) ?: tech.kousozo.tahoetv.core.I18n.get(lang, "home.all_channels"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.channel_count", n), fontSize = 12.sp, color = if (on) Tahoe.Text else Tahoe.Faint)
                         }
                     }
                 }
@@ -68,7 +69,7 @@ fun CategoriesScreen() {
             .background(Brush.radialGradient(listOf(Tahoe.Accent.copy(alpha = 0.35f), Color.Transparent)), RoundedCornerShape(50)).padding(10.dp)) {
             Button({ Nav.category(picked) }, shape = RoundedCornerShape(50), contentPadding = PaddingValues(horizontal = 34.dp, vertical = 14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF111114))) {
-                Text(if (picked == null) "Tonton semua" else "Tonton ${picked!!.label}", fontWeight = FontWeight.SemiBold, fontStyle = FontStyle.Italic)
+                Text(if (picked == null) tech.kousozo.tahoetv.core.I18n.get(lang, "live.watch_all") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.watch_category", picked!!.label(lang)), fontWeight = FontWeight.SemiBold, fontStyle = FontStyle.Italic)
             }
         }
     }

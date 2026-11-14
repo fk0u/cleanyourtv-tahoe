@@ -19,11 +19,18 @@ import org.json.JSONObject
  *  8765 (Tahoe already installed, confirmed via its public /info). ~254 hosts × 2 ports, 48 at a time, ~3 s. */
 object Scan {
     data class Found(val ip: String, val name: String?, val version: String?, val adb: Boolean, val tahoe: Boolean) {
-        val label get() = (if (name.isNullOrBlank() || name == ip) "Perangkat" else name.replace(Regex("\\.(lan|local|home)$"), "")) + " · " + ip
-        val status get() = when {
-            tahoe && adb -> "Tahoe $version · siap dikelola"
-            tahoe -> "Tahoe $version · nyalakan debugging untuk mengelola"
-            else -> "Debugging aktif · siap dipasang"
+        val label get() = label("id")
+        val status get() = status("id")
+
+        fun label(lang: String): String {
+            val host = if (name.isNullOrBlank() || name == ip) I18n.get(lang, "scan.device") else name.replace(Regex("\\.(lan|local|home)$"), "")
+            return "$host · $ip"
+        }
+
+        fun status(lang: String): String = when {
+            tahoe && adb -> I18n.get(lang, "scan.ready", version ?: "")
+            tahoe -> I18n.get(lang, "scan.enable_adb", version ?: "")
+            else -> I18n.get(lang, "scan.adb_ready")
         }
     }
 

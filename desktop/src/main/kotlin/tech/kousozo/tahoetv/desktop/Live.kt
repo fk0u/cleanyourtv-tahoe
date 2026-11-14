@@ -100,9 +100,10 @@ fun LiveScreen() {
                     checkingDone = true
                 }
             },
-            { error = "Playlist tidak bisa dimuat: ${it.message}" }
+            { error = tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "live.playlist_error", it.message ?: "") }
         )
     }
+    val lang = Settings.lang
     val province = Settings.nearProvince
     // the viewer's categories and favourite order (onboarding) on top of the usual arrangement
     val entries = remember(channels, province, viewer) { viewer.arrange(LocalTv.arrange(channels.orEmpty(), province, countries)) }
@@ -169,21 +170,21 @@ fun LiveScreen() {
         // ---------------------------------------------------------------- rail: title, search, status filter, categories
         Column(Modifier.width(235.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Title(
-                "TV Live",
+                tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"),
                 channels?.let {
                     if (!checkingDone && statusMap.size < it.size) {
-                        "Memeriksa siaran (${statusMap.size}/${it.size})…"
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "live.checking_streams", statusMap.size, it.size)
                     } else {
                         "$liveCount Live · $offlineCount Offline" + (province.takeIf { p -> p.isNotBlank() }?.let { p -> " · $p" } ?: "")
                     }
-                } ?: error ?: "Memuat saluran…"
+                } ?: error ?: tech.kousozo.tahoetv.core.I18n.get(lang, "live.loading_channels")
             )
-            Field(query, { query = it }, "Cari saluran atau acara…", trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
+            Field(query, { query = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"), trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
 
             // Status filter chips (All / Live / Offline)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(
-                    null to "Semua",
+                    null to tech.kousozo.tahoetv.core.I18n.get(lang, "live.all"),
                     "live" to "Live ($liveCount)",
                     "offline" to "Offline ($offlineCount)"
                 ).forEach { (stKey, stLabel) ->
@@ -207,9 +208,9 @@ fun LiveScreen() {
             if (channels == null && error == null) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
 
             // Categories list (Scrollable)
-            val rows = listOf<Triple<String?, String, Int>>(Triple(null, "Semua", entries.size)) +
-                cats.map { c -> Triple(c.name, c.label, entries.count { LocalTv.inCategory(it, c) }) } +
-                Triple("★", "Favorit", entries.count { it.channel.url in favs })
+            val rows = listOf<Triple<String?, String, Int>>(Triple(null, tech.kousozo.tahoetv.core.I18n.get(lang, "live.all"), entries.size)) +
+                cats.map { c -> Triple(c.name, c.label(lang), entries.count { LocalTv.inCategory(it, c) }) } +
+                Triple("★", tech.kousozo.tahoetv.core.I18n.get(lang, "live.favorites_star"), entries.count { it.channel.url in favs })
 
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 rows.forEach { (key, label, n) ->
@@ -229,7 +230,7 @@ fun LiveScreen() {
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(label, fontSize = 13.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
-                            Text("$n saluran", fontSize = 10.sp, color = Tahoe.Faint)
+                            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.channel_count", n), fontSize = 10.sp, color = Tahoe.Faint)
                         }
                     }
                 }
@@ -261,24 +262,24 @@ fun LiveScreen() {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(e.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val found = matchedShow[ch.url]
-                        if (found != null) Text("${if (found.start <= tick) "Sedang tayang" else "Pukul " + HM.format(found.start)} · ${found.title}",
+                        if (found != null) Text("${if (found.start <= tick) tech.kousozo.tahoetv.core.I18n.get(lang, "live.now_airing") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.at_time", HM.format(found.start))} · ${found.title}",
                             fontSize = 13.sp, color = Tahoe.Accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        else Text(prog?.title ?: e.category.label, fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        else Text(prog?.title ?: e.category.label(lang), fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                             when {
-                                on -> Badge("DIPUTAR", Color(0xFF0A84FF), filled = true)
+                                on -> Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_playing"), Color(0xFF0A84FF), filled = true)
                                 live == true -> Badge("LIVE", Tahoe.Good, filled = true)
                                 live == false -> Badge("OFFLINE", Tahoe.Bad, filled = true)
-                                else -> Badge("CEK...", Tahoe.Dim)
+                                else -> Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_check"), Tahoe.Dim)
                             }
                             if (e.category == LocalTv.Category.Vod) Badge("VOD", Color(0xFFFF2D55))
                             if (e.channel.drm) Badge("DRM", Color(0xFFFF9F0A))
                             if (e.channel.url.contains(".mpd", true)) Badge("DASH", Color(0xFFBF5AF2))
                             if (e.channel.headers.isNotEmpty()) Badge("RELAY", Tahoe.Accent)
                             if (prog != null) Badge("EPG", Tahoe.Text)
-                            if (e.alternates.isNotEmpty()) Badge("${e.alternates.size + 1} sumber", Tahoe.Text)
-                            if (e.near) Badge("Dekat", Tahoe.Accent)
-                            if (e.partTime) Badge("Tidak 24 jam", Tahoe.Faint)
+                            if (e.alternates.isNotEmpty()) Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.sources", e.alternates.size + 1), Tahoe.Text)
+                            if (e.near) Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.near_badge"), Tahoe.Accent)
+                            if (e.partTime) Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.part_time"), Tahoe.Faint)
                         }
                     }
                     val fav = ch.url in favs
@@ -356,13 +357,14 @@ private fun Detail(
                 LinearProgressIndicator({ f }, Modifier.fillMaxWidth().padding(top = 6.dp).height(4.dp).clip(RoundedCornerShape(2.dp)), color = Tahoe.Text, trackColor = Tahoe.Stroke)
                 Row { Text(HM.format(p.start), fontSize = 12.sp, color = Tahoe.Faint); Spacer(Modifier.weight(1f)); Text(HM.format(p.stop), fontSize = 12.sp, color = Tahoe.Faint) }
             }
+            val lang = Settings.lang
             val isPlaying = e.channel.url == playingUrl
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!isPlaying) PrimaryButton("Tonton", Icons.Rounded.PlayArrow) { onWatch(e) }
-                else { PrimaryButton("Tampilkan pemutar", Icons.Rounded.PictureInPicture) { PlayerWindow.show() }; GhostButton("Stop", Icons.Rounded.Stop, onClick = onStop) }
+                if (!isPlaying) PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), Icons.Rounded.PlayArrow) { onWatch(e) }
+                else { PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.show_player"), Icons.Rounded.PictureInPicture) { PlayerWindow.show() }; GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.stop"), Icons.Rounded.Stop, onClick = onStop) }
 
                 if (e.channel.drm || e.channel.url.contains(".mpd", true)) {
-                    GhostButton("Buka Web Player", Icons.Rounded.OpenInBrowser) {
+                    GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.open_web_player"), Icons.Rounded.OpenInBrowser) {
                         runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(IptvServer.webUrl())) }
                     }
                 }
@@ -376,19 +378,19 @@ private fun Detail(
             val rec = planned(nowStart) ?: Recordings.jobs.firstOrNull { it.active && it.channel == e.name && nowMs in it.start until it.stop }
             val recordable = (listOf(e.channel) + e.alternates).any(Recordings::recordable)
             if (rec != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (rec.state == "recording") "⏺ Sedang merekam" else "⏺ Terjadwal", fontSize = 12.sp, color = Tahoe.Bad, fontWeight = FontWeight.SemiBold)
+                Text(if (rec.state == "recording") tech.kousozo.tahoetv.core.I18n.get(lang, "live.recording_now") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.scheduled"), fontSize = 12.sp, color = Tahoe.Bad, fontWeight = FontWeight.SemiBold)
                 TextButton({ Recordings.cancel(rec.id) }, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text(if (rec.state == "recording") "Hentikan" else "Batalkan", fontSize = 12.sp, color = Tahoe.Dim)
+                    Text(if (rec.state == "recording") tech.kousozo.tahoetv.core.I18n.get(lang, "live.stop_rec") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.cancel_rec"), fontSize = 12.sp, color = Tahoe.Dim)
                 }
             }
-            else if (recordable) GhostButton(if (cur != null) "Rekam acara ini" else "Rekam 1 jam", Icons.Rounded.FiberManualRecord, color = Tahoe.Bad) {
+            else if (recordable) GhostButton(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "live.record_show") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.record_1h"), Icons.Rounded.FiberManualRecord, color = Tahoe.Bad) {
                 if (cur != null) onRecord(e, cur.title, nowStart, cur.stop.toEpochMilli() + 120_000)
-                else onRecord(e, "Siaran ${e.name}", nowStart, nowStart + 3600_000)
+                else onRecord(e, tech.kousozo.tahoetv.core.I18n.get(lang, "live.broadcast", e.name), nowStart, nowStart + 3600_000)
             }
             val next = s.filter { it.start > now }.take(4)
             if (next.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text("BERIKUTNYA", fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold)
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.up_next"), fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold)
                 next.forEach { p ->
                     val start = p.start.toEpochMilli() - 60_000 // a minute early: guides are rarely exact
                     val job = planned(start)
@@ -397,7 +399,7 @@ private fun Detail(
                         Text(p.title, Modifier.weight(1f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (job != null || recordable) IconButton({ if (job != null) Recordings.cancel(job.id) else onRecord(e, p.title, start, p.stop.toEpochMilli() + 120_000) }, Modifier.size(28.dp)) {
                             Icon(if (job != null) Icons.Rounded.FiberManualRecord else Icons.Rounded.RadioButtonUnchecked,
-                                if (job != null) "Batalkan rekaman ${p.title}" else "Rekam ${p.title}", tint = if (job != null) Tahoe.Bad else Tahoe.Faint, modifier = Modifier.size(16.dp))
+                                if (job != null) tech.kousozo.tahoetv.core.I18n.get(lang, "live.cancel_show_rec", p.title) else tech.kousozo.tahoetv.core.I18n.get(lang, "live.record_show_title", p.title), tint = if (job != null) Tahoe.Bad else Tahoe.Faint, modifier = Modifier.size(16.dp))
                         }
                     }
                 }

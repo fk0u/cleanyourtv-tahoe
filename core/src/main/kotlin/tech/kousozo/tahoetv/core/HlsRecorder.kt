@@ -22,6 +22,7 @@ class HlsRecorder(
     private val get: (String) -> Pair<String, String> = { u -> HlsProbe.fetch(u, headers, 10_000) },
     /** Downloads [url] (only bytes `range`, "start-end" inclusive, when given) into the stream; returns its size. */
     private val download: (url: String, range: String?, out: java.io.OutputStream) -> Long = { u, r, o -> copy(u, headers, r, o) },
+    private val lang: String = "id",
 ) {
     @Volatile var bytes = 0L; private set
     @Volatile var segments = 0; private set
@@ -56,11 +57,11 @@ class HlsRecorder(
         var failures = 0
         while (!cancelled && clock() < stopAt) {
             val (text, base) = pending?.also { pending = null } ?: try { get(media) } catch (e: Exception) {
-                if (++failures >= 6) { error = "Siaran terputus: ${e.message}"; return false }
+                if (++failures >= 6) { error = I18n.get(lang, "rec.dropped", e.message ?: ""); return false }
                 sleep(3000); continue
             }
             failures = 0
-            if (KEY.containsMatchIn(text)) { error = "Siaran terenkripsi, tidak bisa direkam."; return false }
+            if (KEY.containsMatchIn(text)) { error = I18n.get(lang, "rec.encrypted"); return false }
             val list = parse(text, base)
             if (!joined) {
                 // Start at the live edge, like a player: a server's window can hold minutes or hours of what already aired.
@@ -129,8 +130,8 @@ class HlsRecorder(
     /** The media playlist to follow: the best (highest BANDWIDTH) variant of a master playlist, or [url] itself
      *  (then with its already downloaded text, so the first window isn't fetched twice). */
     private fun pickMedia(): Pair<String, Pair<String, String>?>? {
-        val (text, base) = try { get(url) } catch (e: Exception) { error = "Siaran tidak bisa dibuka: ${e.message}"; return null }
-        if (!text.trimStart().startsWith("#EXTM3U")) { error = "Bukan siaran HLS."; return null }
+        val (text, base) = try { get(url) } catch (e: Exception) { error = I18n.get(lang, "rec.unopenable", e.message ?: ""); return null }
+        if (!text.trimStart().startsWith("#EXTM3U")) { error = I18n.get(lang, "rec.not_hls"); return null }
         if (!text.contains("#EXT-X-STREAM-INF")) return base to (text to base)
         val lines = text.lines().map { it.trim() }
         var best: String? = null; var bw = -1L
