@@ -42,7 +42,7 @@ compose.desktop {
         mainClass = "tech.kousozo.tahoetv.desktop.MainKt"
         jvmArgs("-Dapple.awt.application.appearance=NSAppearanceNameDarkAqua")
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Tahoe TV"
             packageVersion = project.property("tahoe.version").toString()
             description = "Tahoe TV untuk desktop"
@@ -59,6 +59,14 @@ compose.desktop {
                 dirChooser = true
                 upgradeUuid = "8d3b7d64-3c51-4b8e-9a0e-5f1f3f7c2a11"
                 iconFile.set(project.file("icons/tahoe.ico"))
+            }
+            linux {
+                packageName = "tahoe-tv"
+                debMaintainer = "kousozo <support@kousozo.tech>"
+                menuGroup = "AudioVideo;Video;TV;"
+                appCategory = "Video"
+                shortcut = true
+                iconFile.set(project.file("src/main/resources/icon.png"))
             }
         }
     }
