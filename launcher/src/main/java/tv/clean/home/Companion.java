@@ -93,8 +93,21 @@ final class Companion extends NanoWSD {
     String pairUrl() { return "http://" + ip() + ":" + PORT + "/?code=" + code(); }
 
     Set<String> tokens() { return new HashSet<>(prefs.getStringSet("tokens", new HashSet<>())); }
-    boolean authed(IHTTPSession s) { String t = s.getParms().get("token"); return t != null && tokens().contains(t); }
+    boolean authed(IHTTPSession s) {
+        String auth = s.getHeaders().get("authorization");
+        String t = null;
+        if (auth != null && auth.toLowerCase(Locale.ROOT).startsWith("bearer ")) {
+            t = auth.substring(7).trim();
+        }
+        if (t == null) t = s.getParms().get("token");
+        return t != null && tokens().contains(t);
+    }
     int pairedCount() { return tokens().size(); }
+    void revoke(String token) {
+        Set<String> t = tokens();
+        t.remove(token);
+        prefs.edit().putStringSet("tokens", t).apply();
+    }
     void forgetAll() { prefs.edit().remove("tokens").apply(); synchronized (sockets) { for (Socket s : sockets) try { s.close(WebSocketFrame.CloseCode.NormalClosure, "unpaired", false); } catch (Exception ignored) {} } }
 
     /** Send to every connected phone (e.g. media controls back to the phone app). */
@@ -164,10 +177,17 @@ final class Companion extends NanoWSD {
     }
 
     Response pair(IHTTPSession s) throws Exception {
-        Map<String, String> files = new HashMap<>();
-        s.parseBody(files);
-        String body = files.get("postData");
-        String given = body == null ? s.getParms().get("code") : new JSONObject(body).optString("code");
+        String given;
+        try {
+            String b = body(s, 1024);
+            given = b.isEmpty() ? s.getParms().get("code") : new JSONObject(b).optString("code");
+        } catch (TooLarge e) {
+            Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
+            r.closeConnection(true);
+            return r;
+        } catch (Exception e) {
+            given = s.getParms().get("code");
+        }
         tech.kousozo.tahoetv.core.PairGuard.Result r = guard.check(given);
         if (r instanceof tech.kousozo.tahoetv.core.PairGuard.Result.Locked) {
             long sec = ((tech.kousozo.tahoetv.core.PairGuard.Result.Locked) r).getSeconds();

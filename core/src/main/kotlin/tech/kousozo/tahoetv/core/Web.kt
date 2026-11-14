@@ -26,7 +26,9 @@ object Web {
      *  Bumped with the release version. */
     const val STREAM_UA = "TahoeTV/3.2.0"
 
-    fun get(url: String, timeoutMs: Int = 10_000): String = request("GET", url, null, timeoutMs)
+    @JvmOverloads
+    fun get(url: String, timeoutMs: Int = 10_000, headers: Map<String, String>? = null): String =
+        request("GET", url, null, timeoutMs, headers)
 
     fun open(url: String, timeoutMs: Int = 30_000): HttpURLConnection {
         val c = URL(url).openConnection() as HttpURLConnection
@@ -48,10 +50,12 @@ object Web {
         }
     }
 
-    fun request(method: String, url: String, body: String?, timeoutMs: Int = 20_000): String {
+    @JvmOverloads
+    fun request(method: String, url: String, body: String?, timeoutMs: Int = 20_000, headers: Map<String, String>? = null): String {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 8000; c.readTimeout = timeoutMs; c.requestMethod = method
         c.setRequestProperty("User-Agent", "TahoeTV")
+        headers?.forEach { (k, v) -> c.setRequestProperty(k, v) }
         if (body != null) {
             c.doOutput = true; c.setRequestProperty("Content-Type", "application/json")
             c.outputStream.use { it.write(body.toByteArray()) }
