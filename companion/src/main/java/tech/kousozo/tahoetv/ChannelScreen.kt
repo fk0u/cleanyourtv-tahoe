@@ -77,6 +77,16 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
                     val fav = e.channel.url in Channels.favs
                     RoundGlass(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (fav) "Hapus dari favorit" else "Tambah ke favorit",
                         tint = if (fav) Tahoe.Bad else Tahoe.Text) { Channels.toggleFav(c, e) }
+                    Spacer(Modifier.width(8.dp))
+                    RoundGlass(Icons.Rounded.Share, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.share")) { shareChannel(c, e) }
+                    val activeDev = remember(Pairing.tick) { Sync.devices(c).active() }
+                    if (activeDev != null) {
+                        Spacer(Modifier.width(8.dp))
+                        RoundGlass(Icons.Rounded.Cast, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "connect.play_on_tv")) {
+                            tech.kousozo.tahoetv.core.TvLink.shared(activeDev.host, activeDev.token)
+                                .sessionLoad(e.channel.channelId, e.channel.url, e.name)
+                        }
+                    }
                 }
 
                 // on now
