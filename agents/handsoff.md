@@ -46,6 +46,11 @@
   - #43, #46 (Standby Adzan today/tomorrow cache, midnight Subuh rollover, `00:05` refresh + backoff retry, `goAsync()` + wake lock; persistent exponential Kids PIN lockout `2s -> 30s -> 300s` + `android:allowBackup="false"` on launcher & companion): merged in #154.
   - #93, #88 (Phone↔TV `Protocol` v2 with typed envelopes, acks & keep-alive; Tahoe Connect P0–P1 device picker sheet, active target pill, handoff `watch`/`stop`, now-playing mirror): merged in #155.
   - #90, #64, #34 (Simple Mode `Viewer.simpleMode` toggle & larger TV layout/font scale, TalkBack `contentDescription` & touch-exploration player controls, native TV `numOverlay` pill with OK confirm & `KEYCODE_DEL`/`KEYCODE_LAST_CHANNEL`): merged in #156.
+  - #157 (Docs & task sync after #153–#156): merged in #157.
+  - #37, #88 (Multi-TV `PairedDevices` store & unit tests, `TvLink.pairWithInfo`, launcher `Companion` `/devices` & `/devices/revoke`, `NsdManager` `TvDiscovery`, `TvDevicesSheet`, `Remote.kt` multi-TV selector): merged in #158.
+  - #63, #88 (Companion Android PiP mode, double-tap `-10s`/zoom/`+10s` gestures, Zoom/Fit & PiP top-bar controls, system channel share sheet, Continue-on-Phone handoff in `TvConnectBar` & `ChannelScreen`): merged in #159.
+  - #95, #88 (Extracted testable `DockGrid` layout model from `Home.java` + `ServerPages` HTML templates from `IptvServer.kt`; added desktop `GET /info` & `GET/POST /api/connect` receiver endpoints + tests): merged in #160.
+  - #44 (Issue template strictness `config.yml`/`channel.yml`/`feature_request.yml`, README update wording, SECURITY.md 7-day response SLA, and tasks/handsoff/CHANGELOG sync): docs sync PR.
 - **Open PRs:** none.
 - **Private security advisories:** Patches merged to main in #124, #125, #126. Ready to publish with 3.2.1 release.
 - **Review board** (DevOps, UI/UX, CTO, CEO, Creative, Frontend, SWE, QA) filed #88 and #90–#111, plus comments on #43 #45 #56 #57 #64 #65 #71 #75 #76 #77 #78 #81 #90 #96 #100. Priorities are in `agents/tasks.md`; direction is in `agents/plans.md`.
