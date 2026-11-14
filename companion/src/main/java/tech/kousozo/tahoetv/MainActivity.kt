@@ -75,6 +75,7 @@ class MainActivity : ComponentActivity() {
         Channels.loadFavs(this)
         Playback.loadPrefs(this)
         PhoneRegion.load(this)
+        TvDiscovery.start(applicationContext)
         setContent {
             TahoeTheme {
                 if (PhoneRegion.needsSetup) { Box(Modifier.fillMaxSize()) { Backdrop(null); WelcomeScreen() }; return@TahoeTheme }
@@ -113,7 +114,7 @@ class MainActivity : ComponentActivity() {
     /** Live TV doesn't play on in the background (no picture-in-picture yet, see #63). */
     override fun onStop() { super.onStop(); Playback.pause() }
 
-    override fun onDestroy() { if (isFinishing) Playback.release(); super.onDestroy() }
+    override fun onDestroy() { if (isFinishing) { Playback.release(); TvDiscovery.stop() }; super.onDestroy() }
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); pairFrom(intent) }
 
@@ -125,11 +126,13 @@ class MainActivity : ComponentActivity() {
         if (u.port != 8765) return
         Toast.makeText(this, "Menyambungkan ke TV $host…", Toast.LENGTH_SHORT).show()
         Thread {
-            val err = runCatching { TvLink.pair(host, code) }.fold({ token ->
-                Sync.prefs(this).edit().putString("host", host).putString("token", token).apply(); null
+            val err = runCatching {
+                TvLink.pairWithInfo(host, code, PhoneRegion.language, android.os.Build.MODEL.orEmpty())
+            }.fold({ res ->
+                Sync.recordPaired(this, host, res); null
             }, { it.message ?: "gagal" })
             runOnUiThread {
-                if (err == null) { Pairing.tick++; Sync.inst?.connect(); Nav.tab = 2 } // straight to the remote
+                if (err == null) { Nav.tab = 2 } // straight to the remote
                 Toast.makeText(this, if (err == null) "Tersambung ke TV" else "Gagal menyambung: $err. Minta kode baru di TV (OK).", Toast.LENGTH_LONG).show()
             }
         }.start()
@@ -152,10 +155,12 @@ fun HomeScreen(resumeTick: Int) {
     val c = LocalContext.current
     val p = remember { Sync.prefs(c) }
     val scope = rememberCoroutineScope()
-    var host by remember(Pairing.tick) { mutableStateOf(p.getString("host", "").orEmpty()) }
-    var paired by remember(Pairing.tick) { mutableStateOf(p.getString("token", "").orEmpty().isNotEmpty()) }
+    val devState = remember(Pairing.tick) { Sync.devices(c) }
+    var host by remember(Pairing.tick) { mutableStateOf(devState.active()?.host ?: p.getString("host", "").orEmpty()) }
+    var paired by remember(Pairing.tick) { mutableStateOf((devState.active()?.token ?: p.getString("token", "").orEmpty()).isNotEmpty()) }
     var code by remember { mutableStateOf("") }
     var showPair by remember { mutableStateOf(false) }
+    var showDevices by remember { mutableStateOf(false) }
     var notif by remember { mutableStateOf(p.getBoolean("notif", true)) }
     var media by remember { mutableStateOf(p.getBoolean("media", true)) }
     val granted = remember(resumeTick) {
@@ -187,7 +192,7 @@ fun HomeScreen(resumeTick: Int) {
                 BrandMark(30.dp, tint = Color.White)
                 Spacer(Modifier.weight(1f))
                 RoundGlass(if (paired) Icons.Rounded.Tv else Icons.Rounded.TvOff, tech.kousozo.tahoetv.core.I18n.get(lang, if (paired) "home.tv_connected" else "tv.connect_title"),
-                    tint = if (paired) Tahoe.Good else Tahoe.Text) { showPair = !showPair }
+                    tint = if (paired) Tahoe.Good else Tahoe.Text) { if (paired) showDevices = true else showPair = !showPair }
                 Spacer(Modifier.width(8.dp))
                 RoundGlass(Icons.Rounded.SettingsRemote, tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote")) { Nav.tab = 2 }
             }
@@ -212,9 +217,13 @@ fun HomeScreen(resumeTick: Int) {
         }
 
         // pairing / TV card opens from the TV button
+        if (showDevices) TvDevicesSheet({ showDevices = false }) { pickedHost ->
+            host = pickedHost
+            showPair = true
+        }
         if (showPair || !paired) TvCard(host, { host = it }, paired, code, { code = it }, showPair, { showPair = it }, granted, notif, { notif = it; p.edit().putBoolean("notif", it).apply() },
-            media, { media = it; p.edit().putBoolean("media", it).apply(); Sync.inst?.sendMedia() }) { token ->
-            p.edit().putString("host", host.trim()).putString("token", token).apply(); code = ""; paired = true; showPair = false; Sync.inst?.connect()
+            media, { media = it; p.edit().putBoolean("media", it).apply(); Sync.inst?.sendMedia() }) { res ->
+            Sync.recordPaired(c, host, res); code = ""; paired = true; showPair = false
         }
 
         val recent = recentWatched.ifEmpty { entries.orEmpty().take(8) }
@@ -242,13 +251,16 @@ fun HomeScreen(resumeTick: Int) {
             else LinearProgressIndicator(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
 
         if (paired && !showPair) Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.your_tv"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.your_tv"), fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton({ showDevices = true }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.devices"), color = Tahoe.Accent) }
+            }
             GlassCard(onClick = { showPair = true }) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Tahoe.Good.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.Tv, null, tint = Tahoe.Good) }
                     Column(Modifier.weight(1f)) {
-                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.connected_tv"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(devState.active()?.name?.ifBlank { null } ?: tech.kousozo.tahoetv.core.I18n.get(lang, "home.connected_tv"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Text("$host · ${Sync.status.value}", color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote"), Icons.Rounded.SettingsRemote) { Nav.tab = 2 }
@@ -277,7 +289,7 @@ fun HomeScreen(resumeTick: Int) {
 /** Pairing + notification settings (was the "TV kamu" card). */
 @Composable
 private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, code: String, setCode: (String) -> Unit, open: Boolean, setOpen: (Boolean) -> Unit,
-                   granted: Boolean, notif: Boolean, setNotif: (Boolean) -> Unit, media: Boolean, setMedia: (Boolean) -> Unit, onPaired: (String) -> Unit) {
+                   granted: Boolean, notif: Boolean, setNotif: (Boolean) -> Unit, media: Boolean, setMedia: (Boolean) -> Unit, onPaired: (TvLink.PairResult) -> Unit) {
     val c = LocalContext.current
     val scope = rememberCoroutineScope()
     val lang = PhoneRegion.language
@@ -294,7 +306,9 @@ private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, cod
             Field(code, { if (it.length <= 6) setCode(it.filter(Char::isDigit)) }, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.code_hint"), KeyboardType.NumberPassword)
             PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), enabled = host.isNotBlank() && code.length == 6, icon = Icons.Rounded.Link) {
                 scope.launch {
-                    val r = withContext(Dispatchers.IO) { runCatching { TvLink.pair(host.trim(), code, lang) } }
+                    val r = withContext(Dispatchers.IO) {
+                        runCatching { TvLink.pairWithInfo(host.trim(), code, lang, android.os.Build.MODEL.orEmpty()) }
+                    }
                     r.onSuccess(onPaired)
                     Toast.makeText(c, r.exceptionOrNull()?.message ?: tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connected_toast"), Toast.LENGTH_SHORT).show()
                 }
@@ -386,3 +400,85 @@ fun categoryIcon(k: LocalTv.Category?): ImageVector = when (k?.name) {
 
 /** Every tint is a shade around the brand accent so the grid stays one family. */
 fun categoryTint(k: LocalTv.Category): Color = Color(Brand.CATEGORY_TINTS[k.ordinal % Brand.CATEGORY_TINTS.size])
+
+/** Bottom sheet listing saved paired TVs (switch active / rename / forget) and mDNS-discovered receivers (#88, #37). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TvDevicesSheet(onDismiss: () -> Unit, onPickUnpaired: (String) -> Unit) {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    LaunchedEffect(Unit) { TvDiscovery.start(c) }
+    var state by remember(Pairing.tick) { mutableStateOf(Sync.devices(c)) }
+    var renaming by remember { mutableStateOf<tech.kousozo.tahoetv.core.PairedDevices.Device?>(null) }
+    var renameText by remember { mutableStateOf("") }
+
+    renaming?.let { dev ->
+        AlertDialog(
+            onDismissRequest = { renaming = null },
+            title = { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.rename")) },
+            text = { Field(renameText, { renameText = it }, dev.name) },
+            confirmButton = {
+                TextButton({
+                    val updated = state.rename(dev.id, renameText)
+                    state = updated
+                    Sync.saveDevices(c, updated)
+                    renaming = null
+                }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.rename"), color = Tahoe.Accent) }
+            },
+            dismissButton = {
+                TextButton({ renaming = null }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.close"), color = Tahoe.Dim) }
+            },
+        )
+    }
+
+    ModalBottomSheet(onDismiss, containerColor = Tahoe.Surface) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.devices"), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            state.devices.forEach { d ->
+                val isActive = state.active()?.id == d.id
+                GlassCard(onClick = {
+                    val updated = state.select(d.id)
+                    state = updated
+                    Sync.saveDevices(c, updated)
+                    onDismiss()
+                }) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(Icons.Rounded.Tv, null, tint = if (isActive) Tahoe.Good else Tahoe.Dim, modifier = Modifier.size(22.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(d.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(d.host + if (isActive) " · ${tech.kousozo.tahoetv.core.I18n.get(lang, "connect.active")}" else "",
+                                color = if (isActive) Tahoe.Good else Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono)
+                        }
+                        IconButton({ renameText = d.name; renaming = d }) {
+                            Icon(Icons.Rounded.Edit, tech.kousozo.tahoetv.core.I18n.get(lang, "connect.rename"), tint = Tahoe.Dim)
+                        }
+                        IconButton({
+                            val updated = state.remove(d.id)
+                            state = updated
+                            Sync.saveDevices(c, updated)
+                        }) {
+                            Icon(Icons.Rounded.DeleteOutline, tech.kousozo.tahoetv.core.I18n.get(lang, "connect.forget"), tint = Tahoe.Bad)
+                        }
+                    }
+                }
+            }
+            val knownHosts = state.devices.mapTo(HashSet()) { it.host }
+            val extra = TvDiscovery.discovered.filter { it.ip !in knownHosts }
+            if (extra.isNotEmpty()) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.discovered"), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Tahoe.Dim, modifier = Modifier.padding(top = 6.dp))
+                extra.forEach { f ->
+                    GlassCard(onClick = { onPickUnpaired(f.ip); onDismiss() }) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Rounded.WifiFind, null, tint = Tahoe.Accent, modifier = Modifier.size(20.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(f.name ?: "Tahoe TV", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                Text(f.ip, color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono)
+                            }
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Dim)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
