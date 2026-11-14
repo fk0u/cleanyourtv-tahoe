@@ -49,6 +49,9 @@ object Session {
 
 fun main(args: Array<String>) {
     tech.kousozo.tahoetv.core.DiagLog.install(java.io.File(System.getProperty("user.home"), ".tahoetv/diag.log"))
+    args.firstOrNull { it == "--demo" || it.startsWith("--demo=") }?.let { flag ->
+        tech.kousozo.tahoetv.core.Demo.enable(flag.substringAfter('=', "en").ifBlank { "en" })
+    }
     // `Tahoe TV --selftest [report]`: check the core paths without a window (CI on Windows/macOS, support)
     if (args.firstOrNull() == "--selftest") kotlin.system.exitProcess(if (SelfTest.run(args.getOrNull(1)) == 0) 0 else 1)
     app()

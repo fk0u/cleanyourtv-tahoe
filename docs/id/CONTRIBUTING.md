@@ -24,7 +24,8 @@ Struktur dan alur kode: [docs/ARCHITECTURE.md](ARCHITECTURE.md).
 - **Ringan untuk TV 1 GB RAM:** launcher memakai Android Views (bukan Compose), tanpa blur real-time, tanpa polling berat. Ukur sebelum menambah dependensi.
 - **`minSdk 26` (Android 8), diuji di Android 9.** Hindari API yang lebih baru tanpa pengecekan versi (misalnya `InputStream.readNBytes` baru ada di Android 13).
 - Logika yang dipakai lebih dari satu app taruh di `:core` (JVM murni, tanpa Android API), lengkap dengan tes.
-- Teks UI singkat dan jelas. Teks sedang dipindah ke resource agar bisa diterjemahkan ([#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)); layar baru pakai resource.
+- Teks UI singkat dan jelas. Teks berada di `:core` (`I18n`, `OnboardingText`) untuk tiga bahasa (`en`, `id`, `zh`); layar baru wajib memakai string terlokalisasi ([#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)).
+- Screenshot & media PR: selalu gunakan mode demo (`--demo` / `-Dtahoe.demo=true`, profil netral lewat `Demo`), tanpa foto wajah asli, foto pribadi, atau nama pribadi ([#99](https://github.com/fk0u/cleanyourtv-tahoe/issues/99)).
 - Privasi: jangan mencatat token, kunci, atau data pribadi; URL di log melewati `DiagLog.redact`.
 
 ## Terjemahan

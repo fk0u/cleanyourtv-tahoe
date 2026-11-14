@@ -27,7 +27,8 @@ Code structure and flows: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Light enough for a 1 GB TV:** the launcher uses Android Views (not Compose), no real-time blur, no heavy polling. Measure before adding a dependency.
 - **`minSdk 26` (Android 8), tested on Android 9.** Avoid newer APIs without a version check (e.g. `InputStream.readNBytes` only exists from Android 13).
 - Logic used by more than one app goes in `:core` (pure JVM, no Android APIs), with tests.
-- UI text: short and clear. Strings are moving to resources for translation ([#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)); new screens should use resources.
+- UI text: short and clear. Strings live in `:core` (`I18n`, `OnboardingText`) for trilingual support (`en`, `id`, `zh`); new screens should localize all copy ([#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)).
+- Screenshots & PR media: always use demo mode (`--demo` / `-Dtahoe.demo=true`, neutral demo profile via `Demo`) with no real faces, personal photos, or personal names ([#99](https://github.com/fk0u/cleanyourtv-tahoe/issues/99)).
 - Privacy: never log tokens, keys or personal data; URLs in logs go through `DiagLog.redact`.
 
 ## Translations

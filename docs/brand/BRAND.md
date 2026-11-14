@@ -1,12 +1,16 @@
 # Tahoe TV — Brand & Design System
 
-> **Semua tontonan rumah, tenang dan rapi.**
+> **Tahoe TV: TV yang tenang dan mudah, untuk seisi rumah.**
+> - EN: *Tahoe TV: calm, simple TV for the whole family.*
+> - ZH: *Tahoe TV：安静、简单，全家都会用的电视。*
 
 ![Tahoe TV](logo-lockup.svg)
 
 ## 1. Ide brand: "Danau di malam hari"
 
-Tahoe TV mengambil nama dari danau pegunungan. Seluruh identitas dibangun dari satu gambaran:
+Nama **Tahoe** berasal dari danau pegunungan (Danau Tahoe) — bukan mengacu pada nama OS pihak ketiga. Sebelum listing di toko aplikasi publik (Play Store / App Store), lakukan pengecekan cepat merek dagang & nama untuk wilayah distribusi target.
+
+Seluruh identitas dibangun dari satu gambaran:
 **permukaan danau yang gelap dan tenang (Night), diterangi satu cahaya yang jernih (Tahoe Cyan),
 dengan kedalaman air di bawahnya (Lake).**
 

@@ -26,4 +26,22 @@ class BrandTokensTest {
         assert(contrast(Brand.SNOW, Brand.CANVAS) >= 7.0) { "SNOW on CANVAS must pass WCAG AAA" }
         assert(contrast(Brand.CYAN, Brand.CANVAS) >= 4.5) { "CYAN text on CANVAS must pass WCAG AA" }
     }
+
+    @Test fun taglineLocalizesAcrossLanguages() {
+        assertEquals("Tahoe TV: calm, simple TV for the whole family.", Brand.tagline("en"))
+        assertEquals("Tahoe TV: TV yang tenang dan mudah, untuk seisi rumah.", Brand.tagline("id"))
+        assertEquals("Tahoe TV：安静、简单，全家都会用的电视。", Brand.tagline("zh"))
+    }
+
+    @Test fun webStylesheetUsesBrandTokens() {
+        val cssFile = generateSequence(File("").absoluteFile) { it.parentFile }
+            .map { File(it, "website/assets/style.css") }
+            .firstOrNull { it.exists() } ?: error("website/assets/style.css not found")
+        val css = cssFile.readText()
+        assert("--motion-fast: ${Brand.MOTION_FAST}ms" in css)
+        assert("--motion-med: ${Brand.MOTION_MED}ms" in css)
+        assert("--motion-slow: ${Brand.MOTION_SLOW}ms" in css)
+        assert("--violet" !in css && "--pink" !in css)
+        assert("--cyan-deep" in css && "--lake-deep" in css)
+    }
 }

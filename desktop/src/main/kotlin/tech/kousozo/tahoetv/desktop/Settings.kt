@@ -16,12 +16,16 @@ object Settings {
     }
     private val prefs = mutableMapOf<String, Pref>()
     private fun pref(key: String, default: String = "") = prefs.getOrPut(key) { Pref(key, default) }
+    private var demoViewer = mutableStateOf<tech.kousozo.tahoetv.core.Viewer?>(null)
 
-    var name get() = pref("name").state.value; set(v) = pref("name").set(v)
+    var name
+        get() = if (tech.kousozo.tahoetv.core.Demo.isActive()) tech.kousozo.tahoetv.core.Demo.profileName(viewer.language) else pref("name").state.value
+        set(v) { if (!tech.kousozo.tahoetv.core.Demo.isActive()) pref("name").set(v) }
     /** Onboarding choices (#77): language, country, city, time zone, prayer, channel countries, categories, favourites.
      *  Blank country = onboarding not done yet. Saving also updates the older single settings (city, favourites…). */
     var viewer: tech.kousozo.tahoetv.core.Viewer
-        get() = pref("viewer").state.value.takeIf { it.isNotBlank() }?.let { tech.kousozo.tahoetv.core.Viewer.fromJson(it) }
+        get() = if (tech.kousozo.tahoetv.core.Demo.isActive()) (demoViewer.value ?: tech.kousozo.tahoetv.core.Demo.viewer())
+            else pref("viewer").state.value.takeIf { it.isNotBlank() }?.let { tech.kousozo.tahoetv.core.Viewer.fromJson(it) }
             ?: pref("country").state.value.let { old -> // from the earlier two-step setup
                 tech.kousozo.tahoetv.core.Region.country(old)?.let {
                     // keep what the older settings already had: city, coordinates, province, favourites
@@ -31,6 +35,10 @@ object Settings {
                     ?: tech.kousozo.tahoetv.core.Viewer(language = tech.kousozo.tahoetv.core.Region.language(java.util.Locale.getDefault().language))
             }
         set(v) {
+            if (tech.kousozo.tahoetv.core.Demo.isActive()) {
+                demoViewer.value = v
+                return
+            }
             pref("viewer").set(v.toJson()); pref("country").set(v.country); pref("language").set(v.language)
             val la = v.lat; val lo = v.lon
             if (la != null && lo != null) { city = v.city; lat = la; lon = lo; province = v.region }
@@ -45,7 +53,9 @@ object Settings {
     /** Live TV: highest video quality, and distance from live (shared options with the TV and phone). */
     var quality get() = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(pref("quality", "auto").state.value); set(v) = pref("quality").set(v.key)
     var latency get() = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(pref("latency", "standard").state.value); set(v) = pref("latency").set(v.key)
-    var city get() = pref("city", "").state.value; set(v) = pref("city").set(v)
+    var city
+        get() = if (tech.kousozo.tahoetv.core.Demo.isActive()) viewer.city else pref("city", "").state.value
+        set(v) { if (!tech.kousozo.tahoetv.core.Demo.isActive()) pref("city").set(v) }
     var province get() = pref("province", "").state.value; set(v) = pref("province").set(v)
     var lat get() = pref("lat", "").state.value.toDoubleOrNull() ?: 0.0; set(v) = pref("lat").set("$v")
     var lon get() = pref("lon", "").state.value.toDoubleOrNull() ?: 0.0; set(v) = pref("lon").set("$v")
@@ -58,8 +68,13 @@ object Settings {
     var epg get() = pref("epg").state.value.takeUnless { it == tech.kousozo.tahoetv.core.Epg.DEFAULT }.orEmpty(); set(v) = pref("epg").set(v)
     var tvHost get() = pref("tv_host").state.value; set(v) = pref("tv_host").set(v)
     var favorites: Set<String>
-        get() = pref("fav").state.value.split('\n').filter { it.isNotBlank() }.toSet()
+        get() = if (tech.kousozo.tahoetv.core.Demo.isActive()) viewer.favorites.toSet() else pref("fav").state.value.split('\n').filter { it.isNotBlank() }.toSet()
         set(v) {
+            if (tech.kousozo.tahoetv.core.Demo.isActive()) {
+                val vw = viewer; val kept = vw.favorites.filter { it in v }
+                demoViewer.value = vw.copy(favorites = kept + (v - kept.toSet()))
+                return
+            }
             pref("fav").set(v.joinToString("\n"))
             // keep the onboarding's order; new ones last
             val vw = viewer; val kept = vw.favorites.filter { it in v }
