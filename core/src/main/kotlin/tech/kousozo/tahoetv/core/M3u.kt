@@ -5,15 +5,19 @@ import org.json.JSONObject
 /** M3U/M3U8 playlist parser for IPTV lists: #EXTINF attributes plus the per-stream option lines players use
  *  (#EXTVLCOPT / #EXTHTTP headers, #KODIPROP DRM licences). */
 object M3u {
-    /** `headers`: HTTP headers the stream needs (Referer, User-Agent…). `drm`: encrypted (has a licence key, or DASH), never played.
+    /** `headers`: HTTP headers the stream needs (Referer, User-Agent…). `drm`: encrypted (has a licence key).
      *  A bare `license_type` on an HLS URL is not DRM: some playlists copy it onto plain streams. */
     data class Channel(val name: String, val url: String, val logo: String?, val group: String?,
                        val headers: Map<String, String> = emptyMap(), val drm: Boolean = false,
-                       val tvgId: String? = null, val drmType: String? = null, val drmKey: String? = null) {
+                       val tvgId: String? = null, val drmType: String? = null, val drmKey: String? = null,
+                       val manifestType: String? = null) {
         /** Stable identifier across stream URL rotations: normalized tvg-id when available, otherwise name slug. */
         val channelId: String
             get() = tvgId?.trim()?.lowercase()?.replace(Regex("[^a-z0-9._-]+"), "-")?.trim('-')?.takeIf { it.isNotEmpty() }
                 ?: slug(name)
+
+        /** True when this stream points to an MPEG-DASH (`.mpd`) manifest. */
+        val isDash: Boolean get() = Drm.isDash(url, drmType, manifestType)
     }
 
     /** Public, community-maintained list of freely available Indonesian channels (iptv-org). */
@@ -28,6 +32,13 @@ object M3u {
     /** `"https://x/"` → `https://x/`: some playlists quote option values, and the quotes then went out in the header. */
     private fun unquote(v: String) = v.trim().removeSurrounding("\"").removeSurrounding("'").trim()
 
+    private fun normalizeHeaderKey(raw: String): String? = when (raw.trim().lowercase()) {
+        "referer", "referrer", "http-referer", "http-referrer" -> "Referer"
+        "user-agent", "http-user-agent" -> "User-Agent"
+        "origin", "http-origin" -> "Origin"
+        else -> null
+    }
+
     fun parse(text: String): List<Channel> {
         val out = mutableListOf<Channel>()
         var info: String? = null
@@ -35,52 +46,95 @@ object M3u {
         var drm = false
         var drmType: String? = null
         var drmKey: String? = null
+        var manifestType: String? = null
         var group: String? = null
+
+        fun resetPending() {
+            info = null; headers.clear(); drm = false; drmType = null; drmKey = null; manifestType = null; group = null
+        }
+
+        fun applyKeyValues(raw: String, allowDrm: Boolean) {
+            raw.split('&', '|').forEach { kv ->
+                kv.split('=', limit = 2).takeIf { it.size == 2 }?.let { (k, v) ->
+                    val cleaned = unquote(v)
+                    when (val hk = normalizeHeaderKey(k)) {
+                        null -> if (allowDrm) when (k.trim().lowercase()) {
+                            "license_type" -> drmType = cleaned.ifEmpty { drmType }
+                            "license_key" -> if (cleaned.isNotEmpty()) { drmKey = cleaned; drm = true }
+                            "manifest_type" -> manifestType = cleaned.ifEmpty { manifestType }
+                        }
+                        else -> if (cleaned.isNotEmpty()) headers[hk] = cleaned
+                    }
+                }
+            }
+        }
+
         for (raw in text.lineSequence()) {
             val line = raw.trim()
             when {
                 // Options may come before #EXTINF (dhanytv) or between it and the URL (VLC style): both belong to the next URL.
-                line.startsWith("#EXTINF") -> info = line
+                // Only clear pending options when a previous #EXTINF had no URL line.
+                line.startsWith("#EXTINF") -> {
+                    if (info != null) resetPending()
+                    info = line
+                }
                 line.startsWith("#EXTVLCOPT:") -> line.substringAfter(':').split('=', limit = 2).takeIf { it.size == 2 }?.let { (k, v) ->
-                    when (k.trim().lowercase()) {
-                        "http-referrer", "http-referer" -> headers["Referer"] = unquote(v)
-                        "http-user-agent" -> headers["User-Agent"] = unquote(v)
-                        "http-origin" -> headers["Origin"] = unquote(v)
+                    normalizeHeaderKey(k)?.let { hk -> headers[hk] = unquote(v) }
+                }
+                line.startsWith("#EXTHTTP:") -> runCatching {
+                    JSONObject(line.substringAfter(':')).let { j ->
+                        j.keys().forEach { k ->
+                            val hk = normalizeHeaderKey(k) ?: k
+                            j.optString(k).takeIf { it.isNotEmpty() }?.let { headers[hk] = unquote(it) }
+                        }
                     }
                 }
-                line.startsWith("#EXTHTTP:") -> runCatching { JSONObject(line.substringAfter(':')).let { j -> j.keys().forEach { k -> headers[k] = j.getString(k) } } }
                 line.startsWith("#KODIPROP:") -> {
                     val prop = line.substringAfter(':')
                     when {
                         prop.startsWith("inputstream.adaptive.license_type=", true) -> {
-                            drmType = prop.substringAfter('=').trim()
+                            drmType = unquote(prop.substringAfter('='))
                         }
                         prop.startsWith("inputstream.adaptive.license_key=", true) -> {
-                            drmKey = prop.substringAfter('=').trim()
-                            drm = true
+                            val keyVal = unquote(prop.substringAfter('='))
+                            if (keyVal.isNotEmpty()) {
+                                drmKey = keyVal
+                                drm = true
+                            }
+                        }
+                        prop.startsWith("inputstream.adaptive.manifest_type=", true) -> {
+                            manifestType = unquote(prop.substringAfter('='))
                         }
                         prop.startsWith("inputstream.adaptive.stream_headers=", true) -> // "A=1&B=2" or "A=1|B=2"
-                            prop.substringAfter('=').split('&', '|').forEach { kv ->
-                                kv.split('=', limit = 2).takeIf { it.size == 2 }?.let { (k, v) ->
-                                    when (k.trim().lowercase()) { "referer", "referrer" -> headers["Referer"] = unquote(v); "user-agent" -> headers["User-Agent"] = unquote(v); "origin" -> headers["Origin"] = unquote(v) }
-                                }
-                            }
+                            applyKeyValues(prop.substringAfter('='), allowDrm = false)
                     }
                 }
                 line.startsWith("#EXTGRP:") -> group = line.substringAfter(':').trim().ifEmpty { null }
                 line.isEmpty() || line.startsWith("#") -> {}
                 info != null -> {
-                    val attrs = attr.findAll(info.substringBefore(',', info)).associate { it.groupValues[1].lowercase() to it.groupValues[2] }
+                    val curInfo = info!!
+                    val attrs = attr.findAll(curInfo.substringBefore(',', curInfo)).associate { it.groupValues[1].lowercase() to it.groupValues[2] }
                     (attrs["http-referrer"] ?: attrs["http-referer"])?.takeIf { it.isNotBlank() }?.let { headers.putIfAbsent("Referer", it) }
                     attrs["http-user-agent"]?.takeIf { it.isNotBlank() }?.let { headers.putIfAbsent("User-Agent", it) }
-                    val name = info.substringAfterLast(',').trim().ifEmpty { attrs["tvg-name"] ?: line }
-                    val dash = line.substringBefore('?').endsWith(".mpd", ignoreCase = true)
-                    out += Channel(name.replace(Regex("""\s*\(\d+[pi]\)"""), ""), line, attrs["tvg-logo"]?.takeIf { it.isNotBlank() },
-                        (attrs["group-title"]?.takeIf { it.isNotBlank() } ?: group)?.substringBefore(';'), headers.toMap(), drm || dash,
-                        attrs["tvg-id"]?.takeIf { it.isNotBlank() }, drmType, drmKey)
-                    info = null; headers.clear(); drm = false; drmType = null; drmKey = null; group = null
+                    attrs["http-origin"]?.takeIf { it.isNotBlank() }?.let { headers.putIfAbsent("Origin", it) }
+                    val cleanUrl = line.substringBefore('|').trim()
+                    if ('|' in line) applyKeyValues(line.substringAfter('|'), allowDrm = true)
+                    val name = curInfo.substringAfterLast(',').trim().ifEmpty { attrs["tvg-name"] ?: cleanUrl }
+                    out += Channel(
+                        name.replace(Regex("""\s*\(\d+[pi]\)"""), ""),
+                        cleanUrl,
+                        attrs["tvg-logo"]?.takeIf { it.isNotBlank() },
+                        (attrs["group-title"]?.takeIf { it.isNotBlank() } ?: group)?.substringBefore(';'),
+                        headers.toMap(),
+                        drm || !drmKey.isNullOrBlank(),
+                        attrs["tvg-id"]?.takeIf { it.isNotBlank() },
+                        drmType,
+                        drmKey,
+                        manifestType
+                    )
+                    resetPending()
                 }
-                else -> { headers.clear(); drm = false; drmType = null; drmKey = null; group = null } // stray URL without #EXTINF: its options don't leak into the next entry
+                else -> resetPending() // stray URL without #EXTINF: its options don't leak into the next entry
             }
         }
         return out.distinctBy { it.url }
