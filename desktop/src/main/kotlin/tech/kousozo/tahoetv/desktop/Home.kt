@@ -117,11 +117,17 @@ fun HomeScreen(onLive: () -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Glass(Modifier.weight(1.6f), radius = 26, padding = 20) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.national_channels"), Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.see_all"), Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onLive).padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp, color = Tahoe.Dim)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.featured_channels"), Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.see_all"), Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onLive).padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp, color = Tahoe.Dim)
                 }
-                tech.kousozo.tahoetv.core.LocalTv.PRIORITY.take(7).forEachIndexed { i, key ->
-                    val name = PRETTY[key] ?: key
+                val homeCountry = Settings.countryCode
+                val countryLabel = tech.kousozo.tahoetv.core.Region.name(homeCountry, lang)
+                val featuredNames = remember(homeCountry) {
+                    tech.kousozo.tahoetv.core.CountryCatalog.featuredNames(homeCountry, 7)
+                        .ifEmpty { tech.kousozo.tahoetv.core.LocalTv.PRIORITY.take(7).map { PRETTY[it] ?: it } }
+                }
+                featuredNames.forEachIndexed { i, rawName ->
+                    val name = PRETTY[rawName.lowercase()] ?: rawName
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { DeskNav.query = name; onLive() }.padding(vertical = 8.dp, horizontal = 6.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("%02d".format(i + 1), Modifier.width(34.dp), fontSize = 13.sp, color = Tahoe.Faint)
@@ -131,10 +137,10 @@ fun HomeScreen(onLive: () -> Unit) {
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Text(name, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            Text("Nasional · siaran langsung", fontSize = 12.sp, color = Tahoe.Faint)
+                            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.featured_live", countryLabel), fontSize = 12.sp, color = Tahoe.Faint)
                         }
                         Box(Modifier.size(36.dp).clip(CircleShape).background(Tahoe.CardHi), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.PlayArrow, "Tonton", tint = Tahoe.Text, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Rounded.PlayArrow, tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), tint = Tahoe.Text, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -164,6 +170,7 @@ private val PRETTY = mapOf("trans tv" to "Trans TV", "trans7" to "Trans7", "rcti
  *  secondary pill), artwork right fading into the card, dots bottom-right. */
 @Composable
 private fun HeroCarousel(heroes: List<Web.Hero>, modifier: Modifier, onLive: () -> Unit) {
+    val lang = Settings.lang
     var i by remember(heroes) { mutableStateOf(0) }
     LaunchedEffect(heroes) { while (heroes.isNotEmpty()) { delay(8000); i = (i + 1) % heroes.size } }
     Box(modifier.clip(RoundedCornerShape(30.dp)).background(Tahoe.Card)) {
@@ -175,16 +182,16 @@ private fun HeroCarousel(heroes: List<Web.Hero>, modifier: Modifier, onLive: () 
                         center = androidx.compose.ui.geometry.Offset(1100f, 120f), radius = 700f)))
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Tahoe.Card, 0.38f to Tahoe.Card.copy(alpha = 0.92f), 0.7f to Color.Transparent)))
                 Column(Modifier.align(Alignment.CenterStart).padding(start = 32.dp, end = 24.dp).widthIn(max = 460.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(if (cur != null) "Trending di ${cur.source}" else "Tahoe TV", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    Text(if (cur != null) "#${i % heroes.size + 1} · hari ini" else "TV Live, jadwal acara, dan streaming", fontSize = 12.sp, color = Tahoe.Faint)
+                    Text(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "home.trending_on", cur.source) else "Tahoe TV", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "home.today_num", i % heroes.size + 1) else tech.kousozo.tahoetv.core.I18n.get(lang, "home.tagline"), fontSize = 12.sp, color = Tahoe.Faint)
                     Spacer(Modifier.height(8.dp))
-                    Text(cur?.title ?: "Semua tontonan\ndi satu tempat", fontSize = 36.sp, fontWeight = FontWeight.Bold, lineHeight = 40.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    Text(cur?.sub ?: "Isi API key YouTube/TMDB di Setelan untuk rekomendasi trending.", fontSize = 13.sp, color = Tahoe.Dim, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(cur?.title ?: tech.kousozo.tahoetv.core.I18n.get(lang, "home.hero_default"), fontSize = 36.sp, fontWeight = FontWeight.Bold, lineHeight = 40.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Text(cur?.sub ?: tech.kousozo.tahoetv.core.I18n.get(lang, "home.hero_sub_default"), fontSize = 13.sp, color = Tahoe.Dim, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Row(Modifier.height(48.dp).clip(RoundedCornerShape(50)).background(Color.White).clickable { if (cur != null) browse(cur.url) else onLive() }
                             .padding(start = 20.dp, end = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (cur != null) "Tonton sekarang" else "Buka TV Live", color = Color(0xFF111114), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch_now") else tech.kousozo.tahoetv.core.I18n.get(lang, "home.open_live_tv"), color = Color(0xFF111114), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                             Spacer(Modifier.width(14.dp))
                             Box(Modifier.size(38.dp).clip(CircleShape).background(Color(0xFF111114)), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
@@ -192,7 +199,7 @@ private fun HeroCarousel(heroes: List<Web.Hero>, modifier: Modifier, onLive: () 
                         }
                         Session.tv?.let { tv -> if (cur != null) Box(Modifier.height(48.dp).clip(RoundedCornerShape(50)).background(Tahoe.CardHi)
                             .clickable { Thread { runCatching { tv.sh("am start -a android.intent.action.VIEW -d " + tech.kousozo.tahoetv.core.TvAdb.quote(cur.url)) } }.start() }
-                            .padding(horizontal = 20.dp), contentAlignment = Alignment.Center) { Text("Putar di TV", fontSize = 14.sp) } }
+                            .padding(horizontal = 20.dp), contentAlignment = Alignment.Center) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.play_on_tv"), fontSize = 14.sp) } }
                     }
                 }
             }
@@ -220,7 +227,8 @@ private fun StatCard(title: String, value: String, sub: String, icon: ImageVecto
 /** Next prayer with a ring that fills as the time approaches (last 3 hours). */
 @Composable
 private fun PrayerCard(next: Pair<String, String>?, now: LocalTime, modifier: Modifier) = Glass(modifier, radius = 26, padding = 18) {
-    Text("Shalat", fontSize = 14.sp, color = Tahoe.Dim)
+    val lang = Settings.lang
+    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.prayer_card"), fontSize = 14.sp, color = Tahoe.Dim)
     val mins = next?.let { val t = LocalTime.parse(it.second); ((t.toSecondOfDay() - now.toSecondOfDay() + 86_400) % 86_400) / 60 } ?: 0
     val f = (1f - mins / 180f).coerceIn(0.03f, 1f)
     Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -230,7 +238,8 @@ private fun PrayerCard(next: Pair<String, String>?, now: LocalTime, modifier: Mo
         }
         Text(next?.second ?: "—", fontSize = 16.sp, fontWeight = FontWeight.Bold)
     }
-    Text(next?.let { "${it.first} · ${mins / 60} j ${mins % 60} m lagi" } ?: "Memuat…", fontSize = 12.sp, color = Tahoe.Faint, maxLines = 1)
+    Text(next?.let { tech.kousozo.tahoetv.core.I18n.get(lang, "home.prayer_in_hm", it.first, mins / 60, mins % 60) }
+        ?: tech.kousozo.tahoetv.core.I18n.get(lang, "home.prayer_loading"), fontSize = 12.sp, color = Tahoe.Faint, maxLines = 1)
 }
 
 /** Accent card that opens TV Live. */
@@ -240,19 +249,24 @@ private fun LiveCard(modifier: Modifier, onLive: () -> Unit) = Box(
         .background(Brush.linearGradient(listOf(Tahoe.Accent, Color(0xFF2E7BE0))))
         .clickable(onClick = onLive).padding(20.dp),
 ) {
+    val lang = Settings.lang
+    val cc = Settings.countryCode
+    val chips = remember(cc) {
+        tech.kousozo.tahoetv.core.CountryCatalog.featuredNames(cc, 4).ifEmpty { listOf("TRANS", "RCTI", "SCTV", "TVRI") }
+    }
     Column(Modifier.align(Alignment.TopStart)) {
-        Text("TV Live", color = Tahoe.OnAccent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Text("Nasional, TVRI daerah, TV lokal + jadwal acara", color = Tahoe.OnAccent.copy(alpha = 0.75f), fontSize = 12.sp)
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"), color = Tahoe.OnAccent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(tech.kousozo.tahoetv.core.CountryCatalog.featuredSubtitle(emptyList(), cc, lang), color = Tahoe.OnAccent.copy(alpha = 0.75f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf("TRANS", "RCTI", "SCTV", "TVRI").forEach {
+        chips.forEach {
             Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White).border(2.dp, Tahoe.Accent, CircleShape), contentAlignment = Alignment.Center) {
-                Text(it.take(4), fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFF111114))
+                Text(short(it).take(5), fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFF111114))
             }
         }
     }
     Box(Modifier.align(Alignment.BottomEnd).size(46.dp).clip(CircleShape).background(Tahoe.OnAccent), contentAlignment = Alignment.Center) {
-        Icon(Icons.Rounded.PlayArrow, "Buka TV Live", tint = Tahoe.Accent)
+        Icon(Icons.Rounded.PlayArrow, tech.kousozo.tahoetv.core.I18n.get(lang, "home.open_live_tv"), tint = Tahoe.Accent)
     }
 }
 
@@ -266,7 +280,7 @@ private fun WatchTile(name: String, color: Color, modifier: Modifier, onClick: (
         .background(Brush.linearGradient(listOf(color.copy(alpha = 0.95f), color.copy(alpha = 0.35f), Tahoe.Card)))
         .hoverable(src).clickable(onClick = onClick).padding(14.dp)) {
         Text(name, Modifier.align(Alignment.TopStart), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        Text("Buka", Modifier.align(Alignment.BottomStart), fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f))
+        Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "common.open"), Modifier.align(Alignment.BottomStart), fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f))
         Box(Modifier.align(Alignment.BottomEnd).size(34.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(18.dp))
         }
@@ -280,22 +294,23 @@ private fun AssistantPanel() {
     var busy by remember { mutableStateOf(false) }
     val history = remember { mutableStateListOf<Pair<String, String>>() }
     val scope = rememberCoroutineScope()
+    val lang = Settings.lang
     fun send() {
         val question = q.trim().ifEmpty { return }
-        if (Settings.gemini.isBlank()) { answer = "Isi API key Gemini di Setelan dulu."; return }
+        if (Settings.gemini.isBlank()) { answer = tech.kousozo.tahoetv.core.I18n.get(lang, "home.set_gemini_key"); return }
         busy = true; q = ""
         scope.launch {
             val a = withContext(Dispatchers.IO) {
-                runCatching { Web.ask(Settings.gemini, Settings.geminiModel, question, Settings.city, history.takeLast(6), Settings.lang) }.getOrElse { "Gagal: ${it.message}" }
+                runCatching { Web.ask(Settings.gemini, Settings.geminiModel, question, Settings.city, history.takeLast(6), Settings.lang) }.getOrElse { "${tech.kousozo.tahoetv.core.I18n.get(lang, "pair.failed")}: ${it.message}" }
             }
             history += "user" to question; history += "model" to a
             answer = a; busy = false
         }
     }
     Glass(Modifier.fillMaxWidth()) {
-        Field(q, { q = it }, "Tanya apa saja: berita terbaru, rekomendasi film, jadwal bola…",
+        Field(q, { q = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "home.ask_placeholder"),
             Modifier.fillMaxWidth().onEnter { send() },
-            trailing = { IconButton(::send, enabled = !busy) { Icon(Icons.AutoMirrored.Rounded.Send, "Kirim", tint = Tahoe.Accent) } })
+            trailing = { IconButton(::send, enabled = !busy) { Icon(Icons.AutoMirrored.Rounded.Send, tech.kousozo.tahoetv.core.I18n.get(lang, "common.send"), tint = Tahoe.Accent) } })
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
         answer?.let { Text(it, fontSize = 15.sp, lineHeight = 22.sp, color = Tahoe.Text) }
     }

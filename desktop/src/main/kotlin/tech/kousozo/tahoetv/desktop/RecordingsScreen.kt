@@ -29,19 +29,20 @@ fun RecordingsScreen() {
     LaunchedEffect(Unit) { Recordings.boot() }
     val jobs = Recordings.jobs.sortedByDescending { it.start }
     var problem by remember { mutableStateOf<String?>(null) }
+    val lang = Settings.lang
     /** Opens a file or folder in the system's app; says so when that isn't possible instead of doing nothing. */
     val open: (File) -> Unit = { f ->
-        problem = runCatching { java.awt.Desktop.getDesktop().open(f); null }.getOrElse { "Tidak bisa membuka ${f.name}: ${it.message ?: "tidak ada aplikasi untuk file ini"}" }
+        problem = runCatching { java.awt.Desktop.getDesktop().open(f); null }.getOrElse { "${tech.kousozo.tahoetv.core.I18n.get(lang, "pair.failed")}: ${f.name} (${it.message ?: ""})" }
     }
     Column(Modifier.fillMaxSize().padding(start = 12.dp, end = 28.dp, top = 24.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Title("Rekaman", "Disimpan di ${Recordings.dir.path}. Rekaman berjalan selama Tahoe TV terbuka di komputer ini.")
+        Title(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.title"), tech.kousozo.tahoetv.core.I18n.get(lang, "rec.subtitle", Recordings.dir.path))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GhostButton("Buka folder", Icons.Rounded.FolderOpen) { open(Recordings.dir) }
-            GhostButton("Rekam dari TV Live", Icons.Rounded.LiveTv) { DeskNav.screen = Screen.Live }
+            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.open_folder"), Icons.Rounded.FolderOpen) { open(Recordings.dir) }
+            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.from_live"), Icons.Rounded.LiveTv) { DeskNav.screen = Screen.Live }
         }
         problem?.let { Text(it, color = Tahoe.Bad, fontSize = 13.sp) }
         if (jobs.isEmpty()) {
-            Glass { Text("Belum ada rekaman. Di TV Live, pilih saluran lalu tekan ⏺ Rekam pada acara yang sedang atau akan tayang.", color = Tahoe.Dim, fontSize = 14.sp) }
+            Glass { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.empty"), color = Tahoe.Dim, fontSize = 14.sp) }
             return@Column
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -52,20 +53,24 @@ fun RecordingsScreen() {
 
 @Composable
 private fun RecordingRow(j: Recordings.Job, open: (File) -> Unit) = Glass(padding = 14) {
+    val lang = Settings.lang
+    val zone = Settings.viewer.zone
+    val dayFmt = remember(lang, zone) { DateTimeFormatter.ofPattern("EEE d MMM, HH.mm", java.util.Locale.forLanguageTag(lang)).withZone(zone) }
+    val hmFmt = remember(zone) { DateTimeFormatter.ofPattern("HH.mm").withZone(zone) }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         val (label, color) = when (j.state) {
-            "recording" -> "MEREKAM" to Tahoe.Bad
-            "scheduled" -> "TERJADWAL" to Tahoe.Accent
-            "done" -> "SELESAI" to Tahoe.Good
-            "partial" -> "TERPOTONG" to Color(0xFFFF9F0A)
-            "cancelled" -> "DIBATALKAN" to Tahoe.Faint
-            "missed" -> "TERLEWAT" to Tahoe.Faint
-            else -> "GAGAL" to Tahoe.Bad
+            "recording" -> tech.kousozo.tahoetv.core.I18n.get(lang, "rec.state_rec") to Tahoe.Bad
+            "scheduled" -> tech.kousozo.tahoetv.core.I18n.get(lang, "rec.state_sched") to Tahoe.Accent
+            "done" -> tech.kousozo.tahoetv.core.I18n.get(lang, "rec.state_done") to Tahoe.Good
+            "partial" -> tech.kousozo.tahoetv.core.I18n.get(lang, "rec.state_partial") to Color(0xFFFF9F0A)
+            "cancelled" -> tech.kousozo.tahoetv.core.I18n.get(lang, "rec.state_cancelled") to Tahoe.Faint
+            "missed" -> tech.kousozo.tahoetv.core.I18n.get(lang, "rec.state_missed") to Tahoe.Faint
+            else -> tech.kousozo.tahoetv.core.I18n.get(lang, "rec.state_failed") to Tahoe.Bad
         }
         Box(Modifier.size(10.dp).clip(CircleShape).background(color))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(j.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${j.channel} · ${DAY.format(Instant.ofEpochMilli(j.start))}–${HM.format(Instant.ofEpochMilli(j.stop))}" +
+            Text("${j.channel} · ${dayFmt.format(Instant.ofEpochMilli(j.start))}–${hmFmt.format(Instant.ofEpochMilli(j.stop))}" +
                 (if (j.bytes > 0) " · ${size(j.bytes)}" else ""), fontSize = 13.sp, color = Tahoe.Dim)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(label, Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(5.dp)).background(color.copy(alpha = 0.16f)).padding(horizontal = 6.dp, vertical = 2.dp),
@@ -74,11 +79,11 @@ private fun RecordingRow(j: Recordings.Job, open: (File) -> Unit) = Glass(paddin
             }
         }
         val f = File(j.file)
-        if (j.bytes > 0 && f.isFile) GhostButton("Putar", Icons.Rounded.PlayArrow) { open(f) }
+        if (j.bytes > 0 && f.isFile) GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.play"), Icons.Rounded.PlayArrow) { open(f) }
         when {
-            j.state == "recording" -> GhostButton("Hentikan", Icons.Rounded.Stop, color = Tahoe.Bad) { Recordings.cancel(j.id) }
-            j.state == "scheduled" -> GhostButton("Batalkan", Icons.Rounded.Close) { Recordings.cancel(j.id) }
-            else -> IconButton({ Recordings.delete(j.id) }) { Icon(Icons.Rounded.DeleteOutline, "Hapus rekaman dan filenya", tint = Tahoe.Faint) }
+            j.state == "recording" -> GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.stop"), Icons.Rounded.Stop, color = Tahoe.Bad) { Recordings.cancel(j.id) }
+            j.state == "scheduled" -> GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.cancel"), Icons.Rounded.Close) { Recordings.cancel(j.id) }
+            else -> IconButton({ Recordings.delete(j.id) }) { Icon(Icons.Rounded.DeleteOutline, tech.kousozo.tahoetv.core.I18n.get(lang, "rec.delete_aria"), tint = Tahoe.Faint) }
         }
     }
 }
@@ -88,6 +93,3 @@ private fun size(b: Long) = when {
     b >= 1L shl 20 -> "%.0f MB".format(b / (1L shl 20).toDouble())
     else -> "${b / 1024} KB"
 }
-
-private val DAY = DateTimeFormatter.ofPattern("EEE d MMM, HH.mm", java.util.Locale("id")).withZone(ZoneId.systemDefault())
-private val HM = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault())

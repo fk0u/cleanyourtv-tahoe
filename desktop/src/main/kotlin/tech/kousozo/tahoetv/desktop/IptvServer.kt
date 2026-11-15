@@ -247,7 +247,7 @@ object IptvServer {
         val groups: List<Pair<String, List<M3u.Channel>>> =
             if (customFiles.isNotEmpty()) filesToLoad.filter { it.isFile }.map { f -> f.name to runCatching { M3u.load(f.absolutePath) }.getOrDefault(emptyList()) }
             else loadKey().let { key -> // taken before the slow load: a change meanwhile still triggers the next reload
-                listOf("Tahoe" to runCatching { Sources.loadCountries(Settings.playlist, Settings.viewer.countries) }.getOrDefault(emptyList())).also { loadedFor = key } }
+                listOf("Tahoe" to runCatching { Sources.loadCountriesPriority(Settings.playlist, Settings.viewer.countries) }.getOrDefault(emptyList())).also { loadedFor = key } }
         for ((sourceName, list) in groups) {
             if (list.isEmpty()) continue
 

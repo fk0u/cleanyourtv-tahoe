@@ -85,7 +85,7 @@ fun SetupScreen(onDone: () -> Unit) {
                     }
                     Step.Country -> CountryList(v.language, listOf(v.country), suggestedCountry, multi = false) { cc ->
                         v = if (cc == v.country) v else v.copy(country = cc, prayer = Region.prayerByDefault(cc), prayerMethod = Prayer.methodFor(cc),
-                            channelCountries = listOf(cc), city = "", lat = null, lon = null, region = "", timeZone = "")
+                            channelCountries = listOf(cc), city = "", lat = null, lon = null, region = "", timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(cc))
                     }
                     Step.City -> CityStep(v, t) { v = it }
                     Step.TimeZone -> TimeZoneStep(v, t) { v = v.copy(timeZone = it) }
@@ -160,18 +160,31 @@ private fun CountryList(lang: String, chosen: List<String>, suggested: String, m
 private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Unit) = Column {
     var query by remember { mutableStateOf(v.city) }
     var results by remember { mutableStateOf<List<Web.City>?>(null) }
+    val suggested = remember(v.country, v.language) { tech.kousozo.tahoetv.core.CountryCatalog.suggestedCities(v.country, v.language) }
     LaunchedEffect(query) {
         if (query.trim().length < 2 || query == v.city) { results = null; return@LaunchedEffect }
         delay(400)
-        // Indonesian city names give Indonesian province names, which "near you" matches
-        results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), if (v.country == Region.HOME) "id" else v.language, v.country) }
+        results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), v.language, v.country) }
     }
     Field(query, { query = it }, t("city.search"))
     Spacer(Modifier.height(10.dp))
     if (v.lat != null) Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", ") + "  ✕", "📍", true) {
-        onChange(v.copy(city = "", lat = null, lon = null, region = "", timeZone = "")); query = "" // tap again to clear: weather and prayer stay hidden
+        onChange(v.copy(city = "", lat = null, lon = null, region = "", timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(v.country))); query = "" // tap again to clear: weather and prayer stay hidden
     }
-    else if (results == null) Text(t("city.none"), color = Tahoe.Faint, fontSize = 12.sp)
+    else if (results == null) {
+        Text(t("city.none"), color = Tahoe.Faint, fontSize = 12.sp)
+        if (suggested.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(suggested) { s ->
+                    Option(s.label(), "📍", false) {
+                        onChange(v.copy(city = s.city, lat = s.lat, lon = s.lon, region = s.region, timeZone = s.zoneId))
+                        query = s.city; results = null
+                    }
+                }
+            }
+        }
+    }
     results?.let { list ->
         if (list.isEmpty()) Text(t("city.empty"), color = Tahoe.Faint, fontSize = 12.sp)
         LazyColumn(Modifier.weight(1f).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -187,11 +200,16 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
 
 @Composable
 private fun TimeZoneStep(v: Viewer, t: (String) -> String, onPick: (String) -> Unit) = Column {
+    val defZone = remember(v.country) { tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(v.country) }
     val device = remember { java.util.TimeZone.getDefault().id }
     var query by remember { mutableStateOf("") }
     val zones = remember { (listOf("UTC") + java.time.ZoneId.getAvailableZoneIds().filter { '/' in it && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }.sorted()) }
-    val picked = v.timeZone.ifBlank { device }
-    Option(t("tz.device").replace("%s", device), "💻", v.timeZone.isBlank() || v.timeZone == device) { onPick("") }
+    val picked = v.timeZone.ifBlank { defZone }
+    Option("${defZone.replace('_', ' ')}  ${offset(defZone)}", "🌐", picked == defZone) { onPick(defZone) }
+    if (device != defZone) {
+        Spacer(Modifier.height(6.dp))
+        Option(t("tz.device").replace("%s", device), "💻", v.timeZone == device) { onPick(device) }
+    }
     Spacer(Modifier.height(6.dp))
     Field(query, { query = it }, t("search"))
     Spacer(Modifier.height(8.dp))
@@ -215,7 +233,11 @@ private fun FavoritesStep(v: Viewer, t: (String) -> String, onLoaded: (List<Loca
     LaunchedEffect(v.countries) {
         list = null; failed = false
         val loaded = withContext(Dispatchers.IO) {
-            runCatching { LocalTv.arrange(Sources.loadCountries(Settings.playlist, v.countries), v.nearRegion) }.getOrNull()
+            runCatching {
+                val raw = Sources.loadCountriesPriority(Settings.playlist, v.countries)
+                tech.kousozo.tahoetv.core.PopularityScraper.prefetchAsync(v.countries, raw.map { it.name })
+                LocalTv.arrange(raw, v.nearRegion, v.countries, v.sort, v.city, v.country)
+            }.getOrNull()
         }
         list = loaded // every channel: favourites stay visible in Live TV whatever the categories
         failed = loaded.isNullOrEmpty()
@@ -270,7 +292,7 @@ private fun Summary(v: Viewer, t: (String) -> String) = Column(Modifier.vertical
         "sum.language" to OnboardingText.LANGUAGE_NAMES.getValue(v.language),
         "sum.country" to Region.flag(v.country) + " " + Region.name(v.country, v.language),
         "sum.city" to v.city.ifBlank { t("sum.none") },
-        "sum.tz" to v.timeZone.ifBlank { java.util.TimeZone.getDefault().id },
+        "sum.tz" to v.timeZone.ifBlank { tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(v.country) },
         "sum.prayer" to if (v.prayer) Prayer.name(v.prayerMethod) else t("sum.off"),
         "sum.channels" to v.countries.joinToString("  ") { Region.flag(it) + " " + Region.name(it, v.language) },
         "sum.cats" to if (v.categories.isEmpty()) t("sum.all") else LocalTv.Category.entries.filter { it.name in v.categories }.joinToString(", ") { OnboardingText.category(v.language, it) },

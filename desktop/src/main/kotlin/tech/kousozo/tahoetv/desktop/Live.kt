@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import tech.kousozo.tahoetv.core.Epg
 import tech.kousozo.tahoetv.core.LocalTv
@@ -60,12 +61,17 @@ fun LiveScreen() {
     val epgUrl = Settings.epg
     val viewer = Settings.viewer
     val countries = viewer.countries
+    val scope = rememberCoroutineScope()
+    var sortMode by remember(viewer.sortMode) { mutableStateOf(viewer.sort) }
+    var popularityVersion by remember { mutableStateOf(0) }
+    val hm = remember(viewer.zone) { DateTimeFormatter.ofPattern("HH.mm").withZone(viewer.zone) }
     LaunchedEffect(epgUrl, countries, channels) {
         epg = null
         epg = withContext(Dispatchers.IO) {
             runCatching {
                 val filter = channels?.flatMap { listOfNotNull(it.name, it.tvgId) }?.toSet()
-                Epg.load(epgUrl.ifBlank { null }?.let(::listOf) ?: countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct(), filter)
+                val urls = epgUrl.ifBlank { null }?.let(::listOf) ?: countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct()
+                Epg.loadPriority(urls, filter) { partial -> scope.launch { epg = partial } }
             }.getOrNull()
         }
     }
@@ -89,13 +95,21 @@ fun LiveScreen() {
                 runCatching { IptvServer.start(Settings.iptvPort) }
             }
             if (IptvServer.isRunning.value) runCatching { IptvServer.ensureRunning() } // LAN clients get the new country too
-            runCatching { Sources.loadCountries(playlist, countries) }
+            runCatching {
+                Sources.loadCountriesPriority(playlist, countries) { priority ->
+                    scope.launch { channels = priority }
+                }
+            }
         }.fold(
             { loaded ->
                 channels = loaded
                 // Check arranged channels & their backups first, reusing any fresh SourceHealth cache
                 withContext(Dispatchers.IO) {
-                    val ordered = SourceHealth.streamsOf(viewer.arrange(LocalTv.arrange(loaded, Settings.nearProvince, countries)))
+                    tech.kousozo.tahoetv.core.PopularityScraper.prefetchAsync(countries, loaded.map { it.name }) {
+                        scope.launch { popularityVersion++ }
+                    }
+                    val effViewer = viewer.copy(sortMode = sortMode.key)
+                    val ordered = SourceHealth.streamsOf(effViewer.arrange(LocalTv.arrange(loaded, Settings.nearProvince, countries, sortMode, viewer.city, viewer.country)))
                     val cached = ordered.mapNotNull { c -> SourceHealth.status(c.url)?.let { c.url to it.live } }.toMap()
                     val lock = Any()
                     if (cached.isNotEmpty()) synchronized(lock) { statusMap = statusMap + cached }
@@ -114,7 +128,9 @@ fun LiveScreen() {
     val lang = Settings.lang
     val province = Settings.nearProvince
     // the viewer's categories and favourite order (onboarding) on top of the usual arrangement
-    val entries = remember(channels, province, viewer) { viewer.arrange(LocalTv.arrange(channels.orEmpty(), province, countries)) }
+    val entries = remember(channels, province, viewer, sortMode, popularityVersion) {
+        viewer.copy(sortMode = sortMode.key).arrange(LocalTv.arrange(channels.orEmpty(), province, countries, sortMode, viewer.city, viewer.country))
+    }
     val names = remember(entries) { entries.associate { it.channel.url to it.name } }
     val byUrl = remember(entries) { entries.associateBy { it.channel.url } }
     fun isChannelLive(e: LocalTv.Entry): Boolean? {
@@ -189,7 +205,8 @@ fun LiveScreen() {
                     if (!checkingDone && statusMap.size < it.size) {
                         tech.kousozo.tahoetv.core.I18n.get(lang, "live.checking_streams", statusMap.size, it.size)
                     } else {
-                        "$liveCount Live · $offlineCount Offline" + (province.takeIf { p -> p.isNotBlank() }?.let { p -> " · $p" } ?: "")
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "live.live_offline_fmt", liveCount, offlineCount) +
+                            (province.takeIf { p -> p.isNotBlank() }?.let { p -> " · $p" } ?: "")
                     }
                 } ?: error ?: tech.kousozo.tahoetv.core.I18n.get(lang, "live.loading_channels")
             )
@@ -214,6 +231,29 @@ fun LiveScreen() {
                             fontSize = 11.sp,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                             color = if (active) (if (stKey == "offline") Tahoe.Bad else Tahoe.Accent) else Tahoe.Dim
+                        )
+                    }
+                }
+            }
+
+            // Sort chips (Popular / A-Z / Z-A)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                LocalTv.SortMode.entries.forEach { mode ->
+                    val active = sortMode == mode
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                            .background(if (active) Tahoe.Accent.copy(alpha = 0.22f) else Tahoe.Glass)
+                            .clickable {
+                                sortMode = mode
+                                Settings.viewer = Settings.viewer.copy(sortMode = mode.key)
+                            }.padding(vertical = 5.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            mode.label(lang),
+                            fontSize = 11.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                            color = if (active) Tahoe.Accent else Tahoe.Dim
                         )
                     }
                 }
@@ -279,7 +319,7 @@ fun LiveScreen() {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(e.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val found = matchedShow[ch.url]
-                        if (found != null) Text("${if (found.start <= tick) tech.kousozo.tahoetv.core.I18n.get(lang, "live.now_airing") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.at_time", HM.format(found.start))} · ${found.title}",
+                        if (found != null) Text("${if (found.start <= tick) tech.kousozo.tahoetv.core.I18n.get(lang, "live.now_airing") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.at_time", hm.format(found.start))} · ${found.title}",
                             fontSize = 13.sp, color = Tahoe.Accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         else Text(prog?.title ?: e.category.label(lang), fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -301,7 +341,7 @@ fun LiveScreen() {
                     }
                     val fav = ch.url in favs
                     IconButton({ favs = if (fav) favs - ch.url else favs + ch.url; Settings.favorites = favs }) {
-                        Icon(if (fav) Icons.Rounded.Star else Icons.Rounded.StarBorder, "Favorit", tint = if (fav) Color(0xFFFF9F0A) else Tahoe.Faint)
+                        Icon(if (fav) Icons.Rounded.Star else Icons.Rounded.StarBorder, tech.kousozo.tahoetv.core.I18n.get(lang, "live.favorites_star"), tint = if (fav) Color(0xFFFF9F0A) else Tahoe.Faint)
                     }
                 }
             }
@@ -336,8 +376,10 @@ private fun Detail(
     onStop: () -> Unit,
     onRecord: (LocalTv.Entry, String, Long, Long) -> Unit,
 ) {
+    val hm = remember(Settings.viewer.zone) { DateTimeFormatter.ofPattern("HH.mm").withZone(Settings.viewer.zone) }
+    val lang = Settings.lang
     Box(Modifier.width(400.dp).fillMaxHeight().clip(RoundedCornerShape(26.dp)).background(Color(0xFF111118)).border(1.dp, Tahoe.Stroke, RoundedCornerShape(26.dp))) {
-        if (e == null) { Text("Pilih saluran", Modifier.align(Alignment.Center), color = Tahoe.Dim); return@Box }
+        if (e == null) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.select_channel"), Modifier.align(Alignment.Center), color = Tahoe.Dim); return@Box }
         val logoUrl by produceState(e.channel.logo, e.channel.url, e.name) {
             if (value.isNullOrBlank()) value = withContext(Dispatchers.IO) { MediaScraper.channelLogo(e.name, e.channel.logo) }
         }
@@ -362,7 +404,6 @@ private fun Detail(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            val lang = Settings.lang
 
             // Channel Status Line
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -380,13 +421,13 @@ private fun Detail(
                 }
             }
 
-            Text(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "live.playing_now") else e.category.label.uppercase(), fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold)
+            Text(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "live.playing_now") else e.category.label(lang).uppercase(), fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold)
             Text(cur?.title ?: e.name, fontSize = 26.sp, fontWeight = FontWeight.Bold, lineHeight = 31.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
             cur?.desc?.let { Text(it, fontSize = 13.sp, color = Tahoe.Dim, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis) }
             cur?.let { p ->
                 val f = ((now.epochSecond - p.start.epochSecond).toFloat() / (p.stop.epochSecond - p.start.epochSecond).coerceAtLeast(1)).coerceIn(0f, 1f)
                 LinearProgressIndicator({ f }, Modifier.fillMaxWidth().padding(top = 6.dp).height(4.dp).clip(RoundedCornerShape(2.dp)), color = Tahoe.Text, trackColor = Tahoe.Stroke)
-                Row { Text(HM.format(p.start), fontSize = 12.sp, color = Tahoe.Faint); Spacer(Modifier.weight(1f)); Text(HM.format(p.stop), fontSize = 12.sp, color = Tahoe.Faint) }
+                Row { Text(hm.format(p.start), fontSize = 12.sp, color = Tahoe.Faint); Spacer(Modifier.weight(1f)); Text(hm.format(p.stop), fontSize = 12.sp, color = Tahoe.Faint) }
             }
             val isPlaying = e.channel.url == playingUrl
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -425,7 +466,7 @@ private fun Detail(
                     val start = p.start.toEpochMilli() - 60_000 // a minute early: guides are rarely exact
                     val job = planned(start)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(HM.format(p.start), Modifier.width(52.dp), fontSize = 13.sp, color = Tahoe.Dim)
+                        Text(hm.format(p.start), Modifier.width(52.dp), fontSize = 13.sp, color = Tahoe.Dim)
                         Text(p.title, Modifier.weight(1f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (job != null || recordable) IconButton({ if (job != null) Recordings.cancel(job.id) else onRecord(e, p.title, start, p.stop.toEpochMilli() + 120_000) }, Modifier.size(28.dp)) {
                             Icon(if (job != null) Icons.Rounded.FiberManualRecord else Icons.Rounded.RadioButtonUnchecked,
@@ -462,5 +503,3 @@ private fun categoryIcon(key: String?) = when (key) {
 private fun Badge(text: String, color: Color, filled: Boolean = false) = Text(text, Modifier.clip(RoundedCornerShape(5.dp))
     .background(if (filled) color else color.copy(alpha = 0.14f)).padding(horizontal = 6.dp, vertical = 2.dp),
     color = if (filled) Color.White else color, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, letterSpacing = 0.4.sp)
-
-private val HM = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault())

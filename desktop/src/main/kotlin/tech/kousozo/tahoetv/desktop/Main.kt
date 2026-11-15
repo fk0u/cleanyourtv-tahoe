@@ -160,7 +160,7 @@ private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) = Column(
     Spacer(Modifier.weight(1f))
     val tv = Session.tv
     Box(Modifier.size(46.dp).clip(CircleShape).background(Tahoe.Card), contentAlignment = Alignment.Center) {
-        Icon(Icons.Rounded.Cast, if (tv != null) tv.model else "TV belum tersambung", tint = if (tv != null) Tahoe.Good else Tahoe.Faint, modifier = Modifier.size(20.dp))
+        Icon(Icons.Rounded.Cast, if (tv != null) tv.model else tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.tv_not_connected"), tint = if (tv != null) Tahoe.Good else Tahoe.Faint, modifier = Modifier.size(20.dp))
     }
     Spacer(Modifier.height(8.dp))
     Text("v" + (System.getProperty("jpackage.app-version") ?: "dev"), fontSize = 10.sp, color = Tahoe.Faint)
@@ -169,8 +169,8 @@ private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) = Column(
 /** Greeting + search pill + clock + quick "Tonton Live" button. Search jumps to TV Live with the query. */
 @Composable
 private fun TopBar() {
-    var now by remember { mutableStateOf(java.time.LocalTime.now()) }
-    LaunchedEffect(Unit) { while (true) { now = java.time.LocalTime.now(); kotlinx.coroutines.delay(15_000) } }
+    var now by remember { mutableStateOf(java.time.LocalTime.now(Settings.viewer.zone)) }
+    LaunchedEffect(Settings.viewer.zone) { while (true) { now = java.time.LocalTime.now(Settings.viewer.zone); kotlinx.coroutines.delay(15_000) } }
     var q by remember { mutableStateOf("") }
     val lang = Settings.lang
     val hello = tech.kousozo.tahoetv.core.I18n.greeting(lang, now.hour)
@@ -198,7 +198,7 @@ private fun TopBar() {
                     .border(1.dp, Tahoe.Accent.copy(alpha = 0.45f), RoundedCornerShape(50))
                     .clickable { DesktopPush.checkUpdateModal(manual = true) }
                     .padding(horizontal = 14.dp)
-                    .semantics { contentDescription = "Pembaruan Tahoe TV tersedia" },
+                    .semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "home.update_avail") },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Rounded.SystemUpdate, null, tint = Tahoe.Accent, modifier = Modifier.size(16.dp))
@@ -210,12 +210,12 @@ private fun TopBar() {
         Box(
             Modifier.size(44.dp).clip(CircleShape).background(Tahoe.Card)
                 .clickable { DesktopPush.showInbox = true }
-                .semantics { contentDescription = "Notifikasi (${DesktopPush.unreadCount})" },
+                .semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "home.notif_desc", DesktopPush.unreadCount.toString()) },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Rounded.Notifications,
-                "Notifikasi",
+                tech.kousozo.tahoetv.core.I18n.get(lang, "nav.inbox"),
                 tint = if (DesktopPush.unreadCount > 0) Tahoe.Accent else Tahoe.Text,
                 modifier = Modifier.size(20.dp),
             )

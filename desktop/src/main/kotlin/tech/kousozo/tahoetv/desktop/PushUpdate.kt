@@ -45,6 +45,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import tech.kousozo.tahoetv.core.ControlPlane
 import tech.kousozo.tahoetv.core.DiagLog
+import tech.kousozo.tahoetv.core.I18n
 import tech.kousozo.tahoetv.core.TahoeVersion
 import tech.kousozo.tahoetv.core.Updates
 
@@ -251,6 +252,7 @@ object DesktopPush {
 
 @Composable
 fun DesktopPushBanner(modifier: Modifier = Modifier) {
+    val lang = Settings.lang
     val banner = DesktopPush.activeBanner
     LaunchedEffect(banner?.id) {
         if (banner != null && !banner.forceModal) {
@@ -280,7 +282,7 @@ fun DesktopPushBanner(modifier: Modifier = Modifier) {
                         else if (n.actionUrl.isNotBlank()) DesktopPush.openSafeUrl(n.actionUrl)
                         else DesktopPush.showInbox = true
                     }
-                    .semantics { contentDescription = "Notifikasi Tahoe TV: ${n.title}" },
+                    .semantics { contentDescription = "Tahoe TV: ${n.title}" },
                 shape = RoundedCornerShape(18.dp),
                 color = Tahoe.Surface.copy(alpha = 0.96f),
                 border = BorderStroke(1.dp, accent.copy(alpha = 0.45f)),
@@ -300,10 +302,10 @@ fun DesktopPushBanner(modifier: Modifier = Modifier) {
                         else if (n.actionUrl.isNotBlank()) DesktopPush.openSafeUrl(n.actionUrl)
                         else DesktopPush.showInbox = true
                     }) {
-                        Text(n.actionLabel.ifBlank { "Lihat" }, color = Tahoe.Accent, fontWeight = FontWeight.SemiBold)
+                        Text(n.actionLabel.ifBlank { I18n.get(lang, "desktop.push_view") }, color = Tahoe.Accent, fontWeight = FontWeight.SemiBold)
                     }
                     IconButton({ DesktopPush.dismissBanner() }) {
-                        Icon(Icons.Rounded.Close, "Tutup notifikasi", tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Close, I18n.get(lang, "desktop.push_close"), tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -314,8 +316,9 @@ fun DesktopPushBanner(modifier: Modifier = Modifier) {
 @Composable
 fun DesktopNotificationDialog() {
     if (!DesktopPush.showInbox) return
+    val lang = Settings.lang
     LaunchedEffect(Unit) { DesktopPush.markAllRead() }
-    val fmt = remember { SimpleDateFormat("dd MMM HH:mm", Locale.getDefault()) }
+    val fmt = remember(lang) { SimpleDateFormat("dd MMM HH:mm", Locale.forLanguageTag(lang)) }
 
     AlertDialog(
         onDismissRequest = { DesktopPush.showInbox = false },
@@ -325,12 +328,12 @@ fun DesktopNotificationDialog() {
         title = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Icon(Icons.Rounded.Notifications, null, tint = Tahoe.Accent)
-                Text("Notifikasi & Pengumuman", fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                Text(I18n.get(lang, "desktop.inbox_title"), fontWeight = FontWeight.Bold, fontSize = 19.sp)
             }
         },
         text = {
             if (DesktopPush.inbox.isEmpty()) {
-                Text("Belum ada notifikasi dari server Tahoe TV (${ControlPlane.baseUrl}).", color = Tahoe.Dim, fontSize = 14.sp)
+                Text(I18n.get(lang, "desktop.inbox_empty", ControlPlane.baseUrl), color = Tahoe.Dim, fontSize = 14.sp)
             } else {
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(DesktopPush.inbox, key = { it.id }) { n ->
@@ -357,10 +360,10 @@ fun DesktopNotificationDialog() {
             TextButton({
                 DesktopPush.showInbox = false
                 DesktopPush.checkUpdateModal(manual = true)
-            }) { Text("Cek Pembaruan", color = Tahoe.Accent) }
+            }) { Text(I18n.get(lang, "desktop.check_updates"), color = Tahoe.Accent) }
         },
         dismissButton = {
-            TextButton({ DesktopPush.showInbox = false }) { Text("Tutup", color = Tahoe.Dim) }
+            TextButton({ DesktopPush.showInbox = false }) { Text(I18n.get(lang, "desktop.close"), color = Tahoe.Dim) }
         },
     )
 }
@@ -368,6 +371,7 @@ fun DesktopNotificationDialog() {
 @Composable
 fun DesktopUpdateModal() {
     if (!DesktopPush.showUpdateModal) return
+    val lang = Settings.lang
     val scope = rememberCoroutineScope()
     val r = DesktopPush.latestRelease
     val pol = DesktopPush.policy
@@ -392,7 +396,8 @@ fun DesktopUpdateModal() {
                 Icon(Icons.Rounded.SystemUpdate, null, tint = Tahoe.Accent)
                 Text(
                     pol.modalTitle.ifBlank {
-                        if (r != null && newerAvailable) "Pembaruan Tahoe TV ${r.version}" else "Versi Tahoe TV Desktop"
+                        if (r != null && newerAvailable) I18n.get(lang, "desktop.modal_title_ver", r.version)
+                        else I18n.get(lang, "desktop.modal_title_cur")
                     },
                     fontWeight = FontWeight.Bold,
                     fontSize = 19.sp,
@@ -402,13 +407,13 @@ fun DesktopUpdateModal() {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "Terpasang: $currentVer  ·  Terbaru: ${r?.version ?: currentVer}  ·  Platform: ${ControlPlane.detectDesktopPlatform()}",
+                    I18n.get(lang, "desktop.modal_meta", currentVer, r?.version ?: currentVer, ControlPlane.detectDesktopPlatform()),
                     color = Tahoe.Dim,
                     fontSize = 12.sp,
                 )
                 if (pol.modalMessage.isNotBlank()) Text(pol.modalMessage, color = Tahoe.Text, fontSize = 14.sp)
                 if (r != null && r.notes.isNotBlank()) Text(r.notes.take(450), color = Tahoe.Dim, fontSize = 13.sp)
-                else if (r == null) Text("Tidak dapat terhubung ke server rilis atau Anda sudah memakai versi terbaru.", color = Tahoe.Dim, fontSize = 13.sp)
+                else if (r == null) Text(I18n.get(lang, "desktop.modal_offline"), color = Tahoe.Dim, fontSize = 13.sp)
 
                 if (progress != null) {
                     LinearProgressIndicator(
@@ -423,30 +428,30 @@ fun DesktopUpdateModal() {
         },
         confirmButton = {
             if (installer != null && r != null && (newerAvailable || mandatory)) {
-                PrimaryButton(if (busy) "Mengunduh…" else "Unduh ${installer.first}", Icons.Rounded.Download, enabled = !busy) {
+                PrimaryButton(if (busy) I18n.get(lang, "desktop.updates_downloading", progress ?: 0) else I18n.get(lang, "desktop.modal_download_btn", installer.first), Icons.Rounded.Download, enabled = !busy) {
                     busy = true
                     scope.launch {
                         val outDir = File(System.getProperty("user.home"), "Downloads").apply { mkdirs() }
                         val outFile = File(outDir, installer.first)
                         runCatching {
-                            status = "Menyiapkan unduhan terverifikasi SHA-256…"
+                            status = I18n.get(lang, "desktop.modal_sha")
                             val (_, url, sha) = withContext(Dispatchers.IO) { r.resolveDownload(listOf(installer.first)) }
                             withContext(Dispatchers.IO) {
                                 Updates.download(url, outFile, sha) { pct ->
                                     progress = pct
-                                    status = "Mengunduh… $pct%"
+                                    status = I18n.get(lang, "desktop.modal_dl_pct", pct)
                                 }
                             }
-                            status = "Selesai disimpan ke: ${outFile.absolutePath}"
+                            status = I18n.get(lang, "desktop.modal_saved", outFile.absolutePath)
                             runCatching { Desktop.getDesktop().open(outFile) }
                         }.onFailure {
-                            status = "Gagal: ${it.message}"
+                            status = I18n.get(lang, "desktop.modal_fail", it.message ?: "")
                         }
                         busy = false
                     }
                 }
             } else {
-                PrimaryButton(if (r != null) "Buka Halaman Unduhan" else "Tutup", Icons.Rounded.OpenInBrowser) {
+                PrimaryButton(if (r != null) I18n.get(lang, "desktop.modal_open_page") else I18n.get(lang, "desktop.close"), Icons.Rounded.OpenInBrowser) {
                     if (r != null) DesktopPush.openSafeUrl(r.page)
                     if (!mandatory) DesktopPush.dismissUpdateModal()
                 }
@@ -455,10 +460,10 @@ fun DesktopUpdateModal() {
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (r != null && installer != null) {
-                    TextButton({ DesktopPush.openSafeUrl(r.page) }) { Text("Lihat Semua Unduhan", color = Tahoe.Accent) }
+                    TextButton({ DesktopPush.openSafeUrl(r.page) }) { Text(I18n.get(lang, "desktop.modal_all_dl"), color = Tahoe.Accent) }
                 }
                 if (!mandatory && !busy) {
-                    TextButton({ DesktopPush.dismissUpdateModal() }) { Text("Nanti", color = Tahoe.Dim) }
+                    TextButton({ DesktopPush.dismissUpdateModal() }) { Text(I18n.get(lang, "desktop.modal_later"), color = Tahoe.Dim) }
                 }
             }
         },

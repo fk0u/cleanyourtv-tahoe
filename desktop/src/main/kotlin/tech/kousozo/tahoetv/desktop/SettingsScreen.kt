@@ -25,20 +25,21 @@ import tech.kousozo.tahoetv.core.Web
 @Composable
 fun SettingsScreen() {
     val scope = rememberCoroutineScope()
+    val lang = Settings.lang
     var city by remember { mutableStateOf(Settings.city) }
     var place by remember { mutableStateOf("${Settings.city} (${"%.3f".format(Settings.lat)}, ${"%.3f".format(Settings.lon)})") }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 12.dp, end = 28.dp, top = 24.dp, bottom = 28.dp).widthIn(max = 720.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Title("Setelan", "Disimpan di komputer ini saja. Dipakai juga saat memasang Tahoe ke TV.")
-        Section("Profil")
-        Field(Settings.name, { Settings.name = it }, "Nama (untuk sapaan)")
+        Title(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.prefs"), tech.kousozo.tahoetv.core.I18n.get(lang, "settings.subtitle"))
+        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.profile"))
+        Field(Settings.name, { Settings.name = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "settings.name_hint"))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Field(city, { city = it }, "Kota (cuaca & jadwal shalat)", Modifier.weight(1f))
-            GhostButton("Cari", Icons.Rounded.Search) {
+            Field(city, { city = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "settings.city_hint"), Modifier.weight(1f))
+            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "common.search"), Icons.Rounded.Search) {
                 scope.launch {
-                    place = "Mencari…"
+                    place = tech.kousozo.tahoetv.core.I18n.get(lang, "settings.city_searching")
                     val r = withContext(Dispatchers.IO) { Web.geocode(city) }
-                    if (r == null) place = "Kota tidak ditemukan"
+                    if (r == null) place = tech.kousozo.tahoetv.core.I18n.get(lang, "settings.city_not_found")
                     else {
                         Settings.city = r.name; Settings.province = r.region; Settings.lat = r.lat; Settings.lon = r.lon; city = r.name; place = r.label
                         Settings.viewer.takeIf { it.done }?.let { Settings.viewer = it.copy(city = r.name, lat = r.lat, lon = r.lon, region = r.region) } // one source of truth
@@ -48,57 +49,55 @@ fun SettingsScreen() {
         }
         Text(place, color = Tahoe.Dim, fontSize = 13.sp)
 
-        Section("API key (opsional)")
-        Field(Settings.gemini, { Settings.gemini = it.trim() }, "Gemini (asisten)", secret = true)
+        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.api_keys"))
+        Field(Settings.gemini, { Settings.gemini = it.trim() }, "Gemini", secret = true)
         Field(Settings.geminiModel, { Settings.geminiModel = it.trim() }, "Model Gemini")
-        Field(Settings.youtube, { Settings.youtube = it.trim() }, "YouTube Data API (trending)", secret = true)
-        Field(Settings.tmdb, { Settings.tmdb = it.trim() }, "TMDB (Netflix populer)", secret = true)
+        Field(Settings.youtube, { Settings.youtube = it.trim() }, "YouTube Data API", secret = true)
+        Field(Settings.tmdb, { Settings.tmdb = it.trim() }, "TMDB", secret = true)
 
-        Section("TV Live")
-        OutlinedTextField(Settings.playlist, { Settings.playlist = it }, label = { Text("Playlist tambahan: URL atau file, satu per baris") },
+        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"))
+        OutlinedTextField(Settings.playlist, { Settings.playlist = it }, label = { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.extra_playlists")) },
             modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Tahoe.Accent, unfocusedBorderColor = Tahoe.Stroke,
                 focusedLabelColor = Tahoe.Accent, unfocusedLabelColor = Tahoe.Faint, cursorColor = Tahoe.Accent))
-        Field(Settings.epg, { Settings.epg = it.trim() }, "URL EPG XMLTV (kosong = bawaan)")
+        Field(Settings.epg, { Settings.epg = it.trim() }, tech.kousozo.tahoetv.core.I18n.get(lang, "settings.epg_url"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GhostButton("Tambah file playlist…", Icons.Rounded.FolderOpen) { pickPlaylist()?.let { Settings.playlist = (Settings.playlist.trim() + "\n" + it).trim() } }
-            GhostButton("Hanya sumber bawaan", Icons.Rounded.Restore) { Settings.playlist = ""; Settings.epg = "" }
+            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.add_playlist_file"), Icons.Rounded.FolderOpen) { pickPlaylist()?.let { Settings.playlist = (Settings.playlist.trim() + "\n" + it).trim() } }
+            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.default_sources"), Icons.Rounded.Restore) { Settings.playlist = ""; Settings.epg = "" }
         }
-        Text("Selalu dipakai: TV gratis Indonesia dari iptv-org dan dhanytv; jadwal dari dhanytv + epg.pw. Playlist tambahan digabung ke situ. " +
-            "Semua sumber disaring: saluran ber-DRM, restream layanan berbayar, dan merek pay-TV tidak ditampilkan.", color = Tahoe.Faint, fontSize = 12.sp)
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.sources_note"), color = Tahoe.Faint, fontSize = 12.sp)
 
-        Text("Kualitas video", color = Tahoe.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "player.quality"), color = Tahoe.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            tech.kousozo.tahoetv.core.PlayPrefs.Quality.entries.forEach { q -> Choice(q.label, Settings.quality == q) { Settings.quality = q } }
+            tech.kousozo.tahoetv.core.PlayPrefs.Quality.entries.forEach { q -> Choice(q.label(lang), Settings.quality == q) { Settings.quality = q } }
         }
-        Text("Latensi siaran", color = Tahoe.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "player.latency"), color = Tahoe.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            tech.kousozo.tahoetv.core.PlayPrefs.Latency.entries.forEach { l -> Choice(l.label, Settings.latency == l) { Settings.latency = l } }
+            tech.kousozo.tahoetv.core.PlayPrefs.Latency.entries.forEach { l -> Choice(l.label(lang), Settings.latency == l) { Settings.latency = l } }
         }
-        Text((if (Settings.quality.maxHeight > 0) "Kualitas paling tinggi ${Settings.quality.label} (atau yang terdekat di bawahnya). " else "Kualitas menyesuaikan internet. ") +
-            "Latensi ${Settings.latency.label}: ${Settings.latency.note}." + if (WebPlayer.preferred) "" else " Di macOS, latensi diatur otomatis oleh pemutar bawaan.",
-            color = Tahoe.Faint, fontSize = 12.sp)
+        val qualNote = if (Settings.quality.maxHeight > 0) tech.kousozo.tahoetv.core.I18n.get(lang, "player.quality_cap", Settings.quality.label(lang))
+            else tech.kousozo.tahoetv.core.I18n.get(lang, "player.quality_auto_note")
+        val latNote = if (Settings.latency == tech.kousozo.tahoetv.core.PlayPrefs.Latency.Low) tech.kousozo.tahoetv.core.I18n.get(lang, "player.latency_low_warn", Settings.latency.note(lang))
+            else tech.kousozo.tahoetv.core.I18n.get(lang, "player.latency_note_dot", Settings.latency.note(lang))
+        Text("$qualNote $latNote", color = Tahoe.Faint, fontSize = 12.sp)
 
-        Section("Wilayah & bahasa")
+        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "home.region_language"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("${tech.kousozo.tahoetv.core.Region.flag(Settings.countryCode)}  ${tech.kousozo.tahoetv.core.Region.name(Settings.countryCode, Settings.lang)} · " +
-                tech.kousozo.tahoetv.core.OnboardingText.LANGUAGE_NAMES.getValue(Settings.lang), color = Tahoe.Text, fontSize = 14.sp)
-            GhostButton("Ubah", Icons.Rounded.Public) { PlayerWindow.stop(); DeskNav.regionSetup = true } // the old country's channel stops
+            Text("${tech.kousozo.tahoetv.core.Region.flag(Settings.countryCode)}  ${tech.kousozo.tahoetv.core.Region.name(Settings.countryCode, lang)} · " +
+                tech.kousozo.tahoetv.core.OnboardingText.LANGUAGE_NAMES.getValue(lang), color = Tahoe.Text, fontSize = 14.sp)
+            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.change"), Icons.Rounded.Public) { PlayerWindow.stop(); DeskNav.regionSetup = true } // the old country's channel stops
         }
-        Text("Menentukan daftar saluran dan jadwal acara. Teks aplikasi lainnya masih berbahasa Indonesia; terjemahan sedang dikerjakan (#56).",
-            color = Tahoe.Faint, fontSize = 12.sp)
 
-        Section("Pembaruan")
+        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.updates_section"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            GhostButton("Cek Pembaruan (Pop-up)", Icons.Rounded.SystemUpdate) {
+            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.check_updates"), Icons.Rounded.SystemUpdate) {
                 DesktopPush.checkUpdateModal(manual = true)
             }
         }
-        Text("Tahoe TV terhubung ke https://tahoe.kousozo.tech untuk notifikasi rilis baru dan pemeriksaan integritas SHA-256.",
-            color = Tahoe.Faint, fontSize = 12.sp)
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.updates_url_note"), color = Tahoe.Faint, fontSize = 12.sp)
 
-        Section("Berbagi saluran di Wi-Fi rumah")
-        Text("Bagikan saluran TV ke TV lain, HP, atau pemutar di jaringan Wi-Fi rumah yang sama.", color = Tahoe.Dim, fontSize = 13.sp)
+        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.home_share"))
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.home_share_desc"), color = Tahoe.Dim, fontSize = 13.sp)
 
         val isRunning by remember { IptvServer.isRunning }
         val chCount by remember { IptvServer.channelCount }
@@ -107,22 +106,22 @@ fun SettingsScreen() {
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (!isRunning) {
-                GhostButton(if (serverStarting) "Menyalakan…" else "Nyalakan Server IPTV", Icons.Rounded.PlayArrow, color = Tahoe.Good) {
+                GhostButton(if (serverStarting) tech.kousozo.tahoetv.core.I18n.get(lang, "settings.starting_server") else tech.kousozo.tahoetv.core.I18n.get(lang, "settings.start_server"), Icons.Rounded.PlayArrow, color = Tahoe.Good) {
                     if (serverStarting) return@GhostButton // one start at a time
                     serverStarting = true; serverError = null
                     Thread { // network load: off the UI thread; daemon so it never keeps a closing app alive
                         val err = runCatching { IptvServer.start(Settings.iptvPort) }.exceptionOrNull()
                         javax.swing.SwingUtilities.invokeLater {
                             serverStarting = false
-                            serverError = err?.let { "Server tidak bisa dinyalakan: ${it.message ?: it.javaClass.simpleName} (port ${Settings.iptvPort} dipakai app lain?)" }
+                            serverError = err?.let { "${tech.kousozo.tahoetv.core.I18n.get(lang, "pair.failed")}: ${it.message ?: it.javaClass.simpleName} (port ${Settings.iptvPort})" }
                         }
                     }.apply { isDaemon = true }.start()
                 }
             } else {
-                GhostButton("Matikan Server", Icons.Rounded.Stop, color = Tahoe.Bad) {
+                GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.stop_server"), Icons.Rounded.Stop, color = Tahoe.Bad) {
                     IptvServer.stop()
                 }
-                GhostButton("Buka Web Player", Icons.Rounded.OpenInBrowser) {
+                GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.open_web_player"), Icons.Rounded.OpenInBrowser) {
                     runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(IptvServer.webUrl())) }
                 }
             }
@@ -138,23 +137,23 @@ fun SettingsScreen() {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("AKTIF", Icons.Rounded.Wifi)
-                    Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "live.channels_loaded", chCount), color = Tahoe.Text, fontSize = 14.sp)
+                    Chip(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.active"), Icons.Rounded.Wifi)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.channels_loaded", chCount), color = Tahoe.Text, fontSize = 14.sp)
                 }
                 Text("Playlist Master: ${IptvServer.masterPlaylistUrl()}", color = Tahoe.Accent, fontSize = 13.sp)
                 Text("EPG Guide: ${IptvServer.epgUrl()}", color = Tahoe.Dim, fontSize = 12.sp)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GhostButton("Salin URL Playlist", Icons.Rounded.ContentCopy) {
+                    GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.copy_playlist"), Icons.Rounded.ContentCopy) {
                         java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(IptvServer.masterPlaylistUrl()), null)
                     }
-                    GhostButton("Salin URL EPG", Icons.Rounded.ContentCopy) {
+                    GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.copy_epg"), Icons.Rounded.ContentCopy) {
                         java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(IptvServer.epgUrl()), null)
                     }
                 }
             }
         }
-        Section("Tentang & pembaruan")
+        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.updates_section"))
         AboutUpdates()
         Section("Bantuan")
         SendLog()
@@ -165,24 +164,25 @@ fun SettingsScreen() {
  *  copies it to the clipboard and opens GitHub Issues, so a problem can be reported with one paste. */
 @Composable
 private fun SendLog() {
+    val lang = Settings.lang
     var saved by remember { mutableStateOf<String?>(null) }
-    Text("Ada saluran yang tidak bisa diputar atau aplikasi tertutup sendiri? Kirim log ke pengembang. Isinya catatan pemutar dan error saja; alamat siaran dikirim tanpa token atau kunci.",
+    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.log_desc"),
         color = Tahoe.Dim, fontSize = 13.sp)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        GhostButton("Simpan & salin log", Icons.Rounded.BugReport) {
+        GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.log_save"), Icons.Rounded.BugReport) {
             saved = runCatching {
                 val text = desktopReport()
                 val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"))
                 val out = java.io.File(System.getProperty("user.home"), "Downloads/TahoeTV-log-$stamp.txt").apply { parentFile.mkdirs(); writeText(text) }
                 java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(text), null)
                 runCatching { java.awt.Desktop.getDesktop().browseFileDirectory(out) }.recoverCatching { java.awt.Desktop.getDesktop().open(out.parentFile) }
-                "Disimpan di ${out.path} dan disalin. Tempel di laporan masalah, atau kirim filenya."
-            }.getOrElse { "Gagal menyimpan log: ${it.message}" }
+                tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.log_saved", out.path)
+            }.getOrElse { tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.log_fail", it.message ?: "") }
         }
-        GhostButton("Laporkan di GitHub", Icons.Rounded.OpenInBrowser) {
+        GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.log_report"), Icons.Rounded.OpenInBrowser) {
             val url = "https://github.com/${tech.kousozo.tahoetv.core.Updates.REPO}/issues/new"
             runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
-                .onFailure { saved = "Browser tidak bisa dibuka. Buka sendiri: $url" }
+                .onFailure { saved = tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.browser_fail", url) }
         }
     }
     saved?.let { Text(it, color = Tahoe.Dim, fontSize = 13.sp) }
@@ -192,13 +192,14 @@ private fun desktopReport(): String = tech.kousozo.tahoetv.core.DiagLog.report(
     "Tahoe TV (desktop)", System.getProperty("jpackage.app-version") ?: "dev", linkedMapOf(
         "OS" to "${System.getProperty("os.name")} ${System.getProperty("os.version")} (${System.getProperty("os.arch")})",
         "Java" to System.getProperty("java.version"),
-        "Server IPTV" to if (IptvServer.isRunning.value) "aktif, ${IptvServer.channelCount.value} saluran" else "mati",
-        "Rekaman" to "${Recordings.jobs.size} (${Recordings.jobs.count { it.state == "recording" }} sedang merekam)",
+        "Server IPTV" to if (IptvServer.isRunning.value) "active, ${IptvServer.channelCount.value} channels" else "off",
+        "Recordings" to "${Recordings.jobs.size} (${Recordings.jobs.count { it.state == "recording" }} active)",
     ))
 
 /** Version, latest release notes (changelog) and OTA: downloads the installer for this Mac/PC and opens it. */
 @Composable
 private fun AboutUpdates() {
+    val lang = Settings.lang
     val scope = rememberCoroutineScope()
     val current = System.getProperty("jpackage.app-version") ?: "dev"
     val os = System.getProperty("os.name").lowercase(); val arm = System.getProperty("os.arch").contains("aarch64")
@@ -209,42 +210,42 @@ private fun AboutUpdates() {
         else -> "TahoeTV-macos-intel.dmg"
     }
     var latest by remember { mutableStateOf<tech.kousozo.tahoetv.core.Updates.Release?>(null) }
-    var state by remember { mutableStateOf("Mengecek pembaruan…") }
-    LaunchedEffect(Unit) {
+    var state by remember(lang) { mutableStateOf(tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_checking")) }
+    LaunchedEffect(lang) {
         withContext(Dispatchers.IO) { runCatching { tech.kousozo.tahoetv.core.Updates.latest() } }
-            .onSuccess { latest = it; state = if (tech.kousozo.tahoetv.core.Updates.newer(it.version, current)) "Versi ${it.version} tersedia" else "Sudah versi terbaru" }
-            .onFailure { state = "Tidak bisa mengecek pembaruan" }
+            .onSuccess { latest = it; state = if (tech.kousozo.tahoetv.core.Updates.newer(it.version, current)) tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_avail", it.version) else tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_latest") }
+            .onFailure { state = tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_fail") }
     }
     Text("Tahoe TV $current  ·  $state", color = Tahoe.Dim, fontSize = 14.sp)
     val r = latest
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         if (r != null && tech.kousozo.tahoetv.core.Updates.newer(r.version, current) && asset in r.assets)
-            GhostButton("Unduh & pasang ${r.version}", Icons.Rounded.SystemUpdate, color = Tahoe.Accent) {
+            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_download_install", r.version), Icons.Rounded.SystemUpdate, color = Tahoe.Accent) {
                 scope.launch {
                     val out = java.io.File(System.getProperty("user.home"), "Downloads/$asset")
                     runCatching {
                         val hash = withContext(Dispatchers.IO) { r.checksumFor(asset) }
-                        withContext(Dispatchers.IO) { tech.kousozo.tahoetv.core.Updates.download(r.assets.getValue(asset), out, hash) { p -> state = "Mengunduh… $p%" } }
-                        state = if ("linux" in os) "Selesai. Buka ${out.name} atau jalankan: sudo apt install ./${out.name}" else "Selesai. Buka penginstal, lalu tutup aplikasi ini."
+                        withContext(Dispatchers.IO) { tech.kousozo.tahoetv.core.Updates.download(r.assets.getValue(asset), out, hash) { p -> state = tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_downloading", p) } }
+                        state = if ("linux" in os) tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_done_linux", out.name, out.name) else tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_done_other")
                         runCatching { java.awt.Desktop.getDesktop().open(out) }.onFailure {
                             if ("linux" in os) ProcessBuilder("xdg-open", out.absolutePath).start() else throw it
                         }
-                    }.onFailure { state = "Gagal mengunduh: ${it.message}" }
+                    }.onFailure { state = tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_download_fail", it.message ?: "") }
                 }
             }
-        GhostButton("Halaman rilis", Icons.Rounded.OpenInBrowser) {
+        GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_release_page"), Icons.Rounded.OpenInBrowser) {
             val uri = java.net.URI(r?.page ?: tech.kousozo.tahoetv.core.Updates.PAGE)
             runCatching { java.awt.Desktop.getDesktop().browse(uri) }.onFailure {
                 if ("linux" in os) runCatching { ProcessBuilder("xdg-open", uri.toString()).start() }
             }
         }
     }
-    r?.let { Text("Catatan rilis ${it.version} (${it.date})\n\n" + it.notes.replace(Regex("(?m)^#+\\s*"), "").replace("**", ""), color = Tahoe.Dim, fontSize = 13.sp) }
+    r?.let { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.updates_notes", it.version, it.date, it.notes.replace(Regex("(?m)^#+\\s*"), "").replace("**", "")), color = Tahoe.Dim, fontSize = 13.sp) }
 }
 
 /** Copies the chosen .m3u/.txt into ~/.tahoetv/playlists (so cleaning Downloads doesn't break it) and returns that path. */
 private fun pickPlaylist(): String? {
-    val d = java.awt.FileDialog(null as java.awt.Frame?, "Pilih file playlist (.m3u / .m3u8 / .txt)", java.awt.FileDialog.LOAD)
+    val d = java.awt.FileDialog(null as java.awt.Frame?, tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "desktop.pick_playlist"), java.awt.FileDialog.LOAD)
     d.isVisible = true
     val f = d.files.firstOrNull() ?: return null
     val dir = java.io.File(System.getProperty("user.home"), ".tahoetv/playlists").apply { mkdirs() }

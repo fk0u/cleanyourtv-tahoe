@@ -72,11 +72,11 @@ object PlayerWindow {
         showLabel.text = cur?.title ?: titleLabel.text
         titleLabel.isVisible = cur != null; titleLabel.isManaged = cur != null
         val sec = cur?.let { now.epochSecond - it.start.epochSecond } ?: 0
-        elapsedLabel.text = if (cur != null) "%02d:%02d:%02d  /  %s".format(sec / 3600, sec % 3600 / 60, sec % 60, HM.format(cur.stop)) else ""
-        timeLabel.text = HM.format(now) + (if (weather.isNotEmpty()) "    $weather" else "")
+        elapsedLabel.text = if (cur != null) "%02d:%02d:%02d  /  %s".format(sec / 3600, sec % 3600 / 60, sec % 60, hmFmt().format(cur.stop)) else ""
+        timeLabel.text = hmFmt().format(now) + (if (weather.isNotEmpty()) "    $weather" else "")
         pauseBtn.text = if (player?.status == MediaPlayer.Status.PAUSED) "▶" else "⏸"
     }
-    private val HM = java.time.format.DateTimeFormatter.ofPattern("HH.mm").withZone(java.time.ZoneId.systemDefault())
+    private fun hmFmt() = java.time.format.DateTimeFormatter.ofPattern("HH.mm").withZone(Settings.viewer.zone)
     private val ticker = javafx.animation.Timeline(javafx.animation.KeyFrame(Duration.seconds(1.0), { refreshInfo() })).apply { cycleCount = javafx.animation.Timeline.INDEFINITE }
     private lateinit var statusLabel: Label
     private lateinit var webBtn: Button
