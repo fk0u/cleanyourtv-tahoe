@@ -61,8 +61,10 @@ public class Onboarding extends Activity {
         }
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Ui.NIGHT);
+        boolean compact = getResources().getConfiguration().screenWidthDp < 600;
+        int sidePad = dp(compact ? 22 : Ui.SAFE_SIDE * 2);
         LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
-        col.setPadding(dp(Ui.SAFE_SIDE * 2), dp(Ui.SAFE_TOP + 10), dp(Ui.SAFE_SIDE * 2), dp(Ui.SAFE_TOP));
+        col.setPadding(sidePad, dp(compact ? 24 : Ui.SAFE_TOP + 10), sidePad, dp(compact ? 24 : Ui.SAFE_TOP));
         stepLabel = Ui.eyebrow(this, Ui.TEXT_3); col.addView(stepLabel);
         title = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); title.setPadding(0, dp(8), 0, 0); col.addView(title);
         sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); sub.setSingleLine(false); sub.setPadding(0, dp(6), 0, dp(14)); col.addView(sub);

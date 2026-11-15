@@ -153,8 +153,19 @@ final class Companion extends NanoWSD {
         if (auth != null && auth.toLowerCase(Locale.ROOT).startsWith("bearer ")) {
             t = auth.substring(7).trim();
         }
-        if (t == null) t = s.getParms().get("token");
+        if (t == null) t = cookieToken(s.getHeaders().get("cookie"));
         return t != null && tokens().contains(t);
+    }
+
+    private static String cookieToken(String cookieHeader) {
+        if (cookieHeader == null || cookieHeader.isEmpty()) return null;
+        for (String part : cookieHeader.split(";")) {
+            int eq = part.indexOf('=');
+            if (eq > 0 && "tahoe_session".equals(part.substring(0, eq).trim())) {
+                return part.substring(eq + 1).trim();
+            }
+        }
+        return null;
     }
     int pairedCount() { return tokens().size(); }
     void revoke(String token) {
@@ -270,19 +281,18 @@ final class Companion extends NanoWSD {
         try {
             String b = body(s, 1024);
             if (b.isEmpty()) {
-                given = s.getParms().get("code");
-            } else {
-                JSONObject jb = new JSONObject(b);
-                given = jb.optString("code");
-                String dn = jb.optString("deviceName", "").trim();
-                if (!dn.isEmpty()) deviceName = dn;
+                return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "kode wajib dikirim lewat body JSON"));
             }
+            JSONObject jb = new JSONObject(b);
+            given = jb.optString("code");
+            String dn = jb.optString("deviceName", "").trim();
+            if (!dn.isEmpty()) deviceName = dn;
         } catch (TooLarge e) {
             Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
             r.closeConnection(true);
             return r;
         } catch (Exception e) {
-            given = s.getParms().get("code");
+            return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "format JSON tidak valid"));
         }
         tech.kousozo.tahoetv.core.PairGuard.Result r = guard.check(given);
         if (r instanceof tech.kousozo.tahoetv.core.PairGuard.Result.Locked) {
@@ -304,11 +314,13 @@ final class Companion extends NanoWSD {
                     .put("pairedAt", System.currentTimeMillis()));
         } catch (Exception ignored) {}
         prefs.edit().putStringSet("tokens", t).putString("token_meta", meta.toString()).apply();
-        return json(Response.Status.OK, new JSONObject()
+        Response resp = json(Response.Status.OK, new JSONObject()
                 .put("token", token)
                 .put("id", deviceId())
                 .put("name", "Tahoe TV")
                 .put("role", "owner"));
+        resp.addHeader("Set-Cookie", "tahoe_session=" + token + "; Path=/; HttpOnly; SameSite=Strict");
+        return resp;
     }
 
     static final class TooLarge extends IOException {}

@@ -7,9 +7,10 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Tiny HTTP helper and the one background thread the launcher uses for I/O. */
+/** Tiny HTTP helper and background pools so IPTV/EPG fetches never block local app loading or control-plane pushes. */
 final class Net {
-    static final ExecutorService bg = Executors.newSingleThreadExecutor();
+    static final ExecutorService bg = Executors.newFixedThreadPool(6);
+    static final ExecutorService local = Executors.newSingleThreadExecutor();
 
     static String get(String url) throws IOException { return request("GET", url, null, null); }
 

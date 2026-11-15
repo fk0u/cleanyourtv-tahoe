@@ -75,10 +75,55 @@ object Playback {
     var paused by mutableStateOf(false); private set
     /** "1080p · H.264 · AAC", once known. */
     var format by mutableStateOf<String?>(null); private set
+    var subtitleLabel by mutableStateOf<String?>(null); private set
+    var audioLabel by mutableStateOf<String?>(null); private set
 
     /** Viewer choices (Setelan pemutar), kept in the "live" prefs. */
     var quality by mutableStateOf(tech.kousozo.tahoetv.core.PlayPrefs.Quality.Auto); private set
     var latency by mutableStateOf(tech.kousozo.tahoetv.core.PlayPrefs.Latency.Standard); private set
+
+    fun cycleTrack(trackType: Int): String {
+        val p = player ?: return "-"
+        val groups = p.currentTracks.groups.filter { it.type == trackType && it.isSupported }
+        if (groups.isEmpty()) {
+            if (trackType == C.TRACK_TYPE_TEXT) subtitleLabel = null
+            if (trackType == C.TRACK_TYPE_AUDIO) audioLabel = null
+            return if (trackType == C.TRACK_TYPE_TEXT) "CC: -" else "Audio: -"
+        }
+        val options = mutableListOf<Triple<androidx.media3.common.TrackGroup, Int, String>>()
+        groups.forEach { g ->
+            for (i in 0 until g.length) {
+                if (g.isTrackSupported(i)) {
+                    val fmt = g.getTrackFormat(i)
+                    val label = listOfNotNull(
+                        fmt.label?.takeIf { it.isNotBlank() },
+                        fmt.language?.takeIf { it.isNotBlank() && it != "und" }?.uppercase(),
+                    ).joinToString(" · ").ifBlank { "Track ${options.size + 1}" }
+                    options += Triple(g.mediaTrackGroup, i, label)
+                }
+            }
+        }
+        if (options.isEmpty()) return "-"
+        val curIdx = groups.firstNotNullOfOrNull { g ->
+            (0 until g.length).firstOrNull { g.isTrackSelected(it) }?.let { idx ->
+                options.indexOfFirst { it.first == g.mediaTrackGroup && it.second == idx }
+            }
+        } ?: -1
+        val b = p.trackSelectionParameters.buildUpon()
+        if (trackType == C.TRACK_TYPE_TEXT && curIdx == options.lastIndex) {
+            b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            p.trackSelectionParameters = b.build()
+            subtitleLabel = "Off"
+            return "CC: Off"
+        }
+        val next = options[(curIdx + 1) % options.size]
+        b.setTrackTypeDisabled(trackType, false)
+            .setOverrideForType(androidx.media3.common.TrackSelectionOverride(next.first, next.second))
+        p.trackSelectionParameters = b.build()
+        if (trackType == C.TRACK_TYPE_TEXT) subtitleLabel = next.third
+        if (trackType == C.TRACK_TYPE_AUDIO) audioLabel = next.third
+        return next.third
+    }
 
     fun loadPrefs(c: Context) {
         val p = c.getSharedPreferences("live", 0)
@@ -160,8 +205,9 @@ object Playback {
             start(app)
         } else {
             val my = ++attempt
+            val zapGen = tech.kousozo.tahoetv.core.StreamSelector.newZapGeneration()
             Thread({
-                val ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(raw)
+                val ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(raw, generation = zapGen)
                 ui.post {
                     if (entry?.channel?.url == e.channel.url && attempt == my) {
                         streams = ranked
@@ -199,8 +245,9 @@ object Playback {
             start(app)
         } else {
             val my = ++attempt
+            val zapGen = tech.kousozo.tahoetv.core.StreamSelector.newZapGeneration()
             Thread({
-                val ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(raw)
+                val ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(raw, generation = zapGen)
                 ui.post {
                     if (entry?.channel?.url == e.channel.url && attempt == my) {
                         streams = ranked
