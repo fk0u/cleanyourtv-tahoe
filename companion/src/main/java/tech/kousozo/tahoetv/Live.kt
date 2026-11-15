@@ -417,6 +417,22 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                             Icon(Icons.Rounded.PictureInPictureAlt, tech.kousozo.tahoetv.core.I18n.get(lang, "player.pip"), tint = Color.White)
                         }
                     }
+                    IconButton({
+                        poke()
+                        val res = Playback.cycleTrack(androidx.media3.common.C.TRACK_TYPE_TEXT)
+                        android.widget.Toast.makeText(c, "Subtitle: $res", android.widget.Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(androidx.compose.material.icons.Icons.Rounded.ClosedCaption,
+                            "Ganti teks / subtitle (${Playback.subtitleLabel ?: "Auto"})", tint = Color.White)
+                    }
+                    IconButton({
+                        poke()
+                        val res = Playback.cycleTrack(androidx.media3.common.C.TRACK_TYPE_AUDIO)
+                        android.widget.Toast.makeText(c, "Audio: $res", android.widget.Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(androidx.compose.material.icons.Icons.Rounded.Audiotrack,
+                            "Ganti trek audio (${Playback.audioLabel ?: "Auto"})", tint = Color.White)
+                    }
                     IconButton({ poke(); settings = true }) { Icon(Icons.Rounded.Settings, "Setelan pemutar: kualitas dan latensi", tint = Color.White) }
                     IconButton({ poke(); onFull() }) {
                         Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (full) "Keluar dari layar penuh" else "Layar penuh", tint = Color.White)

@@ -1,27 +1,32 @@
 package tv.clean.home;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityOptions;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
 import android.content.*;
 import android.content.pm.*;
+import android.content.res.Configuration;
 import android.graphics.*;
 import android.graphics.drawable.*;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.*;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.*;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import tech.kousozo.tahoetv.core.ControlPlane;
 import tech.kousozo.tahoetv.core.DockGrid;
 
 /** Tahoe TV home, tvOS 26 style: full-bleed editorial hero, top bar chips, macOS-style dock with magnification,
@@ -62,6 +67,7 @@ public class Home extends Activity {
     int trendIndex;
     Companion companion;
     boolean gamepad;
+    AutoCloseable pushStream;
 
     // ---------------------------------------------------------------- lifecycle
 
@@ -71,8 +77,33 @@ public class Home extends Activity {
         live = this;
         Cfg.p(this); // runtime settings from the phone setup app
         prefs = getSharedPreferences("home", MODE_PRIVATE);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+        if (PushHelper.isTv(this)) {
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+        }
         enableAppsKey();
+        if (Build.VERSION.SDK_INT >= 33 && !PushHelper.isTv(this)
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                && !prefs.getBoolean("asked_notif", false)) {
+            prefs.edit().putBoolean("asked_notif", true).apply();
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 901);
+        }
+        PushHelper.scheduleBackgroundPoll(this);
+        pushStream = ControlPlane.startPushStream(getFilesDir(), PushHelper.profile(this), new ControlPlane.PushListener() {
+            @Override public void onNotification(ControlPlane.PushNotification n) {
+                PushHelper.showSystemNotification(Home.this, n);
+                ui.post(() -> {
+                    PushHelper.showInAppBanner(Home.this, "Tahoe TV", n.getTitle(), n.getBody());
+                    if (n.getForceModal() && !n.getActionUrl().isEmpty()) {
+                        About.dailyCheck(Home.this);
+                    }
+                });
+            }
+            @Override public void onPolicyUpdated(ControlPlane.UpdatePolicy policy, ControlPlane.ChannelOverrides overrides) {
+                if (policy.getForceModal() || policy.getMinVersionCode() > tech.kousozo.tahoetv.core.TahoeVersion.VERSION_CODE) {
+                    ui.post(() -> About.dailyCheck(Home.this));
+                }
+            }
+        });
         About.dailyCheck(this);
         Live.fetch(this, l -> {}, e -> {}, () -> {}); // load channels + check every server now, so Live TV starts instantly
         dockSize = Math.max(4, Math.min(7, getResources().getInteger(R.integer.dock_size)));
@@ -121,8 +152,23 @@ public class Home extends Activity {
     @Override protected void onDestroy() {
         remote.cancelSleep();
         if (companion != null) companion.stopAll();
+        if (pushStream != null) { try { pushStream.close(); } catch (Exception ignored) {} }
         if (live == this) live = null;
         super.onDestroy();
+    }
+
+    @Override public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (root != null) {
+            root.post(() -> {
+                W = root.getWidth();
+                H = root.getHeight();
+                applyLayoutMetrics();
+                applyTextScale();
+                buildChips();
+                loadApps();
+            });
+        }
     }
 
     /** This firmware drops accessibility services at boot; turn the Apps-button helper back on (WRITE_SECURE_SETTINGS). */
@@ -147,26 +193,41 @@ public class Home extends Activity {
     }
 
     void build() {
-        M = dp(56);
+        applyLayoutMetrics();
+        boolean portrait = H > W && W > 0;
         hero = new Hero(this, W, Math.max(1, getResources().getInteger(R.integer.wallpaper_minutes)));
         root.addView(hero, new FrameLayout.LayoutParams(-1, -1));
 
-        // Top bar: greeting left; chips + clock right.
+        // Top bar: on TV/landscape, greeting left & chips + clock right; on portrait phones, wrap chips onto row 2.
         greeting = Ui.eyebrow(this, Ui.TEXT_2);
-        root.addView(greeting, at(M, dp(Ui.SAFE_TOP + 12), W * 0.4f, -1));
-        LinearLayout right = new LinearLayout(this); right.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(greeting, at(M, dp(Ui.SAFE_TOP + 12), portrait ? W * 0.65f : W * 0.4f, -1));
         chips = new LinearLayout(this); chips.setGravity(Gravity.CENTER_VERTICAL);
-        right.addView(chips);
         clock = Ui.text(this, 26, 300, Ui.TEXT);
-        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.leftMargin = (int) dp(18);
-        right.addView(clock, cl);
-        FrameLayout.LayoutParams rl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        rl.topMargin = (int) dp(Ui.SAFE_TOP); rl.rightMargin = (int) M;
-        root.addView(right, rl);
+        if (portrait) {
+            FrameLayout.LayoutParams clTop = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+            clTop.topMargin = (int) dp(Ui.SAFE_TOP); clTop.rightMargin = (int) M;
+            root.addView(clock, clTop);
+            android.widget.HorizontalScrollView hsv = new android.widget.HorizontalScrollView(this);
+            hsv.setHorizontalScrollBarEnabled(false);
+            hsv.addView(chips);
+            FrameLayout.LayoutParams hl = new FrameLayout.LayoutParams(-1, -2, Gravity.TOP);
+            hl.topMargin = (int) dp(Ui.SAFE_TOP + 42); hl.leftMargin = (int) M; hl.rightMargin = (int) M;
+            root.addView(hsv, hl);
+        } else {
+            LinearLayout right = new LinearLayout(this); right.setGravity(Gravity.CENTER_VERTICAL);
+            right.addView(chips);
+            LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.leftMargin = (int) dp(18);
+            right.addView(clock, cl);
+            FrameLayout.LayoutParams rl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+            rl.topMargin = (int) dp(Ui.SAFE_TOP); rl.rightMargin = (int) M;
+            root.addView(right, rl);
+        }
 
         heroAction = new LinearLayout(this); heroAction.setGravity(Gravity.CENTER_VERTICAL);
         heroAction.setPadding((int) dp(16), (int) dp(10), (int) dp(20), (int) dp(10));
         heroAction.setBackground(new GlassDrawable(dp(22), Ui.GLASS, dp(1)));
+        heroAction.setClickable(true);
+        heroAction.setOnClickListener(v -> heroActivate());
         heroActionIcon = Ui.icon(this, R.drawable.ic_play, 18, Ui.TEXT);
         heroActionText = Ui.text(this, 15, 600, Ui.TEXT); heroActionText.setPadding((int) dp(10), 0, 0, 0);
         heroAction.addView(heroActionIcon); heroAction.addView(heroActionText);
@@ -192,9 +253,16 @@ public class Home extends Activity {
 
         // Launchpad
         padScrim = new View(this);
-        padScrim.setBackgroundColor(0xE6050508); padScrim.setAlpha(0);
+        padScrim.setBackgroundColor(0xE6050508); padScrim.setAlpha(0); padScrim.setVisibility(View.GONE);
+        padScrim.setClickable(true);
+        padScrim.setOnClickListener(v -> {
+            if (row >= 1) {
+                row = 0; col = Math.min(col, Math.max(0, dock.size() - 1));
+                render(true);
+            }
+        });
         root.addView(padScrim, new FrameLayout.LayoutParams(-1, -1));
-        pad = new FrameLayout(this); pad.setAlpha(0); pad.setClipChildren(false);
+        pad = new FrameLayout(this); pad.setAlpha(0); pad.setVisibility(View.GONE); pad.setClipChildren(false);
         root.addView(pad, new FrameLayout.LayoutParams(-1, -1));
         padTitle = Ui.text(this, Ui.HEADLINE, 600, Ui.TEXT);
         padTitle.setText("Aplikasi");
@@ -302,10 +370,21 @@ public class Home extends Activity {
 
     void applyLayoutMetrics() {
         boolean simple = TvViewer.simpleMode(this);
-        cols = DockGrid.effectiveCols(rawCols, simple);
-        tileW = dp(simple ? 146 : 118); tileH = tileW * 9 / 16; gap = dp(simple ? 18 : 16);
-        padGap = dp(22);
-        padTileW = (W - 2 * M - (cols - 1) * padGap) / cols; padTileH = padTileW * 9 / 16;
+        boolean portrait = H > W && W > 0;
+        M = dp(portrait ? 18 : 56);
+        cols = portrait ? 3 : DockGrid.effectiveCols(rawCols, simple);
+        if (portrait) {
+            int maxDock = Math.max(3, Math.min(4, Math.max(3, dock.size())));
+            tileW = Math.max(dp(72), (W - 2 * M - (maxDock - 1) * dp(12) - dp(28)) / maxDock);
+            gap = dp(12);
+        } else {
+            tileW = dp(simple ? 146 : 118);
+            gap = dp(simple ? 18 : 16);
+        }
+        tileH = tileW * 9 / 16;
+        padGap = dp(portrait ? 12 : 22);
+        padTileW = Math.max(dp(84), (W - 2 * M - (cols - 1) * padGap) / Math.max(1, cols));
+        padTileH = padTileW * 9 / 16;
         padStep = padTileH + dp(simple ? 52 : 46);
     }
 
@@ -343,6 +422,8 @@ public class Home extends Activity {
         av.setBackground(new GlassDrawable(dp(20), Ui.GLASS, dp(1)));
         av.addView(Avatar.view(this, 30, !guest() && !kids()));
         av.setContentDescription("Pusat Kontrol");
+        av.setClickable(true);
+        av.setOnClickListener(v -> openControl());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = (int) dp(8);
         chips.addView(av, lp); chipViews.add(av); chipActions.add(this::openControl);
         updateChips();
@@ -353,6 +434,8 @@ public class Home extends Activity {
         LinearLayout c = new LinearLayout(this); c.setGravity(Gravity.CENTER_VERTICAL);
         c.setPadding((int) dp(12), (int) dp(8), (int) dp(text == null ? 12 : 15), (int) dp(8));
         c.setBackground(new GlassDrawable(dp(18), Ui.GLASS, dp(1)));
+        c.setClickable(true);
+        c.setOnClickListener(v -> action.run());
         ImageView i = Ui.icon(this, icon, 18, Ui.TEXT); i.setTag("i");
         c.addView(i);
         if (text != null) {
@@ -447,7 +530,7 @@ public class Home extends Activity {
 
     void loadApps() {
         final String keep = focusedApp() == null ? null : focusedApp().pkg;
-        Net.bg.execute(() -> {
+        Net.local.execute(() -> {
             PackageManager pm = getPackageManager();
             Map<String, App> found = new LinkedHashMap<>();
             for (String cat : new String[]{Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
@@ -495,7 +578,12 @@ public class Home extends Activity {
         bl.width = (int) bandW; bl.height = (int) bandH; bl.leftMargin = (int) bandX; bl.topMargin = (int) bandY;
         dockBand.setLayoutParams(bl);
         for (int i = 0; i < dock.size(); i++) {
-            Tile t = new Tile(this, dock.get(i), tileW, tileH);
+            final int dockIdx = i;
+            App appItem = dock.get(i);
+            Tile t = new Tile(this, appItem, tileW, tileH);
+            t.setClickable(true);
+            t.setOnClickListener(v -> { row = 0; col = dockIdx; render(true); launch(appItem.launch, appItem, t); });
+            t.setOnLongClickListener(v -> { row = 0; col = dockIdx; render(true); openAppMenu(); return true; });
             dockLayer.addView(t, at(bandX + pad + i * (tileW + gap), bandY + pad, tileW, tileH + dp(16)));
             dockTiles.add(t);
         }
@@ -530,9 +618,15 @@ public class Home extends Activity {
     }
 
     float addPadRow(List<App> apps, float y) {
+        final int padRowIdx = padRows.size() + 1;
         List<Tile> tiles = new ArrayList<>();
         for (int i = 0; i < apps.size(); i++) {
-            Tile t = new Tile(this, apps.get(i), padTileW, padTileH);
+            final int colIdx = i;
+            App appItem = apps.get(i);
+            Tile t = new Tile(this, appItem, padTileW, padTileH);
+            t.setClickable(true);
+            t.setOnClickListener(v -> { row = padRowIdx; col = colIdx; render(true); launch(appItem.launch, appItem, t); });
+            t.setOnLongClickListener(v -> { row = padRowIdx; col = colIdx; render(true); openAppMenu(); return true; });
             padRowsView.addView(t, at(M + i * (padTileW + padGap), y, padTileW, padTileH + dp(36)));
             TextView label = Ui.text(this, TvViewer.simpleMode(this) ? 16 : 13, 500, Ui.TEXT); label.setText(apps.get(i).label);
             label.setGravity(Gravity.CENTER); label.setAlpha(0); label.setTag("label");
@@ -608,6 +702,13 @@ public class Home extends Activity {
             row = target;
         }
         render(true);
+        App fa = focusedApp();
+        if (fa != null && focused != null) {
+            focused.announceForAccessibility(fa.label);
+        } else if (row == -2 && col < chipViews.size()) {
+            CharSequence cd = chipViews.get(col).getContentDescription();
+            if (cd != null) chipViews.get(col).announceForAccessibility(cd);
+        }
     }
 
     void openPad() { if (rows() == 0) return; if (row == 0) lastDockCol = col; row = 1; col = 0; firstPadRow = 1; render(true); }
@@ -656,12 +757,31 @@ public class Home extends Activity {
             if (row >= firstPadRow + vis) firstPadRow = row - vis + 1;
         }
         float shift = inPad && firstPadRow > 1 ? -(padRowTop.get(firstPadRow - 1) - dp(96)) : 0;
-        padScrim.animate().alpha(inPad ? 1 : 0).setDuration(ms).start();
-        pad.animate().alpha(inPad ? 1 : 0).setDuration(ms).start();
+        setPadVisible(inPad, ms);
         padRowsView.animate().translationY(inPad ? shift : dp(40)).setDuration(ms).setInterpolator(Ui.out()).start();
         dockLayer.animate().alpha(inPad ? 0 : 1).translationY(inPad ? dp(40) : 0).setDuration(ms).start();
         hero.block.animate().alpha(inPad ? 0 : 1).setDuration(ms).start();
         renderHero();
+    }
+
+    /** Toggles Launchpad visibility so hidden overlay tiles never intercept home touches. */
+    void setPadVisible(boolean show, int ms) {
+        for (View v : new View[]{padScrim, pad}) {
+            v.animate().cancel();
+            if (show) {
+                v.setVisibility(View.VISIBLE);
+                v.animate().alpha(1f).setDuration(ms).withEndAction(null).start();
+            } else if (v.getVisibility() != View.GONE) {
+                if (ms <= 0) {
+                    v.setAlpha(0f);
+                    v.setVisibility(View.GONE);
+                } else {
+                    v.animate().alpha(0f).setDuration(ms).withEndAction(() -> {
+                        if (row < 1) v.setVisibility(View.GONE);
+                    }).start();
+                }
+            }
+        }
     }
 
     void focusPill(LinearLayout p, boolean f, int ms) {

@@ -43,14 +43,18 @@ final class Sheets {
             setBackgroundColor(0x80000000);
             panel = new LinearLayout(h); panel.setOrientation(LinearLayout.VERTICAL);
             panel.setPadding((int) (16 * d), (int) (16 * d), (int) (16 * d), (int) (16 * d));
+            setClickable(true);
+            setOnClickListener(v -> h.closeSheet());
             // Scrolls when the content is taller than the screen; render() keeps the focused row visible.
             scroll = new ScrollView(h);
+            scroll.setClickable(true);
             scroll.setVerticalScrollBarEnabled(false); scroll.setFillViewport(false);
             scroll.setBackground(new GlassDrawable(Ui.dp(h, 34), Ui.GLASS_STRONG, d));
             Ui.clip(scroll, Ui.dp(h, 34));
             scroll.addView(panel, new ScrollView.LayoutParams(-1, -2));
-            LayoutParams lp = new LayoutParams((int) (widthDp * d), -2, gravity);
-            lp.topMargin = lp.bottomMargin = lp.rightMargin = lp.leftMargin = (int) (24 * d);
+            int responsiveW = (int) Math.min(widthDp * d, Math.max(280 * d, h.W - 32 * d));
+            LayoutParams lp = new LayoutParams(responsiveW, -2, gravity);
+            lp.topMargin = lp.bottomMargin = lp.rightMargin = lp.leftMargin = (int) (16 * d);
             addView(scroll, lp);
         }
 
@@ -69,11 +73,22 @@ final class Sheets {
             int keepR = r, keepC = c;
             panel.removeAllViews(); rows.clear(); views.clear();
             fill();
-            for (List<Item> row : rows) {
+            for (int rIdx = 0; rIdx < rows.size(); rIdx++) {
+                List<Item> row = rows.get(rIdx);
                 LinearLayout line = new LinearLayout(getContext());
                 List<View> vs = new ArrayList<>();
                 for (int i = 0; i < row.size(); i++) {
-                    View v = tile(row.get(i));
+                    final Item it = row.get(i);
+                    final int rr = rIdx, cc = i;
+                    View v = tile(it);
+                    v.setClickable(true);
+                    v.setFocusable(true);
+                    v.setOnClickListener(clicked -> {
+                        r = rr; c = cc;
+                        render();
+                        if (it.enter != null) it.enter.run();
+                        else if (it.adjust != null) { it.adjust.by(1); rebuild(); }
+                    });
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
                     if (i > 0) lp.leftMargin = (int) (10 * d);
                     line.addView(v, lp); vs.add(v);

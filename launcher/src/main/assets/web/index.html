@@ -121,7 +121,7 @@ async function pair(code) {
 }
 
 function connect() {
-  ws = new WebSocket(`ws://${location.host}/ws?token=${encodeURIComponent(token)}`);
+  ws = new WebSocket(`ws://${location.host}/ws`);
   ws.onopen = () => { retry = 0; $('#dot').classList.add('on'); };
   ws.onclose = e => {
     $('#dot').classList.remove('on');
@@ -132,7 +132,7 @@ function connect() {
 const send = o => ws && ws.readyState === 1 ? ws.send(JSON.stringify(o)) : toast('Belum tersambung');
 
 async function loadApps() {
-  const r = await fetch('/apps?token=' + encodeURIComponent(token));
+  const r = await fetch('/apps', { headers: { 'Authorization': 'Bearer ' + token } });
   if (r.status === 401) return logout();
   const { apps } = await r.json();
   const box = $('#apps'); box.innerHTML = '';
@@ -181,7 +181,11 @@ async function shrink(file) {
   return new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
 }
 async function upload(blob, kind, name) {
-  const r = await fetch(`/upload?token=${encodeURIComponent(token)}&kind=${kind}&name=${encodeURIComponent(name)}`, { method:'POST', body:blob });
+  const r = await fetch(`/upload?kind=${kind}&name=${encodeURIComponent(name)}`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: blob,
+  });
   if (!r.ok) throw new Error((await r.json()).error || r.status);
 }
 $('#photoBtn').onclick = () => $('#photos').click();

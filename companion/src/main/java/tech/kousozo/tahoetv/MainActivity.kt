@@ -70,6 +70,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(b)
         Report.install(this)
         if (b == null) pairFrom(intent)
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
+        }
+        if (intent?.getBooleanExtra("open_update_modal", false) == true) {
+            PushHelper.openUpdateModal(this)
+        }
         val dark = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         runCatching { enableEdgeToEdge(dark, dark) }
             .onFailure { tech.kousozo.tahoetv.core.DiagLog.error("app", "enableEdgeToEdge", it) }
@@ -77,8 +86,10 @@ class MainActivity : ComponentActivity() {
         Playback.loadPrefs(this)
         PhoneRegion.load(this)
         TvDiscovery.start(applicationContext)
+        PushHelper.start(applicationContext)
         setContent {
             TahoeTheme {
+                var showInbox by remember { mutableStateOf(false) }
                 if (PhoneRegion.needsSetup) { Box(Modifier.fillMaxSize()) { Backdrop(null); WelcomeScreen() }; return@TahoeTheme }
                 Box(Modifier.fillMaxSize()) {
                     // the playing channel (or the hero channel on Beranda) tints the whole app, like album art in a music app
@@ -86,7 +97,7 @@ class MainActivity : ComponentActivity() {
                     Backdrop(tintLogo?.let { dominantColor(it) })
                     AnimatedContent(Nav.tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {
-                            0 -> HomeScreen(resumed.intValue)
+                            0 -> HomeScreen(resumed.intValue) { showInbox = true }
                             1 -> LiveScreen()
                             2 -> RemoteScreen()
                             3 -> CategoriesScreen()
@@ -105,6 +116,9 @@ class MainActivity : ComponentActivity() {
                             tech.kousozo.tahoetv.core.I18n.get(lang, "nav.install") to Icons.Rounded.Tv,
                         ), Nav.tab, { Nav.tab = it; Nav.detail = null })
                     }
+                    PushBannerBar(onOpenInbox = { showInbox = true }, modifier = Modifier.align(Alignment.TopCenter))
+                    if (showInbox) NotificationInboxSheet { showInbox = false }
+                    UpdateModalDialog()
                 }
             }
         }
@@ -137,9 +151,13 @@ class MainActivity : ComponentActivity() {
     /** Live TV pauses when leaving unless Picture-in-Picture is active (#63). */
     override fun onStop() { super.onStop(); if (!isInPictureInPictureMode) Playback.pause() }
 
-    override fun onDestroy() { if (isFinishing) { Playback.release(); TvDiscovery.stop() }; super.onDestroy() }
+    override fun onDestroy() { if (isFinishing) { Playback.release(); TvDiscovery.stop(); PushHelper.stop() }; super.onDestroy() }
 
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); pairFrom(intent) }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        pairFrom(intent)
+        if (intent.getBooleanExtra("open_update_modal", false)) PushHelper.openUpdateModal(this)
+    }
 
     /** Opened from the TV's pairing QR (http://<tv-ip>:8765/?code=123456): pair with that TV right away. */
     private fun pairFrom(i: Intent?) {
@@ -174,7 +192,7 @@ val TabInset: androidx.compose.ui.unit.Dp
 /** Beranda (redesign #60): a full-bleed hero for the channel you watch most recently (its colour tints the app),
  *  then rows like a music app: Terakhir ditonton, Favorit, Jelajahi chips, a bento of numbers, and your TV. */
 @Composable
-fun HomeScreen(resumeTick: Int) {
+fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
     val c = LocalContext.current
     val p = remember { Sync.prefs(c) }
     val scope = rememberCoroutineScope()
@@ -214,6 +232,14 @@ fun HomeScreen(resumeTick: Int) {
             Row(Modifier.statusBarsPadding().padding(start = 20.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 BrandMark(30.dp, tint = Color.White)
                 Spacer(Modifier.weight(1f))
+                Box {
+                    RoundGlass(Icons.Rounded.Notifications, "Notifikasi (${PushHelper.unreadCount})",
+                        tint = if (PushHelper.unreadCount > 0) Tahoe.Accent else Tahoe.Text) { onOpenInbox() }
+                    if (PushHelper.unreadCount > 0) {
+                        Box(Modifier.align(Alignment.TopEnd).size(9.dp).clip(CircleShape).background(Tahoe.Accent))
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
                 RoundGlass(if (paired) Icons.Rounded.Tv else Icons.Rounded.TvOff, tech.kousozo.tahoetv.core.I18n.get(lang, if (paired) "home.tv_connected" else "tv.connect_title"),
                     tint = if (paired) Tahoe.Good else Tahoe.Text) { if (paired) showDevices = true else showPair = !showPair }
                 Spacer(Modifier.width(8.dp))

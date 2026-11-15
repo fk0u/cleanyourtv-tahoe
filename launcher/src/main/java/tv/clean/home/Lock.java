@@ -170,30 +170,39 @@ public class Lock extends DreamService {
             super(c, new int[]{0xB3000000, 0x8C000000, 0xB3000000});
             this.onPick = onPick;
             float d = Ui.dp(c, 1);
+            boolean compact = c.getResources().getConfiguration().screenWidthDp < 600;
+            int av = compact ? 76 : 132;
             LinearLayout col = new LinearLayout(c); col.setOrientation(LinearLayout.VERTICAL); col.setGravity(Gravity.CENTER_HORIZONTAL);
-            TextView title = Ui.text(c, Ui.TITLE, 700, Ui.TEXT); title.setText("Siapa yang menonton?");
-            TextView sub = Ui.text(c, Ui.BODY, 400, Ui.TEXT_2); sub.setText("Setiap profil punya dock dan riwayatnya sendiri.");
-            sub.setPadding(0, (int) (10 * d), 0, (int) (40 * d));
+            if (compact) col.setPadding((int) (16 * d), 0, (int) (16 * d), 0);
+            TextView title = Ui.text(c, compact ? 24 : Ui.TITLE, 700, Ui.TEXT); title.setText("Siapa yang menonton?");
+            TextView sub = Ui.text(c, compact ? 13.5f : Ui.BODY, 400, Ui.TEXT_2); sub.setText("Setiap profil punya dock dan riwayatnya sendiri.");
+            sub.setPadding(0, (int) (10 * d), 0, (int) ((compact ? 24 : 40) * d));
             title.setGravity(Gravity.CENTER); sub.setGravity(Gravity.CENTER);
             col.addView(title); col.addView(sub);
-            LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.TOP);
+            LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
             String name = Cfg.s(c, "user_name", R.string.user_name);
-            cards[0] = card(c, Avatar.view(c, 132), name.isEmpty() ? "Saya" : name, lastApp, lastIcon);
-            ImageView guest = Avatar.view(c, 132, false); // guest never shows the owner's photo
-            guest.setPadding((int) (34 * d), (int) (34 * d), (int) (34 * d), (int) (34 * d));
+            cards[0] = card(c, Avatar.view(c, av), name.isEmpty() ? "Saya" : name, lastApp, lastIcon);
+            ImageView guest = Avatar.view(c, av, false); // guest never shows the owner's photo
+            int gPad = (int) ((compact ? 18 : 34) * d);
+            guest.setPadding(gPad, gPad, gPad, gPad);
             cards[1] = card(c, guest, "Tamu", null, null);
             ImageView kid = new ImageView(c);
             kid.setImageResource(R.drawable.ic_lock); kid.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
             kid.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
             GradientDrawable kb = new GradientDrawable(); kb.setShape(GradientDrawable.OVAL); kb.setColor(0xFF34C759);
-            kid.setBackground(kb); kid.setPadding((int) (40 * d), (int) (40 * d), (int) (40 * d), (int) (40 * d));
-            kid.setLayoutParams(new LinearLayout.LayoutParams((int) (132 * d), (int) (132 * d)));
+            int kPad = (int) ((compact ? 22 : 40) * d);
+            kid.setBackground(kb); kid.setPadding(kPad, kPad, kPad, kPad);
+            kid.setLayoutParams(new LinearLayout.LayoutParams((int) (av * d), (int) (av * d)));
             cards[2] = card(c, kid, "Anak", null, null);
             ((TextView) cards[2].getChildAt(2)).setText(Kids.hasPin(c) ? "DIKUNCI PIN" : "SALURAN ANAK");
             for (int i = 0; i < KEYS.length; i++) if (KEYS[i].equals(current)) sel = i;
             for (int i = 0; i < 3; i++) {
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int) (220 * d), -2);
-                if (i > 0) lp.leftMargin = (int) (48 * d);
+                final int idx = i;
+                cards[i].setClickable(true);
+                cards[i].setFocusable(true);
+                cards[i].setOnClickListener(v -> { sel = idx; render(); onPick.pick(KEYS[idx]); });
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int) ((compact ? 104 : 220) * d), -2);
+                if (i > 0) lp.leftMargin = (int) ((compact ? 12 : 48) * d);
                 row.addView(cards[i], lp);
             }
             col.addView(row);
