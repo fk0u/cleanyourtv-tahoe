@@ -152,9 +152,25 @@ object Playback {
         if (entry?.channel?.url == e.channel.url && slate == null) { resume(); return }
         entry = e; slate = null; autoRetries = 0; retryIn = 0; sawRecording = false
         Channels.remember(c, e)
-        streams = SourceHealth.order(listOf(e.channel) + e.alternates) // known-live first
-        source = 0
-        start(c.applicationContext)
+        val raw = listOf(e.channel) + e.alternates
+        val app = c.applicationContext
+        if (raw.size <= 1) {
+            streams = SourceHealth.order(raw)
+            source = 0
+            start(app)
+        } else {
+            val my = ++attempt
+            Thread({
+                val ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(raw)
+                ui.post {
+                    if (entry?.channel?.url == e.channel.url && attempt == my) {
+                        streams = ranked
+                        source = 0
+                        start(app)
+                    }
+                }
+            }, "tahoe-rank").apply { isDaemon = true }.start()
+        }
     }
 
     /** Previous/next channel in [list] (what the TV Live screen shows). */
@@ -175,9 +191,25 @@ object Playback {
     fun retry(c: Context) {
         val e = entry ?: return
         slate = null; retryIn = 0; sawRecording = false
-        streams = SourceHealth.order(listOf(e.channel) + e.alternates)
-        source = 0
-        start(c.applicationContext)
+        val raw = listOf(e.channel) + e.alternates
+        val app = c.applicationContext
+        if (raw.size <= 1) {
+            streams = SourceHealth.order(raw)
+            source = 0
+            start(app)
+        } else {
+            val my = ++attempt
+            Thread({
+                val ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(raw)
+                ui.post {
+                    if (entry?.channel?.url == e.channel.url && attempt == my) {
+                        streams = ranked
+                        source = 0
+                        start(app)
+                    }
+                }
+            }, "tahoe-rank").apply { isDaemon = true }.start()
+        }
     }
 
     /** Counts down to the next background retry; stops after [Slate.MAX_RETRIES] (the slate then waits for the viewer). */
