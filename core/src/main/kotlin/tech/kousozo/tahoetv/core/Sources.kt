@@ -15,6 +15,13 @@ object Sources {
         // dhanytv mixes free Indonesian TV with paid channels; only its Indonesian free-TV groups are used.
         Source("dhanytv", "https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv.m3u",
             setOf("Indonesia Channels", "TVRI", "Local Channels", "Nasional", "TV HIBURAN")),
+        Source("dhanytv-ott", "https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv-ott.m3u",
+            setOf("Indonesia Channels", "Indonesian Entertainment & Movies", "News", "News Channel",
+                "Kids Channel", "Documentary Channels", "Entertainment & LifeStyle", "General Channels")),
+        // windozalmi curated Indonesian IPTV playlist (m3u-ipvt branch); free-TV groups only.
+        Source("windozalmi", "https://raw.githubusercontent.com/windozalmi/Playlist_IPTV_Pribadi/m3u-ipvt/IPTV%20Indonesia%20by%20WINDO%20ZALMI",
+            setOf("Indonesia Channels", "Indonesian Entertainment & Movies", "News", "News Channel",
+                "Kids Channel", "Knowledge and Documentary", "PENGETAHUAN", "RELIGION")),
         // Indonesian channels re-tested daily for picture + sound; mostly broadcaster/free hosts. Adds backups.
         Source("yositapjani", "https://raw.githubusercontent.com/yositapjani/iptv-indonesia/main/indonesia.m3u"),
     )
@@ -32,9 +39,49 @@ object Sources {
 
     fun free(c: M3u.Channel) = !c.drm && !RESTREAM.containsMatchIn(c.url) && !PAID.containsMatchIn(c.name) && !FILE.containsMatchIn(c.url)
 
+    private const val DAILY_MS = 24 * 60 * 60_000L
+    @Volatile private var cacheDir: File? = null
+    @Volatile private var dailyTimer: java.util.concurrent.ScheduledExecutorService? = null
+
+    /** Sets the directory used to cache remote M3U playlists for daily auto-refresh. */
+    @JvmStatic fun initCache(dir: File) { cacheDir = dir.also { runCatching { it.mkdirs() } } }
+
+    private fun playlistCacheDir(): File? = cacheDir ?: runCatching {
+        File(System.getProperty("user.home"), ".tahoetv/playlist-cache").apply { mkdirs() }
+    }.getOrNull()?.takeIf { it.isDirectory && it.canWrite() }
+
+    private fun loadSource(url: String, forceRefresh: Boolean = false): List<M3u.Channel> {
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return M3u.load(url)
+        val dir = playlistCacheDir()
+        val key = url.hashCode().toUInt().toString(16) + "-" + url.substringAfterLast('/').replace(Regex("[^a-zA-Z0-9._-]"), "_").take(32)
+        val cached = dir?.let { File(it, "$key.m3u") }
+        val fresh = cached != null && cached.isFile && !forceRefresh && (System.currentTimeMillis() - cached.lastModified() < DAILY_MS)
+        if (fresh) return M3u.parse(cached!!.readText())
+        val fetched = runCatching { Web.get(url, 30_000) }.getOrNull()
+        if (!fetched.isNullOrBlank()) {
+            if (cached != null) runCatching { cached.writeText(fetched) }
+            return M3u.parse(fetched)
+        }
+        if (cached != null && cached.isFile) return M3u.parse(cached.readText())
+        return emptyList()
+    }
+
+    /** Schedules a daily (24h) background refresh of built-in playlists; [onRefresh] runs after each update. */
+    @JvmStatic @Synchronized fun scheduleDailyRefresh(onRefresh: Runnable? = null) {
+        if (dailyTimer != null) return
+        val exec = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "tahoe-daily-sources").apply { isDaemon = true } }
+        dailyTimer = exec
+        exec.scheduleAtFixedRate({
+            runCatching {
+                DEFAULT.forEach { loadSource(it.url, forceRefresh = true) }
+                onRefresh?.run()
+            }
+        }, 24, 24, TimeUnit.HOURS)
+    }
+
     /** All sources merged, free TV only. A failing source is skipped, not fatal. */
-    fun load(sources: List<Source> = DEFAULT): List<M3u.Channel> = sources.flatMap { s ->
-        runCatching { M3u.load(s.url) }.getOrDefault(emptyList())
+    fun load(sources: List<Source> = DEFAULT, forceRefresh: Boolean = false): List<M3u.Channel> = sources.flatMap { s ->
+        runCatching { loadSource(s.url, forceRefresh) }.getOrDefault(emptyList())
             .filter { s.groups == null || it.group in s.groups }
             .filter(::free)
     }.distinctBy { it.url }
@@ -96,10 +143,8 @@ object Sources {
         return out
     }
 
-    /** A country's built-in channels: Indonesia's sources taken whole, another country's iptv-org list through [free]. */
-    private fun builtIn(country: String): List<M3u.Channel> =
-        if (country.equals(Region.HOME, true)) Region.sources(country).flatMap { s -> runCatching { M3u.load(s.url) }.getOrDefault(emptyList()) }
-        else load(Region.sources(country))
+    /** A country's built-in channels, filtered by each source's group allow-list and [free]. */
+    private fun builtIn(country: String): List<M3u.Channel> = load(Region.sources(country))
 
     /** Channels of several countries (the onboarding's "channel countries"), merged without duplicates: the first as
      *  [loadAll] (local files, [extra], or its built-ins), then every other country's built-in channels. */
