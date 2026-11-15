@@ -12,7 +12,14 @@ import java.util.concurrent.atomic.AtomicInteger
  *  for 15 min), and players report what actually played or failed, so tuning a channel starts a source known to work
  *  instead of waiting for dead ones to time out first. Shared by the TV launcher, the phone app and the desktop app. */
 object SourceHealth {
-    class Status(val live: Boolean, val ms: Long, val at: Long)
+    class Status(
+        val live: Boolean,
+        val ms: Long,
+        val at: Long,
+        val height: Int = 0,
+        val bandwidth: Long = 0L,
+        val score: Double = 0.0,
+    )
 
     private const val TTL = 15 * 60_000L
     private val map = ConcurrentHashMap<String, Status>()
@@ -38,10 +45,13 @@ object SourceHealth {
             f.forEachLine { l ->
                 runCatching {
                     val p = l.split('\t')
-                    if (p.size == 4) {
+                    if (p.size == 4 || p.size >= 7) {
                         val ms = p[2].toLong()
                         val at = p[3].toLong()
-                        if (now - at < TTL) map[p[0]] = Status(p[1] == "1", ms, at)
+                        val h = if (p.size >= 7) p[4].toIntOrNull() ?: 0 else 0
+                        val bw = if (p.size >= 7) p[5].toLongOrNull() ?: 0L else 0L
+                        val sc = if (p.size >= 7) p[6].toDoubleOrNull() ?: 0.0 else 0.0
+                        if (now - at < TTL) map[p[0]] = Status(p[1] == "1", ms, at, h, bw, sc)
                     }
                 }
             }
@@ -62,7 +72,9 @@ object SourceHealth {
     }
 
     @Synchronized internal fun save() = file?.let { f ->
-        atomicWrite(f, map.entries.joinToString("\n") { (u, s) -> "$u\t${if (s.live) 1 else 0}\t${s.ms}\t${s.at}" })
+        atomicWrite(f, map.entries.joinToString("\n") { (u, s) ->
+            "$u\t${if (s.live) 1 else 0}\t${s.ms}\t${s.at}\t${s.height}\t${s.bandwidth}\t${s.score}"
+        })
     }
 
     @JvmStatic fun status(url: String): Status? =
@@ -81,7 +93,16 @@ object SourceHealth {
     @Synchronized private fun saveBans() { banFile?.let { f -> atomicWrite(f, banned.joinToString("\n")) } }
 
     /** A player's verdict beats a probe: it really played (or really failed). */
-    @JvmStatic fun report(url: String, live: Boolean) { if (url in banned) return; map[url] = Status(live, status(url)?.ms ?: 0, System.currentTimeMillis()) }
+    @JvmStatic fun report(url: String, live: Boolean) {
+        if (url in banned) return
+        val prev = status(url)
+        map[url] = Status(live, prev?.ms ?: 0, System.currentTimeMillis(), prev?.height ?: 0, prev?.bandwidth ?: 0L, prev?.score ?: 0.0)
+    }
+
+    @JvmStatic fun reportMetrics(url: String, m: StreamSelector.Metrics) {
+        if (url in banned) return
+        map[url] = Status(m.live, m.latencyMs, System.currentTimeMillis(), m.height, m.bandwidthBps, m.score)
+    }
 
     /** Probes every stream not checked in the last 15 min, in the given order (put the likely next channels first). */
     @JvmStatic @JvmOverloads fun probeAll(streams: List<M3u.Channel>, done: Runnable? = null) {
@@ -90,9 +111,7 @@ object SourceHealth {
         val left = AtomicInteger(todo.size)
         todo.forEach { c ->
             pool.execute {
-                val t = System.nanoTime()
-                val live = Sources.check(c, 3500)
-                map[c.url] = Status(live, (System.nanoTime() - t) / 1_000_000, System.currentTimeMillis())
+                reportMetrics(c.url, StreamSelector.inspect(c, 3500))
                 queued.remove(c.url)
                 val rem = left.decrementAndGet()
                 if (rem == 0) { save(); done?.run() } else if (rem % 50 == 0) save()
@@ -100,10 +119,14 @@ object SourceHealth {
         }
     }
 
-    /** Main stream + backups, best first: live by latency, then unknown (original order), then known dead. Sources marked as recordings are left out. */
+    /** Main stream + backups, best first: live by fuzzy score desc (or latency asc), then unknown, then known dead. Sources marked as recordings are left out. */
     @JvmStatic fun order(streams: List<M3u.Channel>): List<M3u.Channel> = streams.filterNot { it.url in banned }.sortedBy { s ->
         val st = status(s.url)
-        when { st == null -> 1_000_000L; st.live -> st.ms; else -> 10_000_000L }
+        when {
+            st == null -> 1_000_000.0
+            st.live -> if (st.score > 0.0) (1000.0 - st.score) + (st.ms.coerceAtMost(9999L) / 10000.0) else st.ms.toDouble()
+            else -> 10_000_000.0
+        }
     }
 
     /** true = some source live, false = every source checked and dead, null = not known yet. */
