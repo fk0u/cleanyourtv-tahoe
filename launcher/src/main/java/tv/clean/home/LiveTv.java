@@ -216,16 +216,31 @@ public class LiveTv extends Activity {
         hideSlate(); slateRetries = 0; // another channel: a fresh start
         LocalTv.Entry e = list.get(index);
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
-        order = SourceHealth.order(raw); // fixed for this tune, so `source` keeps pointing at the same stream
         String url = list.get(index).getChannel().getUrl();
         List<String> rc = recent(); rc.remove(url); rc.add(0, url); while (rc.size() > 10) rc.remove(rc.size() - 1);
         prefs.edit().putString("last", url).putString("recent", android.text.TextUtils.join("\n", rc)).apply();
         if (Home.live != null) Home.live.pushState(); // phone remote shows the channel
-        play();
+        final int seq = ++tuneSeq;
+        if (raw.size() <= 1) {
+            order = SourceHealth.order(raw); // fixed for this tune, so `source` keeps pointing at the same stream
+            play();
+        } else {
+            new Thread(() -> {
+                List<M3u.Channel> ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(raw);
+                runOnUiThread(() -> {
+                    if (seq == tuneSeq && !isFinishing()) {
+                        order = ranked;
+                        source = 0;
+                        play();
+                    }
+                });
+            }, "tahoe-rank").start();
+        }
         showBanner();
     }
 
     /** This channel's streams, known-live first (SourceHealth), as ordered when it was tuned. */
+    private int tuneSeq = 0;
     List<M3u.Channel> order = new ArrayList<>();
     List<M3u.Channel> streams() { return order; }
 
@@ -887,10 +902,24 @@ public class LiveTv extends Activity {
         hideSlate();
         LocalTv.Entry e = list.get(index);
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
-        order = SourceHealth.order(raw);
-        source = 0;
         bStatus.setVisibility(View.GONE);
-        play();
+        final int seq = ++tuneSeq;
+        if (raw.size() <= 1) {
+            order = SourceHealth.order(raw);
+            source = 0;
+            play();
+        } else {
+            new Thread(() -> {
+                List<M3u.Channel> ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(raw);
+                runOnUiThread(() -> {
+                    if (seq == tuneSeq && !isFinishing()) {
+                        order = ranked;
+                        source = 0;
+                        play();
+                    }
+                });
+            }, "tahoe-rank").start();
+        }
     }
 
     @Override public boolean onKeyLongPress(int code, KeyEvent e) {

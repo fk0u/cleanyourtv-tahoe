@@ -162,8 +162,17 @@ object PlayerWindow {
         channelStreams = streams; slateRetries = 0; slateTimer?.stop()
         probedLiveInSession = streams.any { SourceHealth.status(it.url)?.live == true }
         webFallbackTriedGen = -1
-        start(SourceHealth.order(streams), 0, ++generation) // known-live sources first, recordings left out
+        val gen = ++generation
         s.show(); s.toFront(); reveal()
+        if (streams.size <= 1) {
+            start(SourceHealth.order(streams), 0, gen)
+        } else {
+            loading(true)
+            Thread({
+                val ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(streams)
+                fx { if (generation == gen) start(ranked, 0, gen) }
+            }, "tahoe-rank").apply { isDaemon = true }.start()
+        }
     }
 
     /** Playing: hide the loader and any error. Only real failures ever reach the app window (no "loading…" chatter). */
