@@ -99,7 +99,7 @@ fun LiveScreen() {
                     val cached = ordered.mapNotNull { c -> SourceHealth.status(c.url)?.let { c.url to it.live } }.toMap()
                     val lock = Any()
                     if (cached.isNotEmpty()) synchronized(lock) { statusMap = statusMap + cached }
-                    val todo = ordered.filter { it.url !in cached }
+                    val todo = ordered.filter { it.url !in cached }.take(1500)
                     Sources.checkStatus(todo, timeoutMs = 3500) { url, isLive ->
                         SourceHealth.report(url, isLive) // the player then starts a source known to work
                         // 32 checker threads report at once: without the lock, read-add-write lost results
