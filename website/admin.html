@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tahoe TV — Admin Console</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#07080D">
+<link rel="icon" href="assets/logo-mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+<header class="nav">
+  <a class="brand" href="/"><img src="assets/logo-mark.svg" alt="" width="28" height="28"><span>Tahoe TV Admin</span></a>
+  <div class="nav-right">
+    <a class="nav-pill" href="/">← Public Site</a>
+    <button class="nav-pill" id="admin-refresh" hidden type="button">↻ Refresh</button>
+    <button class="btn danger small" id="admin-logout" hidden type="button">Logout</button>
+  </div>
+</header>
+
+<main class="admin-wrap">
+  <section id="login-card" class="card admin-login">
+    <h2>Admin Access</h2>
+    <p class="dl-sub" style="margin:6px 0 18px;">Sign in to inspect installed devices, send push notifications, and manage Tahoe TV update modals.</p>
+    <form id="login-form">
+      <div class="field">
+        <label for="adm-user">Username</label>
+        <input class="input" id="adm-user" name="username" autocomplete="username" value="admin" required>
+      </div>
+      <div class="field">
+        <label for="adm-pass">Password</label>
+        <input class="input" id="adm-pass" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn primary small" style="width:100%;" type="submit">Sign In</button>
+      <p class="dl-sub" id="login-err" style="color:#ff8e86; margin-top:10px;"></p>
+    </form>
+  </section>
+
+  <section id="dash" hidden>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 style="font-size:34px;">Tahoe Fleet & Push Control</h1>
+        <p class="dl-sub" id="admin-user-label">Signed in</p>
+      </div>
+      <span class="pill"><span class="dot"></span><span id="live-sse-pill">0 online SSE</span></span>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card"><small>Total Installed Devices</small><b id="kpi-total">0</b></div>
+      <div class="kpi-card"><small>Active Last 24h</small><b id="kpi-24h">0</b></div>
+      <div class="kpi-card"><small>Active Last 7 Days</small><b id="kpi-7d">0</b></div>
+      <div class="kpi-card"><small>Connected Push (SSE)</small><b id="kpi-sse">0</b></div>
+    </div>
+
+    <div class="split-2">
+      <div class="card">
+        <h3>By Platform</h3>
+        <div id="bars-platform" style="margin-top:14px;"></div>
+      </div>
+      <div class="card">
+        <h3>By App Role & Version</h3>
+        <div id="bars-role" style="margin-top:14px;"></div>
+        <div id="bars-version" style="margin-top:18px;"></div>
+      </div>
+    </div>
+
+    <div class="split-2">
+      <div class="card">
+        <h3>Broadcast Push Notification</h3>
+        <p class="dl-sub" style="margin-bottom:14px;">Delivered instantaneously via SSE to open TVs/Phones/Desktops and via background notifications on Android.</p>
+        <form id="push-form">
+          <div class="field"><label>Title</label><input class="input" id="p-title" required placeholder="e.g. Pembaruan v3.4.0 Tersedia"></div>
+          <div class="field"><label>Message Body</label><textarea class="input" id="p-body" required placeholder="Details shown in push notification & update modal..."></textarea></div>
+          <div class="split-2" style="margin-top:0; gap:10px;">
+            <div class="field"><label>Kind</label>
+              <select class="input" id="p-kind">
+                <option value="info">Info</option>
+                <option value="update">Update Alert</option>
+                <option value="warning">Warning</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+            <div class="field"><label>Target Platform</label>
+              <select class="input" id="p-platform">
+                <option value="">All Platforms</option>
+                <option value="android_tv">Android TV / TV Stick</option>
+                <option value="android_phone">Android Phone</option>
+                <option value="macos_intel">macOS Intel</option>
+                <option value="macos_arm64">macOS Apple Silicon</option>
+                <option value="windows">Windows</option>
+                <option value="linux">Linux</option>
+              </select>
+            </div>
+          </div>
+          <div class="split-2" style="margin-top:0; gap:10px;">
+            <div class="field"><label>Target App Role</label>
+              <select class="input" id="p-role">
+                <option value="">All Apps</option>
+                <option value="tv_home">Tahoe TV (Main TV & Phone App)</option>
+                <option value="phone_remote">Tahoe TV Remote (Phone)</option>
+                <option value="desktop">Desktop App</option>
+              </select>
+            </div>
+            <div class="field"><label>Action URL (Optional)</label><input class="input" id="p-url" placeholder="https://tahoe.kousozo.tech/#start"></div>
+          </div>
+          <label style="display:flex; gap:8px; align-items:center; font-size:14px; margin-bottom:14px;">
+            <input type="checkbox" id="p-modal"> Trigger Pop-up Modal on Clients
+          </label>
+          <button class="btn cyan small" type="submit">Send Push Now</button>
+          <span class="dl-sub" id="push-status" style="margin-left:10px;"></span>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Update Modal & Remote Channel Policy</h3>
+        <form id="cfg-form" style="margin-top:14px;">
+          <label style="display:flex; gap:8px; align-items:center; font-size:14px; margin-bottom:12px;">
+            <input type="checkbox" id="c-force"> Force Update Pop-up Modal on Older Clients
+          </label>
+          <div class="split-2" style="margin-top:0; gap:10px;">
+            <div class="field"><label>Minimum Version Code</label><input class="input" id="c-minvc" type="number" min="0" value="0"></div>
+            <div class="field"><label>Recommended Version</label><input class="input" id="c-recver" placeholder="3.4.0"></div>
+          </div>
+          <div class="field"><label>Global Update Modal Title</label><input class="input" id="c-mtitle" placeholder="Pembaruan Penting Tersedia"></div>
+          <div class="field"><label>Global Update Modal Message</label><input class="input" id="c-mbody" placeholder="Silakan pasang versi terbaru untuk performa & channel terbaik."></div>
+          <div class="field"><label>Website Top Announcement Banner</label><input class="input" id="c-announce" placeholder="Public announcement text..."></div>
+          <div class="field"><label>Blocked Stream Hosts (one per line)</label><textarea class="input" id="c-blocked" style="min-height:70px;" placeholder="dead-host.example"></textarea></div>
+          <button class="btn primary small" type="submit">Save & Broadcast Config</button>
+          <span class="dl-sub" id="cfg-status" style="margin-left:10px;"></span>
+        </form>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="toolbar">
+        <h3 style="margin-right:auto;">Installed Devices Registry</h3>
+        <input class="input" id="dev-search" placeholder="Search model / version / ID...">
+        <select class="input" id="dev-platform">
+          <option value="">All Platforms</option>
+          <option value="android_tv">android_tv</option>
+          <option value="android_phone">android_phone</option>
+          <option value="macos_intel">macos_intel</option>
+          <option value="macos_arm64">macos_arm64</option>
+          <option value="windows">windows</option>
+          <option value="linux">linux</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Device ID</th><th>Platform</th><th>Role</th><th>Model</th><th>Version</th><th>Country</th><th>Last Seen</th><th>Action</th></tr></thead>
+          <tbody id="dev-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="split-2">
+      <div class="card">
+        <h3>Notification History</h3>
+        <div class="table-wrap" style="margin-top:12px;">
+          <table class="data">
+            <thead><tr><th>ID</th><th>Title</th><th>Target</th><th>Delivered / Opened</th><th>Action</th></tr></thead>
+            <tbody id="notif-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Security Audit Log</h3>
+        <div class="table-wrap" style="margin-top:12px;">
+          <table class="data">
+            <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Details</th></tr></thead>
+            <tbody id="audit-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/admin.js"></script>
+</body>
+</html>

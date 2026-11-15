@@ -1,0 +1,14 @@
+{
+  "name": "tahoe-control-plane",
+  "version": "1.0.0",
+  "description": "Lightweight control plane, device registry, push notification broker, and admin API for Tahoe TV.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node --no-warnings src/index.mjs",
+    "test": "node --no-warnings --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
