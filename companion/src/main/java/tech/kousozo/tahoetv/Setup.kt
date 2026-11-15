@@ -34,18 +34,18 @@ fun SetupScreen(onExit: () -> Unit, m: SetupModel = viewModel()) {
         }
     }
     when (m.step) {
-        SetupModel.Step.Scan -> Page("Langkah 1 dari 5", "Cari TV", "Pastikan HP dan TV terhubung ke Wi-Fi yang sama.") {
-            Note("Aktifkan izin sambungan TV (cukup sekali saja):\n1. Buka Setelan TV → Tentang → tekan \"Build\" 7×\n2. Kembali → Opsi developer → aktifkan USB debugging", Icons.Rounded.Info)
+        SetupModel.Step.Scan -> Page(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.step", 1), tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.scan_title"), tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.scan_sub")) {
+            Note(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.scan_note"), Icons.Rounded.Info)
             Section(when {
-                m.noWifi -> "HP belum tersambung ke Wi-Fi."
-                m.scanning && m.found.isEmpty() -> "Mencari TV di jaringan…"
-                m.found.isEmpty() -> "Tidak ada TV ditemukan."
-                else -> "Pilih TV kamu"
+                m.noWifi -> tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.no_wifi")
+                m.scanning && m.found.isEmpty() -> tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.scanning")
+                m.found.isEmpty() -> tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.none_found")
+                else -> tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.pick_tv")
             })
             if (m.scanning) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
             m.found.forEach { f ->
                 GlassCard(onClick = {
-                    if (f.adb) m.connect(f.ip) else Toast.makeText(c, "Aktifkan izin sambungan di Setelan TV dulu, lalu pindai ulang", Toast.LENGTH_SHORT).show()
+                    if (f.adb) m.connect(f.ip) else Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.adb_toast"), Toast.LENGTH_SHORT).show()
                 }) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Icon(Icons.Rounded.Tv, null, tint = if (f.adb) Tahoe.Accent else Tahoe.Faint)
@@ -57,110 +57,111 @@ fun SetupScreen(onExit: () -> Unit, m: SetupModel = viewModel()) {
                     }
                 }
             }
-            if (!m.scanning && m.found.isEmpty() && !m.noWifi) Text("Pastikan TV menyala dan debugging aktif, atau ketik IP-nya di bawah.", color = Tahoe.Dim, fontSize = 14.sp)
-            Section("Atau ketik IP")
-            Field(m.host, { m.host = it }, "IP TV, mis. 192.168.1.50", KeyboardType.Uri)
-            PrimaryButton("Sambungkan", enabled = m.host.isNotBlank()) { m.connect() }
-            SecondaryButton("Pindai ulang", Icons.Rounded.Refresh) { m.scan() }
-            SecondaryButton("Kembali", Icons.AutoMirrored.Rounded.ArrowBack, onClick = exit)
+            if (!m.scanning && m.found.isEmpty() && !m.noWifi) Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.type_ip_hint"), color = Tahoe.Dim, fontSize = 14.sp)
+            Section(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.or_ip"))
+            Field(m.host, { m.host = it }, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.ip_field"), KeyboardType.Uri)
+            PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.connect_btn"), enabled = m.host.isNotBlank()) { m.connect() }
+            SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.rescan"), Icons.Rounded.Refresh) { m.scan() }
+            SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.back"), Icons.AutoMirrored.Rounded.ArrowBack, onClick = exit)
         }
 
-        SetupModel.Step.Connect -> Page("Langkah 2 dari 5", "Izinkan di TV",
-            "Di layar TV muncul \"Izinkan debugging USB?\". Centang \"Selalu izinkan dari komputer ini\", lalu pilih OKE.") {
+        SetupModel.Step.Connect -> Page(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.step", 2), tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.connect_step_title"),
+            tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.connect_step_sub")) {
             val err = m.error
             if (err == null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(vertical = 12.dp)) {
                     CircularProgressIndicator(color = Tahoe.Accent, modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp)
-                    Text("Menghubungkan ke ${m.host}…", color = Tahoe.Dim)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.connecting_to", m.host), color = Tahoe.Dim)
                 }
-                Note("Prompt tidak muncul? Tekan tombol apa saja di remote untuk membangunkan TV (screensaver bisa menutupinya).", Icons.Rounded.Info)
+                Note(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.connect_note"), Icons.Rounded.Info)
             } else {
-                Note("Gagal: $err\n\nCek: debugging aktif, TV menyala, dan prompt di TV sudah diizinkan.", Icons.Rounded.ErrorOutline)
-                PrimaryButton("Coba lagi", icon = Icons.Rounded.Refresh) { m.connect() }
-                SecondaryButton("Kembali") { m.back() }
+                Note(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.connect_failed", err), Icons.Rounded.ErrorOutline)
+                PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.retry"), icon = Icons.Rounded.Refresh) { m.connect() }
+                SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.back")) { m.back() }
             }
         }
 
         SetupModel.Step.Info -> {
             val tv = m.tv!!
             var confirm by remember { mutableStateOf(false) }
-            Page("Langkah 3 dari 5", tv.model,
-                "Android ${tv.release} (SDK ${tv.sdk})" + (if (tv.lowRam) " · RAM rendah" else "") + (m.version?.let { "\nTahoe $it sudah terpasang" } ?: "")) {
-                if (tv.sdk < 26) Note("Launcher Tahoe butuh Android 8.0 ke atas. TV ini hanya bisa di-debloat.", Icons.Rounded.Info)
-                if (m.version != null) SecondaryButton("Pulihkan TV ke bawaan…", Icons.Rounded.Restore, Tahoe.Bad) { confirm = true }
-                Section("Matikan aplikasi yang tidak perlu")
-                Text("Bisa dikembalikan kapan saja lewat \"Pulihkan TV\".", color = Tahoe.Dim, fontSize = 13.sp)
+            Page(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.step", 3), tv.model,
+                "Android ${tv.release} (SDK ${tv.sdk})" + (if (tv.lowRam) " · ${tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.low_ram")}" else "") + (m.version?.let { "\n${tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.installed_note", it)}" } ?: "")) {
+                if (tv.sdk < 26) Note(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.sdk_low"), Icons.Rounded.Info)
+                if (m.version != null) SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.restore_btn"), Icons.Rounded.Restore, Tahoe.Bad) { confirm = true }
+                Section(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.debloat_title"))
+                Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.debloat_sub"), color = Tahoe.Dim, fontSize = 13.sp)
                 val items = TvAdb.CATALOG.filter { it.pkg in m.debloat }
-                if (items.isEmpty()) Note("Tidak ada lagi aplikasi bawaan dari daftar kami yang aktif di TV ini.")
+                if (items.isEmpty()) Note(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.debloat_none"))
                 items.forEach { b -> CheckRow(b.what, b.pkg, m.debloat[b.pkg] == true) { m.debloat[b.pkg] = m.debloat[b.pkg] != true } }
                 val off = TvAdb.CATALOG.count { it.pkg in m.alreadyOff }
-                if (off > 0) Text("$off aplikasi lain sudah mati.", color = Tahoe.Faint, fontSize = 13.sp)
+                if (off > 0) Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.debloat_off", off), color = Tahoe.Faint, fontSize = 13.sp)
                 Spacer(Modifier.height(8.dp))
-                PrimaryButton("Lanjut", icon = Icons.AutoMirrored.Rounded.ArrowForward) { m.next() }
+                PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.next"), icon = Icons.AutoMirrored.Rounded.ArrowForward) { m.next() }
             }
             if (confirm) AlertDialog(
                 onDismissRequest = { confirm = false },
-                title = { Text("Pulihkan TV?") },
-                text = { Text("Aplikasi yang dimatikan lewat HP ini dinyalakan lagi, launcher bawaan diaktifkan, dan Tahoe TV di-uninstall.") },
-                confirmButton = { TextButton({ confirm = false; m.restore() }) { Text("Pulihkan", color = Tahoe.Bad) } },
-                dismissButton = { TextButton({ confirm = false }) { Text("Batal") } },
+                title = { Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.restore_title")) },
+                text = { Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.restore_body")) },
+                confirmButton = { TextButton({ confirm = false; m.restore() }) { Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.restore_confirm"), color = Tahoe.Bad) } },
+                dismissButton = { TextButton({ confirm = false }) { Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.cancel")) } },
                 containerColor = androidx.compose.ui.graphics.Color(0xFF1C1C1E),
             )
         }
 
-        SetupModel.Step.Personal -> Page("Langkah 4 dari 5", "Personalisasi", "Semua bisa diubah lagi nanti dari app ini.") {
-            Field(m.name, { m.name = it }, "Nama (untuk sapaan)")
-            Field(m.city, { m.city = it }, "Kota (cuaca & jadwal shalat)", trailing = {
-                IconButton({ m.geocode() }) { Icon(Icons.Rounded.Search, "Cari kota", tint = Tahoe.Accent) }
+        SetupModel.Step.Personal -> Page(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.step", 4), tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.personal_title"), tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.personal_sub")) {
+            Field(m.name, { m.name = it }, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.name_hint"))
+            Field(m.city, { m.city = it }, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.city_hint"), trailing = {
+                IconButton({ m.geocode() }) { Icon(Icons.Rounded.Search, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.city_search"), tint = Tahoe.Accent) }
             })
             if (m.place.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Rounded.Place, null, tint = Tahoe.Accent, modifier = Modifier.size(16.dp))
                 Text(m.place, color = Tahoe.Dim, fontSize = 13.sp)
             }
-            Field(m.avatar, { m.avatar = it }, "URL foto profil (opsional)", KeyboardType.Uri)
+            Field(m.avatar, { m.avatar = it }, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.avatar_hint"), KeyboardType.Uri)
 
-            Section("Dock")
-            Text("Urutan mengikuti urutan dicentang, maksimal 7.", color = Tahoe.Dim, fontSize = 13.sp)
+            Section(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.dock_title"))
+            Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.dock_note"), color = Tahoe.Dim, fontSize = 13.sp)
             m.dockChoices.forEach { pkg ->
                 val i = m.dock.indexOf(pkg)
                 CheckRow(m.tv!!.label(pkg), pkg, i >= 0, badge = if (i >= 0) "${i + 1}" else null) {
-                    if (!m.toggleDock(pkg)) Toast.makeText(c, "Maksimal 7", Toast.LENGTH_SHORT).show()
+                    if (!m.toggleDock(pkg)) Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.dock_max"), Toast.LENGTH_SHORT).show()
                 }
             }
 
-            Section("API key (opsional)")
-            Text("Disimpan di HP ini dan di TV saja.", color = Tahoe.Dim, fontSize = 13.sp)
-            Field(m.gemini, { m.gemini = it.trim() }, "Gemini (asisten)", secret = true)
-            Field(m.youtube, { m.youtube = it.trim() }, "YouTube Data API (hero trending)", secret = true)
-            Field(m.tmdb, { m.tmdb = it.trim() }, "TMDB (hero Netflix)", secret = true)
+            Section(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.api_optional"))
+            Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.api_note"), color = Tahoe.Dim, fontSize = 13.sp)
+            Field(m.gemini, { m.gemini = it.trim() }, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.api_gemini"), secret = true)
+            Field(m.youtube, { m.youtube = it.trim() }, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.api_yt"), secret = true)
+            Field(m.tmdb, { m.tmdb = it.trim() }, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.api_tmdb"), secret = true)
 
-            Section("Lainnya")
-            SwitchRow("DNS pemblokir iklan (AdGuard)", m.adguard) { m.adguard = it }
-            SwitchRow("Matikan launcher bawaan bila perlu", m.disableStock) { m.disableStock = it }
+            Section(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.other_label"))
+            SwitchRow(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.adguard"), m.adguard) { m.adguard = it }
+            SwitchRow(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.disable_stock"), m.disableStock) { m.disableStock = it }
             Spacer(Modifier.height(8.dp))
-            PrimaryButton("Pasang ke TV", icon = Icons.Rounded.Download) { m.apply() }
+            PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.install_tv_btn"), icon = Icons.Rounded.Download) { m.apply() }
         }
 
         SetupModel.Step.Apply, SetupModel.Step.Restore, SetupModel.Step.Done -> {
             val done = m.step == SetupModel.Step.Done
             val restoring = m.step == SetupModel.Step.Restore
+            val langS = PhoneRegion.language
             Page(
-                if (done) "Selesai" else if (restoring) "Pemulihan" else "Langkah 5 dari 5",
-                if (done) "Tahoe TV siap" else if (restoring) (if (m.busy) "Memulihkan TV…" else "TV dipulihkan") else if (m.error != null) "Terhenti" else "Memasang…",
-                if (done) "Lihat TV-mu, lalu tekan OK di layar \"Siapa yang menonton?\"." else if (m.busy) "Biarkan app ini terbuka dan HP tetap di Wi-Fi yang sama." else null,
+                if (done) tech.kousozo.tahoetv.core.I18n.get(langS, "setup.done_label") else if (restoring) tech.kousozo.tahoetv.core.I18n.get(langS, "setup.restoring_label") else tech.kousozo.tahoetv.core.I18n.get(langS, "setup.step", 5),
+                if (done) tech.kousozo.tahoetv.core.I18n.get(langS, "setup.ready_title") else if (restoring) (if (m.busy) tech.kousozo.tahoetv.core.I18n.get(langS, "setup.restoring_title") else tech.kousozo.tahoetv.core.I18n.get(langS, "setup.restored_title")) else if (m.error != null) tech.kousozo.tahoetv.core.I18n.get(langS, "setup.stopped_title") else tech.kousozo.tahoetv.core.I18n.get(langS, "setup.installing_title"),
+                if (done) tech.kousozo.tahoetv.core.I18n.get(langS, "setup.done_sub") else if (m.busy) tech.kousozo.tahoetv.core.I18n.get(langS, "setup.installing_sub") else null,
             ) {
                 if (m.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
                 GlassCard {
                     m.log.forEach { Text(it, fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = if (it.startsWith("✗")) Tahoe.Bad else Tahoe.Text) }
                 }
                 if (done) {
-                    Note("Demi keamanan, matikan debugging setelah selesai. Untuk mengubah setelan lagi, nyalakan USB debugging lalu buka app ini.", Icons.Rounded.Shield)
-                    PrimaryButton("Matikan debugging di TV", icon = Icons.Rounded.LockOpen) {
-                        m.disableDebugging { Toast.makeText(c, "Debugging dimatikan", Toast.LENGTH_SHORT).show() }
+                    Note(tech.kousozo.tahoetv.core.I18n.get(langS, "setup.usb_off_note"), Icons.Rounded.Shield)
+                    PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(langS, "setup.usb_off_btn"), icon = Icons.Rounded.LockOpen) {
+                        m.disableDebugging { Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(langS, "setup.usb_off_toast"), Toast.LENGTH_SHORT).show() }
                     }
                 }
-                if (!m.busy && m.step == SetupModel.Step.Apply) SecondaryButton("Ubah setelan", Icons.AutoMirrored.Rounded.ArrowBack) { m.next() }
-                if (!m.busy) SecondaryButton("Ke halaman utama", Icons.Rounded.Home, onClick = exit)
+                if (!m.busy && m.step == SetupModel.Step.Apply) SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(langS, "setup.edit_prefs"), Icons.AutoMirrored.Rounded.ArrowBack) { m.next() }
+                if (!m.busy) SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(langS, "setup.go_home"), Icons.Rounded.Home, onClick = exit)
             }
         }
     }

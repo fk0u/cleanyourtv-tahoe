@@ -69,12 +69,23 @@ object PhoneRegion {
     fun save(c: Context, v: Viewer) {
         val before = viewer
         val next = v.copy(revision = maxOf(before.revision, v.revision) + 1L)
-        val reload = next.countries != before.countries || next.region != before.region || !before.done
+        val reload = next.countries != before.countries || next.region != before.region ||
+            next.city != before.city || next.country != before.country || !before.done
         p(c).edit().putString("viewer", next.toJson()).apply()
         viewer = next; editing = false
         Channels.setFavs(c, next.favorites)
         if (reload) Channels.reload(c) else Channels.rearrange()
         sendPatchToTv(c, Viewer.diff(before, next))
+    }
+
+    fun setSortMode(c: Context, mode: tech.kousozo.tahoetv.core.LocalTv.SortMode) {
+        val before = viewer
+        if (before.sort == mode) return
+        val next = before.copy(sortMode = mode.key, revision = before.revision + 1L)
+        p(c).edit().putString("viewer", next.toJson()).apply()
+        viewer = next
+        Channels.rearrange()
+        if (next.done) sendPatchToTv(c, Viewer.diff(before, next))
     }
 
     /** A paired TV receives only the incremental delta patch over the shared ordered link (#111). */
@@ -144,9 +155,18 @@ fun WelcomeScreen() {
                     Region.LANGUAGES.forEach { l -> Option(OnboardingText.LANGUAGE_NAMES.getValue(l), null, l == v.language) { v = v.copy(language = l) } }
                 }
                 Step.Country -> CountryList(v.language, listOf(v.country), suggestedCountry, multi = false) { cc ->
-                    // a new home country brings its defaults (prayer, method, channels) unless already changed by hand
-                    v = if (cc == v.country) v else v.copy(country = cc, prayer = Region.prayerByDefault(cc), prayerMethod = Prayer.methodFor(cc),
-                        channelCountries = listOf(cc), city = "", lat = null, lon = null, region = "", timeZone = "")
+                    // a new home country brings its defaults (prayer, method, channels, timezone) unless already changed by hand
+                    v = if (cc == v.country) v else v.copy(
+                        country = cc,
+                        prayer = Region.prayerByDefault(cc),
+                        prayerMethod = Prayer.methodFor(cc),
+                        channelCountries = listOf(cc),
+                        city = "",
+                        lat = null,
+                        lon = null,
+                        region = "",
+                        timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(cc),
+                    )
                 }
                 Step.City -> CityStep(v, t) { v = it }
                 Step.TimeZone -> TimeZoneStep(v, t) { v = v.copy(timeZone = it) }
@@ -235,20 +255,40 @@ private fun CountryList(lang: String, chosen: List<String>, suggested: String, m
 
 @Composable
 private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Unit) = Column {
-    var query by remember { mutableStateOf(v.city) }
-    var results by remember { mutableStateOf<List<Web.City>?>(null) }
-    LaunchedEffect(query) {
+    var query by remember(v.country) { mutableStateOf(v.city) }
+    var results by remember(v.country) { mutableStateOf<List<Web.City>?>(null) }
+    val suggested = remember(v.country, v.language) { tech.kousozo.tahoetv.core.CountryCatalog.suggestedCities(v.country, v.language) }
+    LaunchedEffect(v.country, query) {
         if (query.trim().length < 2 || query == v.city) { results = null; return@LaunchedEffect }
         delay(400) // typing: wait for a pause
-        // Indonesian city names give Indonesian province names, which "near you" matches
-        results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), if (v.country == Region.HOME) "id" else v.language, v.country) }
+        results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), v.language, v.country) }
     }
     Field(query, { query = it }, t("city.search"))
     Spacer(Modifier.height(10.dp))
-    if (v.lat != null) Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", ") + "  ✕", "📍", true) {
-        onChange(v.copy(city = "", lat = null, lon = null, region = "", timeZone = "")); query = "" // tap again to clear: weather and prayer stay hidden
+    if (v.lat != null) {
+        Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", ") + "  ✕", "📍", true) {
+            onChange(v.copy(city = "", lat = null, lon = null, region = "", timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(v.country)))
+            query = ""
+        }
+    } else if (results == null) {
+        Text(t("city.none"), color = Tahoe.Faint, fontSize = 12.sp)
+        if (suggested.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                tech.kousozo.tahoetv.core.I18n.get(v.language, "city.suggested", Region.name(v.country, v.language)),
+                color = Tahoe.Dim,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(6.dp))
+            suggested.forEach { opt ->
+                Option(opt.label(), "🏙", v.city.equals(opt.city, ignoreCase = true)) {
+                    query = opt.city
+                    onChange(v.copy(city = opt.city, lat = opt.lat, lon = opt.lon, region = opt.region, timeZone = opt.zoneId))
+                }
+            }
+        }
     }
-    else if (results == null) Text(t("city.none"), color = Tahoe.Faint, fontSize = 12.sp)
     results?.let { list ->
         if (list.isEmpty()) Text(t("city.empty"), color = Tahoe.Faint, fontSize = 12.sp)
         LazyColumn(Modifier.weight(1f).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -289,10 +329,13 @@ private fun offset(zone: String): String = runCatching {
 private fun FavoritesStep(v: Viewer, t: (String) -> String, onLoaded: (List<LocalTv.Entry>?) -> Unit, onChange: (List<String>) -> Unit) = Column {
     var list by remember(v.countries) { mutableStateOf<List<LocalTv.Entry>?>(null) }
     var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(v.countries) {
+    LaunchedEffect(v.countries, v.city, v.country) {
         list = null; failed = false
         val loaded = withContext(Dispatchers.IO) {
-            runCatching { LocalTv.arrange(Sources.loadCountries(null, v.countries), v.nearRegion) }.getOrNull()
+            runCatching {
+                val raw = Sources.loadCountriesPriority(null, v.countries)
+                LocalTv.arrange(raw, v.nearRegion, v.countries, v.sort, v.city, v.country)
+            }.getOrNull()
         }
         list = loaded // every channel: favourites stay visible in Live TV whatever the categories
         failed = loaded.isNullOrEmpty()
@@ -354,7 +397,7 @@ private fun Summary(v: Viewer, t: (String) -> String) = Column(Modifier.vertical
         row("sum.language", OnboardingText.LANGUAGE_NAMES.getValue(v.language)),
         row("sum.country", Region.flag(v.country) + " " + Region.name(v.country, v.language)),
         row("sum.city", v.city.ifBlank { t("sum.none") }),
-        row("sum.tz", v.timeZone.ifBlank { java.util.TimeZone.getDefault().id }),
+        row("sum.tz", v.timeZone.ifBlank { tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(v.country) }),
         row("sum.prayer", if (v.prayer) Prayer.name(v.prayerMethod) else t("sum.off")),
         row("sum.channels", v.countries.joinToString(" ") { Region.flag(it) + " " + Region.name(it, v.language) }),
         row("sum.cats", if (v.categories.isEmpty()) t("sum.all") else LocalTv.Category.entries.filter { it.name in v.categories }.joinToString(", ") { OnboardingText.category(v.language, it) }),

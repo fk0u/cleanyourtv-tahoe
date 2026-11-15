@@ -285,7 +285,7 @@ object Playback {
         val my = ++attempt
         if (s == null) {
             DiagLog.add("live", "${e.name}: semua sumber gagal")
-            p.stop(); message = "Saluran ini sedang tidak bisa diputar. Coba saluran lain."
+            p.stop(); message = tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.unavailable")
             slate = if (sawRecording) tech.kousozo.tahoetv.core.Slate.Reason.Recording else tech.kousozo.tahoetv.core.Slate.Reason.Offline
             scheduleRetry(c, my); return
         }
@@ -369,13 +369,17 @@ fun MiniPlayer(visible: Boolean, modifier: Modifier = Modifier) {
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(ch.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(when (Playback.message) { "" -> "Memuat…"; null -> show ?: "Siaran langsung"; else -> "Tidak bisa diputar" },
+                        Text(when (Playback.message) {
+                            "" -> tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.loading")
+                            null -> show ?: tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.status_live")
+                            else -> tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.status_unplayable")
+                        },
                             fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     IconButton({ Playback.toggle() }) {
                         Icon(if (Playback.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (Playback.paused) "Putar" else "Jeda", Modifier.size(28.dp))
                     }
-                    IconButton({ Playback.zap(c, Channels.entries, 1) }) { Icon(Icons.Rounded.SkipNext, "Saluran berikutnya") }
+                    IconButton({ Playback.zap(c, Channels.entries, 1) }) { Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.next_channel")) }
                     IconButton({ Playback.stop() }) { Icon(Icons.Rounded.Close, "Hentikan siaran", tint = Tahoe.Dim, modifier = Modifier.size(20.dp)) }
                 }
             }

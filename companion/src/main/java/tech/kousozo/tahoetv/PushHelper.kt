@@ -224,9 +224,10 @@ object PushHelper {
         if (Build.VERSION.SDK_INT < 26) return
         val nm = c.getSystemService(NotificationManager::class.java) ?: return
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return
+        val lang = PhoneRegion.language
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Tahoe TV Notifikasi & Update", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Pemberitahuan siaran penting dan pembaruan aplikasi Tahoe TV"
+            NotificationChannel(CHANNEL_ID, tech.kousozo.tahoetv.core.I18n.get(lang, "push.channel_name"), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = tech.kousozo.tahoetv.core.I18n.get(lang, "push.channel_desc")
             }
         )
     }
@@ -336,7 +337,7 @@ fun PushBannerBar(onOpenInbox: () -> Unit, modifier: Modifier = Modifier) {
                         else if (n.actionUrl.isNotBlank()) PushHelper.openSafeUrl(c, n.actionUrl)
                         else onOpenInbox()
                     }
-                    .semantics { contentDescription = "Notifikasi baru: ${n.title}" },
+                    .semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "push.new_aria", n.title) },
                 shape = RoundedCornerShape(18.dp),
                 color = Tahoe.Surface.copy(alpha = 0.96f),
                 border = BorderStroke(1.dp, accent.copy(alpha = 0.45f)),
@@ -361,11 +362,11 @@ fun PushBannerBar(onOpenInbox: () -> Unit, modifier: Modifier = Modifier) {
                             else if (n.actionUrl.isNotBlank()) PushHelper.openSafeUrl(c, n.actionUrl)
                             else onOpenInbox()
                         }) {
-                            Text(n.actionLabel.ifBlank { "Lihat" }, color = Tahoe.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text(n.actionLabel.ifBlank { tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "push.view") }, color = Tahoe.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                     IconButton({ PushHelper.dismissBanner(c) }) {
-                        Icon(Icons.Rounded.Close, "Tutup notifikasi", tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "push.dismiss"), tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -386,14 +387,14 @@ fun NotificationInboxSheet(onDismiss: () -> Unit) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Notifications, null, tint = Tahoe.Accent)
                 Spacer(Modifier.width(8.dp))
-                Text("Notifikasi & Pengumuman", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "push.inbox_title"), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                 TextButton({ PushHelper.checkUpdateModal(c) }) {
-                    Text("Cek Update", color = Tahoe.Accent)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "update.check_btn"), color = Tahoe.Accent)
                 }
             }
             if (PushHelper.inbox.isEmpty()) {
                 GlassCard {
-                    Text("Belum ada notifikasi baru dari server Tahoe TV.", color = Tahoe.Dim, fontSize = 14.sp)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "push.inbox_empty"), color = Tahoe.Dim, fontSize = 14.sp)
                 }
             } else {
                 LazyColumn(Modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

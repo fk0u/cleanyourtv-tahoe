@@ -40,7 +40,7 @@ fun CategoriesScreen() {
             Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.explore_desc"), color = Tahoe.Dim, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp))
             if (all == null) { LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass); return@Column }
             val cats = listOf<LocalTv.Category?>(null) + LocalTv.Category.entries.filter { k -> all.any { LocalTv.inCategory(it, k) } }
-            LazyVerticalGrid(GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
+            LazyVerticalGrid(GridCells.Adaptive(164.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = TabInset + 72.dp)) {
                 items(cats) { k ->
                     val on = k == picked

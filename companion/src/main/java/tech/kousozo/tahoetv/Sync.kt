@@ -43,6 +43,7 @@ class Sync : NotificationListenerService() {
 
     override fun onListenerConnected() {
         Report.install(this) // Android can start this service without the activity: crashes here are logged too
+        PhoneRegion.load(this)
         stopped = false
         inst = this
         connect()
@@ -85,7 +86,7 @@ class Sync : NotificationListenerService() {
         val token = dev?.token ?: p.getString("token", "").orEmpty()
         if (host.isEmpty() || token.isEmpty()) {
             runCatching { ws?.close() }; ws = null; connectedHost = ""
-            setStatus("Belum dipasangkan")
+            setStatus(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.not_paired_short"))
             return
         }
         if (ws?.isOpen == true && connectedHost == host) return
@@ -93,10 +94,10 @@ class Sync : NotificationListenerService() {
         connectedHost = host
         ws = try {
             object : WebSocketClient(URI("ws://$host:8765/ws?token=$token")) {
-                override fun onOpen(h: ServerHandshake) { retry = 0; setStatus("Tersambung ke $host"); ui.post { sendMedia() } }
+                override fun onOpen(h: ServerHandshake) { retry = 0; setStatus(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "sync.connected_to", host)); ui.post { sendMedia() } }
                 override fun onMessage(m: String) { ui.post { command(m) } }
                 override fun onClose(code: Int, reason: String, remote: Boolean) {
-                    setStatus(if (reason == "pair first" || reason == "unpaired") "Dilepas dari TV, pasangkan ulang" else "Terputus, menyambung ulang…")
+                    setStatus(if (reason == "pair first" || reason == "unpaired") tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "sync.unpaired") else tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "sync.reconnecting"))
                     if (!stopped && "pair" !in reason) ui.postDelayed({ if (!stopped) connect() }, minOf(30_000L, 1000L shl minOf(retry++, 5)))
                 }
                 override fun onError(e: Exception) {}
@@ -154,7 +155,7 @@ class Sync : NotificationListenerService() {
     companion object {
         @Volatile var inst: Sync? = null
         /** Shown on the home screen; Compose observes it. */
-        val status = mutableStateOf("Belum tersambung")
+        val status = mutableStateOf("")
         fun prefs(c: Context) = c.getSharedPreferences("tv", Context.MODE_PRIVATE)!!
 
         fun devices(c: Context): tech.kousozo.tahoetv.core.PairedDevices.State {

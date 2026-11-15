@@ -68,13 +68,13 @@ dependencies {
     implementation "androidx.media3:media3-ui:1.5.1" // TV discovery, ADB setup (dadb), remote link, web APIs
 }
 
-// The launcher APK ships inside this app, so setup needs no computer and no download.
+// The Android TV Launcher APK ships inside this app, so TV setup needs no computer and no download.
 def bundled = layout.buildDirectory.dir("generated/tahoeAssets")
-tasks.register("bundleLauncher", Copy) {
+tasks.register("bundleLauncher", Sync) {
     dependsOn(":launcher:assembleRelease")
     from(project(":launcher").layout.buildDirectory.file("outputs/apk/release/launcher-release.apk"))
     into(bundled)
-    rename { "TahoeTV-App-for-TV-and-Phone.apk" }
+    rename { "TahoeTV-Android-TV.apk" }
 }
 android.sourceSets.main.assets.srcDir(bundled)
 preBuild.dependsOn("bundleLauncher")

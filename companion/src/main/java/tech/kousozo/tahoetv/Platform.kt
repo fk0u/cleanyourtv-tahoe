@@ -12,11 +12,10 @@ fun wifiAddress(c: Context): String? = runCatching {
     lp.linkAddresses.map { it.address }.firstOrNull { it is Inet4Address && !it.isLoopbackAddress }?.hostAddress
 }.onFailure { tech.kousozo.tahoetv.core.DiagLog.error("platform", "wifiAddress", it) }.getOrNull()
 
-/** The TV & Phone app APK shipped in assets, copied to a file dadb can push. */
-fun bundledLauncher(c: Context): File = File(c.cacheDir, "TahoeTV-App-for-TV-and-Phone.apk").also { f ->
-    val assetName = runCatching {
-        c.assets.open("TahoeTV-App-for-TV-and-Phone.apk").close()
-        "TahoeTV-App-for-TV-and-Phone.apk"
-    }.getOrDefault("tahoe-launcher.apk")
+/** The Android TV Launcher APK shipped in assets (for Android TV only), copied to a file dadb can push. */
+fun bundledLauncher(c: Context): File = File(c.cacheDir, "TahoeTV-Android-TV.apk").also { f ->
+    val assetName = listOf("TahoeTV-Android-TV.apk", "TahoeTV-App-for-TV-and-Phone.apk", "tahoe-launcher.apk").firstOrNull { name ->
+        runCatching { c.assets.open(name).close(); true }.getOrDefault(false)
+    } ?: "TahoeTV-Android-TV.apk"
     c.assets.open(assetName).use { input -> f.outputStream().use { input.copyTo(it) } }
 }

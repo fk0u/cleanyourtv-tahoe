@@ -43,6 +43,7 @@ fun UpdateModalDialog() {
     var status by remember(r?.version) { mutableStateOf("") }
     var progress by remember { mutableStateOf<Int?>(null) }
     var busy by remember { mutableStateOf(false) }
+    val lang = PhoneRegion.language
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = { if (!mandatory && !busy) PushHelper.dismissUpdateModal(c) },
@@ -51,14 +52,16 @@ fun UpdateModalDialog() {
         textContentColor = Tahoe.Text,
         title = {
             val titleText = pol.modalTitle.ifBlank {
-                if (r != null && newerAvailable) "Pembaruan Tahoe TV Remote ${r.version}" else "Info Pembaruan Tahoe TV Remote"
+                if (r != null && newerAvailable) tech.kousozo.tahoetv.core.I18n.get(lang, "update.modal_title", r.version)
+                else tech.kousozo.tahoetv.core.I18n.get(lang, "update.info_title")
             }
             Text(titleText, fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold, fontSize = 18.sp)
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Terpasang: $current" + if (r != null) "  ·  Terbaru: ${r.version}" else "",
+                    if (r != null) tech.kousozo.tahoetv.core.I18n.get(lang, "update.installed_latest", current, r.version)
+                    else tech.kousozo.tahoetv.core.I18n.get(lang, "update.installed_only", current),
                     fontSize = 12.sp,
                     color = Tahoe.Dim,
                     fontFamily = Mono,
@@ -69,7 +72,7 @@ fun UpdateModalDialog() {
                 if (r != null && r.notes.isNotBlank()) {
                     Text(r.notes.take(400), fontSize = 13.sp, color = Tahoe.Dim)
                 } else if (r == null) {
-                    Text("Memeriksa rilis terbaru dari server…", fontSize = 13.sp, color = Tahoe.Dim)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "update.checking_server"), fontSize = 13.sp, color = Tahoe.Dim)
                 }
                 if (progress != null) {
                     LinearProgressIndicator(
@@ -93,34 +96,34 @@ fun UpdateModalDialog() {
                         scope.launch {
                             val f = File(c.cacheDir, "update-remote.apk")
                             runCatching {
-                                status = "Menyiapkan unduhan…"
+                                status = tech.kousozo.tahoetv.core.I18n.get(lang, "update.preparing")
                                 val (_, url, hash) = withContext(Dispatchers.IO) { r.resolveDownload(APK_CANDIDATES) }
                                 withContext(Dispatchers.IO) {
                                     Updates.download(url, f, hash) { p ->
                                         progress = p
-                                        status = "Mengunduh… $p%"
+                                        status = tech.kousozo.tahoetv.core.I18n.get(lang, "update.downloading_pct", p)
                                     }
                                 }
-                                status = "Memasang… konfirmasi di layar berikutnya"
+                                status = tech.kousozo.tahoetv.core.I18n.get(lang, "update.install_confirm")
                                 withContext(Dispatchers.IO) { install(c, f) }
                             }.onFailure {
-                                status = "Gagal: ${it.message}"
+                                status = tech.kousozo.tahoetv.core.I18n.get(lang, "update.failed", it.message ?: "")
                             }
                             busy = false
                         }
                     },
-                ) { Text(if (busy) "Mengunduh…" else "Perbarui Sekarang") }
+                ) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, if (busy) "update.downloading" else "update.now")) }
             } else {
                 TextButton({
                     if (!mandatory) PushHelper.dismissUpdateModal(c)
                     else if (r != null) PushHelper.openSafeUrl(c, r.page)
-                }) { Text(if (mandatory) "Buka Halaman Unduhan" else "Tutup", color = Tahoe.Accent) }
+                }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, if (mandatory) "update.open_page" else "common.close"), color = Tahoe.Accent) }
             }
         },
         dismissButton = {
             if (!mandatory && !busy) {
                 TextButton({ PushHelper.dismissUpdateModal(c) }) {
-                    Text("Nanti", color = Tahoe.Dim)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "common.later"), color = Tahoe.Dim)
                 }
             }
         },
@@ -130,15 +133,21 @@ fun UpdateModalDialog() {
 @Composable
 fun UpdateCard() {
     val c = LocalContext.current
+    val lang = PhoneRegion.language
     val current = remember { runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull().orEmpty() }
     var latest by remember { mutableStateOf<Updates.Release?>(null) }
-    var state by remember { mutableStateOf("Mengecek pembaruan…") }
+    var state by remember(lang) { mutableStateOf(tech.kousozo.tahoetv.core.I18n.get(lang, "update.checking")) }
     var showNotes by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) {
+    LaunchedEffect(lang) {
         withContext(Dispatchers.IO) { runCatching { Updates.latest() } }
-            .onSuccess { latest = it; state = if (Updates.newer(it.version, current) && it.hasAnyAsset(APK_CANDIDATES)) "Versi ${it.version} tersedia" else "Sudah versi terbaru ($current)" }
-            .onFailure { state = "Tidak bisa mengecek pembaruan" }
+            .onSuccess {
+                latest = it
+                state = if (Updates.newer(it.version, current) && it.hasAnyAsset(APK_CANDIDATES))
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "update.version_available", it.version)
+                else tech.kousozo.tahoetv.core.I18n.get(lang, "update.up_to_date", current)
+            }
+            .onFailure { state = tech.kousozo.tahoetv.core.I18n.get(lang, "update.check_failed") }
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -153,14 +162,14 @@ fun UpdateCard() {
                     val f = File(c.cacheDir, "update.apk")
                     runCatching {
                         val (_, url, hash) = withContext(Dispatchers.IO) { r.resolveDownload(APK_CANDIDATES) }
-                        withContext(Dispatchers.IO) { Updates.download(url, f, hash) { p -> state = "Mengunduh… $p%" } }
-                        state = "Memasang… konfirmasi di layar berikutnya"
+                        withContext(Dispatchers.IO) { Updates.download(url, f, hash) { p -> state = tech.kousozo.tahoetv.core.I18n.get(lang, "update.downloading_pct", p) } }
+                        state = tech.kousozo.tahoetv.core.I18n.get(lang, "update.install_confirm")
                         withContext(Dispatchers.IO) { install(c, f) }
-                    }.onFailure { state = "Gagal: ${it.message}" }
+                    }.onFailure { state = tech.kousozo.tahoetv.core.I18n.get(lang, "update.failed", it.message ?: "") }
                 }
-            }) { Text("Perbarui") }
+            }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "update.btn")) }
         }
-        latest?.let { r -> TextButton({ showNotes = !showNotes }) { Text(if (showNotes) "Sembunyikan catatan rilis" else "Yang baru di ${r.version}") } }
+        latest?.let { r -> TextButton({ showNotes = !showNotes }) { Text(if (showNotes) tech.kousozo.tahoetv.core.I18n.get(lang, "update.hide_notes") else tech.kousozo.tahoetv.core.I18n.get(lang, "update.whats_new", r.version)) } }
         if (showNotes) latest?.let { Text(it.notes.replace(Regex("(?m)^#+\\s*"), "").replace("**", ""), fontSize = 13.sp, color = Tahoe.Dim) }
     }
 }
@@ -181,7 +190,7 @@ class OtaDone : BroadcastReceiver() {
             PackageInstaller.STATUS_PENDING_USER_ACTION ->
                 @Suppress("DEPRECATION") (i.getParcelableExtra<Intent>(Intent.EXTRA_INTENT))?.let { c.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             PackageInstaller.STATUS_SUCCESS -> {}
-            else -> Toast.makeText(c, "Pembaruan gagal: ${i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}", Toast.LENGTH_LONG).show()
+            else -> Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "update.failed_pkg", i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: ""), Toast.LENGTH_LONG).show()
         }
     }
 }

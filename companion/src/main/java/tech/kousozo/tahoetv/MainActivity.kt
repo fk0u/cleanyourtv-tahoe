@@ -69,6 +69,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
         Report.install(this)
+        val dark = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        runCatching { enableEdgeToEdge(dark, dark) }
+            .onFailure { tech.kousozo.tahoetv.core.DiagLog.error("app", "enableEdgeToEdge", it) }
+        if (isTelevisionOnly()) {
+            val lang = tech.kousozo.tahoetv.core.Region.suggest(java.util.Locale.getDefault()).first
+            setContent {
+                TahoeTheme {
+                    PhoneOnlyBlockedScreen(lang)
+                }
+            }
+            return
+        }
         if (b == null) pairFrom(intent)
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
@@ -79,11 +91,9 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra("open_update_modal", false) == true) {
             PushHelper.openUpdateModal(this)
         }
-        val dark = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-        runCatching { enableEdgeToEdge(dark, dark) }
-            .onFailure { tech.kousozo.tahoetv.core.DiagLog.error("app", "enableEdgeToEdge", it) }
         Channels.loadFavs(this)
         Playback.loadPrefs(this)
+        tech.kousozo.tahoetv.core.Sources.initCache(cacheDir)
         PhoneRegion.load(this)
         TvDiscovery.start(applicationContext)
         PushHelper.start(applicationContext)
@@ -165,7 +175,7 @@ class MainActivity : ComponentActivity() {
         val host = u.host ?: return
         val code = u.getQueryParameter("code")?.takeIf { it.length == 6 && it.all(Char::isDigit) } ?: return
         if (u.port != 8765) return
-        Toast.makeText(this, "Menyambungkan ke TV $host…", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "pair.connecting", host), Toast.LENGTH_SHORT).show()
         Thread {
             val err = runCatching {
                 TvLink.pairWithInfo(host, code, PhoneRegion.language, android.os.Build.MODEL.orEmpty())
@@ -174,9 +184,57 @@ class MainActivity : ComponentActivity() {
             }, { it.message ?: "gagal" })
             runOnUiThread {
                 if (err == null) { Nav.tab = 2 } // straight to the remote
-                Toast.makeText(this, if (err == null) "Tersambung ke TV" else "Gagal menyambung: $err. Minta kode baru di TV (OK).", Toast.LENGTH_LONG).show()
+                val msg = if (err == null) tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "pair.connected")
+                    else tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "pair.connect_failed", err)
+                Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
             }
         }.start()
+    }
+
+    /** Prevents the Phone & Tablet app from exposing phone/tablet workflows when sideloaded onto Android TV. */
+    private fun isTelevisionOnly(): Boolean {
+        val uiMode = (getSystemService(UI_MODE_SERVICE) as? android.app.UiModeManager)?.currentModeType
+            ?: (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK)
+        return uiMode == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION ||
+            (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK) &&
+                !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN))
+    }
+}
+
+@Composable
+private fun PhoneOnlyBlockedScreen(lang: String) {
+    val ctx = LocalContext.current
+    val activity = ctx as? android.app.Activity
+    Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0F)).padding(32.dp), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.widthIn(max = 520.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Tahoe.Surface)
+                .border(1.dp, Color(0xFF2A2E42), RoundedCornerShape(20.dp))
+                .padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Icon(Icons.Rounded.Smartphone, null, tint = Tahoe.Accent, modifier = Modifier.size(44.dp))
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "guard.phone_only_title"),
+                fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Tahoe.Text)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "guard.phone_only_body"),
+                fontSize = 14.sp, color = Tahoe.Dim)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 6.dp)) {
+                Button({
+                    runCatching {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(tech.kousozo.tahoetv.core.ControlPlane.baseUrl))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }
+                    activity?.finishAndRemoveTask()
+                }) {
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "guard.open_downloads"))
+                }
+                OutlinedButton({ activity?.finishAndRemoveTask() }) {
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "guard.close"))
+                }
+            }
+        }
     }
 }
 
@@ -233,7 +291,7 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                 BrandMark(30.dp, tint = Color.White)
                 Spacer(Modifier.weight(1f))
                 Box {
-                    RoundGlass(Icons.Rounded.Notifications, "Notifikasi (${PushHelper.unreadCount})",
+                    RoundGlass(Icons.Rounded.Notifications, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "home.notif_desc", PushHelper.unreadCount),
                         tint = if (PushHelper.unreadCount > 0) Tahoe.Accent else Tahoe.Text) { onOpenInbox() }
                     if (PushHelper.unreadCount > 0) {
                         Box(Modifier.align(Alignment.TopEnd).size(9.dp).clip(CircleShape).background(Tahoe.Accent))
@@ -394,7 +452,7 @@ private fun Shelf(title: String, items: List<LocalTv.Entry>, now: Instant, onAll
                     }
                 }
                 Text(e.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
-                Text(nowOn(Channels.epg, e, now)?.title ?: e.category.label, fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(nowOn(Channels.epg, e, now)?.title ?: e.category.label(PhoneRegion.language), fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -416,7 +474,7 @@ private fun Bento(label: String, value: String, icon: ImageVector, modifier: Mod
 @Composable
 private fun SectionHeader(title: String, onAll: () -> Unit) = Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
     Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Lihat semua $title", tint = Tahoe.Dim,
+    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "home.see_all_fmt", title), tint = Tahoe.Dim,
         modifier = Modifier.padding(start = 2.dp).size(22.dp).clip(CircleShape).clickable(onClick = onAll))
 }
 

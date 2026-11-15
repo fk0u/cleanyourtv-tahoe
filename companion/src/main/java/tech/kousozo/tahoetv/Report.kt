@@ -52,8 +52,8 @@ object Report {
                 val send = Intent(Intent.ACTION_SEND).setType("text/plain")
                     .putExtra(Intent.EXTRA_SUBJECT, "Log Tahoe TV")
                     .putExtra(Intent.EXTRA_TEXT, text)
-                runCatching { c.startActivity(Intent.createChooser(send, "Kirim log Tahoe TV").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    .onFailure { note = "Tidak ada aplikasi untuk mengirim log." }
+                runCatching { c.startActivity(Intent.createChooser(send, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "report.share_title")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    .onFailure { note = tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "report.no_app") }
                 done(note)
             }
         }.start()
