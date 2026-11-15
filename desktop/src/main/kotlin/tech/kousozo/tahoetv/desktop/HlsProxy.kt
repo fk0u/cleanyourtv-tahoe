@@ -23,8 +23,10 @@ object HlsProxy {
                     val q = ex.requestURI.rawQuery.orEmpty().split('&').associate { it.substringBefore('=') to URLDecoder.decode(it.substringAfter('='), "UTF-8") }
                     val url = String(Base64.getUrlDecoder().decode(q.getValue("u")))
                     // only URLs this proxy handed out: a web page can't use it to reach other addresses
-                    if (!signer.verify(q["h"].orEmpty(), url, q["s"])) { ex.sendResponseHeaders(403, -1); return@createContext }
+                    if (!signer.verify(q["h"].orEmpty() + "\n" + q["x"].orEmpty(), url, q["s"])) { ex.sendResponseHeaders(403, -1); return@createContext }
                     val headers = q["h"]?.let { JSONObject(String(Base64.getUrlDecoder().decode(it))).toMap().mapValues { (_, v) -> "$v" } }.orEmpty()
+                    val extra = q["x"]?.takeIf { it.isNotEmpty() }?.let { JSONObject(String(Base64.getUrlDecoder().decode(it))) }
+                    if (extra != null) { dash(ex, url, headers, extra); return@createContext }
                     val con = open(url, headers)
                     val type = con.contentType.orEmpty()
                     val playlist = url.substringBefore('?').endsWith(".m3u8", true) || "mpegurl" in type.lowercase()
@@ -106,9 +108,78 @@ object HlsProxy {
         // straight to the source unless headers are needed, a quality cap has to be applied, or [force] (its first
         // variant is dead: the relay hands JavaFX a master without it)
         if (!force && headers.isEmpty() && Settings.quality.maxHeight == 0) return url
+        return signed(url, headers, null)
+    }
+
+    /** A DASH (`.mpd`) stream for JavaFX: the relay serves it as HLS (fMP4) and, with ClearKey keys in [drmKey],
+     *  decrypts every init and media segment on the way, so the picture plays inside the app window. */
+    fun wrapDash(url: String, headers: Map<String, String>, drmKey: String?): String =
+        signed(url, headers, JSONObject().put("t", "mpd").apply { drmKey?.takeIf { it.isNotBlank() }?.let { put("k", it) } })
+
+    private fun signed(url: String, headers: Map<String, String>, extra: JSONObject?): String {
         val enc = Base64.getUrlEncoder().withoutPadding()
         val h = enc.encodeToString(JSONObject(headers).toString().toByteArray())
+        val x = extra?.let { enc.encodeToString(it.toString().toByteArray()) }.orEmpty()
         return "http://127.0.0.1:${server.address.port}/s?u=" + enc.encodeToString(url.toByteArray()) +
-            "&h=" + URLEncoder.encode(h, "UTF-8") + "&s=" + signer.sign(h, url)
+            "&h=" + URLEncoder.encode(h, "UTF-8") + (if (x.isNotEmpty()) "&x=" + URLEncoder.encode(x, "UTF-8") else "") +
+            "&s=" + signer.sign("$h\n$x", url)
+    }
+
+    /** Init segments' encryption info (track → KID), so media segments of multi-key streams use the right key. */
+    private val initInfo = java.util.concurrent.ConcurrentHashMap<String, Map<Int, tech.kousozo.tahoetv.core.CencDecrypt.TrackCrypto>>()
+
+    private fun fetchBytes(url: String, headers: Map<String, String>): ByteArray? {
+        val con = open(url, headers)
+        if (con.responseCode !in 200..299 || "text/html" in con.contentType.orEmpty().lowercase()) { con.disconnect(); return null }
+        return tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes() }
+    }
+
+    private fun send(ex: com.sun.net.httpserver.HttpExchange, type: String, body: ByteArray?) {
+        if (body == null) { ex.sendResponseHeaders(502, -1); return }
+        ex.responseHeaders.add("Content-Type", type)
+        ex.responseHeaders.add("Cache-Control", "no-cache")
+        ex.sendResponseHeaders(200, body.size.toLong()); ex.responseBody.use { it.write(body) }
+    }
+
+    /** `t` = mpd (HLS master), rep (HLS media playlist of one representation, `r`), init / seg (fMP4 pieces, decrypted
+     *  with the ClearKey keys `k` when given; `i` = the init segment a media segment belongs to). */
+    private fun dash(ex: com.sun.net.httpserver.HttpExchange, url: String, headers: Map<String, String>, x: JSONObject) {
+        val key = x.optString("k").ifEmpty { null }
+        val keys = tech.kousozo.tahoetv.core.Drm.clearKeyMap(key)
+        fun child(t: String, u: String, more: JSONObject.() -> Unit = {}) =
+            signed(u, headers, JSONObject().put("t", t).apply { key?.let { put("k", it) }; more() })
+        when (x.optString("t")) {
+            "mpd", "rep" -> {
+                val con = open(url, headers)
+                if (con.responseCode !in 200..299) { con.disconnect(); ex.sendResponseHeaders(502, -1); return }
+                val xml = tech.kousozo.tahoetv.core.Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+                val base = con.url.toString()
+                if (!xml.contains("<MPD", ignoreCase = true)) { ex.sendResponseHeaders(502, -1); return }
+                val out = if (x.optString("t") == "mpd") {
+                    tech.kousozo.tahoetv.core.DashToHls.toMasterM3u8(xml, base, Settings.quality.maxHeight) { rep -> child("rep", url) { put("r", rep) } }
+                } else {
+                    var init: String? = null
+                    tech.kousozo.tahoetv.core.DashToHls.toMediaM3u8(xml, base, x.optString("r")) { seg, isInit ->
+                        if (isInit) { init = seg; child("init", seg) } else child("seg", seg) { init?.let { put("i", it) } }
+                    }
+                }
+                send(ex, "application/vnd.apple.mpegurl", out?.toByteArray())
+            }
+            "init" -> {
+                val data = fetchBytes(url, headers)
+                if (data != null && keys.isNotEmpty()) initInfo[url] = tech.kousozo.tahoetv.core.CencDecrypt.parseInitInfo(data)
+                send(ex, "video/mp4", if (data != null && keys.isNotEmpty()) tech.kousozo.tahoetv.core.CencDecrypt.decryptInit(data) else data)
+            }
+            "seg" -> {
+                val data = fetchBytes(url, headers)
+                val tracks = x.optString("i").ifEmpty { null }?.let { i ->
+                    initInfo[i] ?: fetchBytes(i, headers)?.let { tech.kousozo.tahoetv.core.CencDecrypt.parseInitInfo(it) }?.also { initInfo[i] = it }
+                }.orEmpty()
+                send(ex, "video/mp4", if (data != null && keys.isNotEmpty()) runCatching {
+                    tech.kousozo.tahoetv.core.CencDecrypt.decryptMedia(data, keys, initTracks = tracks)
+                }.getOrNull() else data)
+            }
+            else -> ex.sendResponseHeaders(400, -1)
+        }
     }
 }

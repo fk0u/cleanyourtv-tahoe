@@ -50,7 +50,7 @@ internal object ServerRelay {
             if (group != null && !sc.channel.group.equals(group, ignoreCase = true)) continue
             if (!IptvServer.wanted(sc, query)) continue
 
-            val isMpd = sc.channel.url.contains(".mpd", ignoreCase = true)
+            val isMpd = sc.channel.isDash
             if (!sc.drmType.isNullOrBlank() || !sc.drmKey.isNullOrBlank() || isMpd) {
                 sb.append("#KODIPROP:inputstreamaddon=inputstream.adaptive\n")
                 if (isMpd) sb.append("#KODIPROP:inputstream.adaptive.manifest_type=mpd\n")
@@ -89,9 +89,16 @@ internal object ServerRelay {
     fun serveLiveMpd(ex: HttpExchange, cid: String) {
         val sc = IptvServer.channelById(cid) ?: run { ex.sendResponseHeaders(404, -1); ex.close(); return }
         val con = open(sc.channel.url, sc.channel.headers)
-        val body = Web.body(con)!!.use { it.readBytes() }
+        if (con.responseCode !in 200..299) { con.disconnect(); ex.sendResponseHeaders(502, -1); ex.close(); return }
+        val xml = Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+        if (!xml.contains("<MPD", ignoreCase = true)) { ex.sendResponseHeaders(502, -1); ex.close(); return }
+        // every init/media segment through /segment: the channel's Referer/User-Agent go along, and the links are signed
+        val base = IptvServer.baseUrl(ex)
+        val body = tech.kousozo.tahoetv.core.DashToHls.rewriteMpd(xml, con.url.toString()) { u -> "$base/segment?${relayParams(cid, u)}" }
+            .toByteArray(Charsets.UTF_8)
         IptvServer.sendCors(ex)
         ex.responseHeaders.add("Content-Type", "application/dash+xml")
+        ex.responseHeaders.add("Cache-Control", "no-cache, no-store")
         ex.sendResponseHeaders(200, body.size.toLong())
         ex.responseBody.use { it.write(body) }
     }
@@ -99,23 +106,40 @@ internal object ServerRelay {
     fun serveLive(ex: HttpExchange, cid: String, subUrlB64: String?, sig: String?) {
         val sc = IptvServer.channelById(cid) ?: run { ex.sendResponseHeaders(404, -1); ex.close(); return }
         var targetUrl = sc.channel.url
+        var dashRepId: String? = null
         if (!subUrlB64.isNullOrEmpty()) {
             val sub = runCatching { String(Base64.getUrlDecoder().decode(subUrlB64), Charsets.UTF_8) }.getOrNull()
             if (sub == null || !signer.verify(cid, sub, sig)) { ex.sendResponseHeaders(403, -1); ex.close(); return }
-            targetUrl = sub
+            if (sub.startsWith("rep:")) dashRepId = sub.removePrefix("rep:") else targetUrl = sub
         }
 
         val con = open(targetUrl, sc.channel.headers)
         if (con.responseCode !in 200..299) { con.disconnect(); ex.sendResponseHeaders(502, -1); ex.close(); return } // source refused: next source
         val fetched = Web.body(con)!!.use { it.readBytes().toString(Charsets.UTF_8) }
         val finalUrl = con.url.toString()
+        val base = IptvServer.baseUrl(ex)
+
+        if (sc.channel.isDash && (dashRepId != null || subUrlB64.isNullOrEmpty())) {
+            if (!fetched.contains("<MPD", ignoreCase = true)) { ex.sendResponseHeaders(502, -1); ex.close(); return }
+            val m3u8 = if (dashRepId != null) {
+                tech.kousozo.tahoetv.core.DashToHls.toMediaM3u8(fetched, finalUrl, dashRepId) { u, _ -> "$base/segment?${relayParams(cid, u)}" }
+            } else {
+                tech.kousozo.tahoetv.core.DashToHls.toMasterM3u8(fetched, finalUrl) { repId ->
+                    val tok = "rep:$repId"
+                    val enc = Base64.getUrlEncoder().withoutPadding().encodeToString(tok.toByteArray(Charsets.UTF_8))
+                    "$base/live/$cid.m3u8?sub=$enc&s=${signer.sign(cid, tok)}"
+                }
+            }
+            if (m3u8.isNullOrEmpty()) { ex.sendResponseHeaders(502, -1); ex.close(); return }
+            return sendM3u8(ex, m3u8)
+        }
+
         // an HTML page with "200 OK", or a variant list whose variants all fail: tell the player now (it moves on to the
         // next source) instead of letting it time out; dead variants are dropped so it doesn't stop at the first one
         val text = fetched.takeIf { it.trimStart().startsWith("#EXTM3U") }
             ?.let { if (subUrlB64.isNullOrEmpty()) HlsProbe.dropDeadVariants(it, finalUrl, sc.channel.headers) else it }
             ?: run { ex.sendResponseHeaders(502, -1); ex.close(); return }
 
-        val base = IptvServer.baseUrl(ex)
         val lines = text.lineSequence().map { line ->
             val sline = line.trim()
             when {
@@ -140,7 +164,11 @@ internal object ServerRelay {
             }
         }.joinToString("\n")
 
-        val body = lines.toByteArray(Charsets.UTF_8)
+        sendM3u8(ex, lines)
+    }
+
+    private fun sendM3u8(ex: HttpExchange, text: String) {
+        val body = text.toByteArray(Charsets.UTF_8)
         IptvServer.sendCors(ex)
         ex.responseHeaders.add("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8")
         ex.responseHeaders.add("Cache-Control", "no-cache, no-store")

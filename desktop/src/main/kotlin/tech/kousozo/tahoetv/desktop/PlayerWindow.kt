@@ -183,7 +183,7 @@ object PlayerWindow {
         val order = tech.kousozo.tahoetv.core.Slate.order(lang)
         val reason = failSlateReason ?: tech.kousozo.tahoetv.core.Slate.Reason.Offline
         if (gen != webFallbackTriedGen && (probedLiveInSession || reason == tech.kousozo.tahoetv.core.Slate.Reason.Unsupported) &&
-            channelStreams.any { !it.drm && !it.url.substringBefore('?').endsWith(".mpd", true) }) {
+            channelStreams.isNotEmpty()) {
             webFallbackTriedGen = gen
             val snapStreams = channelStreams
             val snapTitle = titleLabel.text
@@ -255,10 +255,12 @@ object PlayerWindow {
         currentStreams = streams; currentIndex = i
         val c = streams.getOrNull(i) ?: return slate(gen)
         val next = { if (gen == generation) { SourceHealth.report(c.url, false); start(streams, i + 1, gen) } }
-        if (c.url.contains(".mpd", true) || c.drm) {
-            val alt = streams.drop(i + 1).firstOrNull { !it.url.contains(".mpd", true) && !it.drm }
+        if (needsBrowserDrm(c)) {
+            // Widevine/PlayReady need the browser's own CDM: try another source first, else hand over to the web player
+            val alt = streams.drop(i + 1).firstOrNull { !needsBrowserDrm(it) }
             if (alt != null) return start(streams, streams.indexOf(alt), gen)
-            return fail("Saluran ini menggunakan DASH/DRM. Silakan tonton melalui Web Player bawaan (Shaka Player) atau pemutar eksternal (Kodi/TiviMate).")
+            failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Unsupported
+            return slate(gen)
         }
         if (retry == 0) { failReason = null; failSlateReason = null; statusLabel.isVisible = false; nextBtn.isVisible = false; nextBtn.isManaged = false; webBtn.isVisible = false; webBtn.isManaged = false
             retryBtn.isVisible = false; retryBtn.isManaged = false; slateTimer?.stop(); loading(true) }
@@ -285,6 +287,10 @@ object PlayerWindow {
     /** Sources whose first variant is dead (found by the probe): they go through the relay, retries included. */
     private val relayed = java.util.Collections.synchronizedSet(HashSet<String>())
 
+    /** DRM this window can't decrypt itself (no ClearKey keys): Widevine/PlayReady or a remote licence server. */
+    internal fun needsBrowserDrm(c: M3u.Channel): Boolean =
+        c.drm && tech.kousozo.tahoetv.core.Drm.clearKeyMap(c.drmKey).isEmpty()
+
     private fun begin(streams: List<M3u.Channel>, i: Int, gen: Int, retry: Int, c: M3u.Channel, next: () -> Unit) {
         if (gen != generation) return
         tech.kousozo.tahoetv.core.DiagLog.add("live", "${titleLabel.text} sumber ${i + 1}/${streams.size}" + (if (retry > 0) " (ulang $retry)" else "") + " ${c.url}")
@@ -292,7 +298,10 @@ object PlayerWindow {
         val isVod = LocalTv.isVod(c)
         // A source that already played and then errors/freezes reconnects (up to 3×) before moving to the backup.
         val recover = { if (lastTime >= 0 && retry < 3 && gen == generation) start(streams, i, gen, if (lastTime > 60) 1 else retry + 1) else next() } // a minute of good playback earns fresh retries
-        val p = try { MediaPlayer(Media(HlsProxy.wrap(c.url, c.headers, force = c.url in relayed))) } catch (e: Exception) { return next() }
+        val p = try {
+            val src = if (c.isDash) HlsProxy.wrapDash(c.url, c.headers, c.drmKey) else HlsProxy.wrap(c.url, c.headers, force = c.url in relayed)
+            MediaPlayer(Media(src))
+        } catch (e: Exception) { return next() }
         player = p; view.mediaPlayer = p
         // "Playing" means a picture: sound alone, or tracks that never draw, no longer end the loader (that was the black screen).
         // Events from a player that was already replaced (disposal runs in the background) must not touch the new one.

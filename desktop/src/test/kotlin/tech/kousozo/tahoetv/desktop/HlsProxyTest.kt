@@ -47,6 +47,49 @@ class HlsProxyTest {
         assertEquals(trailingDisc, HlsProxy.trimDiscontinuity(trailingDisc))
     }
 
+    @Test fun dashIsServedAsHlsThroughTheSignedRelay() {
+        val mpd = """<?xml version="1.0"?>
+            <MPD type="static" mediaPresentationDuration="PT8S"><Period>
+              <AdaptationSet mimeType="video/mp4">
+                <SegmentTemplate timescale="1000" duration="4000" startNumber="1" initialization="init-${'$'}RepresentationID$.mp4" media="seg-${'$'}RepresentationID$-${'$'}Number$.m4s"/>
+                <Representation id="v" bandwidth="900000" width="1280" height="720" codecs="avc1.4d401f"/>
+              </AdaptationSet>
+            </Period></MPD>""".trimIndent()
+        var seenReferer: String? = null
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            createContext("/") { ex ->
+                seenReferer = ex.requestHeaders.getFirst("Referer")
+                val body = when {
+                    ex.requestURI.path.endsWith(".mpd") -> mpd.toByteArray()
+                    else -> ByteArray(32) { 7 }
+                }
+                ex.sendResponseHeaders(200, body.size.toLong()); ex.responseBody.use { it.write(body) }
+            }
+            start()
+        }
+        fun get(u: String): Pair<Int, ByteArray> = (URI(u).toURL().openConnection() as HttpURLConnection).let { c ->
+            c.responseCode to (if (c.responseCode < 400) c.inputStream.readBytes() else ByteArray(0))
+        }
+        try {
+            val headers = mapOf("Referer" to "https://ref.example/")
+            val master = String(get(HlsProxy.wrapDash("http://127.0.0.1:${server.address.port}/live/a.mpd", headers, null)).second)
+            assertTrue(master.startsWith("#EXTM3U"))
+            assertTrue("RESOLUTION=1280x720" in master)
+            val variant = master.lines().first { it.startsWith("http://127.0.0.1:") }
+            val media = String(get(variant).second)
+            assertTrue("#EXT-X-MAP:URI=\"http://127.0.0.1:" in media)
+            assertTrue("#EXT-X-ENDLIST" in media)
+            val seg = media.lines().first { it.startsWith("http://127.0.0.1:") }
+            val (code, bytes) = get(seg)
+            assertEquals(200, code); assertEquals(32, bytes.size)
+            assertEquals("https://ref.example/", seenReferer)
+            // a tampered link is refused
+            assertEquals(403, get(seg.replace(Regex("s=[^&]+$"), "s=AAAA")).first)
+        } finally {
+            server.stop(0)
+        }
+    }
+
     @Test fun rewriteResolvesSegmentAndKeyUrisAndFollowsRedirectsOverRelay() {
         val playlistWithDisc = """
             #EXTM3U
