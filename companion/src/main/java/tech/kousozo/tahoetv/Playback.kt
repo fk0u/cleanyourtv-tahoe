@@ -36,16 +36,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.drm.DefaultDrmSessionManager
+import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider
+import androidx.media3.exoplayer.drm.FrameworkMediaDrm
+import androidx.media3.exoplayer.drm.LocalMediaDrmCallback
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import java.time.Instant
 import tech.kousozo.tahoetv.core.DiagLog
+import tech.kousozo.tahoetv.core.Drm
 import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.M3u
 import tech.kousozo.tahoetv.core.SourceHealth
@@ -207,9 +214,37 @@ object Playback {
         everReady = false; retries = 0; message = ""; format = null; paused = false
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
             .setUserAgent(s.headers["User-Agent"] ?: tech.kousozo.tahoetv.core.Web.STREAM_UA).setDefaultRequestProperties(s.headers - "User-Agent")
-        p.setMediaSource(DefaultMediaSourceFactory(http).createMediaSource(MediaItem.Builder().setUri(Uri.parse(s.url))
+        val item = MediaItem.Builder().setUri(Uri.parse(s.url))
             // behind live by the chosen latency (default ~20 s): a cushion against slow pieces; clamped to what the stream keeps
-            .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(latency.offsetMs).build()).build()))
+            .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(latency.offsetMs).build())
+        if (s.isDash) item.setMimeType(MimeTypes.APPLICATION_MPD)
+        else if (s.url.contains(".m3u8", ignoreCase = true)) item.setMimeType(MimeTypes.APPLICATION_M3U8)
+
+        val factory = DefaultMediaSourceFactory(http)
+        val scheme = Drm.scheme(s.drmType, s.drmKey)
+        val jwk = Drm.toClearKeyJwk(s.drmKey)
+        val licUrl = Drm.licenseUrl(s.drmKey)
+        if (jwk != null) {
+            val mgr = DefaultDrmSessionManager.Builder()
+                .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                .setMultiSession(true)
+                .build(LocalMediaDrmCallback(jwk.toByteArray(Charsets.UTF_8)))
+            factory.setDrmSessionManagerProvider { mgr }
+        } else if (licUrl != null && scheme != Drm.Scheme.NONE) {
+            val uuid = when (scheme) {
+                Drm.Scheme.WIDEVINE -> C.WIDEVINE_UUID
+                Drm.Scheme.PLAYREADY -> C.PLAYREADY_UUID
+                else -> C.CLEARKEY_UUID
+            }
+            val drmCfg = MediaItem.DrmConfiguration.Builder(uuid)
+                .setLicenseUri(licUrl)
+                .setMultiSession(true)
+            if (s.headers.isNotEmpty()) drmCfg.setLicenseRequestHeaders(s.headers)
+            item.setDrmConfiguration(drmCfg.build())
+            val drmProv = DefaultDrmSessionManagerProvider().apply { setDrmHttpDataSourceFactory(http) }
+            factory.setDrmSessionManagerProvider(drmProv)
+        }
+        p.setMediaSource(factory.createMediaSource(item.build()))
         p.prepare(); p.play()
         ui.postDelayed({ // never started → next source
             if (my == attempt && !everReady) { DiagLog.add("live", "tidak mulai dalam 20 dtk → sumber berikutnya"); next(c) }
