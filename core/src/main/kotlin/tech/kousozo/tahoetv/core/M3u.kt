@@ -10,7 +10,7 @@ object M3u {
     data class Channel(val name: String, val url: String, val logo: String?, val group: String?,
                        val headers: Map<String, String> = emptyMap(), val drm: Boolean = false,
                        val tvgId: String? = null, val drmType: String? = null, val drmKey: String? = null,
-                       val manifestType: String? = null) {
+                       val manifestType: String? = null, val countryCode: String? = null) {
         /** Stable identifier across stream URL rotations: normalized tvg-id when available, otherwise name slug. */
         val channelId: String
             get() = tvgId?.trim()?.lowercase()?.replace(Regex("[^a-z0-9._-]+"), "-")?.trim('-')?.takeIf { it.isNotEmpty() }

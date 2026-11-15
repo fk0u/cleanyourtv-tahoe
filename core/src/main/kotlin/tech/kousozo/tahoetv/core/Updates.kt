@@ -13,9 +13,9 @@ object Updates {
     const val PAGE = "https://github.com/$REPO/releases"
     const val CONTROL_PLANE_RELEASE = "https://tahoe.kousozo.tech/api/releases/latest"
 
-    /** Clear everyday APK filenames first, with fallback to historical pre-3.4 asset names for older releases. */
-    @JvmField val LAUNCHER_ASSETS = listOf("TahoeTV-App-for-TV-and-Phone.apk", "tahoe-launcher.apk")
-    @JvmField val REMOTE_ASSETS = listOf("TahoeTV-Phone-Remote-and-Setup.apk", "tahoe-tv.apk")
+    /** Plain-language APK filenames for distinct device roles first, with fallback to earlier release asset names. */
+    @JvmField val LAUNCHER_ASSETS = listOf("TahoeTV-Android-TV.apk", "TahoeTV-App-for-TV-and-Phone.apk", "tahoe-launcher.apk")
+    @JvmField val REMOTE_ASSETS = listOf("TahoeTV-Phone-and-Tablet.apk", "TahoeTV-Phone-Remote-and-Setup.apk", "tahoe-tv.apk")
 
     class Release(
         val version: String,

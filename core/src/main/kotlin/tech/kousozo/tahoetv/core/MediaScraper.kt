@@ -32,6 +32,10 @@ object MediaScraper {
     private val prefetchPool = Executors.newFixedThreadPool(2) { r ->
         Thread(r, "tahoe-media-prefetch").apply { isDaemon = true }
     }
+    private val flushPool = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "tahoe-media-flush").apply { isDaemon = true }
+    }
+    private val pendingSaves = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var cacheDir: File? = null
 
     /** Optional override for the disk cache directory (e.g. Android `context.cacheDir`). */
@@ -39,6 +43,16 @@ object MediaScraper {
         cacheDir = File(dir, "media-scraper").also { runCatching { it.mkdirs() } }
         loadCacheFile("logos.tsv", logoCache)
         loadCacheFile("thumbs.tsv", thumbCache)
+        PopularityScraper.initCache(dir)
+        Epg.initCache(dir)
+    }
+
+    private fun scheduleSave(name: String, source: MutableMap<String, Cached>) {
+        if (!pendingSaves.add(name)) return
+        flushPool.schedule({
+            pendingSaves.remove(name)
+            saveCacheFile(name, source)
+        }, 750, java.util.concurrent.TimeUnit.MILLISECONDS)
     }
 
     private fun dir(): File? = cacheDir ?: runCatching {
@@ -94,7 +108,7 @@ object MediaScraper {
         val found = (scrapeWikiThumb(clean, 400) ?: scrapeBingImage("$clean tv channel logo png"))
             ?.takeIf(::verifyImageUrl)
         logoCache[key] = Cached(found, now)
-        saveCacheFile("logos.tsv", logoCache)
+        scheduleSave("logos.tsv", logoCache)
         return found
     }
 
@@ -111,7 +125,7 @@ object MediaScraper {
         val found = (scrapeWikiThumb(prog, 640) ?: scrapeBingImage(if (ch.isNotBlank()) "$prog $ch tv" else "$prog tv"))
             ?.takeIf(::verifyImageUrl)
         thumbCache[key] = Cached(found, now)
-        saveCacheFile("thumbs.tsv", thumbCache)
+        scheduleSave("thumbs.tsv", thumbCache)
         return found
     }
 

@@ -16,8 +16,11 @@ object Sources {
         Source("dhanytv-ott", "https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv-ott.m3u"),
         Source("windozalmi", "https://raw.githubusercontent.com/windozalmi/Playlist_IPTV_Pribadi/m3u-ipvt/IPTV%20Indonesia%20by%20WINDO%20ZALMI"),
         Source("yositapjani", "https://raw.githubusercontent.com/yositapjani/iptv-indonesia/main/indonesia.m3u"),
-        Source("iptv-org-all", "https://iptv-org.github.io/iptv/index.m3u"),
     )
+
+    /** Worldwide iptv-org index, warmed in background as non-priority cache so selected country lists stay focused. */
+    @JvmField
+    val GLOBAL_INDEX = Source("iptv-org-all", "https://iptv-org.github.io/iptv/index.m3u")
 
     /** Guides in order of preference (schedules only, no streams). */
     val EPG = listOf("https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml", Epg.DEFAULT)
@@ -33,37 +36,83 @@ object Sources {
     fun free(c: M3u.Channel) = !c.drm && !RESTREAM.containsMatchIn(c.url) && !PAID.containsMatchIn(c.name) && !FILE.containsMatchIn(c.url)
 
     private const val DAILY_MS = 24 * 60 * 60_000L
+    private const val MEM_TTL_MS = 15 * 60_000L
+    private data class MemPlaylist(val channels: List<M3u.Channel>, val at: Long)
+
     @Volatile private var cacheDir: File? = null
     @Volatile private var dailyTimer: java.util.concurrent.ScheduledExecutorService? = null
+    private val memCache = ConcurrentHashMap<String, MemPlaylist>()
+    private val swrInFlight = ConcurrentHashMap.newKeySet<String>()
+    private val fetchPool = Executors.newFixedThreadPool(4) { r -> Thread(r, "tahoe-sources").apply { isDaemon = true } }
 
-    /** Sets the directory used to cache remote M3U playlists for daily auto-refresh. */
-    @JvmStatic fun initCache(dir: File) { cacheDir = dir.also { runCatching { it.mkdirs() } } }
+    /** Sets the directory used to cache remote M3U playlists, EPG guides, and country popularity data. */
+    @JvmStatic fun initCache(dir: File) {
+        cacheDir = dir.also { runCatching { it.mkdirs() } }
+        PopularityScraper.initCache(dir)
+        Epg.initCache(dir)
+    }
 
     private fun playlistCacheDir(): File? = cacheDir ?: runCatching {
         File(System.getProperty("user.home"), ".tahoetv/playlist-cache").apply { mkdirs() }
     }.getOrNull()?.takeIf { it.isDirectory && it.canWrite() }
 
+    private fun cacheFileFor(dir: File, url: String): File {
+        val key = url.hashCode().toUInt().toString(16) + "-" + url.substringAfterLast('/').replace(Regex("[^a-zA-Z0-9._-]"), "_").take(32)
+        return File(dir, "$key.m3u")
+    }
+
+    private fun writeCacheAtomic(target: File, content: String) {
+        runCatching {
+            target.parentFile?.mkdirs()
+            val tmp = File(target.parentFile, "${target.name}.tmp")
+            tmp.writeText(content)
+            if (!tmp.renameTo(target)) {
+                target.writeText(content)
+                tmp.delete()
+            }
+        }
+    }
+
+    private fun refreshSourceAsync(url: String, cached: File) {
+        if (!swrInFlight.add(url)) return
+        fetchPool.execute {
+            try {
+                val fetched = runCatching { Web.get(url, 30_000) }.getOrNull()
+                if (!fetched.isNullOrBlank()) {
+                    writeCacheAtomic(cached, fetched)
+                    memCache[url] = MemPlaylist(M3u.parse(fetched), System.currentTimeMillis())
+                }
+            } finally {
+                swrInFlight.remove(url)
+            }
+        }
+    }
+
     private fun loadSource(url: String, forceRefresh: Boolean = false): List<M3u.Channel> {
         if (!url.startsWith("http://") && !url.startsWith("https://")) return M3u.load(url)
+        val now = System.currentTimeMillis()
+        if (!forceRefresh) {
+            memCache[url]?.takeIf { now - it.at < MEM_TTL_MS }?.let { return it.channels }
+        }
         val dir = playlistCacheDir()
-        val key = url.hashCode().toUInt().toString(16) + "-" + url.substringAfterLast('/').replace(Regex("[^a-zA-Z0-9._-]"), "_").take(32)
-        val cached = dir?.let { File(it, "$key.m3u") }
-        if (cached != null && cached.isFile && !forceRefresh && (System.currentTimeMillis() - cached.lastModified() < DAILY_MS)) {
-            return M3u.parse(cached.readText())
+        val cached = dir?.let { cacheFileFor(it, url) }
+        if (cached != null && cached.isFile && !forceRefresh) {
+            val age = now - cached.lastModified()
+            val parsed = runCatching { M3u.parse(cached.readText()) }.getOrNull()
+            if (parsed != null && parsed.isNotEmpty()) {
+                memCache[url] = MemPlaylist(parsed, now)
+                if (age >= DAILY_MS) refreshSourceAsync(url, cached) // stale-while-revalidate in background
+                return parsed
+            }
         }
         val fetched = runCatching { Web.get(url, 30_000) }.getOrNull()
         if (!fetched.isNullOrBlank()) {
-            if (cached != null) runCatching {
-                val tmp = File(cached.parentFile, "${cached.name}.tmp")
-                tmp.writeText(fetched)
-                if (!tmp.renameTo(cached)) {
-                    cached.writeText(fetched)
-                    tmp.delete()
-                }
-            }
-            return M3u.parse(fetched)
+            if (cached != null) writeCacheAtomic(cached, fetched)
+            return M3u.parse(fetched).also { memCache[url] = MemPlaylist(it, System.currentTimeMillis()) }
         }
-        if (cached != null && cached.isFile) return M3u.parse(cached.readText())
+        if (cached != null && cached.isFile) {
+            return M3u.parse(cached.readText()).also { memCache[url] = MemPlaylist(it, System.currentTimeMillis()) }
+        }
         return emptyList()
     }
 
@@ -80,12 +129,24 @@ object Sources {
         }, 24, 24, TimeUnit.HOURS)
     }
 
-    /** All sources merged, free TV only. A failing source is skipped, not fatal. */
-    fun load(sources: List<Source> = DEFAULT, forceRefresh: Boolean = false): List<M3u.Channel> = sources.flatMap { s ->
-        runCatching { loadSource(s.url, forceRefresh) }.getOrDefault(emptyList())
-            .filter { s.groups == null || it.group in s.groups }
-            .filter(::free)
-    }.distinctBy { it.url }
+    /** All sources merged in order using concurrent fetching, free TV only. A failing source is skipped, not fatal. */
+    fun load(sources: List<Source> = DEFAULT, forceRefresh: Boolean = false): List<M3u.Channel> {
+        if (sources.size <= 1) {
+            return sources.flatMap { s ->
+                runCatching { loadSource(s.url, forceRefresh) }.getOrDefault(emptyList())
+                    .filter { s.groups == null || it.group in s.groups }
+                    .filter(::free)
+            }.distinctBy { it.url }
+        }
+        val futures = sources.map { s ->
+            fetchPool.submit<List<M3u.Channel>> {
+                runCatching { loadSource(s.url, forceRefresh) }.getOrDefault(emptyList())
+                    .filter { s.groups == null || it.group in s.groups }
+                    .filter(::free)
+            }
+        }
+        return futures.flatMap { f -> runCatching { f.get() }.getOrDefault(emptyList()) }.distinctBy { it.url }
+    }
 
     /** Built-in sources plus the user's own playlists (URLs or file paths, one per line), all free-TV filtered. */
     fun load(extra: String?): List<M3u.Channel> =
@@ -144,23 +205,76 @@ object Sources {
         return out.filterNot(ControlPlane::isChannelBlocked)
     }
 
-    /** A country's built-in channels: Indonesia keeps all channels (including premium/DASH/DRM); other countries use [load]. */
-    private fun builtIn(country: String): List<M3u.Channel> =
-        if (country.equals(Region.HOME, true)) {
-            Region.sources(country).flatMap { s ->
-                runCatching { loadSource(s.url) }.getOrDefault(emptyList())
-                    .filter { (s.groups == null || it.group in s.groups) && !FILE.containsMatchIn(it.url) }
-            }.distinctBy { it.url }
-        } else load(Region.sources(country))
+    /** A country's built-in channels tagged with [country]: Indonesia keeps all channels (including premium/DASH/DRM); other countries use [load]. */
+    private fun builtIn(country: String): List<M3u.Channel> {
+        val cc = country.uppercase()
+        val list = if (cc == Region.HOME) {
+            val sources = Region.sources(cc)
+            val futures = sources.map { s ->
+                fetchPool.submit<List<M3u.Channel>> {
+                    runCatching { loadSource(s.url) }.getOrDefault(emptyList())
+                        .filter { (s.groups == null || it.group in s.groups) && !FILE.containsMatchIn(it.url) }
+                }
+            }
+            futures.flatMap { f -> runCatching { f.get() }.getOrDefault(emptyList()) }.distinctBy { it.url }
+        } else {
+            load(Region.sources(cc))
+        }
+        return list.map { if (it.countryCode == null) it.copy(countryCode = cc) else it }
+    }
+
+    private fun warmBackgroundAsync(countries: List<String>, priorityNames: List<String>) {
+        if (!swrInFlight.add("__global_bg__")) return
+        fetchPool.execute {
+            try {
+                // Warm internet-scraped popularity rankings for chosen countries in background
+                PopularityScraper.prefetchAsync(countries, priorityNames)
+                // Warm global index into disk/memory cache in background as non-priority (never pollutes filtered lists)
+                val cached = playlistCacheDir()?.let { cacheFileFor(it, GLOBAL_INDEX.url) }
+                if (cached == null || !cached.isFile || System.currentTimeMillis() - cached.lastModified() >= DAILY_MS) {
+                    runCatching { loadSource(GLOBAL_INDEX.url) }
+                }
+            } finally {
+                swrInFlight.remove("__global_bg__")
+            }
+        }
+    }
+
+    /**
+     * Loads channels for [countries] in priority order:
+     * 1) Immediately loads the priority country (`countries.first()` + [extra]/local playlists) and invokes [onPriorityReady].
+     * 2) Loads remaining selected countries in parallel as non-priority and returns the combined, deduplicated filtered list,
+     *    while asynchronously warming global caches & popularity rankings in background.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun loadCountriesPriority(
+        extra: String?,
+        countries: List<String>,
+        onPriorityReady: ((List<M3u.Channel>) -> Unit)? = null,
+    ): List<M3u.Channel> {
+        val list = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
+        val primary = list.first()
+        val seen = HashSet<String>()
+        val priorityChannels = loadAll(extra, country = primary)
+            .map { if (it.countryCode.isNullOrBlank()) it.copy(countryCode = primary) else it }
+            .filter { seen.add(it.url) && !ControlPlane.isChannelBlocked(it) }
+        onPriorityReady?.invoke(priorityChannels)
+        warmBackgroundAsync(list, priorityChannels.map { it.name })
+        if (list.size == 1) return priorityChannels
+
+        val secondaryFutures = list.drop(1).map { cc ->
+            fetchPool.submit<List<M3u.Channel>> { builtIn(cc) }
+        }
+        val extraCountries = secondaryFutures.flatMap { f -> runCatching { f.get() }.getOrDefault(emptyList()) }
+            .filter { seen.add(it.url) && !ControlPlane.isChannelBlocked(it) }
+        return priorityChannels + extraCountries
+    }
 
     /** Channels of several countries (the onboarding's "channel countries"), merged without duplicates: the first as
      *  [loadAll] (local files, [extra], or its built-ins), then every other country's built-in channels. */
-    @JvmStatic fun loadCountries(extra: String?, countries: List<String>): List<M3u.Channel> {
-        val list = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
-        val seen = HashSet<String>()
-        return (loadAll(extra, country = list.first()) + list.drop(1).flatMap(::builtIn))
-            .filter { seen.add(it.url) && !ControlPlane.isChannelBlocked(it) }
-    }
+    @JvmStatic fun loadCountries(extra: String?, countries: List<String>): List<M3u.Channel> =
+        loadCountriesPriority(extra, countries, null)
 
     /** [loadAll] for the viewer's [country] (the usual call from the apps). */
     @JvmStatic fun loadFor(extra: String?, country: String?): List<M3u.Channel> =

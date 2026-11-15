@@ -102,10 +102,15 @@ object LocalTv {
         return hit.value + "tvri ${hit.key}" // Indonesian TVRI names ("TVRI Kalimantan Timur")
     }
 
+    private val CLEAN_BRACKETS = Regex("""\s*\[[^]]*]""")
+    private val CLEAN_PARENS = Regex("""\s*\([^)]*\)\)?""")
+    private val CLEAN_QUALITY = Regex("""\s+(HD|FHD|SD)\b""", RegexOption.IGNORE_CASE)
+    private val CLEAN_CAD = Regex("""\s+cad$""", RegexOption.IGNORE_CASE)
+
     /** "TVRI East Java (720p) [Not 24/7]" → "TVRI Jawa Timur"; "RCTI HD (R+)" → "RCTI"; "Trans 7 TV" → "Trans7". */
     fun cleanName(raw: String): String {
-        var n = raw.replace(Regex("""\s*\[[^]]*]"""), "").replace(Regex("""\s*\([^)]*\)\)?"""), "")
-            .replace(Regex("""\s+(HD|FHD|SD)\b""", RegexOption.IGNORE_CASE), "").replace(Regex("""\s+cad$""", RegexOption.IGNORE_CASE), "").trim()
+        var n = raw.replace(CLEAN_BRACKETS, "").replace(CLEAN_PARENS, "")
+            .replace(CLEAN_QUALITY, "").replace(CLEAN_CAD, "").trim()
         if (n.startsWith("TVRI ", true)) TVRI_ID[n.substring(5).lowercase()]?.let { n = "TVRI $it" }
         return ALIAS[n.lowercase()] ?: n
     }
@@ -123,7 +128,7 @@ object LocalTv {
         val l = name.lowercase()
         val group = c.group?.lowercase().orEmpty()
         val nat = if (home) NATIONAL.indexOf(l).takeIf { it >= 0 } else null
-        val isNear = home && near.any { it in l }
+        val isNear = near.isNotEmpty() && near.any { it in l }
 
         val isVod = isVod(c)
 
@@ -192,12 +197,35 @@ object LocalTv {
 
     /** Classify, merge duplicates (best stream first: 24/7, then no special headers; the rest become backups),
      *  and sort near → category → rank → name. */
+    enum class SortMode(val key: String) {
+        Popularity("popularity"),
+        NameAsc("asc"),
+        NameDesc("desc");
+
+        fun label(lang: String): String = I18n.get(lang, when (this) {
+            Popularity -> "sort.popularity"
+            NameAsc -> "sort.asc"
+            NameDesc -> "sort.desc"
+        })
+
+        companion object {
+            @JvmStatic
+            fun fromKey(k: String?): SortMode = when (k?.trim()?.lowercase()) {
+                "asc", "a-z", "az" -> NameAsc
+                "desc", "z-a", "za" -> NameDesc
+                else -> Popularity
+            }
+        }
+    }
+
     private val MERGE_NOISE = Regex("""\b(fhd|uhd|4k|hd|sd|ld|lq|backup|alt|server\s*\d+|feed\s*\d+|ch\s*\d+|drm|dash|hls)\b""", RegexOption.IGNORE_CASE)
+    private val MERGE_NONALNUM = Regex("[^a-z0-9\\s]")
+    private val MERGE_SPACE = Regex("\\s+")
 
     private fun canonicalMergeKey(name: String): String =
         MERGE_NOISE.replace(name.lowercase(), " ")
-            .replace(Regex("[^a-z0-9\\s]"), " ")
-            .replace(Regex("\\s+"), " ")
+            .replace(MERGE_NONALNUM, " ")
+            .replace(MERGE_SPACE, " ")
             .trim()
             .ifBlank { name.lowercase().trim() }
 
@@ -226,9 +254,17 @@ object LocalTv {
     }
 
     @JvmOverloads
-    fun arrange(channels: List<M3u.Channel>, province: String?, countries: List<String> = listOf(Region.HOME)): List<Entry> {
-        val home = Region.HOME in countries
-        val near = if (home) nearKeywords(province) else emptyList()
+    fun arrange(
+        channels: List<M3u.Channel>,
+        province: String?,
+        countries: List<String> = listOf(Region.HOME),
+        sortMode: SortMode = SortMode.Popularity,
+        city: String? = null,
+        viewerCountry: String? = null,
+    ): List<Entry> {
+        val normCountries = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
+        val home = Region.HOME in normCountries
+        val near = CountryCatalog.localKeywords(viewerCountry ?: normCountries.firstOrNull(), province, city)
         val exactBuckets = channels.map {
             val e = classify(it, near, home)
             val spaceKey = canonicalMergeKey(e.name).replace(" ", "")
@@ -294,11 +330,43 @@ object LocalTv {
                 }
             }
         }
-        return merged
-            .sortedWith(
-                if (home) compareBy({ it.rank >= PRIORITY.size }, { !it.near }, { it.category.ordinal }, { it.rank }, { it.partTime }, { it.name.lowercase() })
-                else compareBy({ it.category.ordinal }, { it.partTime }, { it.channel.logo.isNullOrBlank() }, { it.name.lowercase() })
+        return sort(merged, sortMode, normCountries)
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun sort(
+        entries: List<Entry>,
+        sortMode: SortMode = SortMode.Popularity,
+        countries: List<String> = listOf(Region.HOME),
+    ): List<Entry> {
+        val normCountries = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
+        val countryOrder = normCountries.withIndex().associate { (i, c) -> c to i }
+        fun countryRank(cc: String?): Int =
+            if (cc.isNullOrBlank()) 0 else countryOrder[cc.uppercase()] ?: normCountries.size
+        return when (sortMode) {
+            SortMode.NameAsc -> entries.sortedWith(
+                compareBy<Entry>({ countryRank(it.channel.countryCode) }, { it.name.lowercase() }, { it.partTime })
             )
+            SortMode.NameDesc -> entries.sortedWith(
+                compareBy<Entry>({ countryRank(it.channel.countryCode) })
+                    .thenByDescending { it.name.lowercase() }
+                    .thenBy { it.partTime }
+            )
+            SortMode.Popularity -> entries.sortedWith(
+                compareBy<Entry>(
+                    { countryRank(it.channel.countryCode) },
+                    { it.rank >= PRIORITY.size },
+                    { !it.near },
+                    { if (it.rank < PRIORITY.size) it.rank else Int.MAX_VALUE },
+                    { -PopularityScraper.score(it.name, normCountries, it.category) },
+                    { it.category.ordinal },
+                    { it.partTime },
+                    { it.channel.logo.isNullOrBlank() },
+                    { it.name.lowercase() },
+                )
+            )
+        }
     }
 
     fun inCategory(e: Entry, c: Category) = if (c == Category.Near) e.near else e.category == c

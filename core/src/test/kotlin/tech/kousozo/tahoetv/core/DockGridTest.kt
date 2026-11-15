@@ -64,4 +64,11 @@ class DockGridTest {
         assertEquals(1, DockGrid.targetColForRow(targetRow = 0, currentCol = 0, chipCol = 2, dockCol = 5, targetRowCount = 2))
         assertEquals(2, DockGrid.targetColForRow(targetRow = 1, currentCol = 2, chipCol = 0, dockCol = 3, targetRowCount = 6))
     }
+
+    @Test fun nextVerticalRowNavigatesUpAndStaysAtTopChips() {
+        assertEquals(0, DockGrid.nextVerticalRow(row = 1, dr = -1, dockSize = 5, heroCount = 1, padRowCount = 2, chipCount = 6))
+        assertEquals(-1, DockGrid.nextVerticalRow(row = 0, dr = -1, dockSize = 5, heroCount = 1, padRowCount = 2, chipCount = 6))
+        assertEquals(-2, DockGrid.nextVerticalRow(row = -1, dr = -1, dockSize = 5, heroCount = 1, padRowCount = 2, chipCount = 6))
+        assertEquals(-2, DockGrid.nextVerticalRow(row = -2, dr = -1, dockSize = 5, heroCount = 1, padRowCount = 2, chipCount = 6))
+    }
 }

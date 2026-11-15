@@ -34,16 +34,26 @@ data class Viewer @JvmOverloads constructor(
     val revision: Long = 0L,
     /** Large text & simplified layout for elderly / low-vision viewers (#90, #64). */
     val simpleMode: Boolean = false,
+    /** Channel list sort order: "popularity" (default, internet-scraped per country), "asc" (A-Z), or "desc" (Z-A). */
+    val sortMode: String = "popularity",
 ) {
     val done get() = country.isNotBlank()
+
+    /** Effective [LocalTv.SortMode] for organizing channels. */
+    val sort: LocalTv.SortMode get() = LocalTv.SortMode.fromKey(sortMode)
 
     /** [categories] that apply to the chosen channel countries: "near you" and TVRI only exist with Indonesia, so a
      *  leftover selection of them can't hide every channel after Indonesia is removed. */
     val activeCategories: Set<String> get() =
         if (Region.HOME in countries) categories else categories - setOf(LocalTv.Category.Near.name, LocalTv.Category.Tvri.name)
 
-    /** Province for "near you": only when the viewer lives in Indonesia and watches its channels. */
-    val nearRegion: String? get() = region.takeIf { it.isNotBlank() && country == Region.HOME && Region.HOME in countries }
+    /** Region/province for "near you": for Indonesia when Indonesia channels are selected; for other countries uses region/city. */
+    val nearRegion: String? get() = when {
+        Region.HOME in countries && country.equals(Region.HOME, ignoreCase = true) -> region.takeIf { it.isNotBlank() }
+        !country.equals(Region.HOME, ignoreCase = true) && country in countries ->
+            region.takeIf { it.isNotBlank() } ?: city.takeIf { it.isNotBlank() }
+        else -> null
+    }
     val countries get() = channelCountries.ifEmpty { listOfNotNull(Region.country(country) ?: Region.HOME) }
     val zone: ZoneId get() = runCatching { ZoneId.of(timeZone) }.getOrDefault(ZoneId.systemDefault())
 
@@ -52,13 +62,16 @@ data class Viewer @JvmOverloads constructor(
             ?: e.alternates.firstNotNullOfOrNull { rank[it.channelId] ?: rank[it.url] }
 
     /** The channel list as the viewer set it up: chosen categories only (favourites always stay), favourites first in
-     *  their order, then the usual order. */
+     *  their order, then sorted according to [sort]. */
     fun arrange(entries: List<LocalTv.Entry>): List<LocalTv.Entry> {
         val rank = favorites.withIndex().associate { (i, u) -> u to i }
         val cats = activeCategories
         val near = LocalTv.Category.Near.name in cats
         val shown = if (cats.isEmpty()) entries else entries.filter { favRank(it, rank) != null || it.category.name in cats || (near && it.near) }
-        return shown.sortedBy { favRank(it, rank) ?: Int.MAX_VALUE } // stable: the rest keep their order
+        val favs = shown.mapNotNull { e -> favRank(e, rank)?.let { r -> r to e } }.sortedBy { it.first }.map { it.second }
+        val rest = shown.filter { favRank(it, rank) == null }
+        val sortedRest = LocalTv.sort(rest, sort, countries)
+        return favs + sortedRest
     }
 
     fun isFavorite(ch: M3u.Channel): Boolean = ch.channelId in favorites || ch.url in favorites
@@ -79,6 +92,7 @@ data class Viewer @JvmOverloads constructor(
         .put("schema", schema)
         .put("revision", revision)
         .put("simpleMode", simpleMode)
+        .put("sortMode", sortMode)
         .put("language", language).put("country", country).put("city", city).put("lat", lat ?: JSONObject.NULL).put("lon", lon ?: JSONObject.NULL)
         .put("region", region).put("timeZone", timeZone).put("prayer", prayer).put("prayerMethod", prayerMethod)
         .put("channelCountries", JSONArray(channelCountries)).put("categories", JSONArray(categories.toList())).put("favorites", JSONArray(favorites))
@@ -99,6 +113,7 @@ data class Viewer @JvmOverloads constructor(
                 schema = j.optInt("schema", 2),
                 revision = j.optLong("revision", 0L),
                 simpleMode = j.optBoolean("simpleMode", false),
+                sortMode = LocalTv.SortMode.fromKey(j.optString("sortMode", "popularity")).key,
             )
         }
 
@@ -142,9 +157,13 @@ data class Viewer @JvmOverloads constructor(
             return incoming.copy(favorites = mergedFavs, revision = maxOf(current.revision, incoming.revision))
         }
 
-        /** Defaults for a viewer in [country]: prayer on where most people pray, that country's method, its channels. */
+        /** Defaults for a viewer in [country]: prayer on where most people pray, that country's method, its channels, and default city timezone. */
         @JvmStatic fun suggested(country: String, language: String): Viewer = Viewer(
-            language = language, country = country, prayer = Region.prayerByDefault(country), prayerMethod = Prayer.methodFor(country),
+            language = language,
+            country = country,
+            timeZone = CountryCatalog.defaultZone(country),
+            prayer = Region.prayerByDefault(country),
+            prayerMethod = Prayer.methodFor(country),
             channelCountries = listOf(country),
         )
     }
