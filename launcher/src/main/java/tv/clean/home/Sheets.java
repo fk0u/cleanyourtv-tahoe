@@ -82,7 +82,8 @@ final class Sheets {
                     final int rr = rIdx, cc = i;
                     View v = tile(it);
                     v.setClickable(true);
-                    v.setFocusable(true);
+                    v.setFocusable(false);
+                    v.setFocusableInTouchMode(false);
                     v.setOnClickListener(clicked -> {
                         r = rr; c = cc;
                         render();
@@ -97,6 +98,7 @@ final class Sheets {
                 panel.addView(line, ll);
                 views.add(vs);
             }
+            if (rows.isEmpty()) { r = 0; c = 0; return; }
             r = Math.min(keepR, rows.size() - 1); c = Math.min(keepC, rows.get(r).size() - 1);
             render();
         }
@@ -128,6 +130,7 @@ final class Sheets {
         }
 
         void render() {
+            if (views.isEmpty() || r < 0 || r >= views.size() || c < 0 || c >= views.get(r).size()) return;
             for (int i = 0; i < views.size(); i++) for (int j = 0; j < views.get(i).size(); j++) {
                 boolean f = i == r && j == c;
                 View v = views.get(i).get(j);
@@ -150,6 +153,7 @@ final class Sheets {
 
         @Override public boolean key(KeyEvent e) {
             if (e.getAction() != KeyEvent.ACTION_DOWN) return true;
+            if (rows.isEmpty()) return false;
             Item it = rows.get(r).get(c);
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_UP: if (r > 0) { r--; c = Math.min(c, rows.get(r).size() - 1); render(); } return true;
@@ -161,7 +165,10 @@ final class Sheets {
                     return true;
                 }
                 case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
-                    if (e.getRepeatCount() == 0 && it.enter != null) it.enter.run();
+                    if (e.getRepeatCount() == 0) {
+                        if (it.enter != null) it.enter.run();
+                        else if (it.adjust != null) { it.adjust.by(1); rebuild(); }
+                    }
                     return true;
             }
             return false;
@@ -192,64 +199,90 @@ final class Sheets {
             LinearLayout who = new LinearLayout(h); who.setGravity(Gravity.CENTER_VERTICAL);
             who.setPadding((int) (6 * d), 0, 0, (int) (8 * d));
             who.addView(Avatar.view(h, 44, !h.guest() && !h.kids()));
+            final String lang = TvViewer.get(h).getLanguage();
             LinearLayout names = new LinearLayout(h); names.setOrientation(LinearLayout.VERTICAL); names.setPadding((int) (14 * d), 0, 0, 0);
-            TextView e = Ui.eyebrow(h, Ui.TEXT_3); e.setText("Pusat Kontrol");
-            TextView t = Ui.text(h, Ui.HEADLINE, 600, Ui.TEXT); t.setText(h.kids() ? "Anak" : h.guest() ? "Tamu" : name.isEmpty() ? "Tahoe TV" : name);
+            TextView e = Ui.eyebrow(h, Ui.TEXT_3); e.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.control_center"));
+            TextView t = Ui.text(h, Ui.HEADLINE, 600, Ui.TEXT); t.setText(h.kids() ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.lock_kids") : h.guest() ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.lock_guest") : name.isEmpty() ? "Tahoe TV Launcher" : name);
             names.addView(e); names.addView(t); who.addView(names);
             panel.addView(who);
-            Item switchProfile = new Item(R.drawable.ic_users, "Ganti profil", h.kids() ? "Perlu PIN" : "Saya · Tamu · Anak", () -> { h.closeSheet(); h.showProfiles(); });
+            Item switchProfile = new Item(R.drawable.ic_users, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_switch_profile"),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, h.kids() ? "tv.cc_need_pin" : "tv.cc_profiles_sub"), () -> { h.closeSheet(); h.showProfiles(); });
             AudioManager am = (AudioManager) h.getSystemService(Context.AUDIO_SERVICE);
             int v = am.getStreamVolume(AudioManager.STREAM_MUSIC), max = Math.max(1, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
-            add(new Item(R.drawable.ic_volume_2, "Volume", Math.round(100f * v / max) + "%   ◀ ▶", null).wide().level((float) v / max)
+            add(new Item(R.drawable.ic_volume_2, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_volume"), Math.round(100f * v / max) + "%   ◀ ▶", null).wide().level((float) v / max)
                     .adjust(dir -> am.adjustSuggestedStreamVolume(dir > 0 ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER, AudioManager.STREAM_MUSIC, 0)));
             if (h.phoneMedia != null) {
                 boolean playing = h.phoneMedia.optBoolean("playing");
-                add(new Item(playing ? R.drawable.ic_pause : R.drawable.ic_play, h.phoneMedia.optString("title"), h.phoneMedia.optString("artist") + "  ·  di HP  ·  ◀ ▶ lagu", () -> {
+                add(new Item(playing ? R.drawable.ic_pause : R.drawable.ic_play, h.phoneMedia.optString("title"),
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_on_phone", h.phoneMedia.optString("artist")), () -> {
                     h.phoneMediaCommand(playing ? "pause" : "play");
                 }).wide().on(playing).adjust(dir -> h.phoneMediaCommand(dir > 0 ? "next" : "prev")));
             }
             if (h.kids()) { // no settings, pairing, smart home or assistant: just the basics
                 int left = h.sleepLeft();
-                add(new Item(R.drawable.ic_moon, "Timer tidur", (left == 0 ? "Mati" : left + " menit lagi") + "  ·  ◀ ▶", () -> h.stepSleep(1)).adjust(h::stepSleep),
-                    new Item(R.drawable.ic_cloud_sun, "Cuaca", "Per jam & 7 hari", () -> { h.closeSheet(); h.openWeather(); }));
+                add(new Item(R.drawable.ic_moon, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_sleep_timer"),
+                        (left == 0 ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_off") : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_min_left", String.valueOf(left))) + "  ·  ◀ ▶",
+                        () -> h.stepSleep(1)).adjust(h::stepSleep),
+                    new Item(R.drawable.ic_cloud_sun, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_weather"),
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_hourly_daily"), () -> { h.closeSheet(); h.openWeather(); }));
                 add(switchProfile.wide());
                 return;
             }
-            add(new Item(R.drawable.ic_wifi, "Wi-Fi", ssid(h), () -> h.start(new Intent(Settings.ACTION_WIFI_SETTINGS))),
-                new Item(R.drawable.ic_bluetooth, "Bluetooth", "Remote & controller", () -> h.start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
+            add(new Item(R.drawable.ic_wifi, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_wifi"), ssid(h), () -> h.start(new Intent(Settings.ACTION_WIFI_SETTINGS))),
+                new Item(R.drawable.ic_bluetooth, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_bluetooth"),
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_bluetooth_sub"), () -> h.start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
             boolean personal = Hero.wallMode(h).equals("personal");
-            add(new Item(R.drawable.ic_image, "Wallpaper", h.guest() ? "Default (Tamu)" : (personal ? "Pribadi" : "Default") + "  ·  ◀ ▶", () -> h.hero.nextWall())
+            add(new Item(R.drawable.ic_image, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_wallpaper"),
+                    h.guest() ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_default_guest")
+                            : tech.kousozo.tahoetv.core.I18n.get(lang, personal ? "tv.cc_personal" : "tv.cc_default") + "  ·  ◀ ▶",
+                    () -> h.hero.nextWall())
                     .adjust(dir -> {
                         if (h.guest()) return;
                         h.prefs.edit().putString("wall_mode", Hero.wallMode(h).equals("personal") ? "default" : "personal").apply();
                         h.hero.loadWalls(); h.hero.showWall(true);
                     }),
-                new Item(R.drawable.ic_cloud_sun, "Cuaca", "Per jam & 7 hari", () -> { h.closeSheet(); h.openWeather(); }));
-            add(new Item(R.drawable.ic_moon_star, "Shalat & adzan", "Jadwal & suara", () -> { h.closeSheet(); h.openPrayer(); }),
-                new Item(R.drawable.ic_sparkles, "Asisten", Assistant.enabled() ? "Gemini" : "Belum diatur", () -> { h.closeSheet(); h.openAssistant(); }));
-            add(new Item(R.drawable.ic_house, "Rumah", HomeControl.enabled() ? "Home Assistant" : "Hey Google", () -> { h.closeSheet(); h.openSheet(new Devices(h)); }),
-                new Item(R.drawable.ic_smartphone, "HP", h.companion == null || h.companion.pairedCount() == 0 ? "Pairing" : h.companion.pairedCount() + " HP", () -> { h.closeSheet(); h.openPair(); }),
-                new Item(R.drawable.ic_settings, "Setelan", "Sistem", () -> h.start(new Intent(Settings.ACTION_SETTINGS))));
+                new Item(R.drawable.ic_cloud_sun, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_weather"),
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_hourly_daily"), () -> { h.closeSheet(); h.openWeather(); }));
+            add(new Item(R.drawable.ic_moon_star, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_prayer"),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_prayer_sub"), () -> { h.closeSheet(); h.openPrayer(); }),
+                new Item(R.drawable.ic_sparkles, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_assistant"),
+                        Assistant.enabled() ? "Gemini" : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_unset"), () -> { h.closeSheet(); h.openAssistant(); }));
+            add(new Item(R.drawable.ic_house, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_smart_home"),
+                    HomeControl.enabled() ? "Home Assistant" : "Hey Google", () -> { h.closeSheet(); h.openSheet(new Devices(h)); }),
+                new Item(R.drawable.ic_smartphone, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_phone_lbl"),
+                        h.companion == null || h.companion.pairedCount() == 0
+                                ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_pairing")
+                                : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_phones_cnt", String.valueOf(h.companion.pairedCount())),
+                        () -> { h.closeSheet(); h.openPair(); }),
+                new Item(R.drawable.ic_settings, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_settings"),
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_system"), () -> h.start(new Intent(Settings.ACTION_SETTINGS))));
             // Live TV: highest quality and distance from live (◀ ▶); stored where LiveTv reads them
             android.content.SharedPreferences lp = h.getSharedPreferences("live", Context.MODE_PRIVATE);
             tech.kousozo.tahoetv.core.PlayPrefs.Quality q = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(lp.getString("quality", null));
             tech.kousozo.tahoetv.core.PlayPrefs.Latency lat = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(lp.getString("latency", null));
-            add(new Item(R.drawable.ic_tv, "Kualitas video", q.getLabel() + "  ·  ◀ ▶", null)
+            add(new Item(R.drawable.ic_tv, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_video_quality"), q.label(lang) + "  ·  ◀ ▶", null)
                     .adjust(dir -> lp.edit().putString("quality", tech.kousozo.tahoetv.core.PlayPrefs.next(q, dir).getKey()).apply()),
-                new Item(R.drawable.ic_clock, "Latensi siaran", lat.getLabel() + "  ·  ◀ ▶", null)
+                new Item(R.drawable.ic_clock, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_stream_latency"), lat.label(lang) + "  ·  ◀ ▶", null)
                     .adjust(dir -> lp.edit().putString("latency", tech.kousozo.tahoetv.core.PlayPrefs.next(lat, dir).getKey()).apply()));
             int left = h.sleepLeft();
-            add(new Item(R.drawable.ic_moon, "Timer tidur", (left == 0 ? "Mati" : left + " menit lagi") + "  ·  ◀ ▶", () -> h.stepSleep(1)).adjust(h::stepSleep),
-                new Item(R.drawable.ic_info, "Tentang", "Versi " + About.version(h) + "  ·  Pembaruan", () -> { h.closeSheet(); h.openSheet(new About(h)); }));
+            add(new Item(R.drawable.ic_moon, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_sleep_timer"),
+                    (left == 0 ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_off") : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_min_left", String.valueOf(left))) + "  ·  ◀ ▶",
+                    () -> h.stepSleep(1)).adjust(h::stepSleep),
+                new Item(R.drawable.ic_info, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_about"),
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_about_sub", About.version(h)), () -> { h.closeSheet(); h.openSheet(new About(h)); }));
             tech.kousozo.tahoetv.core.Viewer vw = TvViewer.get(h);
-            add(new Item(R.drawable.ic_settings, "Wilayah & bahasa", vw.getDone()
+            add(new Item(R.drawable.ic_settings, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.region_language"), vw.getDone()
                     ? tech.kousozo.tahoetv.core.Region.flag(vw.getCountry()) + " " + tech.kousozo.tahoetv.core.OnboardingText.INSTANCE.getLANGUAGE_NAMES().get(vw.getLanguage())
-                    : "Bahasa, negara, kota, saluran", () -> { h.closeSheet(); h.startActivity(new android.content.Intent(h, Onboarding.class)); }),
-                new Item(R.drawable.ic_smartphone, "Kirim log", "Laporkan masalah lewat HP", () -> { h.closeSheet(); h.sendLog(); }));
+                    : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_region_sub"), () -> { h.closeSheet(); h.startActivity(new android.content.Intent(h, Onboarding.class)); }),
+                new Item(R.drawable.ic_smartphone, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_send_log"),
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_send_log_sub"), () -> { h.closeSheet(); h.sendLog(); }));
             if (h.guest()) add(switchProfile.wide());
-            else add(switchProfile, new Item(R.drawable.ic_lock, "Profil Anak", Kids.hasPin(h) ? "PIN & aplikasi" : "Belum diatur", () -> { h.closeSheet(); h.openSheet(new KidsSetup(h)); }));
+            else add(switchProfile, new Item(R.drawable.ic_lock, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_kids_profile"),
+                    Kids.hasPin(h) ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_kids_sub") : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_unset"),
+                    () -> { h.closeSheet(); h.openSheet(new KidsSetup(h)); }));
             boolean simple = TvViewer.simpleMode(h);
-            add(new Item(R.drawable.ic_layout_grid, "Mode Sederhana", (simple ? "Aktif" : "Mati") + "  ·  Teks & kartu besar", () -> {
+            add(new Item(R.drawable.ic_layout_grid, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_simple_mode"),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, simple ? "tv.cc_simple_on" : "tv.cc_simple_off"), () -> {
                 TvViewer.setSimpleMode(h, !simple);
                 h.applySimpleMode();
                 rebuild();
@@ -258,7 +291,9 @@ final class Sheets {
 
         static String ssid(Context c) {
             String s = ((WifiManager) c.getApplicationContext().getSystemService(Context.WIFI_SERVICE)).getConnectionInfo().getSSID();
-            return s == null || s.contains("unknown ssid") || s.equals("0x") ? "Tidak terhubung" : s.replace("\"", "");
+            return s == null || s.contains("unknown ssid") || s.equals("0x")
+                    ? tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(c).getLanguage(), "tv.cc_wifi_off")
+                    : s.replace("\"", "");
         }
     }
 
@@ -276,27 +311,28 @@ final class Sheets {
 
         @Override void fill() {
             Home h = home;
-            header(app.system ? "Aplikasi sistem" : "Aplikasi", app.label);
-            add(new Item(R.drawable.ic_play, "Buka", null, () -> { h.closeSheet(); h.launch(app.launch, app, h.focusedTile()); }).wide());
+            String lang = TvViewer.get(h).getLanguage();
+            header(tech.kousozo.tahoetv.core.I18n.get(lang, app.system ? "tv.home_sys_app" : "tv.app_label"), app.label);
+            add(new Item(R.drawable.ic_play, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.open"), null, () -> { h.closeSheet(); h.launch(app.launch, app, h.focusedTile()); }).wide());
             if (h.kids()) return; // no dock editing, info or uninstall in the kids profile
             if (app.pkg.equals(Trending.YT) && !h.trending.isEmpty()) {
                 Trending.Video v = h.trending.get(h.trendIndex % h.trending.size());
-                add(new Item(R.drawable.ic_tv, "Putar trending", v.title, () -> { h.closeSheet(); h.start(Trending.watch(v.id)); }).wide());
+                add(new Item(R.drawable.ic_tv, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.play_trending"), v.title, () -> { h.closeSheet(); h.start(Trending.watch(v.id)); }).wide());
             }
             List<String> pins = h.dockPackages();
             int at = pins.indexOf(app.pkg);
             if (at >= 0) {
-                add(new Item(R.drawable.ic_pin_off, "Lepas dari Dock", null, () -> { pins.remove(app.pkg); h.closeSheet(); h.saveDock(pins); }),
-                    new Item(R.drawable.ic_arrow_left_right, "Geser", "◀ ▶", null).adjust(dir -> {
+                add(new Item(R.drawable.ic_pin_off, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.unpin_dock"), null, () -> { pins.remove(app.pkg); h.closeSheet(); h.saveDock(pins); }),
+                    new Item(R.drawable.ic_arrow_left_right, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.move"), "◀ ▶", null).adjust(dir -> {
                         int i = pins.indexOf(app.pkg), j = i + dir;
                         if (j >= 0 && j < pins.size()) { Collections.swap(pins, i, j); h.saveDock(pins); }
                     }));
             } else if (h.dock.size() < h.dockSize)
-                add(new Item(R.drawable.ic_pin, "Sematkan ke Dock", null, () -> { pins.add(app.pkg); h.closeSheet(); h.saveDock(pins); }).wide());
-            else add(new Item(R.drawable.ic_pin, "Dock penuh", "Lepas satu dulu (" + h.dockSize + ")", null).wide());
-            Item info = new Item(R.drawable.ic_info, "Info", null, () -> { h.closeSheet(); h.start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.pkg))); });
+                add(new Item(R.drawable.ic_pin, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pin_dock"), null, () -> { pins.add(app.pkg); h.closeSheet(); h.saveDock(pins); }).wide());
+            else add(new Item(R.drawable.ic_pin, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.dock_full"), tech.kousozo.tahoetv.core.I18n.get(lang, "tv.dock_remove_one", String.valueOf(h.dockSize)), null).wide());
+            Item info = new Item(R.drawable.ic_info, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.info"), null, () -> { h.closeSheet(); h.start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.pkg))); });
             if (app.system) add(info.wide());
-            else add(info, new Item(R.drawable.ic_trash_2, "Uninstall", null, () -> { h.closeSheet(); h.start(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg))); }));
+            else add(info, new Item(R.drawable.ic_trash_2, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.uninstall"), null, () -> { h.closeSheet(); h.start(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg))); }));
         }
 
         @Override public boolean key(KeyEvent e) {
@@ -315,13 +351,16 @@ final class Sheets {
 
         @Override void fill() {
             Home h = home;
-            header("Profil Anak", "PIN & aplikasi yang boleh dibuka");
-            add(new Item(R.drawable.ic_lock, Kids.hasPin(h) ? "Ubah PIN" : "Buat PIN", "Dipakai untuk keluar dari profil Anak",
-                    () -> h.createPin(() -> { h.openSheet(new KidsSetup(h)); h.toast("PIN Anak disimpan"); }, () -> h.openSheet(new KidsSetup(h)))).wide());
+            String lang = TvViewer.get(h).getLanguage();
+            header(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.kids_title"), tech.kousozo.tahoetv.core.I18n.get(lang, "tv.kids_sub"));
+            add(new Item(R.drawable.ic_lock, tech.kousozo.tahoetv.core.I18n.get(lang, Kids.hasPin(h) ? "tv.kids_pin_change" : "tv.kids_pin_create"),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "tv.kids_pin_sub"),
+                    () -> h.createPin(() -> { h.openSheet(new KidsSetup(h)); h.toast(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.kids_pin_saved")); }, () -> h.openSheet(new KidsSetup(h)))).wide());
             List<Item> row = new ArrayList<>();
             for (Home.App a : h.all) {
                 boolean on = Kids.appAllowed(h, a.pkg);
-                row.add(new Item(on ? R.drawable.ic_play : R.drawable.ic_lock, a.label, on ? "Boleh dibuka" : "Dikunci", () -> {
+                row.add(new Item(on ? R.drawable.ic_play : R.drawable.ic_lock, a.label,
+                        tech.kousozo.tahoetv.core.I18n.get(lang, on ? "tv.kids_allowed" : "tv.kids_locked"), () -> {
                     Kids.setApp(h, a.pkg, !Kids.appAllowed(h, a.pkg)); rebuild();
                 }).on(on));
                 if (row.size() == 2) { add(row.toArray(new Item[0])); row.clear(); }
@@ -361,7 +400,8 @@ final class Sheets {
             add(digit("1"), digit("2"), digit("3"));
             add(digit("4"), digit("5"), digit("6"));
             add(digit("7"), digit("8"), digit("9"));
-            add(new Item(0, "⌫", null, this::erase), digit("0"), new Item(0, "Batal", null, cancel));
+            String cancelText = tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(getContext()).getLanguage(), "common.cancel");
+            add(new Item(0, "⌫", null, this::erase), digit("0"), new Item(0, cancelText, null, cancel));
         }
 
         Item digit(String n) { return new Item(0, n, null, () -> type(n)); }
@@ -426,15 +466,16 @@ final class Sheets {
         Pair(Home h) {
             super(h);
             home = h;
+            String lang = TvViewer.get(h).getLanguage();
             float d = Ui.dp(h, 1);
             setBackgroundColor(0xF2080A10);
-            Ui.crumb(this, R.drawable.ic_smartphone, "Hubungkan HP");
+            Ui.crumb(this, R.drawable.ic_smartphone, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_connect_phone"));
             LinearLayout left = new LinearLayout(h); left.setOrientation(LinearLayout.VERTICAL);
-            TextView eb = Ui.eyebrow(h, Ui.TEXT_3); eb.setText("Remote · Gamepad · Foto");
-            TextView ti = Ui.text(h, Ui.TITLE, 600, Ui.TEXT); ti.setText("Pindai dengan kamera HP");
+            TextView eb = Ui.eyebrow(h, Ui.TEXT_3); eb.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pair_eb"));
+            TextView ti = Ui.text(h, Ui.TITLE, 600, Ui.TEXT); ti.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pair_scan_title"));
             TextView body = Ui.text(h, Ui.BODY, 400, Ui.TEXT_2);
             body.setSingleLine(false); body.setLineSpacing(0, 1.3f);
-            body.setText("Remote, kirim link & foto, tanya asisten pakai suara HP.\nPunya app Tahoe TV di HP? Pindai QR dengan kamera, pilih Tahoe TV: langsung tersambung.\nHP dan TV harus di Wi-Fi yang sama.");
+            body.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pair_scan_body"));
             code = Ui.text(h, 54, 300, Ui.TEXT); code.setLetterSpacing(0.25f);
             url = Ui.text(h, Ui.BODY, 500, Ui.ACCENT);
             count = Ui.text(h, Ui.CAPTION + 1, 500, Ui.TEXT_3);
@@ -450,7 +491,7 @@ final class Sheets {
             qr.setPadding((int) (18 * d), (int) (18 * d), (int) (18 * d), (int) (18 * d));
             LayoutParams ql = new LayoutParams((int) (260 * d), (int) (260 * d), Gravity.END | Gravity.CENTER_VERTICAL); ql.rightMargin = (int) (72 * d);
             addView(qr, ql);
-            TextView hint = Ui.text(h, Ui.CAPTION, 500, Ui.TEXT_3); hint.setText("OK: kode baru  ·  Menu: lupakan semua HP  ·  Back: tutup");
+            TextView hint = Ui.text(h, Ui.CAPTION, 500, Ui.TEXT_3); hint.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pair_hint_keys"));
             LayoutParams hl = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL); hl.bottomMargin = (int) (18 * d);
             addView(hint, hl);
             refresh();
@@ -461,7 +502,8 @@ final class Sheets {
             if (c == null) { code.setText("—"); return; }
             code.setText(c.code());
             url.setText("http://" + Companion.ip() + ":" + Companion.PORT);
-            count.setText(c.pairedCount() + " HP tersambung");
+            String lang = TvViewer.get(home).getLanguage();
+            count.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_phones_cnt", String.valueOf(c.pairedCount())));
             qr.setImageBitmap(qr(c.pairUrl(), 512));
         }
 
@@ -480,7 +522,7 @@ final class Sheets {
             if (e.getAction() != KeyEvent.ACTION_DOWN || e.getRepeatCount() > 0) return true;
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: if (home.companion != null) { home.companion.newCode(); refresh(); } return true;
-                case KeyEvent.KEYCODE_MENU: if (home.companion != null) { home.companion.forgetAll(); refresh(); home.toast("Semua HP dilupakan"); } return true;
+                case KeyEvent.KEYCODE_MENU: if (home.companion != null) { home.companion.forgetAll(); refresh(); home.toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(home).getLanguage(), "tv.pair_forgot_all")); } return true;
                 case KeyEvent.KEYCODE_BACK: return false;
             }
             return true;

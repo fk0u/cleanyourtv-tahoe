@@ -47,7 +47,7 @@ final class TvViewer {
         for (String u : v.getFavorites()) if (favs.contains(u)) order.add(u);
         for (String u : favs) if (!order.contains(u)) order.add(u);
         Viewer n = new Viewer(v.getLanguage(), v.getCountry(), v.getCity(), v.getLat(), v.getLon(), v.getRegion(), v.getTimeZone(), v.getPrayer(),
-                v.getPrayerMethod(), v.getChannelCountries(), v.getCategories(), order, v.getSchema(), v.getRevision(), v.getSimpleMode());
+                v.getPrayerMethod(), v.getChannelCountries(), v.getCategories(), order, v.getSchema(), v.getRevision(), v.getSimpleMode(), v.getSortMode());
         Cfg.p(c).edit().putString("viewer", n.toJson()).apply();
         Live.cached = null; // the order is part of the cached list
     }
@@ -57,8 +57,16 @@ final class TvViewer {
     static void setSimpleMode(Context c, boolean on) {
         Viewer v = get(c);
         Viewer n = new Viewer(v.getLanguage(), v.getCountry(), v.getCity(), v.getLat(), v.getLon(), v.getRegion(), v.getTimeZone(), v.getPrayer(),
-                v.getPrayerMethod(), v.getChannelCountries(), v.getCategories(), v.getFavorites(), v.getSchema(), v.getRevision() + 1L, on);
+                v.getPrayerMethod(), v.getChannelCountries(), v.getCategories(), v.getFavorites(), v.getSchema(), v.getRevision() + 1L, on, v.getSortMode());
         Cfg.p(c).edit().putString("viewer", n.toJson()).apply();
+    }
+
+    static void setSortMode(Context c, tech.kousozo.tahoetv.core.LocalTv.SortMode mode) {
+        Viewer v = get(c);
+        Viewer n = new Viewer(v.getLanguage(), v.getCountry(), v.getCity(), v.getLat(), v.getLon(), v.getRegion(), v.getTimeZone(), v.getPrayer(),
+                v.getPrayerMethod(), v.getChannelCountries(), v.getCategories(), v.getFavorites(), v.getSchema(), v.getRevision() + 1L, v.getSimpleMode(), mode.getKey());
+        Cfg.p(c).edit().putString("viewer", n.toJson()).apply();
+        Live.cached = null;
     }
 
     /** Prayer times shown and adhan scheduled: on unless the onboarding turned them off (older setups keep them). */

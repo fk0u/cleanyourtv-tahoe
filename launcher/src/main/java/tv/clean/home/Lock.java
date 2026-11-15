@@ -39,7 +39,7 @@ public class Lock extends DreamService {
         return true;
     }
 
-    static boolean isOk(int k) { return k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_BUTTON_A; }
+    static boolean isOk(int k) { return k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_NUMPAD_ENTER || k == KeyEvent.KEYCODE_BUTTON_A; }
 
     /** Wallpaper/photo slideshow shared by the lock and the profile picker. */
     static class Backdrop extends FrameLayout {
@@ -126,7 +126,7 @@ public class Lock extends DreamService {
             who.setPadding(0, (int) (12 * d), 0, (int) (8 * d));
             user.addView(who, new LinearLayout.LayoutParams(-2, -2));
             hint = Ui.text(c, 14, 500, 0xE6FFFFFF);
-            hint.setText("Tekan OK untuk membuka");
+            hint.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(c).getLanguage(), "tv.lock_unlock_hint"));
             hint.setPadding((int) (16 * d), (int) (7 * d), (int) (16 * d), (int) (7 * d));
             hint.setBackground(new GlassDrawable(16 * d, 0x33FFFFFF, d));
             user.addView(hint, new LinearLayout.LayoutParams(-2, -2));
@@ -135,10 +135,17 @@ public class Lock extends DreamService {
         }
 
         final Runnable tick = new Runnable() { public void run() {
+            tech.kousozo.tahoetv.core.Viewer tv = TvViewer.get(getContext());
+            Locale loc = Locale.forLanguageTag(tv.getLanguage());
+            TimeZone tz = TimeZone.getTimeZone(tv.getZone().getId());
             Date now = new Date();
             boolean h24 = android.text.format.DateFormat.is24HourFormat(getContext());
-            clock.setText(new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", Locale.getDefault()).format(now));
-            date.setText(new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now));
+            SimpleDateFormat tf = new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", loc);
+            tf.setTimeZone(tz);
+            SimpleDateFormat df = new SimpleDateFormat("EEEE, d MMMM", loc);
+            df.setTimeZone(tz);
+            clock.setText(tf.format(now));
+            date.setText(df.format(now));
             ui.postDelayed(this, 60_000 - System.currentTimeMillis() % 60_000 + 50);
         } };
 
@@ -164,6 +171,7 @@ public class Lock extends DreamService {
         static final String[] KEYS = {"main", "guest", Kids.PROFILE};
         final LinearLayout[] cards = new LinearLayout[3];
         int sel = 0;
+        boolean okDown;
         final Pick onPick;
 
         Profiles(Context c, String lastApp, android.graphics.drawable.Drawable lastIcon, String current, Pick onPick) {
@@ -193,13 +201,15 @@ public class Lock extends DreamService {
             int kPad = (int) ((compact ? 22 : 40) * d);
             kid.setBackground(kb); kid.setPadding(kPad, kPad, kPad, kPad);
             kid.setLayoutParams(new LinearLayout.LayoutParams((int) (av * d), (int) (av * d)));
-            cards[2] = card(c, kid, "Anak", null, null);
-            ((TextView) cards[2].getChildAt(2)).setText(Kids.hasPin(c) ? "DIKUNCI PIN" : "SALURAN ANAK");
+            String lang2 = TvViewer.get(c).getLanguage();
+            cards[2] = card(c, kid, tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_kids"), null, null);
+            ((TextView) cards[2].getChildAt(2)).setText(tech.kousozo.tahoetv.core.I18n.get(lang2, Kids.hasPin(c) ? "tv.lock_pin_locked" : "tv.lock_kids_badge"));
             for (int i = 0; i < KEYS.length; i++) if (KEYS[i].equals(current)) sel = i;
             for (int i = 0; i < 3; i++) {
                 final int idx = i;
                 cards[i].setClickable(true);
-                cards[i].setFocusable(true);
+                cards[i].setFocusable(false);
+                cards[i].setFocusableInTouchMode(false);
                 cards[i].setOnClickListener(v -> { sel = idx; render(); onPick.pick(KEYS[idx]); });
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int) ((compact ? 104 : 220) * d), -2);
                 if (i > 0) lp.leftMargin = (int) ((compact ? 12 : 48) * d);
@@ -226,12 +236,12 @@ public class Lock extends DreamService {
                 pill.addView(ic, new LinearLayout.LayoutParams((int) (40 * d), (int) (24 * d)));
                 LinearLayout txt = new LinearLayout(c); txt.setOrientation(LinearLayout.VERTICAL); txt.setPadding((int) (8 * d), 0, 0, 0);
                 TextView a = Ui.text(c, 13, 600, Ui.TEXT); a.setText(last);
-                TextView b = Ui.text(c, 11.5f, 400, Ui.TEXT_2); b.setText("Terakhir dibuka");
+                TextView b = Ui.text(c, 11.5f, 400, Ui.TEXT_2); b.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(c).getLanguage(), "tv.lock_last_opened"));
                 txt.addView(a); txt.addView(b);
                 pill.addView(txt);
                 card.addView(pill, new LinearLayout.LayoutParams(-2, -2));
             } else {
-                TextView pill = Ui.text(c, 12, 600, Ui.TEXT_2); pill.setText("TANPA RIWAYAT");
+                TextView pill = Ui.text(c, 12, 600, Ui.TEXT_2); pill.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(c).getLanguage(), "tv.lock_no_history"));
                 pill.setLetterSpacing(0.08f);
                 pill.setPadding((int) (10 * d), (int) (4 * d), (int) (10 * d), (int) (4 * d));
                 pill.setBackground(new GlassDrawable(10 * d, 0x26FFFFFF, d));
@@ -252,9 +262,16 @@ public class Lock extends DreamService {
         boolean key(KeyEvent e) {
             int k = e.getKeyCode();
             if (e.getAction() == KeyEvent.ACTION_DOWN) {
-                if (k == KeyEvent.KEYCODE_DPAD_LEFT && sel > 0) { sel--; render(); }
-                if (k == KeyEvent.KEYCODE_DPAD_RIGHT && sel < 2) { sel++; render(); }
-            } else if (isOk(k)) onPick.pick(KEYS[sel]);
+                if (e.getRepeatCount() == 0) {
+                    if (k == KeyEvent.KEYCODE_DPAD_LEFT && sel > 0) { sel--; render(); }
+                    if (k == KeyEvent.KEYCODE_DPAD_RIGHT && sel < 2) { sel++; render(); }
+                    if (isOk(k)) okDown = true;
+                }
+            } else if (e.getAction() == KeyEvent.ACTION_UP && isOk(k)) {
+                boolean fire = !e.isCanceled() && (okDown || e.getDownTime() == e.getEventTime());
+                okDown = false;
+                if (fire) onPick.pick(KEYS[sel]);
+            }
             return true;
         }
     }

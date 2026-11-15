@@ -153,9 +153,16 @@ final class Prayer {
         return null;
     }
 
-    static String countdown(long at) {
+    static String countdown(long at) { return countdown("id", at); }
+
+    static String countdown(Context c, long at) {
+        return countdown(TvViewer.get(c).getLanguage(), at);
+    }
+
+    static String countdown(String lang, long at) {
         long m = (at - System.currentTimeMillis()) / 60_000 + 1;
-        return m >= 60 ? (m / 60) + " j " + (m % 60) + " m" : m + " menit";
+        return m >= 60 ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_countdown_hm", String.valueOf(m / 60), String.valueOf(m % 60))
+                : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_countdown_m", String.valueOf(m));
     }
 
     private static PendingIntent alarmPi(Context c) {
@@ -248,7 +255,10 @@ final class Prayer {
                 return;
             }
             String name = prefs(c).getString("alarm_for", "");
-            Notif.banner(c, null, "Waktu shalat", "Waktunya shalat " + name, Cfg.s(c, "city", R.string.city) + " dan sekitarnya");
+            String lang = TvViewer.get(c).getLanguage();
+            Notif.banner(c, null, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_alarm_title"),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_alarm_body", name),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_alarm_area", Cfg.s(c, "city", R.string.city)));
             if (adzanOn(c, name)) play(c, name);
             // Re-arm immediately via AlarmManager (without Handler.postDelayed) so standby cannot drop the chain.
             long firedCutoff = System.currentTimeMillis() + 65_000L;
@@ -325,27 +335,31 @@ final class Prayer {
         final List<String> names = new ArrayList<>();
         final List<Long> at = new ArrayList<>();
         int sel;
+        boolean previewing;
 
         Panel(Context c) {
             super(c);
+            String lang = TvViewer.get(c).getLanguage();
+            Locale loc = Locale.forLanguageTag(lang);
             float d = Ui.dp(c, 1);
             setBackgroundColor(0xF50A0B10);
-            Ui.crumb(this, R.drawable.ic_moon_star, "Jadwal shalat");
+            Ui.crumb(this, R.drawable.ic_moon_star, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_title"));
 
             Object[] n = next(c);
             LinearLayout left = new LinearLayout(c); left.setOrientation(LinearLayout.VERTICAL);
             TextView eb = Ui.eyebrow(c, Ui.TEXT_3);
-            SimpleDateFormat ebFmt = new SimpleDateFormat("EEE d", Locale.getDefault());
+            SimpleDateFormat ebFmt = new SimpleDateFormat("EEE d", loc);
             ebFmt.setTimeZone(tz(c));
             eb.setText(ebFmt.format(new Date()) + "  ·  " + prefs(c).getString("hijri", ""));
             TextView title = Ui.text(c, Ui.TITLE, 600, Ui.TEXT);
-            title.setText(n == null ? "Sampai jumpa besok" : (String) n[0]);
+            title.setText(n == null ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_until_tomorrow") : (String) n[0]);
             TextView big = Ui.text(c, Ui.DISPLAY, 200, Ui.TEXT); big.setEllipsize(null);
-            SimpleDateFormat hmFmt = new SimpleDateFormat("HH.mm", Locale.getDefault());
+            SimpleDateFormat hmFmt = new SimpleDateFormat("HH.mm", loc);
             hmFmt.setTimeZone(tz(c));
             big.setText(n == null ? "" : hmFmt.format(new Date((Long) n[1])));
             TextView meta = Ui.text(c, Ui.BODY, 400, Ui.TEXT_2);
-            meta.setText((n == null ? "" : "dalam " + countdown((Long) n[1]) + "  ·  ") + Cfg.s(c, "city", R.string.city) + "  ·  " + tech.kousozo.tahoetv.core.Prayer.name(TvViewer.prayerMethod(c)));
+            meta.setText((n == null ? "" : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_prayer_in", String.valueOf(n[0]), countdown(c, (Long) n[1])) + "  ·  ")
+                    + Cfg.s(c, "city", R.string.city) + "  ·  " + tech.kousozo.tahoetv.core.Prayer.name(TvViewer.prayerMethod(c)));
             left.addView(eb);
             LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2); tl.topMargin = (int) (10 * d);
             left.addView(title, tl); left.addView(big, new LinearLayout.LayoutParams(-1, -2)); left.addView(meta);
@@ -356,18 +370,26 @@ final class Prayer {
             list.setBackground(new GlassDrawable(Ui.dp(c, Ui.R_LARGE), 0x29FFFFFF, d));
             list.setPadding((int) (14 * d), (int) (14 * d), (int) (14 * d), (int) (12 * d));
             TextView head = Ui.text(c, 13, 500, Ui.TEXT_2);
-            head.setText(times(c).size() + " waktu hari ini  ·  OK: adzan aktif/mati");
+            head.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_times_hint", String.valueOf(times(c).size())));
             head.setPadding((int) (8 * d), 0, 0, (int) (8 * d));
             list.addView(head);
             String nextName = n == null ? "" : (String) n[0];
             for (Map.Entry<String, Long> e : times(c).entrySet()) {
+                final int rowIdx = names.size();
                 names.add(e.getKey()); at.add(e.getValue());
-                list.addView(row(c, e.getKey(), e.getValue(), e.getKey().equals(nextName)));
+                View r = row(c, e.getKey(), e.getValue(), e.getKey().equals(nextName));
+                r.setClickable(true); r.setFocusable(false); r.setFocusableInTouchMode(false);
+                r.setOnClickListener(v -> activateRow(rowIdx));
+                list.addView(r);
             }
-            for (String[] t : new String[][]{{"Tes", "Tes adzan (Masjid Mesir)"}, {"Tes Subuh", "Tes adzan Subuh"}}) {
+            for (String[] t : new String[][]{{"Tes", tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_test")},
+                    {"Tes Subuh", tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_test_subuh")}}) {
+                final int rowIdx = names.size();
                 names.add(t[0]); at.add(0L);
                 LinearLayout test = new LinearLayout(c); test.setGravity(Gravity.CENTER_VERTICAL);
                 test.setPadding((int) (44 * d), (int) (8 * d), (int) (12 * d), (int) (6 * d));
+                test.setClickable(true); test.setFocusable(false); test.setFocusableInTouchMode(false);
+                test.setOnClickListener(v -> activateRow(rowIdx));
                 ImageView pi = Ui.icon(c, R.drawable.ic_play, 16, Ui.TEXT); pi.setTag("i");
                 TextView pt = Ui.text(c, 15, 500, Ui.TEXT); pt.setText(t[1]); pt.setPadding((int) (10 * d), 0, 0, 0); pt.setTag("n");
                 test.addView(pi); test.addView(pt);
@@ -380,6 +402,7 @@ final class Prayer {
         }
 
         View row(Context c, String name, long time, boolean next) {
+            String lang = TvViewer.get(c).getLanguage();
             float d = Ui.dp(c, 1);
             LinearLayout r = new LinearLayout(c); r.setGravity(Gravity.CENTER_VERTICAL);
             r.setPadding((int) (8 * d), (int) (2 * d), (int) (12 * d), (int) (2 * d));
@@ -391,7 +414,8 @@ final class Prayer {
             TextView sub = Ui.text(c, 12.5f, 400, Ui.TEXT_3); sub.setTag("s");
             SimpleDateFormat rowFmt = new SimpleDateFormat("HH:mm", Locale.US);
             rowFmt.setTimeZone(tz(c));
-            sub.setText(rowFmt.format(new Date(time)) + (next ? "  ·  berikutnya" : past ? "  ·  sudah lewat" : ""));
+            sub.setText(rowFmt.format(new Date(time)) + (next ? "  ·  " + tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_next")
+                    : past ? "  ·  " + tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_past") : ""));
             txt.addView(nm); txt.addView(sub);
             r.addView(txt, new LinearLayout.LayoutParams(0, -2, 1));
             if (adzanCapable(name)) {
@@ -432,23 +456,35 @@ final class Prayer {
             }
         }
 
+        void activateRow(int idx) {
+            if (idx < 0 || idx >= names.size()) return;
+            sel = idx;
+            String n = names.get(sel);
+            if (n.startsWith("Tes")) {
+                if (player != null) { previewing = false; stop(); }
+                else { previewing = true; play(getContext(), n.equals("Tes Subuh") ? "Subuh" : "Dzuhur"); }
+            } else if (adzanCapable(n)) {
+                prefs(getContext()).edit().putBoolean("adzan_" + n, !adzanOn(getContext(), n)).apply();
+                schedule(getContext());
+            }
+            render();
+        }
+
         @Override public boolean key(KeyEvent e) {
             if (e.getAction() != KeyEvent.ACTION_DOWN) return true;
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_UP: sel = Math.max(0, sel - 1); render(); return true;
                 case KeyEvent.KEYCODE_DPAD_DOWN: sel = Math.min(names.size() - 1, sel + 1); render(); return true;
                 case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: case KeyEvent.KEYCODE_BUTTON_A:
-                    if (e.getRepeatCount() > 0) return true;
-                    String n = names.get(sel);
-                    if (n.startsWith("Tes")) { if (player != null) stop(); else play(getContext(), n.equals("Tes Subuh") ? "Subuh" : "Dzuhur"); }
-                    else if (adzanCapable(n)) { prefs(getContext()).edit().putBoolean("adzan_" + n, !adzanOn(getContext(), n)).apply(); schedule(getContext()); }
-                    render();
+                    if (e.getRepeatCount() == 0) activateRow(sel);
                     return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT: return true;
             }
             return false;
         }
 
-        @Override public void onClose() {}
+        @Override public void onClose() {
+            if (previewing) { previewing = false; stop(); }
+        }
     }
 }

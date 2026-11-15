@@ -53,6 +53,7 @@ public class Onboarding extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        if (TvGuard.blockIfNotTv(this)) return;
         Viewer v = TvViewer.get(this);
         if (v.getDone()) load(v);
         else {
@@ -66,7 +67,7 @@ public class Onboarding extends Activity {
         LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(sidePad, dp(compact ? 24 : Ui.SAFE_TOP + 10), sidePad, dp(compact ? 24 : Ui.SAFE_TOP));
         stepLabel = Ui.eyebrow(this, Ui.TEXT_3); col.addView(stepLabel);
-        title = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); title.setPadding(0, dp(8), 0, 0); col.addView(title);
+        title = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); title.setSingleLine(false); title.setPadding(0, dp(8), 0, 0); col.addView(title);
         sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); sub.setSingleLine(false); sub.setPadding(0, dp(6), 0, dp(14)); col.addView(sub);
         scroll = new ScrollView(this); scroll.setClipToPadding(false);
         list = new LinearLayout(this); list.setOrientation(LinearLayout.VERTICAL);
@@ -83,6 +84,12 @@ public class Onboarding extends Activity {
 
     @Override protected void onDestroy() { if (open == this) open = null; super.onDestroy(); }
 
+    @Override public boolean dispatchKeyEvent(KeyEvent e) {
+        int k = Home.gamepadToRemote(e.getKeyCode());
+        if (k != e.getKeyCode()) e = new KeyEvent(e.getDownTime(), e.getEventTime(), e.getAction(), k, e.getRepeatCount(), e.getMetaState(), e.getDeviceId(), e.getScanCode(), e.getFlags(), e.getSource());
+        return super.dispatchKeyEvent(e);
+    }
+
     void load(Viewer v) {
         language = v.getLanguage(); country = v.getCountry(); city = v.getCity(); region = v.getRegion(); timeZone = v.getTimeZone();
         lat = v.getLat(); lon = v.getLon(); prayer = v.getPrayer(); method = v.getPrayerMethod();
@@ -92,8 +99,10 @@ public class Onboarding extends Activity {
     }
 
     Viewer build() {
+        Viewer prev = TvViewer.get(this);
         return new Viewer(language, country, city, lat, lon, region, timeZone, prayer, method,
-                new ArrayList<>(countries), new LinkedHashSet<>(categories), new ArrayList<>(favorites));
+                new ArrayList<>(countries), new LinkedHashSet<>(categories), new ArrayList<>(favorites),
+                prev.getSchema(), prev.getRevision(), prev.getSimpleMode(), prev.getSortMode());
     }
 
     /** A phone sent its onboarding or incremental patch (Companion "viewer"/"viewer_patch"): merge and finish. */
@@ -105,6 +114,7 @@ public class Onboarding extends Activity {
     }
 
     @Override public void onBackPressed() {
+        if (!TvGuard.isAndroidTv(this)) { finishAndRemoveTask(); return; }
         if (step.ordinal() > 0) go(-1);
         else if (TvViewer.done(this)) finish(); // reopened from Settings: leave unchanged
     }
@@ -219,7 +229,8 @@ public class Onboarding extends Activity {
                 if (multi) { if (countries.contains(c.getCode())) { if (countries.size() > 1) countries.remove(c.getCode()); } else countries.add(c.getCode()); }
                 else if (!c.getCode().equals(country)) {
                     country = c.getCode(); prayer = Region.prayerByDefault(country); method = tech.kousozo.tahoetv.core.Prayer.methodFor(country);
-                    countries.clear(); countries.add(country); city = ""; lat = null; lon = null; region = ""; timeZone = "";
+                    countries.clear(); countries.add(country); city = ""; lat = null; lon = null; region = "";
+                    timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(country);
                 }
                 refreshList(multi);
             });
@@ -232,18 +243,28 @@ public class Onboarding extends Activity {
 
     void cityStep() {
         if (lat != null) row("📍  " + city + ", " + Region.name(country, language) + "   ✕", null, true, () -> {
-            city = ""; lat = null; lon = null; region = ""; timeZone = ""; render(); // OK again clears it
+            city = ""; lat = null; lon = null; region = ""; timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(country); render(); // OK again clears it
         });
-        else note(t("city.none"));
+        else {
+            note(t("city.none"));
+            for (tech.kousozo.tahoetv.core.CountryCatalog.CityOption s : tech.kousozo.tahoetv.core.CountryCatalog.suggestedCities(country, language)) {
+                row("📍  " + s.label(), null, false, () -> {
+                    city = s.getCity(); lat = s.getLat(); lon = s.getLon(); region = s.getRegion();
+                    timeZone = s.getZoneId();
+                    render();
+                });
+            }
+        }
+        final int[] baseCount = new int[1];
         searchField(t("city.search"), q -> {
             if (q.trim().length() < 2) return;
-            String lang = Region.HOME.equals(country) ? "id" : language; // Indonesian province names for "near you"
+            String lang = language;
             int mine = ++citySearch;
             Net.bg.execute(() -> {
                 List<Web.City> found = Web.INSTANCE.searchPlaces(q.trim(), lang, country);
                 ui.post(() -> {
                     if (mine != citySearch || step != Step.CITY) return; // a newer search, or the viewer moved on
-                    while (list.getChildCount() > 2) list.removeViewAt(2);
+                    while (list.getChildCount() > baseCount[0]) list.removeViewAt(baseCount[0]);
                     if (found.isEmpty()) note(t("city.empty"));
                     for (Web.City c : found) row("📍  " + c.getLabel(), null, false, () -> {
                         city = c.getName(); lat = c.getLat(); lon = c.getLon(); region = c.getRegion();
@@ -253,15 +274,23 @@ public class Onboarding extends Activity {
                 });
             });
         }, true);
+        baseCount[0] = list.getChildCount();
     }
 
     void zoneStep() {
+        String defZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(country);
         String device = java.util.TimeZone.getDefault().getID();
-        String picked = timeZone.isEmpty() ? device : timeZone;
-        row("📺  " + t("tz.device").replace("%s", device), null, timeZone.isEmpty() || timeZone.equals(device), () -> { timeZone = ""; render(); });
-        if (!timeZone.isEmpty() && !timeZone.equals(device)) row(timeZone.replace('_', ' ') + "  " + offset(timeZone), null, true, () -> {});
+        String picked = timeZone.isEmpty() ? defZone : timeZone;
+        row("📺  " + defZone.replace('_', ' ') + "  " + offset(defZone), null, picked.equals(defZone), () -> { timeZone = defZone; render(); });
+        if (!device.equals(defZone)) {
+            row("📺  " + t("tz.device").replace("%s", device), null, timeZone.equals(device), () -> { timeZone = device; render(); });
+        }
+        if (!timeZone.isEmpty() && !timeZone.equals(defZone) && !timeZone.equals(device)) {
+            row(timeZone.replace('_', ' ') + "  " + offset(timeZone), null, true, () -> {});
+        }
+        final int[] baseCount = new int[1];
         searchField(t("search"), q -> {
-            while (list.getChildCount() > (timeZone.isEmpty() || timeZone.equals(device) ? 2 : 3)) list.removeViewAt(list.getChildCount() - 1);
+            while (list.getChildCount() > baseCount[0]) list.removeViewAt(list.getChildCount() - 1);
             String qq = q.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
             if (qq.length() < 2) return;
             int n = 0;
@@ -273,6 +302,7 @@ public class Onboarding extends Activity {
                 if (++n >= 40) break;
             }
         }, false);
+        baseCount[0] = list.getChildCount();
     }
 
     static String offset(String zone) {
@@ -289,8 +319,13 @@ public class Onboarding extends Activity {
             Viewer v = build();
             Net.bg.execute(() -> {
                 List<LocalTv.Entry> l;
-                try { l = LocalTv.INSTANCE.arrange(Sources.loadCountries(Cfg.p(this).getString("playlist_url", ""), v.getCountries()), v.getNearRegion()); }
-                catch (Exception e) { l = null; }
+                try {
+                    List<tech.kousozo.tahoetv.core.M3u.Channel> loaded = Sources.loadCountriesPriority(Cfg.p(this).getString("playlist_url", ""), v.getCountries());
+                    List<String> names = new ArrayList<>();
+                    for (tech.kousozo.tahoetv.core.M3u.Channel ch : loaded) names.add(ch.getName());
+                    tech.kousozo.tahoetv.core.PopularityScraper.prefetchAsync(v.getCountries(), names, null);
+                    l = LocalTv.INSTANCE.arrange(loaded, v.getNearRegion(), v.getCountries(), v.getSort(), v.getCity(), v.getCountry());
+                } catch (Exception e) { l = null; }
                 List<LocalTv.Entry> got = l;
                 ui.post(() -> { catalog = got; catalogFor = key; if (step == Step.FAVORITES) render(); });
             });
@@ -345,7 +380,7 @@ public class Onboarding extends Activity {
                 {"sum.language", OnboardingText.INSTANCE.getLANGUAGE_NAMES().get(language)},
                 {"sum.country", Region.flag(country) + "  " + Region.name(country, language)},
                 {"sum.city", city.isEmpty() ? t("sum.none") : city},
-                {"sum.tz", timeZone.isEmpty() ? java.util.TimeZone.getDefault().getID() : timeZone},
+                {"sum.tz", timeZone.isEmpty() ? tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(country) : timeZone},
                 {"sum.prayer", prayer ? tech.kousozo.tahoetv.core.Prayer.name(method) : t("sum.off")},
                 {"sum.channels", flags()},
                 {"sum.cats", categories.isEmpty() ? t("sum.all") : cats()},

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Tahoe TV</string>
-    <string name="keys_desc">Membuka daftar aplikasi dengan tombol Apps di remote.</string>
+    <string name="app_name">Tahoe TV Launcher</string>
+    <string name="keys_desc">Opens apps drawer using the remote Apps key.</string>
 </resources>

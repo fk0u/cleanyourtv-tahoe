@@ -34,12 +34,13 @@ final class About extends FrameLayout implements Sheet {
         home = h;
         float d = Ui.dp(h, 1);
         setBackgroundColor(0xF2080A10);
-        Ui.crumb(this, R.drawable.ic_info, "Tentang & pembaruan");
+        String lang = TvViewer.get(h).getLanguage();
+        Ui.crumb(this, R.drawable.ic_info, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_title"));
 
         LinearLayout col = new LinearLayout(h); col.setOrientation(LinearLayout.VERTICAL);
         TextView eb = Ui.eyebrow(h, Ui.TEXT_3); eb.setText(tech.kousozo.tahoetv.core.Brand.TAGLINE);
         TextView ti = Ui.text(h, Ui.TITLE, 700, Ui.TEXT); ti.setText(tech.kousozo.tahoetv.core.Brand.NAME + " " + version(h));
-        status = Ui.text(h, Ui.BODY, 600, Ui.ACCENT); status.setText("Mengecek pembaruan…");
+        status = Ui.text(h, Ui.BODY, 600, Ui.ACCENT); status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.checking"));
         status.setClickable(true);
         status.setOnClickListener(v -> {
             if (busy) return;
@@ -61,7 +62,7 @@ final class About extends FrameLayout implements Sheet {
         int leftMarginPx = h.W < 700 * d ? (int) (24 * d) : (int) (64 * d);
         LayoutParams cl = new LayoutParams(widthPx, -2, Gravity.CENTER_VERTICAL); cl.leftMargin = leftMarginPx;
         addView(col, cl);
-        TextView hint = Ui.text(h, Ui.CAPTION, 500, Ui.TEXT_3); hint.setText("OK / Ketuk status: cek atau pasang pembaruan  ·  ▲▼ gulir  ·  Back: tutup");
+        TextView hint = Ui.text(h, Ui.CAPTION, 500, Ui.TEXT_3); hint.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_hint"));
         LayoutParams hl = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL); hl.bottomMargin = (int) (18 * d);
         addView(hint, hl);
         check();
@@ -77,36 +78,41 @@ final class About extends FrameLayout implements Sheet {
     }
 
     void check() {
-        busy = true; status.setText("Mengecek pembaruan…");
+        String lang = TvViewer.get(home).getLanguage();
+        busy = true; status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.checking"));
         Net.bg.execute(() -> {
             try {
                 Updates.Release r = Updates.latest();
                 post(() -> {
                     latest = r; busy = false;
                     boolean nu = Updates.newer(r.getVersion(), version(home)) && r.hasAnyAsset(Updates.LAUNCHER_ASSETS);
-                    status.setText(nu ? "Versi " + r.getVersion() + " tersedia  ·  tekan OK atau ketuk untuk pasang" : "Sudah versi terbaru");
-                    notes.setText((nu ? "Yang baru di " : "Catatan rilis ") + r.getVersion() + "  (" + r.getDate() + ")\n\n" + plain(r.getNotes()));
+                    status.setText(nu ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_status_new", r.getVersion())
+                            : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_latest"));
+                    notes.setText((nu ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_whats_new")
+                            : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_notes"))
+                            + r.getVersion() + "  (" + r.getDate() + ")\n\n" + plain(r.getNotes()));
                 });
-            } catch (Exception e) { post(() -> { busy = false; status.setText("Tidak bisa mengecek pembaruan. Cek internet, lalu tekan OK."); }); }
+            } catch (Exception e) { post(() -> { busy = false; status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_fail")); }); }
         });
     }
 
     void installLatest() {
         if (latest == null) return;
+        String lang = TvViewer.get(home).getLanguage();
         busy = true;
-        status.setText("Menyiapkan unduhan…");
+        status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.preparing"));
         Updates.Release rel = latest;
         Net.bg.execute(() -> {
             try {
                 kotlin.Triple<String, String, String> picked = rel.resolveDownload(Updates.LAUNCHER_ASSETS);
                 File apk = new File(home.getCacheDir(), "update.apk");
                 Updates.download(picked.getSecond(), apk, picked.getThird(), p -> {
-                    post(() -> status.setText("Mengunduh " + rel.getVersion() + "…  " + p + "%"));
+                    post(() -> status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.downloading_pct", rel.getVersion(), String.valueOf(p))));
                     return kotlin.Unit.INSTANCE;
                 });
-                post(() -> status.setText("Memasang… konfirmasi di layar berikutnya"));
+                post(() -> status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.install_confirm")));
                 install(home, apk);
-            } catch (Exception e) { post(() -> { busy = false; status.setText("Gagal mengunduh: " + e.getMessage() + ". Tekan OK untuk coba lagi."); }); }
+            } catch (Exception e) { post(() -> { busy = false; status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_dl_fail", String.valueOf(e.getMessage()))); }); }
         });
     }
 
@@ -133,8 +139,11 @@ final class About extends FrameLayout implements Sheet {
             if (st == PackageInstaller.STATUS_PENDING_USER_ACTION) {
                 Intent confirm = i.getParcelableExtra(Intent.EXTRA_INTENT);
                 if (confirm != null) c.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            } else if (st != PackageInstaller.STATUS_SUCCESS)
-                Toast.makeText(c, "Pembaruan gagal: " + i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE), Toast.LENGTH_LONG).show();
+            } else if (st != PackageInstaller.STATUS_SUCCESS) {
+                String lang = TvViewer.get(c).getLanguage();
+                Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_upd_failed",
+                        String.valueOf(i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE))), Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -142,7 +151,10 @@ final class About extends FrameLayout implements Sheet {
     static void dailyCheck(Home h) {
         android.content.SharedPreferences p = h.getSharedPreferences("updates", 0);
         String now = version(h);
-        if (!now.equals(p.getString("seen", now))) PushHelper.showInAppBanner(h, "Tahoe TV", "Diperbarui ke " + now, "Aplikasi siap dipakai");
+        String lang = TvViewer.get(h).getLanguage();
+        if (!now.equals(p.getString("seen", now))) PushHelper.showInAppBanner(h, tech.kousozo.tahoetv.core.Brand.NAME,
+                tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_updated_to", now),
+                tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_ready_use"));
         p.edit().putString("seen", now).apply();
         ControlPlane.loadCachedConfig(h.getFilesDir());
         if (System.currentTimeMillis() - p.getLong("checked", 0) < 6 * 3600_000L && !ControlPlane.INSTANCE.getCurrentPolicy().getForceModal()) return;
@@ -187,6 +199,7 @@ final class About extends FrameLayout implements Sheet {
         final boolean mandatory;
         final TextView primaryBtn, laterBtn, statusView, progLabel;
         final View progFill;
+        final ScrollView notesScroll;
         boolean busy;
         int selectedBtn = 0; // 0 = Pasang Sekarang, 1 = Nanti Saja
 
@@ -203,12 +216,16 @@ final class About extends FrameLayout implements Sheet {
             card.setPadding((int) (26 * d), (int) (24 * d), (int) (26 * d), (int) (24 * d));
             card.setBackground(new GlassDrawable(28 * d, Ui.GLASS_STRONG, d));
             card.setClickable(true);
+            card.setFocusable(false); card.setFocusableInTouchMode(false);
 
+            String lang = TvViewer.get(h).getLanguage();
             TextView badge = Ui.eyebrow(h, Ui.ACCENT);
-            badge.setText(mandatory ? "PEMBARUAN PENTING" : "PEMBARUAN TERSEDIA · v" + r.getVersion());
+            badge.setText(mandatory ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_modal_mandatory")
+                    : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_modal_badge", r.getVersion()));
             card.addView(badge);
 
-            String titleText = !r.getModalTitle().isEmpty() ? r.getModalTitle() : "Tahoe TV " + r.getVersion() + " Siap Dipasang";
+            String titleText = !r.getModalTitle().isEmpty() ? r.getModalTitle()
+                    : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_modal_title", r.getVersion());
             TextView title = Ui.text(h, Ui.HEADLINE, 700, Ui.TEXT);
             title.setSingleLine(false);
             title.setText(titleText);
@@ -220,9 +237,10 @@ final class About extends FrameLayout implements Sheet {
             TextView body = Ui.text(h, 14, 400, Ui.TEXT_2);
             body.setSingleLine(false);
             body.setLineSpacing(0, 1.3f);
-            body.setText(msgBody.isEmpty() ? "Perbaikan stabilitas, keamanan, dan daftar saluran TV terbaru." : msgBody);
+            body.setText(msgBody.isEmpty() ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_modal_body_default") : msgBody);
             ScrollView sv = new ScrollView(h);
-            sv.setFocusable(true);
+            this.notesScroll = sv;
+            sv.setFocusable(false); sv.setFocusableInTouchMode(false);
             sv.addView(body);
             LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-1, (int) (180 * d));
             sl.topMargin = (int) (12 * d);
@@ -251,10 +269,11 @@ final class About extends FrameLayout implements Sheet {
             brl.topMargin = (int) (18 * d);
 
             laterBtn = Ui.text(h, 15, 600, Ui.TEXT);
-            laterBtn.setText("Nanti Saja");
+            laterBtn.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_modal_later"));
             laterBtn.setPadding((int) (18 * d), (int) (12 * d), (int) (18 * d), (int) (12 * d));
             laterBtn.setBackground(new GlassDrawable(16 * d, 0x22FFFFFF, d));
             laterBtn.setClickable(true);
+            laterBtn.setFocusable(false); laterBtn.setFocusableInTouchMode(false);
             laterBtn.setOnClickListener(v -> {
                 if (!mandatory && !busy) {
                     ControlPlane.markUpdateModalDismissed(home.getFilesDir(), release.getVersion());
@@ -264,10 +283,11 @@ final class About extends FrameLayout implements Sheet {
             laterBtn.setVisibility(mandatory ? View.GONE : View.VISIBLE);
 
             primaryBtn = Ui.text(h, 15, 700, 0xFF0A0C12);
-            primaryBtn.setText("Pasang Sekarang");
+            primaryBtn.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_modal_install"));
             primaryBtn.setPadding((int) (20 * d), (int) (12 * d), (int) (20 * d), (int) (12 * d));
             primaryBtn.setBackground(new GlassDrawable(16 * d, Ui.ACCENT, 0));
             primaryBtn.setClickable(true);
+            primaryBtn.setFocusable(false); primaryBtn.setFocusableInTouchMode(false);
             primaryBtn.setOnClickListener(v -> { if (!busy) startInstall(); });
 
             if (!mandatory) {
@@ -293,16 +313,17 @@ final class About extends FrameLayout implements Sheet {
         }
 
         void startInstall() {
+            String lang = TvViewer.get(home).getLanguage();
             busy = true;
             statusView.setVisibility(View.VISIBLE);
-            statusView.setText("Memverifikasi checksum SHA-256…");
+            statusView.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_verifying_sha"));
             Net.bg.execute(() -> {
                 try {
                     kotlin.Triple<String, String, String> picked = release.resolveDownload(Updates.LAUNCHER_ASSETS);
                     File apk = new File(home.getCacheDir(), "update.apk");
                     Updates.download(picked.getSecond(), apk, picked.getThird(), p -> {
                         post(() -> {
-                            progLabel.setText("Mengunduh Tahoe TV " + release.getVersion() + "…  " + p + "%");
+                            progLabel.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_dl_pct", release.getVersion(), String.valueOf(p)));
                             View parent = (View) progFill.getParent();
                             if (parent.getWidth() > 0) {
                                 progFill.getLayoutParams().width = (int) (parent.getWidth() * (p / 100f));
@@ -311,12 +332,12 @@ final class About extends FrameLayout implements Sheet {
                         });
                         return kotlin.Unit.INSTANCE;
                     });
-                    post(() -> progLabel.setText("Membuka pemasang Android…"));
+                    post(() -> progLabel.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_opening_installer")));
                     About.install(home, apk);
                 } catch (Exception e) {
                     post(() -> {
                         busy = false;
-                        progLabel.setText("Gagal: " + e.getMessage());
+                        progLabel.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.failed", String.valueOf(e.getMessage())));
                     });
                 }
             });
@@ -325,6 +346,12 @@ final class About extends FrameLayout implements Sheet {
         @Override public boolean key(KeyEvent e) {
             if (e.getAction() != KeyEvent.ACTION_DOWN) return true;
             switch (e.getKeyCode()) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    if (notesScroll != null) notesScroll.smoothScrollBy(0, -(int) Ui.dp(home, 120));
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    if (notesScroll != null) notesScroll.smoothScrollBy(0, (int) Ui.dp(home, 120));
+                    return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT:
                     if (!mandatory && !busy) { selectedBtn = 1 - selectedBtn; renderBtns(); }
                     return true;

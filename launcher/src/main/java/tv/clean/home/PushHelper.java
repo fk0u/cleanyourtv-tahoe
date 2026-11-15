@@ -56,8 +56,9 @@ final class PushHelper {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
-        NotificationChannel ch = new NotificationChannel(CHANNEL_ID, "Info & Pembaruan Tahoe TV", NotificationManager.IMPORTANCE_HIGH);
-        ch.setDescription("Notifikasi pembaruan dan siaran penting dari Tahoe TV");
+        String lang = TvViewer.get(c).getLanguage();
+        NotificationChannel ch = new NotificationChannel(CHANNEL_ID, tech.kousozo.tahoetv.core.I18n.get(lang, "push.channel_name"), NotificationManager.IMPORTANCE_HIGH);
+        ch.setDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "push.channel_desc"));
         nm.createNotificationChannel(ch);
     }
 

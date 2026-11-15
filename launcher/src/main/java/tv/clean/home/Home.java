@@ -66,13 +66,14 @@ public class Home extends Activity {
     List<Trending.Video> trending = new ArrayList<>(), netflix = new ArrayList<>();
     int trendIndex;
     Companion companion;
-    boolean gamepad;
+    boolean gamepad, pendingCenterKey;
     AutoCloseable pushStream;
 
     // ---------------------------------------------------------------- lifecycle
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        if (TvGuard.blockIfNotTv(this)) return;
         Diag.install(this);
         live = this;
         Cfg.p(this); // runtime settings from the phone setup app
@@ -136,6 +137,8 @@ public class Home extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        if (!TvGuard.isAndroidTv(this)) return;
+        updateFocusBlocking();
         // first run (#77): onboarding until it's done, also after Home was pressed in the middle of it
         if (!TvViewer.done(this) && Onboarding.open == null) startActivity(new android.content.Intent(this, Onboarding.class));
         if (hero == null) return;
@@ -194,39 +197,27 @@ public class Home extends Activity {
 
     void build() {
         applyLayoutMetrics();
-        boolean portrait = H > W && W > 0;
         hero = new Hero(this, W, Math.max(1, getResources().getInteger(R.integer.wallpaper_minutes)));
         root.addView(hero, new FrameLayout.LayoutParams(-1, -1));
 
-        // Top bar: on TV/landscape, greeting left & chips + clock right; on portrait phones, wrap chips onto row 2.
+        // Top bar: greeting left, chips + clock right.
         greeting = Ui.eyebrow(this, Ui.TEXT_2);
-        root.addView(greeting, at(M, dp(Ui.SAFE_TOP + 12), portrait ? W * 0.65f : W * 0.4f, -1));
+        root.addView(greeting, at(M, dp(Ui.SAFE_TOP + 12), W * 0.4f, -1));
         chips = new LinearLayout(this); chips.setGravity(Gravity.CENTER_VERTICAL);
         clock = Ui.text(this, 26, 300, Ui.TEXT);
-        if (portrait) {
-            FrameLayout.LayoutParams clTop = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-            clTop.topMargin = (int) dp(Ui.SAFE_TOP); clTop.rightMargin = (int) M;
-            root.addView(clock, clTop);
-            android.widget.HorizontalScrollView hsv = new android.widget.HorizontalScrollView(this);
-            hsv.setHorizontalScrollBarEnabled(false);
-            hsv.addView(chips);
-            FrameLayout.LayoutParams hl = new FrameLayout.LayoutParams(-1, -2, Gravity.TOP);
-            hl.topMargin = (int) dp(Ui.SAFE_TOP + 42); hl.leftMargin = (int) M; hl.rightMargin = (int) M;
-            root.addView(hsv, hl);
-        } else {
-            LinearLayout right = new LinearLayout(this); right.setGravity(Gravity.CENTER_VERTICAL);
-            right.addView(chips);
-            LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.leftMargin = (int) dp(18);
-            right.addView(clock, cl);
-            FrameLayout.LayoutParams rl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-            rl.topMargin = (int) dp(Ui.SAFE_TOP); rl.rightMargin = (int) M;
-            root.addView(right, rl);
-        }
+        LinearLayout right = new LinearLayout(this); right.setGravity(Gravity.CENTER_VERTICAL);
+        right.addView(chips);
+        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.leftMargin = (int) dp(18);
+        right.addView(clock, cl);
+        FrameLayout.LayoutParams rl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        rl.topMargin = (int) dp(Ui.SAFE_TOP); rl.rightMargin = (int) M;
+        root.addView(right, rl);
 
         heroAction = new LinearLayout(this); heroAction.setGravity(Gravity.CENTER_VERTICAL);
         heroAction.setPadding((int) dp(16), (int) dp(10), (int) dp(20), (int) dp(10));
         heroAction.setBackground(new GlassDrawable(dp(22), Ui.GLASS, dp(1)));
         heroAction.setClickable(true);
+        heroAction.setFocusable(false); heroAction.setFocusableInTouchMode(false);
         heroAction.setOnClickListener(v -> heroActivate());
         heroActionIcon = Ui.icon(this, R.drawable.ic_play, 18, Ui.TEXT);
         heroActionText = Ui.text(this, 15, 600, Ui.TEXT); heroActionText.setPadding((int) dp(10), 0, 0, 0);
@@ -255,6 +246,7 @@ public class Home extends Activity {
         padScrim = new View(this);
         padScrim.setBackgroundColor(0xE6050508); padScrim.setAlpha(0); padScrim.setVisibility(View.GONE);
         padScrim.setClickable(true);
+        padScrim.setFocusable(false); padScrim.setFocusableInTouchMode(false);
         padScrim.setOnClickListener(v -> {
             if (row >= 1) {
                 row = 0; col = Math.min(col, Math.max(0, dock.size() - 1));
@@ -265,7 +257,7 @@ public class Home extends Activity {
         pad = new FrameLayout(this); pad.setAlpha(0); pad.setVisibility(View.GONE); pad.setClipChildren(false);
         root.addView(pad, new FrameLayout.LayoutParams(-1, -1));
         padTitle = Ui.text(this, Ui.HEADLINE, 600, Ui.TEXT);
-        padTitle.setText("Aplikasi");
+        padTitle.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_apps_title"));
         pad.addView(padTitle, at(M, dp(36), -1, -1));
         padRowsView = new FrameLayout(this); padRowsView.setClipChildren(false);
         pad.addView(padRowsView, new FrameLayout.LayoutParams(-1, -1));
@@ -275,6 +267,7 @@ public class Home extends Activity {
         showProfiles(); // boot: "Siapa yang menonton?"
         buildChips();
         tick();
+        updateFocusBlocking();
     }
 
     /** "Siapa yang menonton?": owner (with last app), guest, kids. Leaving the kids profile takes its PIN; choosing it
@@ -288,12 +281,15 @@ public class Home extends Activity {
         String current = prefs.getString("profile", "main");
         profiles = new Lock.Profiles(this, last == null || kids() ? null : last[1], lastIcon, current, p -> {
             Runnable go = () -> enterProfile(p);
-            if (kids() && !p.equals(Kids.PROFILE) && Kids.hasPin(this)) verifyPin("Keluar dari profil Anak", go);
+            String lang = TvViewer.get(this).getLanguage();
+            if (kids() && !p.equals(Kids.PROFILE) && Kids.hasPin(this)) verifyPin(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_exit_kids"), go);
             else if (p.equals(Kids.PROFILE) && !Kids.hasPin(this)) createPin(go, this::closeSheet);
             else go.run();
         });
         root.addView(profiles, new FrameLayout.LayoutParams(-1, -1));
         profiles.start();
+        pendingCenterKey = false;
+        updateFocusBlocking();
     }
 
     void enterProfile(String p) {
@@ -301,14 +297,19 @@ public class Home extends Activity {
         prefs.edit().putString("profile", p).apply();
         Lock.Profiles v = profiles; profiles = null;
         if (v != null) v.unlock(() -> root.removeView(v));
+        pendingCenterKey = false;
+        updateFocusBlocking();
         row = 0; tick(); buildChips(); loadApps(); hero.loadWalls(); hero.showWall(true); render(false);
     }
 
     /** New PIN for the kids profile: type it, type it again. */
     void createPin(Runnable ok, Runnable cancel) {
-        openSheet(new Sheets.PinPad(this, "Buat PIN Anak", "4 angka untuk keluar dari profil Anak", (pad, first) ->
-                openSheet(new Sheets.PinPad(this, "Ulangi PIN", "Ketik PIN yang sama sekali lagi", (pad2, again) -> {
-                    if (!again.equals(first)) { pad2.fail("PIN tidak sama. Ketik ulang PIN yang tadi."); return; }
+        String lang = TvViewer.get(this).getLanguage();
+        openSheet(new Sheets.PinPad(this, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pin_set_title"),
+                tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_pin_create_hint"), (pad, first) ->
+                openSheet(new Sheets.PinPad(this, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_pin_repeat_title"),
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_pin_repeat_hint"), (pad2, again) -> {
+                    if (!again.equals(first)) { pad2.fail(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_pin_mismatch")); return; }
                     Kids.setPin(this, first);
                     closeSheet(); ok.run();
                 }, () -> { closeSheet(); cancel.run(); })), () -> { closeSheet(); cancel.run(); }));
@@ -316,13 +317,14 @@ public class Home extends Activity {
 
     /** Asks for the kids PIN; [ok] runs only when it's right. Progressive delays slow brute-force guessing. */
     void verifyPin(String title, Runnable ok) {
+        String lang = TvViewer.get(this).getLanguage();
         Runnable[] lock = new Runnable[1];
         boolean[] refreshMsg = {true};
-        Sheets.PinPad sheet = new Sheets.PinPad(this, title, "Masukkan PIN orang tua", (pad, pin) -> {
+        Sheets.PinPad sheet = new Sheets.PinPad(this, title, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_pin_prompt"), (pad, pin) -> {
             if (Kids.pinLockLeftMs(this) > 0) { refreshMsg[0] = true; lock[0].run(); return; }
             if (Kids.checkPin(this, pin)) { Kids.clearPinBackoff(this); closeSheet(); ok.run(); return; }
             int sec = Kids.recordWrongPin(this);
-            pad.fail("PIN salah. Tunggu " + sec + " dtk.");
+            pad.fail(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_pin_wait", String.valueOf(sec)));
             refreshMsg[0] = false;
             lock[0].run();
         }, this::closeSheet);
@@ -330,13 +332,13 @@ public class Home extends Activity {
             long left = Kids.pinLockLeftMs(this);
             if (left <= 0) {
                 sheet.setEnabled(true); sheet.setAlpha(1f);
-                sheet.status("Masukkan PIN orang tua", false);
+                sheet.status(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_pin_prompt"), false);
                 return;
             }
             sheet.setEnabled(false); sheet.setAlpha(0.6f);
             if (refreshMsg[0]) {
                 long sec = (left + 999) / 1000;
-                sheet.status("Terlalu banyak salah PIN. Coba lagi dalam " + sec + " dtk.", true);
+                sheet.status(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_pin_locked", String.valueOf(sec)), true);
             }
             refreshMsg[0] = true;
             ui.postDelayed(() -> {
@@ -370,19 +372,12 @@ public class Home extends Activity {
 
     void applyLayoutMetrics() {
         boolean simple = TvViewer.simpleMode(this);
-        boolean portrait = H > W && W > 0;
-        M = dp(portrait ? 18 : 56);
-        cols = portrait ? 3 : DockGrid.effectiveCols(rawCols, simple);
-        if (portrait) {
-            int maxDock = Math.max(3, Math.min(4, Math.max(3, dock.size())));
-            tileW = Math.max(dp(72), (W - 2 * M - (maxDock - 1) * dp(12) - dp(28)) / maxDock);
-            gap = dp(12);
-        } else {
-            tileW = dp(simple ? 146 : 118);
-            gap = dp(simple ? 18 : 16);
-        }
+        M = dp(56);
+        cols = DockGrid.effectiveCols(rawCols, simple);
+        tileW = dp(simple ? 146 : 118);
+        gap = dp(simple ? 18 : 16);
         tileH = tileW * 9 / 16;
-        padGap = dp(portrait ? 12 : 22);
+        padGap = dp(22);
         padTileW = Math.max(dp(84), (W - 2 * M - (cols - 1) * padGap) / Math.max(1, cols));
         padTileH = padTileW * 9 / 16;
         padStep = padTileH + dp(simple ? 52 : 46);
@@ -406,23 +401,25 @@ public class Home extends Activity {
     }
 
     void buildChips() {
+        String lang = TvViewer.get(this).getLanguage();
         chips.removeAllViews(); chipViews.clear(); chipActions.clear();
-        addChip(R.drawable.ic_cloud, "Cuaca", this::openWeather);
-        addChip(R.drawable.ic_moon_star, "Shalat", this::openPrayer);
-        if (phoneMedia != null) addChip(R.drawable.ic_music, "", this::openControl).setContentDescription("Musik dari HP");
-        if (gamepad) addChip(R.drawable.ic_gamepad_2, null, () -> { if (row == 0) lastDockCol = col; openPad(); }).setContentDescription("Kontrol Gamepad");
-        addChip(R.drawable.ic_tv, "Jadwal TV", () -> start(new Intent(this, Live.class)));
+        addChip(R.drawable.ic_cloud, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_weather"), this::openWeather);
+        addChip(R.drawable.ic_moon_star, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_prayer"), this::openPrayer);
+        if (phoneMedia != null) addChip(R.drawable.ic_music, "", this::openControl).setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_music"));
+        if (gamepad) addChip(R.drawable.ic_gamepad_2, null, () -> { if (row == 0) lastDockCol = col; openPad(); }).setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_gamepad"));
+        addChip(R.drawable.ic_tv, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_guide"), () -> start(new Intent(this, Live.class)));
         if (!kids()) { // no assistant or phone pairing in the kids profile
-            addChip(R.drawable.ic_sparkles, "Tanya", this::openAssistant);
-            addChip(R.drawable.ic_smartphone, null, this::openPair).setContentDescription("Hubungkan HP");
+            addChip(R.drawable.ic_sparkles, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_ask"), this::openAssistant);
+            addChip(R.drawable.ic_smartphone, null, this::openPair).setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_connect_phone"));
         }
         // Profile photo chip opens Control Center.
         LinearLayout av = new LinearLayout(this);
         av.setPadding((int) dp(3), (int) dp(3), (int) dp(3), (int) dp(3));
         av.setBackground(new GlassDrawable(dp(20), Ui.GLASS, dp(1)));
         av.addView(Avatar.view(this, 30, !guest() && !kids()));
-        av.setContentDescription("Pusat Kontrol");
+        av.setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.control_center"));
         av.setClickable(true);
+        av.setFocusable(false); av.setFocusableInTouchMode(false);
         av.setOnClickListener(v -> openControl());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = (int) dp(8);
         chips.addView(av, lp); chipViews.add(av); chipActions.add(this::openControl);
@@ -435,6 +432,7 @@ public class Home extends Activity {
         c.setPadding((int) dp(12), (int) dp(8), (int) dp(text == null ? 12 : 15), (int) dp(8));
         c.setBackground(new GlassDrawable(dp(18), Ui.GLASS, dp(1)));
         c.setClickable(true);
+        c.setFocusable(false); c.setFocusableInTouchMode(false);
         c.setOnClickListener(v -> action.run());
         ImageView i = Ui.icon(this, icon, 18, Ui.TEXT); i.setTag("i");
         c.addView(i);
@@ -460,11 +458,14 @@ public class Home extends Activity {
 
     void updateChips() {
         if (chipViews.isEmpty()) return;
+        String lang = TvViewer.get(this).getLanguage();
         JSONObject cur = weather == null ? null : weather.optJSONObject("current");
         if (cur != null) chipText(0, Weather.icon(cur.optInt("weather_code"), cur.optInt("is_day", 1) == 1), Math.round(cur.optDouble("temperature_2m")) + "°");
         else if (!TvViewer.hasCity(this)) chipText(0, 0, "—"); // no city: no stale temperature
         Object[] n = Prayer.next(this);
-        chipText(1, 0, n == null ? "Shalat" : n[0] + "  " + new SimpleDateFormat("HH.mm", Locale.getDefault()).format(new Date((Long) n[1])));
+        SimpleDateFormat pf = new SimpleDateFormat("HH.mm", Locale.forLanguageTag(lang));
+        pf.setTimeZone(Prayer.tz(this));
+        chipText(1, 0, n == null ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_prayer") : n[0] + "  " + pf.format(new Date((Long) n[1])));
         if (phoneMedia != null) chipText(2, 0, phoneMedia.optString("title"));
     }
 
@@ -482,14 +483,15 @@ public class Home extends Activity {
 
     void tick() {
         if (clock == null) return;
+        String lang = TvViewer.get(this).getLanguage();
         Date now = new Date();
         boolean h24 = android.text.format.DateFormat.is24HourFormat(this);
         java.util.TimeZone tz = Prayer.tz(this);
-        SimpleDateFormat cf = new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", Locale.getDefault());
+        SimpleDateFormat cf = new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", Locale.forLanguageTag(lang));
         cf.setTimeZone(tz);
         clock.setText(cf.format(now));
         int h = Calendar.getInstance(tz).get(Calendar.HOUR_OF_DAY);
-        String g = h < 4 ? "Selamat malam" : h < 11 ? "Selamat pagi" : h < 15 ? "Selamat siang" : h < 18 ? "Selamat sore" : "Selamat malam";
+        String g = tech.kousozo.tahoetv.core.I18n.greeting(lang, h);
         String name = guest() || kids() ? "" : Cfg.s(this, "user_name", R.string.user_name);
         greeting.setText(name.isEmpty() ? g : g + ", " + name);
         updateChips();
@@ -582,6 +584,7 @@ public class Home extends Activity {
             App appItem = dock.get(i);
             Tile t = new Tile(this, appItem, tileW, tileH);
             t.setClickable(true);
+            t.setFocusable(false); t.setFocusableInTouchMode(false);
             t.setOnClickListener(v -> { row = 0; col = dockIdx; render(true); launch(appItem.launch, appItem, t); });
             t.setOnLongClickListener(v -> { row = 0; col = dockIdx; render(true); openAppMenu(); return true; });
             dockLayer.addView(t, at(bandX + pad + i * (tileW + gap), bandY + pad, tileW, tileH + dp(16)));
@@ -590,15 +593,16 @@ public class Home extends Activity {
         tooltip.bringToFront();
 
         // Launchpad rows: games shelf (if any), then everything.
+        String lang = TvViewer.get(this).getLanguage();
         List<App> games = new ArrayList<>();
         for (App a : everything) if (a.game) games.add(a);
         float y = dp(96);
         if (!games.isEmpty()) {
-            y = addSection("Game", y);
+            y = addSection(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_games"), y);
             for (int i = 0; i < games.size(); i += cols) y = addPadRow(games.subList(i, Math.min(games.size(), i + cols)), y);
             y += dp(10);
         }
-        y = addSection("Semua aplikasi", y);
+        y = addSection(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.apps_all"), y);
         for (int i = 0; i < everything.size(); i += cols) y = addPadRow(everything.subList(i, Math.min(everything.size(), i + cols)), y);
         padRowsView.getLayoutParams().height = (int) (y + dp(40));
         padRowsView.requestLayout();
@@ -608,6 +612,7 @@ public class Home extends Activity {
         }
         clampFocus();
         markRunning();
+        updateFocusBlocking();
         render(false);
     }
 
@@ -625,6 +630,7 @@ public class Home extends Activity {
             App appItem = apps.get(i);
             Tile t = new Tile(this, appItem, padTileW, padTileH);
             t.setClickable(true);
+            t.setFocusable(false); t.setFocusableInTouchMode(false);
             t.setOnClickListener(v -> { row = padRowIdx; col = colIdx; render(true); launch(appItem.launch, appItem, t); });
             t.setOnLongClickListener(v -> { row = padRowIdx; col = colIdx; render(true); openAppMenu(); return true; });
             padRowsView.addView(t, at(M + i * (padTileW + padGap), y, padTileW, padTileH + dp(36)));
@@ -805,39 +811,54 @@ public class Home extends Activity {
         App a = row == 0 ? focusedApp() : row == -1 && !dock.isEmpty() ? dock.get(Math.min(lastDockCol, dock.size() - 1)) : null;
         heroAction.setVisibility(a == null ? View.GONE : View.VISIBLE);
         if (a != null && a.pkg.equals(Trending.YT) && !trending.isEmpty()) {
+            String lang = TvViewer.get(this).getLanguage();
             Trending.Video v = trending.get(trendIndex % trending.size());
             hero.context(v.thumb);
-            hero.text("Trending di YouTube · #" + (trendIndex % trending.size() + 1), v.title, v.channel + (v.views.isEmpty() ? "" : "  ·  " + v.views));
-            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Putar video"); heroAction.setContentDescription("Putar video");
+            hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_trending_yt", String.valueOf(trendIndex % trending.size() + 1)), v.title, v.channel + (v.views.isEmpty() ? "" : "  ·  " + v.views));
+            String playVid = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_play_video");
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText(playVid); heroAction.setContentDescription(playVid);
             if (row == 0) ui.postDelayed(trendTick, 7000); // hold still while the button is focused
             return;
         }
         if (a != null && a.pkg.equals(Netflix.PKG) && !netflix.isEmpty()) {
+            String lang = TvViewer.get(this).getLanguage();
             Trending.Video v = netflix.get(trendIndex % netflix.size());
             hero.context(v.thumb);
-            hero.text("Populer di Netflix · #" + (trendIndex % netflix.size() + 1), v.title, v.channel);
-            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Buka Netflix"); heroAction.setContentDescription("Buka Netflix");
+            hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_netflix_pop", String.valueOf(trendIndex % netflix.size() + 1)), v.title, v.channel);
+            String openNf = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_open_netflix");
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText(openNf); heroAction.setContentDescription(openNf);
             if (row == 0) ui.postDelayed(trendTick, 7000);
             return;
         }
         if (a != null) hero.context(a.banner, a.pkg); // the focused app's own artwork fills the background
         else hero.context(null);
         if (a != null && a.pkg.equals(LiveTv.PKG)) {
-            hero.text("Bawaan Tahoe", "Live TV", "Trans TV, Trans7, RCTI, SCTV, TVRI dan TV lokal · jadwal acara");
-            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Tonton Live TV"); heroAction.setContentDescription("Tonton Live TV");
+            String lang = TvViewer.get(this).getLanguage();
+            String sub = tech.kousozo.tahoetv.core.CountryCatalog.featuredSubtitle(
+                    Live.cached != null ? Live.cached : Collections.emptyList(),
+                    TvViewer.get(this).getCountry(), lang);
+            hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_featured_badge"), "Live TV", sub);
+            heroActionIcon.setImageResource(R.drawable.ic_play);
+            String watchTxt = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_watch_livetv");
+            heroActionText.setText(watchTxt); heroAction.setContentDescription(watchTxt);
             return;
         }
         if (a != null) {
-            hero.text(a.system ? "Aplikasi sistem" : "Di dock", a.label, "Tahan OK untuk opsi");
-            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText("Buka " + a.label); heroAction.setContentDescription("Buka " + a.label);
+            String lang = TvViewer.get(this).getLanguage();
+            hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, a.system ? "tv.home_sys_app" : "tv.home_dock_app"), a.label, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_hold_ok_opts"));
+            String openApp = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_open_app", a.label);
+            heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText(openApp); heroAction.setContentDescription(openApp);
             return;
         }
         // Idle: editorial date + weather + next prayer (+ phone music).
+        String lang = TvViewer.get(this).getLanguage();
         JSONObject cur = weather == null ? null : weather.optJSONObject("current");
-        String date = new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(new Date());
-        String w = cur == null ? "" : Math.round(cur.optDouble("temperature_2m")) + "° " + Weather.text(cur.optInt("weather_code"));
+        SimpleDateFormat df = new SimpleDateFormat("EEEE, d MMMM", Locale.forLanguageTag(lang));
+        df.setTimeZone(Prayer.tz(this));
+        String date = df.format(new Date());
+        String w = cur == null ? "" : Math.round(cur.optDouble("temperature_2m")) + "° " + Weather.text(this, cur.optInt("weather_code"));
         Object[] n = Prayer.next(this);
-        String p = n == null ? "" : n[0] + " dalam " + Prayer.countdown((Long) n[1]);
+        String p = n == null ? "" : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_prayer_in", String.valueOf(n[0]), Prayer.countdown(this, (Long) n[1]));
         String meta = (phoneMedia != null ? "♪ " + phoneMedia.optString("title") + " — " + phoneMedia.optString("artist") + "  ·  " : "") + p;
         hero.text(date + (w.isEmpty() ? "" : "  ·  " + w), Cfg.s(this, "city", R.string.city), meta);
     }
@@ -871,39 +892,50 @@ public class Home extends Activity {
         transition = t;
         ui.postDelayed(() -> {
             try { startActivity(intent, ActivityOptions.makeCustomAnimation(this, android.R.anim.fade_in, android.R.anim.fade_out).toBundle()); }
-            catch (Exception e) { toast("Tidak bisa dibuka"); root.removeView(t); transition = null; }
+            catch (Exception e) { toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_cannot_open")); root.removeView(t); transition = null; }
         }, Ui.MED - 40);
     }
 
     void start(Intent i) {
-        try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception e) { toast("Tidak bisa dibuka"); }
+        try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception e) { toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_cannot_open")); }
     }
 
     void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }
 
     // ---------------------------------------------------------------- sheets
 
+    void updateFocusBlocking() {
+        if (root == null) return;
+        boolean homeOwnsFocus = sheet == null && profiles == null;
+        root.setDescendantFocusability(homeOwnsFocus ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        if (homeOwnsFocus) root.clearFocus();
+    }
+
     void openSheet(View v) {
         closeSheet();
+        pendingCenterKey = false;
         sheetView = v; sheet = (Sheet) v;
+        updateFocusBlocking();
         root.addView(v, new FrameLayout.LayoutParams(-1, -1));
         v.setAlpha(0); v.setScaleX(1.03f); v.setScaleY(1.03f);
         v.animate().alpha(1).scaleX(1).scaleY(1).setDuration(Ui.MED).setInterpolator(Ui.out()).start();
     }
 
     void closeSheet() {
-        if (sheetView == null) return;
+        pendingCenterKey = false;
+        if (sheetView == null) { updateFocusBlocking(); return; }
         View v = sheetView; Sheet s = sheet;
         sheetView = null; sheet = null;
+        updateFocusBlocking();
         s.onClose();
         v.animate().alpha(0).setDuration(Ui.FAST).withEndAction(() -> root.removeView(v)).start();
     }
 
-    void openWeather() { if (weather != null) openSheet(new Weather.Panel(this, weather)); else { toast("Memuat cuaca…"); refreshData(true); } }
+    void openWeather() { if (weather != null) openSheet(new Weather.Panel(this, weather)); else { toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_loading_weather")); refreshData(true); } }
     void openPrayer() { openSheet(new Prayer.Panel(this)); }
     void openControl() { openSheet(new Sheets.Control(this)); }
-    void openPair() { if (kids()) toast("Tidak tersedia di profil Anak"); else openSheet(new Sheets.Pair(this)); }
-    void openAssistant() { if (kids()) toast("Tidak tersedia di profil Anak"); else openSheet(new Assistant(this, remote)); }
+    void openPair() { if (kids()) toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_kids_unavailable")); else openSheet(new Sheets.Pair(this)); }
+    void openAssistant() { if (kids()) toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_kids_unavailable")); else openSheet(new Assistant(this, remote)); }
     void openAppMenu() { App a = focusedApp(); if (a != null) openSheet(new Sheets.AppMenu(this, a, focusedTile())); }
 
     // ---------------------------------------------------------------- keys (remote, gamepad, phone)
@@ -937,15 +969,19 @@ public class Home extends Activity {
 
     static int gamepadToRemote(int k) {
         switch (k) {
-            case KeyEvent.KEYCODE_BUTTON_A: return KeyEvent.KEYCODE_DPAD_CENTER;
-            case KeyEvent.KEYCODE_BUTTON_B: return KeyEvent.KEYCODE_BACK;
-            default: return k;
+            case KeyEvent.KEYCODE_BUTTON_A:
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                return KeyEvent.KEYCODE_DPAD_CENTER;
+            case KeyEvent.KEYCODE_BUTTON_B:
+                return KeyEvent.KEYCODE_BACK;
+            default:
+                return k;
         }
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent e) {
         int k = gamepadToRemote(e.getKeyCode());
-        if (k != e.getKeyCode()) e = new KeyEvent(e.getDownTime(), e.getEventTime(), e.getAction(), k, e.getRepeatCount(), e.getMetaState());
+        if (k != e.getKeyCode()) e = new KeyEvent(e.getDownTime(), e.getEventTime(), e.getAction(), k, e.getRepeatCount(), e.getMetaState(), e.getDeviceId(), e.getScanCode(), e.getFlags(), e.getSource());
         if (sheet != null && k != KeyEvent.KEYCODE_HOME) { // first: the PIN pad opens over the profile picker
             if (sheetView instanceof Sheets.PinPad && !sheetView.isEnabled()) return true; // pause after a wrong PIN
             if (sheet.key(e)) return true;
@@ -953,6 +989,7 @@ public class Home extends Activity {
             return true;
         }
         if (profiles != null && k != KeyEvent.KEYCODE_HOME) return profiles.key(e);
+        if (root != null && root.findFocus() != null) updateFocusBlocking();
         if (e.getAction() == KeyEvent.ACTION_DOWN) {
             switch (k) {
                 case KeyEvent.KEYCODE_BUTTON_X: openAppMenu(); return true;
@@ -967,13 +1004,17 @@ public class Home extends Activity {
     }
 
     @Override public boolean onKeyDown(int k, KeyEvent e) {
+        if (!TvGuard.isAndroidTv(this)) {
+            if (k == KeyEvent.KEYCODE_BACK) { finishAndRemoveTask(); return true; }
+            return super.onKeyDown(k, e);
+        }
         switch (k) {
             case KeyEvent.KEYCODE_DPAD_UP: move(-1, 0); return true;
             case KeyEvent.KEYCODE_DPAD_DOWN: move(1, 0); return true;
             case KeyEvent.KEYCODE_DPAD_LEFT: move(0, -1); return true;
             case KeyEvent.KEYCODE_DPAD_RIGHT: move(0, 1); return true;
             case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
-                if (e.getRepeatCount() == 0) e.startTracking(); // act on release so a hold opens the menu
+                if (e.getRepeatCount() == 0) { pendingCenterKey = true; e.startTracking(); } // act on release so a hold opens the menu
                 return true;
             case KeyEvent.KEYCODE_ALL_APPS: if (row >= 1) toDock(); else openPad(); return true;
             case KeyEvent.KEYCODE_MENU: openControl(); return true;
@@ -983,14 +1024,18 @@ public class Home extends Activity {
     }
 
     @Override public boolean onKeyLongPress(int k, KeyEvent e) {
-        if ((k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) && row >= 0) { openAppMenu(); return true; }
-        if ((k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) && row == -1) { row = 0; col = lastDockCol; openAppMenu(); return true; }
+        if (!TvGuard.isAndroidTv(this)) return super.onKeyLongPress(k, e);
+        if ((k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) && row >= 0) { pendingCenterKey = false; openAppMenu(); return true; }
+        if ((k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) && row == -1) { pendingCenterKey = false; row = 0; col = lastDockCol; openAppMenu(); return true; }
         return super.onKeyLongPress(k, e);
     }
 
     @Override public boolean onKeyUp(int k, KeyEvent e) {
+        if (!TvGuard.isAndroidTv(this)) return super.onKeyUp(k, e);
         if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {
-            if (e.isTracking() && !e.isCanceled() || e.getDownTime() == e.getEventTime()) { // synthetic taps have no tracking
+            boolean fire = !e.isCanceled() && (pendingCenterKey || e.isTracking() || e.getDownTime() == e.getEventTime()); // synthetic taps also count
+            pendingCenterKey = false;
+            if (fire) {
                 if (row >= 0) { App a = focusedApp(); if (a != null) launch(a); }
                 else if (row == -1) heroActivate();
                 else if (col < chipActions.size()) chipActions.get(col).run();
@@ -1002,6 +1047,8 @@ public class Home extends Activity {
 
     @Override protected void onNewIntent(Intent i) {
         super.onNewIntent(i);
+        if (!TvGuard.isAndroidTv(this)) return;
+        updateFocusBlocking();
         closeSheet();
         if (Intent.ACTION_ALL_APPS.equals(i.getAction())) openPad();
         else toDock(); // Home: always back to the dock

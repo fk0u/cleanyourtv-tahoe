@@ -42,6 +42,10 @@ public final class Reminder extends BroadcastReceiver {
         keys.remove(i.getStringExtra("key")); prefs(c).edit().putStringSet("keys", keys).apply();
         LiveTv tv = LiveTv.live;
         if (tv != null) tv.ui.post(() -> { for (int k = 0; k < tv.list.size(); k++) if (tv.list.get(k).getChannel().getUrl().equals(url)) { tv.tune(k); return; } });
-        Notif.banner(c, null, "Pengingat acara", title + " dimulai", tv != null ? "Sekarang di " + channel : "Di " + channel + "  ·  buka Live TV untuk menonton");
+        String lang = TvViewer.get(c).getLanguage();
+        String sub = tv != null ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.reminder_now_on", channel)
+                : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.reminder_open_tv", channel);
+        Notif.banner(c, null, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.reminder_title"),
+                tech.kousozo.tahoetv.core.I18n.get(lang, "tv.reminder_starts", title), sub);
     }
 }

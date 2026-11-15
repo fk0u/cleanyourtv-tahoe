@@ -61,39 +61,42 @@ final class Assistant extends FrameLayout implements Sheet {
         LayoutParams bl = new LayoutParams(-1, -2, Gravity.BOTTOM);
         bl.leftMargin = bl.rightMargin = (int) (56 * d); bl.bottomMargin = (int) (40 * d);
         addView(bar, bl);
-        tts = new TextToSpeech(c, s -> { if (s == TextToSpeech.SUCCESS) tts.setLanguage(new Locale("id", "ID")); });
+        String lang = TvViewer.get(c).getLanguage();
+        tts = new TextToSpeech(c, s -> { if (s == TextToSpeech.SUCCESS) tts.setLanguage(Locale.forLanguageTag(lang)); });
         if (!enabled()) {
-            state.setText("Asisten belum aktif");
-            heard.setText("Tambahkan gemini.apiKey di secrets.properties lalu build ulang.");
+            state.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_inactive"));
+            heard.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_add_key"));
         } else if (listen) listen();
-        else { state.setText("Dari HP"); orb.mode(0); }
+        else { state.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_from_phone")); orb.mode(0); }
     }
 
     void listen() {
+        String lang = TvViewer.get(getContext()).getLanguage();
         if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
-            state.setText("Pengenal suara tidak tersedia di TV ini");
-            heard.setText("Ucapkan lewat HP: buka web remote → tombol mic.");
+            state.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_no_speech"));
+            heard.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_use_phone_mic"));
             return;
         }
         if (sr == null) {
             sr = SpeechRecognizer.createSpeechRecognizer(getContext());
             sr.setRecognitionListener(new RecognitionListener() {
-                public void onReadyForSpeech(Bundle b) { state.setText("Mendengarkan…"); orb.mode(1); }
+                public void onReadyForSpeech(Bundle b) { state.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(getContext()).getLanguage(), "tv.ast_listening")); orb.mode(1); }
                 public void onBeginningOfSpeech() {}
                 public void onRmsChanged(float db) { orb.level(db); }
                 public void onBufferReceived(byte[] b) {}
                 public void onEndOfSpeech() { orb.mode(2); }
-                public void onError(int e) { if (busy) return; state.setText("Tidak terdengar. OK untuk coba lagi"); orb.mode(0); }
+                public void onError(int e) { if (busy) return; state.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(getContext()).getLanguage(), "tv.ast_retry")); orb.mode(0); }
                 public void onPartialResults(Bundle b) { show(b); }
                 public void onEvent(int t, Bundle b) {}
                 public void onResults(Bundle b) { String s = show(b); if (s != null) ask(s); }
             });
         }
+        String sttTag = lang.equals("en") ? "en-US" : lang.equals("zh") ? "zh-CN" : "id-ID";
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                 .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "id-ID")
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, sttTag)
                 .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-        try { sr.startListening(i); } catch (Exception e) { state.setText("Mic tidak bisa dipakai: " + e.getMessage()); }
+        try { sr.startListening(i); } catch (Exception e) { state.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_mic_err", String.valueOf(e.getMessage()))); }
     }
 
     String show(Bundle b) {
@@ -106,25 +109,28 @@ final class Assistant extends FrameLayout implements Sheet {
     /** Entry point for typed or phone-dictated questions too. */
     void ask(String q) {
         if (!enabled() || busy) return;
+        String lang = TvViewer.get(getContext()).getLanguage();
         busy = true;
-        heard.setText(q); answer.setText(""); state.setText("Berpikir…"); orb.mode(2);
+        heard.setText(q); answer.setText(""); state.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_thinking")); orb.mode(2);
         history.add(msg("user", new JSONArray().put(part("text", q))));
         worker.execute(this::turn);
     }
 
     /** One Gemini round; loops while the model calls tools. */
     void turn() {
+        String lang = TvViewer.get(getContext()).getLanguage();
         try {
             for (int round = 0; round < 4; round++) {
                 android.util.Log.i("Tahoe", "assistant round " + round + " model=" + Cfg.key("gemini_model", BuildConfig.GEMINI_MODEL) + " search=" + search);
                 JSONArray toolList = new JSONArray().put(new JSONObject().put("functionDeclarations", declarations()));
                 if (search) toolList.put(new JSONObject().put("google_search", new JSONObject()));
+                String sysLang = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_sys_lang");
                 JSONObject body = new JSONObject()
                         .put("systemInstruction", new JSONObject().put("parts", new JSONArray().put(part("text",
-                                "Kamu asisten di TV rumah bernama Tahoe. Jawab singkat (maks 3 kalimat), santai, Bahasa Indonesia. "
-                                        + "Pakai tools untuk membuka aplikasi, mencari di YouTube, cuaca, jadwal shalat, volume, wallpaper, dan perangkat rumah. "
-                                        + "Untuk fakta terbaru (berita, skor, jadwal, harga) gunakan pencarian Google. "
-                                        + "Kota: " + Cfg.s(getContext(), "city", R.string.city) + "."))))
+                                "You are Tahoe, the home TV assistant. Reply briefly (max 3 sentences), natural and friendly, strictly in " + sysLang + ". "
+                                        + "Use tools to open apps, search YouTube, weather, prayer times, volume, wallpaper, and home devices. "
+                                        + "For recent facts (news, scores, schedules, prices), use Google search. "
+                                        + "City: " + Cfg.s(getContext(), "city", R.string.city) + "."))))
                         .put("contents", new JSONArray(history))
                         .put("tools", toolList);
                 String js = null;
@@ -136,13 +142,13 @@ final class Assistant extends FrameLayout implements Sheet {
                         String m = String.valueOf(e.getMessage());
                         if (search && (m.contains("HTTP 429") || m.contains("HTTP 400"))) { // no search quota: answer without it
                             search = false;
-                            main.post(() -> state.setText("Tanpa pencarian Google…"));
+                            main.post(() -> state.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_no_search")));
                             JSONArray noSearch = new JSONArray().put(new JSONObject().put("functionDeclarations", declarations()));
                             body.put("tools", noSearch);
                             attempt--; continue;
                         }
                         if (attempt >= 2 || !m.contains("HTTP 503")) throw e;
-                        main.post(() -> state.setText("Gemini sibuk, mencoba lagi…"));
+                        main.post(() -> state.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_busy")));
                         Thread.sleep(1500L * (attempt + 1));
                     }
                 }
@@ -156,7 +162,7 @@ final class Assistant extends FrameLayout implements Sheet {
                         JSONObject web = ch.getJSONObject(i).optJSONObject("web");
                         if (web != null) names.add(web.optString("title"));
                     }
-                    sources = names.isEmpty() ? "" : "Sumber: " + android.text.TextUtils.join(", ", names);
+                    sources = names.isEmpty() ? "" : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_sources", android.text.TextUtils.join(", ", names));
                 }
                 history.add(content);
                 JSONArray parts = content.getJSONArray("parts");
@@ -185,13 +191,15 @@ final class Assistant extends FrameLayout implements Sheet {
             }
         } catch (Exception e) {
             android.util.Log.w("Tahoe", "assistant failed", e);
-            main.post(() -> { state.setText("Gagal menghubungi Gemini"); answer.setText(String.valueOf(e.getMessage())); orb.mode(0); busy = false; });
+            main.post(() -> { state.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_fail")); answer.setText(String.valueOf(e.getMessage())); orb.mode(0); busy = false; });
         }
     }
 
     void say(String a) {
+        String lang = TvViewer.get(getContext()).getLanguage();
         busy = false;
-        state.setText(search ? (sources.isEmpty() ? "Tahoe" : "Tahoe · dengan Google") : "Tahoe · tanpa pencarian Google");
+        state.setText(search ? (sources.isEmpty() ? "Tahoe" : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_google"))
+                : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.ast_plain"));
         answer.setText(sources.isEmpty() ? a : a + "\n" + sources); orb.mode(3);
         sources = "";
         if (tts != null) tts.speak(a.replaceAll("[*_#`]", ""), TextToSpeech.QUEUE_FLUSH, null, "a");

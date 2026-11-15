@@ -20,7 +20,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import tech.kousozo.tahoetv.core.Epg;
+import tech.kousozo.tahoetv.core.I18n;
 import tech.kousozo.tahoetv.core.OnboardingText;
+import tech.kousozo.tahoetv.core.PopularityScraper;
 import tech.kousozo.tahoetv.core.Region;
 import tech.kousozo.tahoetv.core.SourceHealth;
 import tech.kousozo.tahoetv.core.LocalTv;
@@ -36,25 +38,41 @@ public class Live extends Activity {
 
     final Handler ui = new Handler(Looper.getMainLooper());
     DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault());
-    TextView title, sub, dName, dCat, dNow, dDesc, dNext, dHint;
+    TextView title, sub, sortBtn, dName, dCat, dNow, dDesc, dNext, dHint;
     LinearLayout cats, rows;
     List<LocalTv.Entry> all = new ArrayList<>(), list = new ArrayList<>();
-    LocalTv.Category cat;   // null = semua
+    LocalTv.Category cat;   // null = all
+    boolean subLoaded = false;
     SharedPreferences prefs;
 
     float dp(float v) { return Ui.dp(this, v); }
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        if (TvGuard.blockIfNotTv(this)) return;
         prefs = getSharedPreferences("live", MODE_PRIVATE);
-        hm = DateTimeFormatter.ofPattern("HH.mm").withZone(TvViewer.get(this).getZone());
+        Viewer vw = TvViewer.get(this);
+        String lang = vw.getLanguage();
+        hm = DateTimeFormatter.ofPattern("HH.mm").withZone(vw.getZone());
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Ui.NIGHT);
         LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding((int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP), (int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP));
-        title = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); title.setText("Jadwal TV");
-        sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); sub.setText("Memuat saluran…");
-        page.addView(title); page.addView(sub);
+        LinearLayout head = new LinearLayout(this); head.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout titles = new LinearLayout(this); titles.setOrientation(LinearLayout.VERTICAL);
+        title = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); title.setText(I18n.get(lang, "tv.guide_title"));
+        sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); sub.setText(I18n.get(lang, "tv.guide_loading"));
+        titles.addView(title); titles.addView(sub);
+        head.addView(titles, new LinearLayout.LayoutParams(0, -2, 1));
+        sortBtn = Ui.text(this, Ui.CAPTION, 600, Ui.TEXT);
+        sortBtn.setPadding((int) dp(14), (int) dp(8), (int) dp(14), (int) dp(8));
+        sortBtn.setBackground(new GlassDrawable(dp(16), Ui.GLASS, dp(1)));
+        sortBtn.setFocusable(true); sortBtn.setFocusableInTouchMode(true);
+        sortBtn.setOnFocusChangeListener((v, f) -> v.setBackground(new GlassDrawable(dp(16), f ? Ui.GLASS_FOCUS : Ui.GLASS, dp(1))));
+        sortBtn.setOnClickListener(v -> cycleSort());
+        updateSortBtn();
+        head.addView(sortBtn);
+        page.addView(head);
 
         LinearLayout cols = new LinearLayout(this);
         cats = new LinearLayout(this); cats.setOrientation(LinearLayout.VERTICAL);
@@ -72,7 +90,7 @@ public class Live extends Activity {
         dNow = Ui.text(this, Ui.HEADLINE, 600, Ui.ACCENT);
         dDesc = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); dDesc.setSingleLine(false); dDesc.setMaxLines(4);
         dNext = Ui.text(this, Ui.BODY, 400, Ui.TEXT); dNext.setSingleLine(false); dNext.setMaxLines(6); dNext.setLineSpacing(dp(4), 1);
-        dHint = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); dHint.setText("OK  ·  tonton di Live TV");
+        dHint = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); dHint.setText(I18n.get(lang, "tv.guide_ok_hint"));
         d.addView(dCat); d.addView(dName, lp(4)); d.addView(dNow, lp(18)); d.addView(dDesc, lp(6)); d.addView(dNext, lp(18));
         View spacer = new View(this); d.addView(spacer, new LinearLayout.LayoutParams(0, 0, 1)); d.addView(dHint);
         LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams((int) dp(380), -1); dl.leftMargin = (int) dp(20);
@@ -90,9 +108,35 @@ public class Live extends Activity {
     // ------------------------------------------------------------------ data
 
     void load() {
-        fetch(this, l -> { sub.setText(subtitle(Cfg.p(this).getString("province", ""))); ready(l); },
+        String lang = TvViewer.get(this).getLanguage();
+        fetch(this, l -> {
+                    subLoaded = true;
+                    sub.setText(subtitle(Cfg.p(this).getString("province", "")));
+                    ready(l);
+                },
                 e -> { buildRows(); View f = getCurrentFocus(); if (f != null && f.getTag() instanceof LocalTv.Entry) detail((LocalTv.Entry) f.getTag()); },
-                () -> sub.setText("Daftar saluran tidak bisa dimuat. Cek internet, lalu buka lagi."));
+                () -> sub.setText(I18n.get(lang, "tv.guide_load_failed")));
+    }
+
+    void updateSortBtn() {
+        if (sortBtn == null) return;
+        Viewer vw = TvViewer.get(this);
+        String lang = vw.getLanguage();
+        sortBtn.setText(I18n.get(lang, "sort.label") + ": " + vw.getSort().label(lang) + "  ⟳");
+    }
+
+    void cycleSort() {
+        Viewer vw = TvViewer.get(this);
+        LocalTv.SortMode[] modes = LocalTv.SortMode.values();
+        int nextIdx = (vw.getSort().ordinal() + 1) % modes.length;
+        TvViewer.setSortMode(this, modes[nextIdx]);
+        updateSortBtn();
+        Viewer updated = TvViewer.get(this);
+        if (!all.isEmpty()) {
+            all = updated.arrange(all);
+            cached = all;
+            filterCat();
+        }
     }
 
     /** Channel list + guide, cached for 6 h and shared with the Live TV player. Callbacks run on the main thread. */
@@ -109,6 +153,7 @@ public class Live extends Activity {
             try {
                 SharedPreferences cfg = Cfg.p(c);
                 Viewer vw = TvViewer.get(c);
+                List<LocalTv.Entry> currentChannels = cached;
                 if (!fresh) {
                     String province = vw.getDone()
                             ? (vw.getNearRegion() == null ? "" : vw.getNearRegion())
@@ -117,22 +162,41 @@ public class Live extends Activity {
                         Web.Place p = Web.INSTANCE.geocode(Cfg.s(c, "city", R.string.city), vw.getLanguage());
                         if (p != null && !p.getRegion().isEmpty()) { province = p.getRegion(); cfg.edit().putString("province", province).apply(); }
                     }
-                    // built-in sources (+ a custom playlist from the phone/desktop)
+                    final String nearProvince = province;
+                    final String extraPlaylist = cfg.getString("playlist_url", "");
+                    // Priority load: render the viewer's primary country first while secondary countries finish loading
+                    List<tech.kousozo.tahoetv.core.M3u.Channel> rawAll = Sources.loadCountriesPriority(extraPlaylist, vw.getCountries(), priorityRaw -> {
+                        if (priorityRaw.isEmpty()) return kotlin.Unit.INSTANCE;
+                        List<LocalTv.Entry> first = vw.arrange(LocalTv.INSTANCE.arrange(
+                                priorityRaw, nearProvince, vw.getCountries(), vw.getSort(), vw.getCity(), vw.getCountry()));
+                        if (!first.isEmpty()) {
+                            main.post(() -> { cached = first; cachedAt = System.currentTimeMillis(); list.accept(first); });
+                        }
+                        return kotlin.Unit.INSTANCE;
+                    });
                     List<LocalTv.Entry> l = vw.arrange(LocalTv.INSTANCE.arrange(
-                            Sources.loadCountries(cfg.getString("playlist_url", ""), vw.getCountries()),
-                            province, vw.getCountries()));
+                            rawAll, nearProvince, vw.getCountries(), vw.getSort(), vw.getCity(), vw.getCountry()));
+                    currentChannels = l;
                     probe(c, l);
+                    List<String> chNames = new ArrayList<>(l.size());
+                    for (LocalTv.Entry entry : l) chNames.add(entry.getName());
+                    PopularityScraper.prefetchAsync(vw.getCountries(), chNames, () -> {
+                        Viewer latestVw = TvViewer.get(c);
+                        List<LocalTv.Entry> resorted = latestVw.arrange(l);
+                        main.post(() -> { cached = resorted; cachedAt = System.currentTimeMillis(); list.accept(resorted); });
+                        return kotlin.Unit.INSTANCE;
+                    });
                     main.post(() -> { cached = l; cachedAt = System.currentTimeMillis(); list.accept(l); });
                 }
                 String guideUrl = cfg.getString("epg_url", "");
-                List<String> guides = new java.util.ArrayList<>();
+                List<String> guides = new ArrayList<>();
                 for (String cc : vw.getCountries()) for (String g : Region.guides(cc)) if (!guides.contains(g)) guides.add(g);
                 java.util.Set<String> channelNames = new java.util.HashSet<>();
-                if (cached != null) for (LocalTv.Entry entry : cached) {
+                if (currentChannels != null) for (LocalTv.Entry entry : currentChannels) {
                     channelNames.add(entry.getName());
                     if (entry.getChannel().getTvgId() != null) channelNames.add(entry.getChannel().getTvgId());
                 }
-                Epg e = guideUrl.isEmpty() ? Epg.Companion.load(guides, channelNames) : Epg.Companion.load(guideUrl, channelNames);
+                Epg e = guideUrl.isEmpty() ? Epg.Companion.loadPriority(guides, channelNames) : Epg.Companion.loadPriority(java.util.Collections.singletonList(guideUrl), channelNames);
                 main.post(() -> { epg = e; guide.accept(e); });
             } catch (Exception ex) { main.post(failed); }
         });
@@ -152,17 +216,24 @@ public class Live extends Activity {
         Viewer vw = TvViewer.get(this);
         String lang = vw.getLanguage();
         String place = (!vw.getDone() || vw.getNearRegion() != null) && !province.isEmpty() ? province : "";
-        if (!place.isEmpty()) return "TV lokal " + place + "  ·  OK untuk menonton di Live TV";
+        if (!place.isEmpty()) return I18n.get(lang, "tv.guide_sub_place", place);
         List<String> names = new ArrayList<>();
         for (String cc : vw.getCountries()) names.add(Region.name(cc, lang));
-        return "TV " + String.join(", ", names) + "  ·  OK untuk menonton di Live TV";
+        return I18n.get(lang, "tv.guide_sub_country", String.join(", ", names));
     }
 
     void ready(List<LocalTv.Entry> l) {
-        all = Kids.channels(this, l); list = all; // kids profile: kids' and documentary channels only
-        if (sub.getText().toString().startsWith("Memuat")) sub.setText(subtitle(Cfg.p(this).getString("province", "")));
+        all = Kids.channels(this, l); // kids profile: kids' and documentary channels only
+        filterCat();
+        if (!subLoaded) { subLoaded = true; sub.setText(subtitle(Cfg.p(this).getString("province", ""))); }
+    }
+
+    void filterCat() {
+        list = new ArrayList<>();
+        for (LocalTv.Entry e : all) if (cat == null || LocalTv.INSTANCE.inCategory(e, cat)) list.add(e);
         buildCats(); buildRows();
         if (rows.getChildCount() > 0) rows.getChildAt(0).requestFocus();
+        else if (cats.getChildCount() > 0) cats.getChildAt(0).requestFocus();
     }
 
     // ------------------------------------------------------------------ lists
@@ -178,7 +249,7 @@ public class Live extends Activity {
     void buildCats() {
         cats.removeAllViews();
         String lang = TvViewer.get(this).getLanguage();
-        addCat(null, "Semua");
+        addCat(null, I18n.get(lang, "tv.guide_all"));
         for (LocalTv.Category c : LocalTv.Category.values())
             for (LocalTv.Entry e : all) if (LocalTv.INSTANCE.inCategory(e, c)) { addCat(c, OnboardingText.INSTANCE.category(lang, c)); break; }
     }
@@ -188,10 +259,8 @@ public class Live extends Activity {
         t.setTextColor(c == cat ? Ui.ACCENT : Ui.TEXT);
         t.setOnFocusChangeListener((v, f) -> v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null));
         t.setOnClickListener(v -> {
-            cat = c; list = new ArrayList<>();
-            for (LocalTv.Entry e : all) if (c == null || LocalTv.INSTANCE.inCategory(e, c)) list.add(e);
-            buildCats(); buildRows();
-            if (rows.getChildCount() > 0) rows.getChildAt(0).requestFocus();
+            cat = c;
+            filterCat();
         });
         cats.addView(t);
     }
@@ -220,16 +289,19 @@ public class Live extends Activity {
     void detail(LocalTv.Entry e) {
         Instant now = Instant.now();
         String lang = TvViewer.get(this).getLanguage();
-        dCat.setText(OnboardingText.INSTANCE.category(lang, e.getCategory()) + (e.getNear() ? "  ·  dekat kamu" : "") + (e.getPartTime() ? "  ·  tidak 24 jam" : ""));
+        dCat.setText(OnboardingText.INSTANCE.category(lang, e.getCategory())
+                + (e.getNear() ? "  ·  " + I18n.get(lang, "ch.near_badge") : "")
+                + (e.getPartTime() ? "  ·  " + I18n.get(lang, "tv.part_time_badge") : ""));
         dName.setText(e.getName());
         List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         Epg.Programme p = onAir(e, now);
-        dNow.setText(p != null ? p.getTitle() + "   " + hm.format(p.getStart()) + "–" + hm.format(p.getStop()) : epg == null ? "Memuat jadwal…" : "Jadwal acara tidak tersedia");
+        dNow.setText(p != null ? p.getTitle() + "   " + hm.format(p.getStart()) + "–" + hm.format(p.getStop())
+                : epg == null ? I18n.get(lang, "tv.guide_loading_sched") : I18n.get(lang, "tv.guide_no_sched"));
         dDesc.setText(p != null && p.getDesc() != null ? p.getDesc() : "");
         StringBuilder next = new StringBuilder();
         for (Epg.Programme q : s) {
             if (q == p) continue;
-            if (next.length() == 0) next.append("Berikutnya\n");
+            if (next.length() == 0) next.append(I18n.get(lang, "tv.guide_next_lbl")).append('\n');
             next.append(hm.format(q.getStart())).append("   ").append(q.getTitle()).append('\n');
             if (next.length() > 400) break;
         }
@@ -243,7 +315,14 @@ public class Live extends Activity {
         startActivity(new Intent(this, LiveTv.class).putExtra("url", e.getChannel().getUrl()));
     }
 
+    @Override public boolean dispatchKeyEvent(KeyEvent e) {
+        int k = Home.gamepadToRemote(e.getKeyCode());
+        if (k != e.getKeyCode()) e = new KeyEvent(e.getDownTime(), e.getEventTime(), e.getAction(), k, e.getRepeatCount(), e.getMetaState(), e.getDeviceId(), e.getScanCode(), e.getFlags(), e.getSource());
+        return super.dispatchKeyEvent(e);
+    }
+
     @Override public boolean onKeyDown(int code, KeyEvent e) {
+        if (code == KeyEvent.KEYCODE_MENU && e.getRepeatCount() == 0) { cycleSort(); return true; }
         if (code == KeyEvent.KEYCODE_BACK) { finish(); return true; }
         return super.onKeyDown(code, e);
     }

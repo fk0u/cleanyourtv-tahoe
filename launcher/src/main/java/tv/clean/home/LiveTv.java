@@ -14,6 +14,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
@@ -28,6 +29,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManager;
@@ -42,7 +44,6 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,8 +52,10 @@ import java.util.UUID;
 import tech.kousozo.tahoetv.core.Drm;
 import tech.kousozo.tahoetv.core.SourceHealth;
 import tech.kousozo.tahoetv.core.Epg;
+import tech.kousozo.tahoetv.core.I18n;
 import tech.kousozo.tahoetv.core.LocalTv;
 import tech.kousozo.tahoetv.core.M3u;
+import tech.kousozo.tahoetv.core.OnboardingText;
 
 /** Tahoe's built-in Live TV: full-screen player for the free channels (national priority first, then near you).
  *
@@ -63,9 +66,11 @@ public class LiveTv extends Activity {
     /** The running player, so the phone remote's CH+/CH− can zap it. */
     static LiveTv live;
     final Handler ui = new Handler(Looper.getMainLooper());
-    final DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault());
     ExoPlayer player;
+    FrameLayout surfaceRoot;
     SurfaceView surface;
+    int videoW = 0, videoH = 0;
+    float videoPar = 1f;
     LinearLayout guide, rows;
     FrameLayout osd;                       // on-screen display: top + bottom scrims with all the info
     Loader loading;
@@ -77,11 +82,31 @@ public class LiveTv extends Activity {
     List<LocalTv.Entry> list = new ArrayList<>();
     Epg epg;
     int index = -1, source = 0;
-    boolean sawRecording = false;
+    boolean sawRecording = false, pendingCenterKey = false;
     long sourceStarted;
     SharedPreferences prefs;
 
     float dp(float v) { return Ui.dp(this, v); }
+
+    DateTimeFormatter hm() {
+        return DateTimeFormatter.ofPattern("HH.mm").withZone(TvViewer.get(this).getZone());
+    }
+
+    private void fitVideoSurface() {
+        if (surface == null || surfaceRoot == null) return;
+        int rw = surfaceRoot.getWidth(), rh = surfaceRoot.getHeight();
+        if (rw <= 0 || rh <= 0 || videoW <= 0 || videoH <= 0) return;
+        float dispW = videoW * (videoPar > 0f ? videoPar : 1f);
+        float scale = Math.min(rw / dispW, rh / (float) videoH);
+        int w = Math.max(1, Math.round(dispW * scale));
+        int h = Math.max(1, Math.round(videoH * scale));
+        ViewGroup.LayoutParams lp = surface.getLayoutParams();
+        if (lp.width != w || lp.height != h) {
+            lp.width = w;
+            lp.height = h;
+            surface.setLayoutParams(lp);
+        }
+    }
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -89,11 +114,16 @@ public class LiveTv extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         prefs = getSharedPreferences("live", MODE_PRIVATE);
         FrameLayout root = new FrameLayout(this);
+        surfaceRoot = root;
         root.setBackgroundColor(Color.BLACK);
+        root.addOnLayoutChangeListener((v, l, t, r, bot, ol, ot, or, ob) -> {
+            if ((r - l) != (or - ol) || (bot - t) != (ob - ot)) fitVideoSurface();
+        });
         surface = new SurfaceView(this);
         surface.setClickable(true);
+        surface.setFocusable(false); surface.setFocusableInTouchMode(false);
         surface.setOnClickListener(v -> {
-            if (guide.getVisibility() == View.VISIBLE) guide.setVisibility(View.GONE);
+            if (guide.getVisibility() == View.VISIBLE) closeGuide();
             else if (osd.getAlpha() > 0.5f) dismissBanner();
             else showBanner();
         });
@@ -113,6 +143,7 @@ public class LiveTv extends Activity {
         root.addView(loading, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
 
         slate = buildSlate(); // #76: shown instead of a channel that can't play
+        slate.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         root.addView(slate, new FrameLayout.LayoutParams(-1, -1));
 
         osd = buildOsd();
@@ -126,12 +157,13 @@ public class LiveTv extends Activity {
         root.addView(numOverlay, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
 
         // channel list (left)
+        String initLang = TvViewer.get(this).getLanguage();
         guide = new LinearLayout(this); guide.setOrientation(LinearLayout.VERTICAL);
         guide.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xF20A0B10, 0xE60A0B10, 0x000A0B10}));
         guide.setPadding((int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP), (int) dp(20), (int) dp(Ui.SAFE_TOP));
         TextView gt = Ui.text(this, Ui.HEADLINE, 700, Ui.TEXT); gt.setText("Live TV");
         guide.addView(gt);
-        TextView gh = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); gh.setText("OK tonton  ·  ▶ favorit  ·  Menu ingatkan acara berikutnya");
+        TextView gh = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); gh.setText(I18n.get(initLang, "tv.live_guide_hint"));
         guide.addView(gh);
         rows = new LinearLayout(this); rows.setOrientation(LinearLayout.VERTICAL);
         ScrollView sv = new ScrollView(this); sv.setVerticalScrollBarEnabled(false); sv.addView(rows);
@@ -160,6 +192,14 @@ public class LiveTv extends Activity {
                 .setUsage(androidx.media3.common.C.USAGE_MEDIA).setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE).build(), true);
         player.setVideoSurfaceView(surface);
         player.addListener(new Player.Listener() {
+            @Override public void onVideoSizeChanged(VideoSize vs) {
+                if (vs.width > 0 && vs.height > 0) {
+                    videoW = vs.width;
+                    videoH = vs.height;
+                    videoPar = vs.pixelWidthHeightRatio > 0f ? vs.pixelWidthHeightRatio : 1f;
+                    fitVideoSurface();
+                }
+            }
             @Override public void onPlayerError(PlaybackException e) {
                 tech.kousozo.tahoetv.core.DiagLog.error("live", e.getErrorCodeName() + (source < order.size() ? " @ " + order.get(source).getUrl() : ""), e.getCause());
                 // Fell out of the stream's live window: rejoin at the live point (not a failure of the source).
@@ -198,7 +238,7 @@ public class LiveTv extends Activity {
         Live.fetch(this, all -> {
             List<LocalTv.Entry> l = Kids.channels(this, all); // kids profile: kids' and documentary channels only
             list = l;
-            if (l.isEmpty()) { loading.setText(Kids.on(this) ? "Belum ada saluran anak yang bisa diputar." : "Tidak ada saluran."); return; }
+            if (l.isEmpty()) { loading.setText(I18n.get(TvViewer.get(this).getLanguage(), Kids.on(this) ? "tv.live_empty_kids" : "tv.live_empty")); return; }
             String wantId = getIntent().getStringExtra("channelId");
             String wantUrl = getIntent().getStringExtra("url"), last = prefs.getString("last", null);
             int i = findChannelIndex(wantId, wantUrl != null ? wantUrl : last);
@@ -206,7 +246,7 @@ public class LiveTv extends Activity {
             guideDirty = true;
             if (guide.getVisibility() == View.VISIBLE) buildRows();
             tune(i);
-        }, e -> { epg = e; if (guide.getVisibility() == View.VISIBLE) buildRows(); else guideDirty = true; if (index >= 0) showBanner(); }, () -> loading.setText("Daftar saluran tidak bisa dimuat. Cek internet."));
+        }, e -> { epg = e; if (guide.getVisibility() == View.VISIBLE) buildRows(); else guideDirty = true; if (index >= 0) showBanner(); }, () -> loading.setText(I18n.get(TvViewer.get(this).getLanguage(), "tv.live_load_failed")));
         ui.post(watchdog);
     }
 
@@ -251,6 +291,14 @@ public class LiveTv extends Activity {
         index = ((i % list.size()) + list.size()) % list.size();
         source = 0;
         sawRecording = false;
+        videoW = 0; videoH = 0; videoPar = 1f;
+        if (surface != null) {
+            ViewGroup.LayoutParams lp = surface.getLayoutParams();
+            if (lp != null && (lp.width != -1 || lp.height != -1)) {
+                lp.width = -1; lp.height = -1;
+                surface.setLayoutParams(lp);
+            }
+        }
         hideSlate(); slateRetries = 0; // another channel: a fresh start
         LocalTv.Entry e = list.get(index);
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
@@ -277,7 +325,7 @@ public class LiveTv extends Activity {
             }, "tahoe-rank").start();
         }
         showBanner();
-        if (osd != null) osd.announceForAccessibility("Saluran " + (index + 1) + ", " + e.getName());
+        if (osd != null) osd.announceForAccessibility(I18n.get(TvViewer.get(this).getLanguage(), "tv.live_channel_num_named", String.valueOf(index + 1), e.getName()));
     }
 
     /** This channel's streams, known-live first (SourceHealth), as ordered when it was tuned. */
@@ -293,14 +341,13 @@ public class LiveTv extends Activity {
             LocalTv.Entry e = list.get(index);
             boolean marked = SourceHealth.isBanned(e.getChannel().getUrl());
             for (M3u.Channel a : e.getAlternates()) marked |= SourceHealth.isBanned(a.getUrl());
-            bStatus.setText(marked ? "Saluran ini sedang bermasalah. Tahan OK untuk mencoba semua sumber lagi, atau tekan ▼ untuk saluran berikutnya."
-                    : "Saluran ini sedang bermasalah. Tekan ▼ untuk saluran berikutnya.");
+            bStatus.setText(I18n.get(TvViewer.get(this).getLanguage(), marked ? "tv.live_source_err_marked" : "tv.live_source_err"));
             bStatus.setVisibility(View.GONE); loading.setVisibility(View.GONE); dismissBanner();
             showSlate(sawRecording ? tech.kousozo.tahoetv.core.Slate.Reason.Recording : tech.kousozo.tahoetv.core.Slate.Reason.Offline);
             return;
         }
         M3u.Channel c = s.get(source);
-        // viewer choices from Pusat Kontrol (read on every start, so a change applies from the next channel/source)
+        // viewer choices from Control Center (read on every start, so a change applies from the next channel/source)
         tech.kousozo.tahoetv.core.PlayPrefs.Quality q = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(prefs.getString("quality", null));
         tech.kousozo.tahoetv.core.PlayPrefs.Latency lat = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(prefs.getString("latency", null));
         androidx.media3.common.TrackSelectionParameters.Builder tsp = player.getTrackSelectionParameters().buildUpon();
@@ -364,7 +411,7 @@ public class LiveTv extends Activity {
         bNum.setText(txt); osd.animate().alpha(1).setDuration(Ui.FAST).start();
         if (numOverlay != null) {
             numOverlay.setText(txt);
-            numOverlay.setContentDescription("Saluran " + typed);
+            numOverlay.setContentDescription(I18n.get(TvViewer.get(this).getLanguage(), "tv.live_channel_num", String.valueOf(typed)));
             numOverlay.setVisibility(View.VISIBLE);
         }
         ui.removeCallbacks(tuneTyped); ui.postDelayed(tuneTyped, 1500);
@@ -403,29 +450,32 @@ public class LiveTv extends Activity {
 
     /** "● LIVE", or how far behind the live point we are (after ⏪ or a pause). */
     String liveLabel() {
-        if (player == null || !player.getPlayWhenReady()) return "⏸ JEDA";
+        String lang = TvViewer.get(this).getLanguage();
+        if (player == null || !player.getPlayWhenReady()) return "⏸ " + I18n.get(lang, "tv.live_paused");
         long off = player.getCurrentLiveOffset();
         if (off == C.TIME_UNSET || off < targetOffsetMs + 20_000) return "● LIVE";
         long sec = Math.max(0, off - targetOffsetMs) / 1000; // the chosen latency is the normal cushion
-        return "⏪ -" + (sec >= 60 ? (sec / 60) + " mnt " + (sec % 60) + " dtk" : sec + " dtk");
+        return sec >= 60 ? I18n.get(lang, "tv.live_min_sec_ago", String.valueOf(sec / 60), String.valueOf(sec % 60))
+                : I18n.get(lang, "tv.live_sec_ago", String.valueOf(sec));
     }
 
     /** Long-press OK: this source plays a recording / old show. Skip it now and never start it first again.
      *  On a channel with nothing left to play, long-press OK is the undo: every source marked this way comes back. */
     void flagRecording() {
         if (index < 0) return;
+        String lang = TvViewer.get(this).getLanguage();
         if (source >= order.size()) {
             LocalTv.Entry e = list.get(index);
             List<M3u.Channel> all = new ArrayList<>(); all.add(e.getChannel()); all.addAll(e.getAlternates());
             int n = SourceHealth.unbanAll(all);
-            Toast.makeText(this, n > 0 ? n + " sumber yang ditandai dipulihkan" : "Tidak ada sumber yang ditandai di saluran ini", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, n > 0 ? I18n.get(lang, "tv.live_restored_fmt", String.valueOf(n)) : I18n.get(lang, "tv.live_no_marked"), Toast.LENGTH_SHORT).show();
             if (n > 0) tune(index);
             return;
         }
         sawRecording = true;
         SourceHealth.ban(order.get(source).getUrl());
         tech.kousozo.tahoetv.core.DiagLog.add("live", "ditandai bukan live: " + order.get(source).getUrl());
-        Toast.makeText(this, "Sumber dilewati: bukan siaran langsung", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, I18n.get(lang, "tv.live_skipped_not_live"), Toast.LENGTH_SHORT).show();
         nextSource();
     }
 
@@ -471,22 +521,27 @@ public class LiveTv extends Activity {
 
     void showBanner() {
         if (index < 0) return;
+        String lang = TvViewer.get(this).getLanguage();
         LocalTv.Entry e = list.get(index);
         bNum.setText(String.format(java.util.Locale.ROOT, "%03d", index + 1));
         bName.setText(e.getName().toUpperCase(java.util.Locale.ROOT));
         int sources = 1 + e.getAlternates().size();
-        bMeta.setText(e.getCategory().getLabel() + (sources > 1 ? "  ·  " + sources + " sumber" : "") + (e.getNear() ? "  ·  dekat kamu" : ""));
-        bCat.setText(e.getCategory().getLabel());
+        String catLbl = OnboardingText.INSTANCE.category(lang, e.getCategory());
+        bMeta.setText(catLbl
+                + (sources > 1 ? "  ·  " + I18n.get(lang, "tv.live_sources_fmt", String.valueOf(sources)) : "")
+                + (e.getNear() ? "  ·  " + I18n.get(lang, "ch.near_badge") : ""));
+        bCat.setText(catLbl);
         bLive.setText(liveLabel());
         Logos.into(e.getChannel().getLogo(), logo, logoText, e.getName());
         Instant now = Instant.now();
         List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         Epg.Programme p = !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
         Epg.Programme n = s.size() > (p != null ? 1 : 0) ? s.get(p != null ? 1 : 0) : null;
-        bNowTime.setText(p != null ? hm.format(p.getStart()) + " – " + hm.format(p.getStop()) : "Sekarang");
-        bNow.setText(p != null ? p.getTitle() : epg == null ? "Memuat jadwal…" : "Jadwal acara tidak tersedia");
+        DateTimeFormatter fmt = hm();
+        bNowTime.setText(p != null ? fmt.format(p.getStart()) + " – " + fmt.format(p.getStop()) : I18n.get(lang, "tv.live_now_lbl"));
+        bNow.setText(p != null ? p.getTitle() : epg == null ? I18n.get(lang, "tv.guide_loading_sched") : I18n.get(lang, "tv.guide_no_sched"));
         ((View) bNext.getParent()).setVisibility(n != null ? View.VISIBLE : View.GONE);
-        if (n != null) { bNextTime.setText(hm.format(n.getStart()) + " – " + hm.format(n.getStop())); bNext.setText(n.getTitle()); }
+        if (n != null) { bNextTime.setText(fmt.format(n.getStart()) + " – " + fmt.format(n.getStop())); bNext.setText(n.getTitle()); }
         float f = p == null ? 0 : Math.max(0, Math.min(1, (now.getEpochSecond() - p.getStart().getEpochSecond()) / (float) Math.max(1, p.getStop().getEpochSecond() - p.getStart().getEpochSecond())));
         progressTrack.post(() -> { progress.getLayoutParams().width = (int) (progressTrack.getWidth() * f); progress.requestLayout(); });
         tick();
@@ -496,9 +551,16 @@ public class LiveTv extends Activity {
 
     /** Clock + date (top right). */
     void tick() {
+        tech.kousozo.tahoetv.core.Viewer tv = TvViewer.get(this);
+        Locale loc = Locale.forLanguageTag(tv.getLanguage());
+        java.util.TimeZone tz = java.util.TimeZone.getTimeZone(tv.getZone().getId());
         java.util.Date d = new java.util.Date();
-        tDay.setText(new java.text.SimpleDateFormat("EEEE", new java.util.Locale("id")).format(d));
-        tTime.setText(new java.text.SimpleDateFormat("d MMM yyyy  ·  HH.mm", new java.util.Locale("id")).format(d));
+        java.text.SimpleDateFormat dfDay = new java.text.SimpleDateFormat("EEEE", loc);
+        dfDay.setTimeZone(tz);
+        java.text.SimpleDateFormat dfTime = new java.text.SimpleDateFormat("d MMM yyyy  ·  HH.mm", loc);
+        dfTime.setTimeZone(tz);
+        tDay.setText(dfDay.format(d));
+        tTime.setText(dfTime.format(d));
     }
 
     TextView pill(String text, int bg, int fg) {
@@ -528,6 +590,7 @@ public class LiveTv extends Activity {
         int side = (int) dp(compact ? 20 : Ui.SAFE_SIDE);
         int topM = (int) dp(compact ? 24 : Ui.SAFE_TOP);
         FrameLayout o = new FrameLayout(this);
+        o.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         View top = new View(this);
         top.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0xB3000000, 0x00000000}));
         o.addView(top, new FrameLayout.LayoutParams(-1, (int) dp(150), Gravity.TOP));
@@ -536,10 +599,11 @@ public class LiveTv extends Activity {
         o.addView(bottom, new FrameLayout.LayoutParams(-1, (int) dp(compact ? 360 : 300), Gravity.BOTTOM));
 
         // top left: weather
+        String lang = TvViewer.get(this).getLanguage();
         LinearLayout w = new LinearLayout(this); w.setGravity(Gravity.CENTER_VERTICAL);
         tTemp = Ui.text(this, compact ? 26 : 34, 600, Ui.TEXT); tTemp.setText("—°");
         LinearLayout wc = new LinearLayout(this); wc.setOrientation(LinearLayout.VERTICAL);
-        TextView we = Ui.eyebrow(this, Ui.TEXT_3); we.setText("Cuaca");
+        TextView we = Ui.eyebrow(this, Ui.TEXT_3); we.setText(I18n.get(lang, "home.weather"));
         tCond = Ui.text(this, Ui.BODY, 600, Ui.TEXT); tCond.setText(Cfg.s(this, "city", R.string.city));
         wc.addView(we); wc.addView(tCond);
         View sep = new View(this); sep.setBackgroundColor(0x40FFFFFF);
@@ -615,13 +679,22 @@ public class LiveTv extends Activity {
 
         // remote colour-key legend + touch action pills
         LinearLayout legend = new LinearLayout(this); legend.setGravity(Gravity.CENTER_VERTICAL | (compact ? Gravity.START : Gravity.END));
-        String[][] keys = {{"▲▼", "Ganti saluran"}, {"OK", "Daftar saluran"}, {"C", "Subtitle"}, {"A", "Audio"}, {"⏪⏩", "Tunda / maju"}, {"▶", "Info"}, {"↩", "Keluar"}};
+        String[][] keys = {
+                {"▲▼", I18n.get(lang, "tv.live_key_switch")},
+                {"OK", I18n.get(lang, "tv.live_key_guide")},
+                {"C", I18n.get(lang, "tv.live_sub_lbl")},
+                {"A", I18n.get(lang, "tv.live_audio_lbl")},
+                {"⏪⏩", I18n.get(lang, "tv.live_key_seek")},
+                {"▶", I18n.get(lang, "tv.live_key_info")},
+                {"↩", I18n.get(lang, "tv.live_key_exit")}
+        };
         int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.ACCENT, Ui.TEXT_2, Ui.SUN, Ui.TEXT_3, Ui.TEXT_2};
         for (int k = 0; k < keys.length; k++) {
             final int keyIdx = k;
             LinearLayout pillBtn = new LinearLayout(this); pillBtn.setGravity(Gravity.CENTER_VERTICAL);
             pillBtn.setPadding((int) dp(k == 0 ? 4 : 12), (int) dp(6), (int) dp(8), (int) dp(6));
             pillBtn.setClickable(true);
+            pillBtn.setFocusable(false); pillBtn.setFocusableInTouchMode(false);
             pillBtn.setOnClickListener(v -> {
                 switch (keyIdx) {
                     case 0: tune(index + 1); break;
@@ -644,6 +717,8 @@ public class LiveTv extends Activity {
         android.widget.HorizontalScrollView legendScroll = new android.widget.HorizontalScrollView(this);
         legendScroll.setHorizontalScrollBarEnabled(false);
         legendScroll.setFillViewport(true);
+        legendScroll.setFocusable(false);
+        legendScroll.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         legendScroll.addView(legend, new FrameLayout.LayoutParams(-2, -2));
         LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-1, -2); ll.topMargin = (int) dp(14);
         band.addView(legendScroll, ll);
@@ -684,9 +759,10 @@ public class LiveTv extends Activity {
         List<Integer> favRows = new ArrayList<>(), recentRows = new ArrayList<>();
         for (int k = 0; k < list.size(); k++) if (fav.contains(list.get(k).getChannel().getUrl())) favRows.add(k);
         for (String u : recent()) { Integer k = at.get(u); if (k != null && !fav.contains(u) && recentRows.size() < 5) recentRows.add(k); }
-        if (!favRows.isEmpty()) { section("★  Favorit"); for (int k : favRows) rows.addView(row(k, now, fav)); }
-        if (!recentRows.isEmpty()) { section("Terakhir ditonton"); for (int k : recentRows) rows.addView(row(k, now, fav)); }
-        if (!favRows.isEmpty() || !recentRows.isEmpty()) section("Semua saluran");
+        String lang = TvViewer.get(this).getLanguage();
+        if (!favRows.isEmpty()) { section(I18n.get(lang, "tv.live_fav_section")); for (int k : favRows) rows.addView(row(k, now, fav)); }
+        if (!recentRows.isEmpty()) { section(I18n.get(lang, "tv.live_recent_section")); for (int k : recentRows) rows.addView(row(k, now, fav)); }
+        if (!favRows.isEmpty() || !recentRows.isEmpty()) section(I18n.get(lang, "home.all_channels"));
         allRows = new View[list.size()];
         renderedEnd = 0;
         ensureRowsThrough(Math.max(ROW_WINDOW, index + 25), now, fav);
@@ -728,6 +804,7 @@ public class LiveTv extends Activity {
     }
 
     View row(int k, Instant now, java.util.Set<String> fav) {
+        String lang = TvViewer.get(this).getLanguage();
         LocalTv.Entry e = list.get(k);
         LinearLayout r = new LinearLayout(this); r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding((int) dp(10), (int) dp(8), (int) dp(12), (int) dp(8));
@@ -759,8 +836,8 @@ public class LiveTv extends Activity {
         if (s != null) for (Epg.Programme q : s) if (q.getStart().isAfter(now)) { nx = q; break; }
         boolean reminded = nx != null && Reminder.isSet(this, e.getChannel().getUrl(), nx.getStart().toEpochMilli());
         TextView sub = Ui.text(this, TvViewer.simpleMode(this) ? 16 : Ui.CAPTION, 500, reminded ? Ui.ACCENT : Ui.TEXT_3); sub.setShadowLayer(0, 0, 0, 0);
-        sub.setText(reminded ? "🔔 " + java.time.format.DateTimeFormatter.ofPattern("HH.mm").withZone(java.time.ZoneId.systemDefault()).format(nx.getStart()) + "  " + nx.getTitle()
-                : p != null ? p.getTitle() : e.getCategory().getLabel());
+        sub.setText(reminded ? "🔔 " + hm().format(nx.getStart()) + "  " + nx.getTitle()
+                : p != null ? p.getTitle() : OnboardingText.INSTANCE.category(lang, e.getCategory()));
         col.addView(name); col.addView(sub);
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -2, 1); cp.leftMargin = (int) dp(12);
         r.addView(col, cp);
@@ -771,7 +848,7 @@ public class LiveTv extends Activity {
             v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null);
             v.animate().scaleX(f ? 1.03f : 1f).scaleY(f ? 1.03f : 1f).setDuration(Ui.FAST).start();
         });
-        r.setOnClickListener(v -> { guide.setVisibility(View.GONE); tune(k); });
+        r.setOnClickListener(v -> { closeGuide(); tune(k); });
         Epg.Programme next = nx;
         r.setOnKeyListener((v, code, ev) -> {
             if (ev.getAction() != KeyEvent.ACTION_DOWN) return false;
@@ -783,28 +860,43 @@ public class LiveTv extends Activity {
     }
 
     void remind(int k, Epg.Programme next) {
+        String lang = TvViewer.get(this).getLanguage();
         LocalTv.Entry e = list.get(k);
-        if (next == null) { Toast.makeText(this, "Belum ada jadwal acara berikutnya untuk " + e.getName(), Toast.LENGTH_SHORT).show(); return; }
+        if (next == null) { Toast.makeText(this, I18n.get(lang, "tv.live_no_next", e.getName()), Toast.LENGTH_SHORT).show(); return; }
         boolean on = Reminder.toggle(this, e.getChannel().getUrl(), e.getName(), next.getTitle(), next.getStart().toEpochMilli());
-        Toast.makeText(this, (on ? "🔔 Diingatkan: " : "Pengingat dibatalkan: ") + next.getTitle(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, I18n.get(lang, on ? "tv.live_reminded" : "tv.live_remind_removed", next.getTitle()), Toast.LENGTH_SHORT).show();
         refreshRow(k);
     }
 
     void toggleFav(int k) {
+        String lang = TvViewer.get(this).getLanguage();
         String u = list.get(k).getChannel().getUrl();
         java.util.Set<String> f = favs();
         boolean add = f.add(u); if (!add) f.remove(u);
         prefs.edit().putStringSet("fav", f).apply();
         TvViewer.favoritesChanged(this, f);
-        Toast.makeText(this, (add ? "★ Ditambahkan ke favorit: " : "Dihapus dari favorit: ") + list.get(k).getName(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, I18n.get(lang, add ? "tv.live_fav_added" : "tv.live_fav_removed", list.get(k).getName()), Toast.LENGTH_SHORT).show();
         refreshRow(k);
     }
 
     void openGuide() {
+        pendingCenterKey = false;
         guide.setVisibility(View.VISIBLE);
         if (guideDirty || allRows.length != list.size()) buildRows();
         ensureRowsThrough(Math.max(ROW_WINDOW, index + 25));
         if (index >= 0 && index < allRows.length && allRows[index] != null) allRows[index].requestFocus();
+    }
+
+    void closeGuide() {
+        pendingCenterKey = false;
+        guide.setVisibility(View.GONE);
+        if (surfaceRoot != null) surfaceRoot.clearFocus();
+    }
+
+    @Override public boolean dispatchKeyEvent(KeyEvent e) {
+        int k = Home.gamepadToRemote(e.getKeyCode());
+        if (k != e.getKeyCode()) e = new KeyEvent(e.getDownTime(), e.getEventTime(), e.getAction(), k, e.getRepeatCount(), e.getMetaState(), e.getDeviceId(), e.getScanCode(), e.getFlags(), e.getSource());
+        return super.dispatchKeyEvent(e);
     }
 
     @Override public boolean onKeyDown(int code, KeyEvent e) {
@@ -816,7 +908,7 @@ public class LiveTv extends Activity {
                 if (numOverlay != null) numOverlay.setVisibility(View.GONE);
                 return true;
             }
-            if (open) guide.setVisibility(View.GONE); else finish(); return true;
+            if (open) closeGuide(); else finish(); return true;
         }
         if (open) return super.onKeyDown(code, e);
         if (code >= KeyEvent.KEYCODE_0 && code <= KeyEvent.KEYCODE_9) { digit(code - KeyEvent.KEYCODE_0); return true; }
@@ -829,7 +921,7 @@ public class LiveTv extends Activity {
                 } else {
                     String txt = String.format(java.util.Locale.ROOT, "%03d", typed);
                     bNum.setText(txt);
-                    if (numOverlay != null) { numOverlay.setText(txt); numOverlay.setContentDescription("Saluran " + typed); }
+                    if (numOverlay != null) { numOverlay.setText(txt); numOverlay.setContentDescription(I18n.get(TvViewer.get(this).getLanguage(), "tv.live_channel_num", String.valueOf(typed))); }
                     ui.postDelayed(tuneTyped, 1500);
                 }
             } else {
@@ -845,7 +937,8 @@ public class LiveTv extends Activity {
             case KeyEvent.KEYCODE_CHANNEL_DOWN: tune(index - 1); return true;
             case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
                 if (typed > 0) { ui.removeCallbacks(tuneTyped); tuneTyped.run(); return true; }
-                e.startTracking(); return true; // tap = list, hold = "not live"
+                if (e.getRepeatCount() == 0) { pendingCenterKey = true; e.startTracking(); }
+                return true; // tap = list, hold = "not live"
             case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_MENU: openGuide(); return true;
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: case KeyEvent.KEYCODE_MEDIA_PLAY: case KeyEvent.KEYCODE_MEDIA_PAUSE:
                 if (player != null) { boolean pause = code == KeyEvent.KEYCODE_MEDIA_PAUSE || (code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE && player.getPlayWhenReady());
@@ -883,9 +976,10 @@ public class LiveTv extends Activity {
                 labels.add(name);
             }
         }
-        String kindName = trackType == C.TRACK_TYPE_TEXT ? "Subtitle" : "Audio";
+        String langTag = TvViewer.get(this).getLanguage();
+        String kindName = I18n.get(langTag, trackType == C.TRACK_TYPE_TEXT ? "tv.live_sub_lbl" : "tv.live_audio_lbl");
         if (groups.isEmpty()) {
-            Toast.makeText(this, kindName + " tidak tersedia di saluran ini", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, I18n.get(langTag, "tv.live_track_unavail", kindName), Toast.LENGTH_SHORT).show();
             return;
         }
         androidx.media3.common.TrackSelectionParameters.Builder b = player.getTrackSelectionParameters().buildUpon();
@@ -893,7 +987,7 @@ public class LiveTv extends Activity {
         if (trackType == C.TRACK_TYPE_TEXT && selectedIdx == groups.size() - 1) {
             b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true);
             player.setTrackSelectionParameters(b.build());
-            Toast.makeText(this, "Subtitle: Mati", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, I18n.get(langTag, "tv.live_sub_off"), Toast.LENGTH_SHORT).show();
             return;
         }
         int nextIdx = (selectedIdx + 1) % groups.size();
@@ -952,6 +1046,7 @@ public class LiveTv extends Activity {
         p.setLayoutParams(lp);
         if (onTap != null) {
             p.setClickable(true);
+            p.setFocusable(false); p.setFocusableInTouchMode(false);
             p.setOnClickListener(v -> onTap.run());
         }
 
@@ -1050,14 +1145,17 @@ public class LiveTv extends Activity {
     }
 
     @Override public boolean onKeyLongPress(int code, KeyEvent e) {
-        if (guide.getVisibility() != View.VISIBLE && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)) { flagRecording(); return true; }
+        if (guide.getVisibility() != View.VISIBLE && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)) { pendingCenterKey = false; flagRecording(); return true; }
         return super.onKeyLongPress(code, e);
     }
 
     @Override public boolean onKeyUp(int code, KeyEvent e) {
-        if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) && guide.getVisibility() != View.VISIBLE
-                && e.isTracking() && !e.isCanceled()) {
-            if (slate.getVisibility() == View.VISIBLE) retryChannel(); else openGuide(); // on the slate, OK = try again
+        if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) && guide.getVisibility() != View.VISIBLE) {
+            boolean fire = !e.isCanceled() && (pendingCenterKey || e.isTracking() || e.getDownTime() == e.getEventTime());
+            pendingCenterKey = false;
+            if (fire) {
+                if (slate.getVisibility() == View.VISIBLE) retryChannel(); else openGuide(); // on the slate, OK = try again
+            }
             return true;
         }
         return super.onKeyUp(code, e);

@@ -61,16 +61,22 @@ final class Weather {
         return R.drawable.ic_cloud_lightning;
     }
 
-    static String text(int c) {
-        if (c == 0) return "Cerah";
-        if (c <= 2) return "Cerah berawan";
-        if (c == 3) return "Berawan";
-        if (c <= 48) return "Berkabut";
-        if (c <= 57) return "Gerimis";
-        if (c <= 67) return "Hujan";
-        if (c <= 77) return "Salju";
-        if (c <= 82) return "Hujan lokal";
-        return "Badai petir";
+    static String text(int c) { return text("id", c); }
+
+    static String text(Context ctx, int c) {
+        return text(TvViewer.get(ctx).getLanguage(), c);
+    }
+
+    static String text(String lang, int c) {
+        if (c == 0) return tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_clear");
+        if (c <= 2) return tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_partly");
+        if (c == 3) return tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_cloudy");
+        if (c <= 48) return tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_fog");
+        if (c <= 57) return tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_drizzle");
+        if (c <= 67) return tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_rain_cond");
+        if (c <= 77) return tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_snow");
+        if (c <= 82) return tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_showers");
+        return tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_thunder");
     }
 
     // ---- sheet ----
@@ -105,10 +111,11 @@ final class Weather {
             addView(left, ll);
 
             // 7 days, right column
+            String lang = TvViewer.get(c).getLanguage();
             LinearLayout days = new LinearLayout(c); days.setOrientation(LinearLayout.VERTICAL);
             days.setBackground(new GlassDrawable(Ui.dp(c, Ui.R_LARGE), Ui.GLASS, d));
             days.setPadding((int) (20 * d), (int) (16 * d), (int) (20 * d), (int) (16 * d));
-            TextView dh = Ui.eyebrow(c, Ui.TEXT_3); dh.setText("7 hari"); days.addView(dh);
+            TextView dh = Ui.eyebrow(c, Ui.TEXT_3); dh.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_7day")); days.addView(dh);
             JSONObject daily = data.optJSONObject("daily");
             if (daily != null) {
                 JSONArray t = daily.optJSONArray("time");
@@ -116,7 +123,7 @@ final class Weather {
                     LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.CENTER_VERTICAL);
                     row.setPadding(0, (int) (7 * d), 0, (int) (7 * d));
                     TextView day = Ui.text(c, Ui.BODY, i == 0 ? 600 : 400, Ui.TEXT);
-                    day.setText(i == 0 ? "Hari ini" : dayName(t.optString(i)));
+                    day.setText(i == 0 ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_today") : dayName(lang, t.optString(i)));
                     android.widget.ImageView g = Ui.icon(c, icon(daily.optJSONArray("weather_code").optInt(i), true), 20, Ui.TEXT);
                     TextView rng = Ui.text(c, Ui.BODY, 400, Ui.TEXT_2);
                     rng.setText(Math.round(daily.optJSONArray("temperature_2m_min").optDouble(i)) + "°  "
@@ -135,6 +142,8 @@ final class Weather {
             // hourly strip, bottom
             HorizontalScrollView hs = new HorizontalScrollView(c);
             hs.setHorizontalScrollBarEnabled(false); hs.setClipToPadding(false);
+            hs.setFocusable(false);
+            hs.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
             hours = new LinearLayout(c);
             hours.setPadding((int) (56 * d), (int) (12 * d), (int) (56 * d), (int) (12 * d));
             JSONObject hourly = data.optJSONObject("hourly");
@@ -142,9 +151,12 @@ final class Weather {
                 JSONArray ht = hourly.optJSONArray("time");
                 count = ht == null ? 0 : ht.length();
                 for (int i = 0; i < count; i++) {
+                    final int idx = i;
                     LinearLayout cell = new LinearLayout(c); cell.setOrientation(LinearLayout.VERTICAL); cell.setGravity(Gravity.CENTER_HORIZONTAL);
                     cell.setPadding((int) (14 * d), (int) (12 * d), (int) (14 * d), (int) (12 * d));
-                    TextView h = Ui.text(c, Ui.CAPTION + 1, 500, Ui.TEXT_2); h.setText(i == 0 ? "Kini" : ht.optString(i).substring(11, 16));
+                    cell.setClickable(true); cell.setFocusable(false); cell.setFocusableInTouchMode(false);
+                    cell.setOnClickListener(v -> select(idx, data.optJSONObject("current")));
+                    TextView h = Ui.text(c, Ui.CAPTION + 1, 500, Ui.TEXT_2); h.setText(i == 0 ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_now_short") : ht.optString(i).substring(11, 16));
                     android.widget.ImageView g = Ui.icon(c, icon(hourly.optJSONArray("weather_code").optInt(i), hourly.optJSONArray("is_day").optInt(i) == 1), 24, Ui.TEXT);
                     ((LinearLayout.LayoutParams) g.getLayoutParams()).topMargin = ((LinearLayout.LayoutParams) g.getLayoutParams()).bottomMargin = (int) (8 * d);
                     TextView tv = Ui.text(c, Ui.BODY, 500, Ui.TEXT); tv.setText(Math.round(hourly.optJSONArray("temperature_2m").optDouble(i)) + "°");
@@ -160,38 +172,42 @@ final class Weather {
             LayoutParams hl = new LayoutParams(-1, -2, Gravity.BOTTOM); hl.bottomMargin = (int) (40 * d);
             addView(hs, hl);
 
-            Ui.crumb(this, R.drawable.ic_cloud_sun, "Cuaca");
+            Ui.crumb(this, R.drawable.ic_cloud_sun, tech.kousozo.tahoetv.core.I18n.get(lang, "home.weather"));
             TextView hint = Ui.text(c, Ui.CAPTION, 500, Ui.TEXT_3);
-            hint.setText("Kiri/kanan pilih jam  ·  Back untuk menutup");
+            hint.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_hint"));
             LayoutParams hil = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL); hil.bottomMargin = (int) (14 * d);
             addView(hint, hil);
             select(0, cur);
         }
 
-        static String dayName(String iso) {
-            try { return new SimpleDateFormat("EEEE", Locale.getDefault()).format(new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(iso)); }
+        static String dayName(String lang, String iso) {
+            try { return new SimpleDateFormat("EEEE", Locale.forLanguageTag(lang)).format(new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(iso)); }
             catch (Exception e) { return iso; }
         }
 
         void select(int i, JSONObject cur) {
             sel = Math.max(0, Math.min(i, Math.max(0, count - 1)));
+            String lang = TvViewer.get(getContext()).getLanguage();
             for (int k = 0; k < hours.getChildCount(); k++)
                 hours.getChildAt(k).setBackground(k == sel ? new GlassDrawable(Ui.dp(getContext(), Ui.R_MED), Ui.GLASS_FOCUS, Ui.dp(getContext(), 1)) : null);
             JSONObject hourly = data.optJSONObject("hourly");
             if (sel == 0 && cur != null) {
                 int code = cur.optInt("weather_code");
-                eyebrow.setText(Cfg.s(getContext(), "city", R.string.city) + " · sekarang");
+                eyebrow.setText(Cfg.s(getContext(), "city", R.string.city) + " · " + tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_now_tag"));
                 temp.setText(Math.round(cur.optDouble("temperature_2m")) + "°");
-                desc.setText(text(code));
-                details.setText("Terasa " + Math.round(cur.optDouble("apparent_temperature")) + "°  ·  Kelembapan " + cur.optInt("relative_humidity_2m")
-                        + "%\nAngin " + Math.round(cur.optDouble("wind_speed_10m")) + " km/j  ·  UV " + uv());
+                desc.setText(text(lang, code));
+                details.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_details",
+                        String.valueOf(Math.round(cur.optDouble("apparent_temperature"))),
+                        String.valueOf(cur.optInt("relative_humidity_2m")),
+                        String.valueOf(Math.round(cur.optDouble("wind_speed_10m"))),
+                        String.valueOf(uv())));
                 skyView.set(sky(code), cur.optInt("is_day", 1) == 1);
             } else if (hourly != null) {
                 int code = hourly.optJSONArray("weather_code").optInt(sel);
-                eyebrow.setText(Cfg.s(getContext(), "city", R.string.city) + " · pukul " + hourly.optJSONArray("time").optString(sel).substring(11, 16));
+                eyebrow.setText(Cfg.s(getContext(), "city", R.string.city) + " · " + tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_at_hour", hourly.optJSONArray("time").optString(sel).substring(11, 16)));
                 temp.setText(Math.round(hourly.optJSONArray("temperature_2m").optDouble(sel)) + "°");
-                desc.setText(text(code));
-                details.setText("Peluang hujan " + hourly.optJSONArray("precipitation_probability").optInt(sel) + "%");
+                desc.setText(text(lang, code));
+                details.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.weather_rain", String.valueOf(hourly.optJSONArray("precipitation_probability").optInt(sel))));
                 skyView.set(sky(code), hourly.optJSONArray("is_day").optInt(sel) == 1);
             }
             View cell = hours.getChildAt(sel);

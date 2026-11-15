@@ -42,7 +42,13 @@ final class RemoteController implements Companion.Listener, Tools {
 
     RemoteController(Home home) {
         this.home = home;
-        this.sleepWarn = () -> Notif.banner(home, null, "Timer tidur", "TV standby dalam 1 menit", "Ubah atau matikan di Pusat Kontrol");
+        this.sleepWarn = () -> {
+            String lang = TvViewer.get(home).getLanguage();
+            Notif.banner(home, null,
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "tv.sleep_warn_title"),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "tv.sleep_warn_body"),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "tv.sleep_warn_sub"));
+        };
     }
 
     void cancelSleep() {
