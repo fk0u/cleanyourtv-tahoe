@@ -7,6 +7,7 @@ import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.exp
 
 /** Which stream URLs answer and how fast. Every stream is probed in the background when the app starts (cached on disk
  *  for 15 min), and players report what actually played or failed, so tuning a channel starts a source known to work
@@ -19,6 +20,9 @@ object SourceHealth {
         val height: Int = 0,
         val bandwidth: Long = 0L,
         val score: Double = 0.0,
+        val okCount: Int = if (live) 1 else 0,
+        val failCount: Int = if (live) 0 else 1,
+        val ewma: Double = if (live) 0.85 else 0.35,
     )
 
     private const val TTL = 15 * 60_000L
@@ -51,7 +55,10 @@ object SourceHealth {
                         val h = if (p.size >= 7) p[4].toIntOrNull() ?: 0 else 0
                         val bw = if (p.size >= 7) p[5].toLongOrNull() ?: 0L else 0L
                         val sc = if (p.size >= 7) p[6].toDoubleOrNull() ?: 0.0 else 0.0
-                        if (now - at < TTL) map[p[0]] = Status(p[1] == "1", ms, at, h, bw, sc)
+                        val ok = if (p.size >= 10) p[7].toIntOrNull() ?: (if (p[1] == "1") 1 else 0) else (if (p[1] == "1") 1 else 0)
+                        val fail = if (p.size >= 10) p[8].toIntOrNull() ?: (if (p[1] == "1") 0 else 1) else (if (p[1] == "1") 0 else 1)
+                        val ewma = if (p.size >= 10) p[9].toDoubleOrNull() ?: 0.75 else if (p[1] == "1") 0.85 else 0.35
+                        if (now - at < TTL) map[p[0]] = Status(p[1] == "1", ms, at, h, bw, sc, ok, fail, ewma)
                     }
                 }
             }
@@ -73,7 +80,7 @@ object SourceHealth {
 
     @Synchronized internal fun save() = file?.let { f ->
         atomicWrite(f, map.entries.joinToString("\n") { (u, s) ->
-            "$u\t${if (s.live) 1 else 0}\t${s.ms}\t${s.at}\t${s.height}\t${s.bandwidth}\t${s.score}"
+            "$u\t${if (s.live) 1 else 0}\t${s.ms}\t${s.at}\t${s.height}\t${s.bandwidth}\t${s.score}\t${s.okCount}\t${s.failCount}\t${s.ewma}"
         })
     }
 
@@ -92,16 +99,49 @@ object SourceHealth {
     }
     @Synchronized private fun saveBans() { banFile?.let { f -> atomicWrite(f, banned.joinToString("\n")) } }
 
+    /** Current EWMA reliability in 0.0..1.0 (time-decayed toward neutral prior 0.75). */
+    @JvmStatic fun stability(url: String): Double {
+        val raw = map[url] ?: return 0.75
+        return decayedEwma(raw, System.currentTimeMillis())
+    }
+
+    private fun decayedEwma(prev: Status, now: Long): Double {
+        val hours = ((now - prev.at).coerceAtLeast(0L)) / 3_600_000.0
+        val prior = 0.75
+        return (prior + (prev.ewma - prior) * exp(-hours / 48.0)).coerceIn(0.05, 0.99)
+    }
+
+    private fun updateEwma(prev: Status?, live: Boolean, now: Long): Triple<Int, Int, Double> {
+        val alpha = 0.35
+        val base = if (prev != null) decayedEwma(prev, now) else if (live) 0.80 else 0.45
+        val obs = if (live) 1.0 else 0.0
+        val next = (alpha * obs + (1.0 - alpha) * base).coerceIn(0.05, 0.99)
+        val ok = (prev?.okCount ?: 0) + if (live) 1 else 0
+        val fail = (prev?.failCount ?: 0) + if (!live) 1 else 0
+        return Triple(ok, fail, next)
+    }
+
     /** A player's verdict beats a probe: it really played (or really failed). */
     @JvmStatic fun report(url: String, live: Boolean) {
         if (url in banned) return
-        val prev = status(url)
-        map[url] = Status(live, prev?.ms ?: 0, System.currentTimeMillis(), prev?.height ?: 0, prev?.bandwidth ?: 0L, prev?.score ?: 0.0)
+        val now = System.currentTimeMillis()
+        val prev = map[url]
+        val (ok, fail, ewma) = updateEwma(prev, live, now)
+        val newScore = if (prev != null && prev.score > 0.0) {
+            StreamSelector.fuzzyScore(prev.ms, prev.height, prev.bandwidth, false, ewma)
+        } else prev?.score ?: 0.0
+        map[url] = Status(live, prev?.ms ?: 0, now, prev?.height ?: 0, prev?.bandwidth ?: 0L, newScore, ok, fail, ewma)
     }
 
     @JvmStatic fun reportMetrics(url: String, m: StreamSelector.Metrics) {
         if (url in banned) return
-        map[url] = Status(m.live, m.latencyMs, System.currentTimeMillis(), m.height, m.bandwidthBps, m.score)
+        val now = System.currentTimeMillis()
+        val prev = map[url]
+        val (ok, fail, ewma) = updateEwma(prev, m.live, now)
+        val adjustedScore = if (m.live) {
+            StreamSelector.fuzzyScore(m.latencyMs, m.height, m.bandwidthBps, m.hasAbr, ewma)
+        } else 0.0
+        map[url] = Status(m.live, m.latencyMs, now, m.height, m.bandwidthBps, adjustedScore, ok, fail, ewma)
     }
 
     /** Probes every stream not checked in the last 15 min, in the given order (put the likely next channels first). */

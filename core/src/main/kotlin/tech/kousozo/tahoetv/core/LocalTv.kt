@@ -192,15 +192,109 @@ object LocalTv {
 
     /** Classify, merge duplicates (best stream first: 24/7, then no special headers; the rest become backups),
      *  and sort near → category → rank → name. */
+    private val MERGE_NOISE = Regex("""\b(fhd|uhd|4k|hd|sd|ld|lq|backup|alt|server\s*\d+|feed\s*\d+|ch\s*\d+|drm|dash|hls)\b""", RegexOption.IGNORE_CASE)
+
+    private fun canonicalMergeKey(name: String): String =
+        MERGE_NOISE.replace(name.lowercase(), " ")
+            .replace(Regex("[^a-z0-9\\s]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .ifBlank { name.lowercase().trim() }
+
+    private fun packedBigrams(s: String): IntArray {
+        if (s.length < 2) return intArrayOf(s.hashCode())
+        val raw = IntArray(s.length - 1)
+        for (i in 0 until s.length - 1) raw[i] = (s[i].code shl 16) or (s[i + 1].code and 0xFFFF)
+        raw.sort()
+        var unique = 1
+        for (i in 1 until raw.size) if (raw[i] != raw[i - 1]) raw[unique++] = raw[i]
+        return if (unique == raw.size) raw else raw.copyOf(unique)
+    }
+
+    private fun sortedJaccard(a: IntArray, b: IntArray): Double {
+        if (a.isEmpty() && b.isEmpty()) return 1.0
+        var i = 0; var j = 0; var inter = 0
+        while (i < a.size && j < b.size) {
+            when {
+                a[i] == b[j] -> { inter++; i++; j++ }
+                a[i] < b[j] -> i++
+                else -> j++
+            }
+        }
+        val union = a.size + b.size - inter
+        return if (union == 0) 0.0 else inter.toDouble() / union
+    }
+
     @JvmOverloads
     fun arrange(channels: List<M3u.Channel>, province: String?, countries: List<String> = listOf(Region.HOME)): List<Entry> {
         val home = Region.HOME in countries
         val near = if (home) nearKeywords(province) else emptyList()
-        return channels.map { classify(it, near, home) }
-            .groupBy { "${it.name.lowercase()}|${it.category.name}" }.values.map { dupes ->
-                val sorted = dupes.sortedWith(compareBy({ it.partTime }, { it.channel.headers.isNotEmpty() }))
-                sorted.first().copy(alternates = sorted.drop(1).map { it.channel })
+        val exactBuckets = channels.map {
+            val e = classify(it, near, home)
+            val spaceKey = canonicalMergeKey(e.name).replace(" ", "")
+            e to spaceKey
+        }.groupBy { "${it.second}|${it.first.category.name}" }
+            .values
+            .map { dupes ->
+                val sorted = dupes.sortedWith(compareBy({ it.first.partTime }, { it.first.channel.headers.isNotEmpty() }))
+                val first = sorted.first()
+                first.first.copy(alternates = sorted.drop(1).map { it.first.channel }) to first.second
             }
+
+        // Second pass: O(N) bigram inverted-index fuzzy merge for near-duplicate names within the same category.
+        val merged = ArrayList<Entry>(exactBuckets.size)
+        val mergedKeys = ArrayList<String>(exactBuckets.size)
+        val mergedBigrams = ArrayList<IntArray>(exactBuckets.size)
+        val indexByCategory = HashMap<Int, HashMap<Int, MutableList<Int>>>()
+        val seenStamp = IntArray(exactBuckets.size)
+        var stamp = 0
+
+        for ((item, kItem) in exactBuckets) {
+            val catOrd = item.category.ordinal
+            val itemBg = packedBigrams(kItem)
+            var matchIdx = -1
+            if (kItem.length >= 6) {
+                val catIdx = indexByCategory[catOrd]
+                if (catIdx != null) {
+                    stamp++
+                    val probeCount = minOf(itemBg.size, (itemBg.size / 10) + 1)
+                    var bestSim = 0.899999
+                    for (p in 0 until probeCount) {
+                        val posting = catIdx[itemBg[p]] ?: continue
+                        for (cand in posting) {
+                            if (seenStamp[cand] == stamp) continue
+                            seenStamp[cand] = stamp
+                            val kEx = mergedKeys[cand]
+                            if (minOf(kEx.length, kItem.length) < 6) continue
+                            val exBg = mergedBigrams[cand]
+                            if (maxOf(exBg.size, itemBg.size) * 9 > minOf(exBg.size, itemBg.size) * 10) continue
+                            val sim = sortedJaccard(exBg, itemBg)
+                            if (sim >= 0.90 && sim > bestSim) {
+                                bestSim = sim
+                                matchIdx = cand
+                            }
+                        }
+                    }
+                }
+            }
+            if (matchIdx >= 0) {
+                val prev = merged[matchIdx]
+                val combined = (listOf(prev.channel) + prev.alternates + listOf(item.channel) + item.alternates)
+                    .distinctBy { it.url }
+                val primary = if (prev.partTime && !item.partTime) item else prev
+                merged[matchIdx] = primary.copy(alternates = combined.filter { it.url != primary.channel.url })
+            } else {
+                val idx = merged.size
+                merged += item
+                mergedKeys += kItem
+                mergedBigrams += itemBg
+                if (kItem.length >= 6) {
+                    val catIdx = indexByCategory.getOrPut(catOrd) { HashMap() }
+                    for (bg in itemBg) catIdx.getOrPut(bg) { ArrayList(2) }.add(idx)
+                }
+            }
+        }
+        return merged
             .sortedWith(
                 if (home) compareBy({ it.rank >= PRIORITY.size }, { !it.near }, { it.category.ordinal }, { it.rank }, { it.partTime }, { it.name.lowercase() })
                 else compareBy({ it.category.ordinal }, { it.partTime }, { it.channel.logo.isNullOrBlank() }, { it.name.lowercase() })

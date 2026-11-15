@@ -3,20 +3,35 @@ package tech.kousozo.tahoetv.core
 import org.json.JSONObject
 import java.io.File
 import java.net.URLEncoder
+import java.util.Collections
+import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 
 /** Scrapes missing channel logos and live programme preview thumbnails from the internet (Wikipedia pageimages
- *  with Bing image search fallback), backed by a lightweight in-memory and disk cache so lookups happen at most once
- *  per day/session. Shared across desktop, TV launcher, and mobile companion. */
+ *  with Bing image search fallback), backed by bounded LRU + atomic disk cache and `<= 2`-worker background
+ *  prefetch. Shared across desktop, TV launcher, and mobile companion. */
 object MediaScraper {
     private const val TTL_MS = 24 * 60 * 60_000L
+    private const val MAX_CACHE_ENTRIES = 600
     private const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    private val BING_MURL = Regex("""murl&quot;:&quot;(https://[^&]+)""")
+    private val BING_MURL = Regex("""murl(?:&quot;|"):\s*(?:&quot;|")(https?://[^&"]+(?:&amp;[^&"]*)*)(?:&quot;|")""")
 
     private data class Cached(val url: String?, val at: Long)
 
-    private val logoCache = ConcurrentHashMap<String, Cached>()
-    private val thumbCache = ConcurrentHashMap<String, Cached>()
+    private fun newLru(): MutableMap<String, Cached> = Collections.synchronizedMap(
+        object : LinkedHashMap<String, Cached>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Cached>?): Boolean =
+                size > MAX_CACHE_ENTRIES
+        }
+    )
+
+    private val logoCache = newLru()
+    private val thumbCache = newLru()
+    private val inflight = ConcurrentHashMap.newKeySet<String>()
+    private val prefetchPool = Executors.newFixedThreadPool(2) { r ->
+        Thread(r, "tahoe-media-prefetch").apply { isDaemon = true }
+    }
     @Volatile private var cacheDir: File? = null
 
     /** Optional override for the disk cache directory (e.g. Android `context.cacheDir`). */
@@ -30,7 +45,10 @@ object MediaScraper {
         File(System.getProperty("user.home"), ".tahoetv/media-scraper").apply { mkdirs() }
     }.getOrNull()?.takeIf { it.isDirectory && it.canWrite() }
 
-    private fun loadCacheFile(name: String, target: ConcurrentHashMap<String, Cached>) {
+    private fun escapeTsv(s: String): String = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "")
+    private fun unescapeTsv(s: String): String = s.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
+
+    private fun loadCacheFile(name: String, target: MutableMap<String, Cached>) {
         val f = dir()?.let { File(it, name) } ?: return
         if (!f.isFile) return
         val now = System.currentTimeMillis()
@@ -39,17 +57,25 @@ object MediaScraper {
                 val p = line.split('\t')
                 if (p.size == 3) {
                     val at = p[2].toLongOrNull() ?: return@forEachLine
-                    if (now - at < TTL_MS) target[p[0]] = Cached(p[1].ifBlank { null }, at)
+                    if (now - at < TTL_MS) target[unescapeTsv(p[0])] = Cached(unescapeTsv(p[1]).ifBlank { null }, at)
                 }
             }
         }
     }
 
-    @Synchronized private fun saveCacheFile(name: String, source: ConcurrentHashMap<String, Cached>) {
+    @Synchronized private fun saveCacheFile(name: String, source: MutableMap<String, Cached>) {
         val f = dir()?.let { File(it, name) } ?: return
+        val snapshot = synchronized(source) { source.entries.map { it.key to it.value } }
         runCatching {
             f.parentFile?.mkdirs()
-            f.writeText(source.entries.joinToString("\n") { (k, v) -> "$k\t${v.url.orEmpty()}\t${v.at}" })
+            val tmp = File(f.parentFile, "${f.name}.tmp")
+            tmp.writeText(snapshot.joinToString("\n") { (k, v) ->
+                "${escapeTsv(k)}\t${escapeTsv(v.url.orEmpty())}\t${v.at}"
+            })
+            if (!tmp.renameTo(f)) {
+                tmp.copyTo(f, overwrite = true)
+                tmp.delete()
+            }
         }
     }
 
@@ -65,8 +91,8 @@ object MediaScraper {
         val now = System.currentTimeMillis()
         logoCache[key]?.takeIf { now - it.at < TTL_MS }?.let { return it.url }
 
-        val found = scrapeWikiThumb(clean, 400)
-            ?: scrapeBingImage("$clean tv channel logo png")
+        val found = (scrapeWikiThumb(clean, 400) ?: scrapeBingImage("$clean tv channel logo png"))
+            ?.takeIf(::verifyImageUrl)
         logoCache[key] = Cached(found, now)
         saveCacheFile("logos.tsv", logoCache)
         return found
@@ -82,15 +108,75 @@ object MediaScraper {
         val now = System.currentTimeMillis()
         thumbCache[key]?.takeIf { now - it.at < TTL_MS }?.let { return it.url }
 
-        val found = scrapeWikiThumb(prog, 640)
-            ?: scrapeBingImage(if (ch.isNotBlank()) "$prog $ch tv" else "$prog tv")
+        val found = (scrapeWikiThumb(prog, 640) ?: scrapeBingImage(if (ch.isNotBlank()) "$prog $ch tv" else "$prog tv"))
+            ?.takeIf(::verifyImageUrl)
         thumbCache[key] = Cached(found, now)
         saveCacheFile("thumbs.tsv", thumbCache)
         return found
     }
 
+    /** Non-blocking background prefetch (<= 2 concurrent workers) for channel logo lookup. */
+    @JvmStatic @JvmOverloads
+    fun prefetchChannelLogo(channelName: String, existingLogo: String? = null, onReady: ((String) -> Unit)? = null) {
+        if (!existingLogo.isNullOrBlank() && (existingLogo.startsWith("http://") || existingLogo.startsWith("https://"))) {
+            onReady?.invoke(existingLogo)
+            return
+        }
+        val clean = LocalTv.cleanName(channelName).ifBlank { channelName.trim() }
+        if (clean.isBlank()) return
+        val cacheKey = "logo:${clean.lowercase()}"
+        logoCache[clean.lowercase()]?.takeIf { System.currentTimeMillis() - it.at < TTL_MS }?.url?.let {
+            onReady?.invoke(it)
+            return
+        }
+        if (!inflight.add(cacheKey)) return
+        prefetchPool.execute {
+            try {
+                channelLogo(channelName, existingLogo)?.let { onReady?.invoke(it) }
+            } finally {
+                inflight.remove(cacheKey)
+            }
+        }
+    }
+
+    /** Non-blocking background prefetch (<= 2 concurrent workers) for programme thumbnail lookup. */
+    @JvmStatic @JvmOverloads
+    fun prefetchProgrammeThumbnail(programmeTitle: String, channelName: String, onReady: ((String) -> Unit)? = null) {
+        val prog = programmeTitle.trim()
+        if (prog.isBlank()) return
+        val ch = LocalTv.cleanName(channelName).ifBlank { channelName.trim() }
+        val mapKey = "${prog.lowercase()}|${ch.lowercase()}"
+        val cacheKey = "thumb:$mapKey"
+        thumbCache[mapKey]?.takeIf { System.currentTimeMillis() - it.at < TTL_MS }?.url?.let {
+            onReady?.invoke(it)
+            return
+        }
+        if (!inflight.add(cacheKey)) return
+        prefetchPool.execute {
+            try {
+                programmeThumbnail(programmeTitle, channelName)?.let { onReady?.invoke(it) }
+            } finally {
+                inflight.remove(cacheKey)
+            }
+        }
+    }
+
     internal fun parseBingFirstImage(html: String): String? =
-        BING_MURL.find(html)?.groupValues?.get(1)?.takeIf { it.startsWith("https://") }
+        BING_MURL.find(html)?.groupValues?.get(1)
+            ?.replace("&amp;", "&")
+            ?.replace("&#38;", "&")
+            ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+
+    internal fun verifyImageUrl(url: String): Boolean = runCatching {
+        val con = Web.openFollowingRedirects(url, 3000, mapOf("User-Agent" to UA), blockPrivateNetwork = true)
+        try {
+            if (con.responseCode !in 200..299) return@runCatching false
+            val ct = con.contentType?.lowercase().orEmpty()
+            ct.startsWith("image/")
+        } finally {
+            con.disconnect()
+        }
+    }.getOrDefault(false)
 
     internal fun parseWikiPageImage(json: String): String? = runCatching {
         val pages = JSONObject(json).optJSONObject("query")?.optJSONObject("pages") ?: return null

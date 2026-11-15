@@ -2,6 +2,7 @@ package tech.kousozo.tahoetv.core
 
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.max
 import kotlin.math.min
 
@@ -110,6 +111,7 @@ object StreamSelector {
                 con.disconnect()
             }
 
+            val stability = SourceHealth.stability(c.url)
             val ms = elapsedMs(t0)
             val trimmed = text.trimStart()
             if (c.isDash || trimmed.contains("<MPD", ignoreCase = true)) {
@@ -122,7 +124,7 @@ object StreamSelector {
                 val maxH = heights.maxOrNull() ?: 0
                 val maxBw = bws.maxOrNull() ?: 0L
                 val abr = heights.size > 1 || bws.size > 1
-                val score = fuzzyScore(ms, maxH, maxBw, abr)
+                val score = fuzzyScore(ms, maxH, maxBw, abr, stability)
                 return Metrics(true, ms, maxH, maxBw, abr, score)
             }
 
@@ -139,19 +141,26 @@ object StreamSelector {
                     val maxH = heights.maxOrNull() ?: 0
                     val maxBw = bws.maxOrNull() ?: 0L
                     val abr = HlsProbe.variants(text, finalUrl).size > 1
-                    val score = fuzzyScore(ms, maxH, maxBw, abr)
+                    val score = fuzzyScore(ms, maxH, maxBw, abr, stability)
                     return Metrics(true, ms, maxH, maxBw, abr, score)
                 }
                 val kind = if (LocalTv.isVod(c)) HlsProbe.Kind.LIVE else HlsProbe.analyze(text)
                 if (kind == HlsProbe.Kind.REPLAY || kind == HlsProbe.Kind.STALE || kind == HlsProbe.Kind.DEAD) {
                     return Metrics(false, ms)
                 }
-                return Metrics(true, ms, 0, 0L, false, fuzzyScore(ms, 0, 0L, false))
+                return Metrics(true, ms, 0, 0L, false, fuzzyScore(ms, 0, 0L, false, stability))
             }
 
-            Metrics(true, ms, 0, 0L, false, fuzzyScore(ms, 0, 0L, false))
+            Metrics(true, ms, 0, 0L, false, fuzzyScore(ms, 0, 0L, false, stability))
         }.getOrElse { Metrics(false, elapsedMs(t0)) }
     }
+
+    private val zapGeneration = AtomicLong(0L)
+
+    /** Increments and returns the active zap generation token so superseded channel probes abort cleanly. */
+    @JvmStatic fun newZapGeneration(): Long = zapGeneration.incrementAndGet()
+
+    @JvmStatic fun currentZapGeneration(): Long = zapGeneration.get()
 
     /**
      * Multi-stage parallel tournament across [streams] (called when opening a channel or during deep health check).
@@ -159,24 +168,35 @@ object StreamSelector {
      * results into [SourceHealth] so the winning finalist plays first across all platforms.
      */
     @JvmStatic @JvmOverloads
-    fun rankOnOpen(streams: List<M3u.Channel>, timeoutMs: Int = 2500): List<M3u.Channel> {
+    fun rankOnOpen(
+        streams: List<M3u.Channel>,
+        timeoutMs: Int = 2500,
+        generation: Long = zapGeneration.get(),
+    ): List<M3u.Channel> {
         val active = streams.filterNot { SourceHealth.isBanned(it.url) }
         if (active.size <= 1) return active
+        if (zapGeneration.get() != generation) return SourceHealth.order(active)
         // If every candidate already has a fresh quality score in SourceHealth, just order immediately
         if (active.all { SourceHealth.status(it.url)?.score?.let { s -> s > 0.0 } == true || SourceHealth.status(it.url)?.live == false }) {
             return SourceHealth.order(active)
         }
         val jobs = active.map { c ->
-            c to POOL.submit<Metrics> { inspect(c, timeoutMs) }
+            c to POOL.submit<Metrics> {
+                if (zapGeneration.get() != generation) Metrics(false, 0) else inspect(c, timeoutMs)
+            }
         }
         val deadline = System.currentTimeMillis() + timeoutMs + 700L
-        jobs.forEach { (c, future) ->
+        for ((c, future) in jobs) {
+            if (zapGeneration.get() != generation || Thread.currentThread().isInterrupted) {
+                jobs.forEach { it.second.cancel(true) }
+                break
+            }
             val rem = (deadline - System.currentTimeMillis()).coerceAtLeast(1L)
             val m = runCatching { future.get(rem, TimeUnit.MILLISECONDS) }.getOrElse {
                 future.cancel(true)
                 null
             }
-            if (m != null) SourceHealth.reportMetrics(c.url, m)
+            if (m != null && zapGeneration.get() == generation) SourceHealth.reportMetrics(c.url, m)
         }
         return SourceHealth.order(active)
     }
