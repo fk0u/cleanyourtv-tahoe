@@ -1,10 +1,13 @@
 # handsoff.md — pick up from here
 
-> `[HANDOFF] from=review-board+main-agent · to=next human/agent · date=2026-11-14`
+> `[HANDOFF] from=main-agent · to=next human/agent · date=2026-11-15`
 
 ## State of the repo
 
-- **main = v3.3.0 (code 26)**, which adds Debian & Ubuntu `.deb` desktop support (`TahoeTV-linux-amd64.deb`, #163), Tahoe Connect P2–P3 & Multi-TV (#88, #37, #158), Mobile PiP & double-tap gestures (#63, #159), modularization of `Home.java` & `IptvServer.kt` (`DockGrid`, `RemoteController`, `ServerPages`, `ServerRelay`, #95, #160, #162), and docs/issue-template sync (#44, #161).
+- **main = v3.3.1 (code 27)**, plus **`feat/dash-drm-playback`**:
+  - **Released `v3.3.1`:** Fixed recurring force close in mobile (`:companion`) release builds (disabled R8 minification/obfuscation, added `x86_64` ABI, `Sync.status` & `TvDiscovery` main-thread safety, `DiagLog`, Android 14+ OTA `PendingIntent`).
+  - **Direct in-app DASH & DRM (`feat/dash-drm-playback`):** Added `Drm` parser (`#KODIPROP`, `#EXTVLCOPT`, `#EXTHTTP`, pipe params), `DashToHls`, and `CencDecrypt` (`cenc` CTR & `cbcs` CBC) in `:core`; native ExoPlayer Media3 DASH + `ClearKey`/`Widevine`/`PlayReady` in `:launcher` & `:companion`; and `HlsProxy.wrapDash` + `PlayerWindow` + `ServerRelay`/`WebPlayer` Shaka fallback in `:desktop`.
+  - **Real-device testing:** Verified TV onboarding (`#85`, `#77`) & Live TV ExoPlayer playback on Mi TV Stick (`Xiaomi MiTV-AESP0`, `192.168.18.52`), verified `:core:test`, `:desktop:test`, and `:desktop:createDistributable` on macOS Intel (`x86_64`), and verified Windows 11 Pro x64 target (`100.70.20.43`) SSH/ADB key access.
 - **Released:** `v3.3.0` (2026-11-14, 6 platform assets: macOS arm64/Intel DMG, Windows MSI, Debian/Ubuntu amd64 `.deb`, Android TV APK, Android Phone APK).
 - **Trust Patch 3.2.x Progress:**
   - #102 (CH+ direction): merged in #116.

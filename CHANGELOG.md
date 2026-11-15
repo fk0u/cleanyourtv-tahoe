@@ -3,6 +3,14 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
+## Unreleased
+
+### Baru
+- **Pemutaran DASH (`.mpd`) & DRM (`ClearKey`, `Widevine`, `PlayReady`) langsung di dalam aplikasi.**
+  - **Core (`:core`)**: Menambahkan `Drm` untuk mendeteksi `.mpd` serta skema/kunci/lisensi DRM dari `#KODIPROP`, `#EXTVLCOPT`, `#EXTHTTP`, dan parameter URL bertanda pipa (`|`), `DashToHls` untuk konversi manifes DASH (`SegmentTemplate`/`SegmentList`/`SegmentBase`) ke HLS fMP4 atau penulisan ulang MPD, serta `CencDecrypt` untuk dekripsi segmen fMP4 `cenc` (AES-128-CTR) dan `cbcs` (AES-128-CBC) ClearKey secara langsung.
+  - **Android TV (`:launcher`) & HP (`:companion`)**: Menambahkan konfigurasi `MimeTypes.APPLICATION_MPD` dan `DrmSessionManager` (`LocalMediaDrmCallback` untuk ClearKey inline serta `DefaultDrmSessionManagerProvider` untuk URL lisensi Widevine/PlayReady/ClearKey) langsung di `LiveTv` dan `Playback` (ExoPlayer Media3).
+  - **Desktop (`:desktop`)**: Menambahkan konversi dan dekripsi DASH/ClearKey on-the-fly melalui `HlsProxy.wrapDash` agar siaran `.mpd` dan ClearKey diputar langsung di `PlayerWindow` tanpa memaksa keluar ke browser; memperbarui `WebPlayer`, `IptvServer`, dan `ServerRelay` (`/live/{id}.mpd` dan `/live/{id}.m3u8` untuk DASH/DRM via Shaka Player & `DashToHls`).
+
 ## 3.3.1
 
 ### Perbaikan
