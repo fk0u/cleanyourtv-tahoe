@@ -7,9 +7,11 @@
 | Modul | Bahasa / UI | Isi |
 |---|---|---|
 | `core/` | Kotlin (JVM murni) | Logika bersama: playlist M3U (`Sources`), EPG, susunan saluran (`LocalTv`), pengecekan sumber & seleksi fuzzy multi-tahap (`HlsProbe`, `StreamSelector`, `SourceHealth`), pemutaran DASH/DRM (`Drm`, `DashToHls`, `CencDecrypt`), scraping logo/thumbnail (`MediaScraper`), perekam HLS (`HlsRecorder`), pencarian, log diagnostik (`DiagLog`), penemuan TV, ADB (`TvAdb`), link HP ↔ TV (`TvLink`), OTA (`Updates`) |
-| `launcher/` | Java, Android Views | Launcher Android TV (`tv.clean.home`, paket `tech.kousozo.tahoetv.launcher`). Tanpa Compose agar ringan di RAM 1 GB |
-| `companion/` | Kotlin, Jetpack Compose | App HP (`tech.kousozo.tahoetv`): pasang/atur TV lewat ADB, remote, Live TV, notifikasi ke TV. Membawa APK launcher di `assets/` |
-| `desktop/` | Kotlin, Compose Multiplatform + JavaFX | App macOS/Windows: Live TV, DVR, server IPTV, TV Rumah, remote + cermin |
+| `launcher/` | Java, Android Views | Aplikasi TV & HP potret (`tv.clean.home`, paket `tech.kousozo.tahoetv.launcher`, rilis `TahoeTV-App-for-TV-and-Phone.apk`). Tanpa Compose agar ringan di RAM 1 GB |
+| `companion/` | Kotlin, Jetpack Compose | Aplikasi HP Remote & Setup (`tech.kousozo.tahoetv`, rilis `TahoeTV-Phone-Remote-and-Setup.apk`): pasang/atur TV lewat ADB, remote, Live TV, kotak masuk notifikasi. Membawa APK TV+HP di `assets/` |
+| `desktop/` | Kotlin, Compose Multiplatform + JavaFX | App macOS/Windows/Linux: Live TV, DVR, server IPTV, TV Rumah, remote + cermin, serta notifikasi update & push |
+| `server/` | Node.js + SQLite | Control Plane Tahoe (`https://tahoe.kousozo.tech`): statistik perangkat anonim, push notification SSE & polling, kebijakan modal pembaruan, override saluran |
+| `website/` | HTML/CSS/JS Statis | [tahoe.kousozo.tech](https://tahoe.kousozo.tech): situs produk, direktori saluran publik, dan tautan unduhan dinamis |
 | `tools/` | Python / shell | `tv.py` (ADB), `disable.sh` (debloat aman), `iptv_server.py` (server IPTV versi Python), `lucide.py` (ikon) |
 
 Ketiga aplikasi memakai `:core` yang sama, jadi perbaikan pemutaran (misalnya deteksi siaran rekaman) berlaku di semua platform.

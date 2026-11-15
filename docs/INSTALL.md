@@ -14,7 +14,7 @@ Contents: [From your phone](#install-from-your-phone-no-computer) · [From a com
 The recommended way. You need an Android phone on the same Wi-Fi as the TV.
 
 1. On the TV: **Settings → Device Preferences → About → press "Build" 7×**, then **Developer options → USB debugging: ON**.
-2. On the phone: install [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) and open the **Install** (*Pasang*) tab.
+2. On the phone: install [`TahoeTV-Phone-Remote-and-Setup.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-Remote-and-Setup.apk) (**Tahoe TV Remote**) and open the **Install** (*Pasang*) tab.
 3. The app scans the Wi-Fi and lists the TVs it finds (ADB port 5555, and TVs already running Tahoe via `/info`). You can also type an IP.
 4. The TV shows **"Allow USB debugging?"**: tick *Always allow*, then **OK**.
 5. Choose which built-in apps to turn off, then fill in your name, city (searched automatically), photo, dock and API keys (optional), and tap **Install to TV**.
@@ -89,7 +89,7 @@ Control Center (◀ ▶).
 
 ## Phone ↔ TV
 
-- **Phone app** (`tahoe-tv.apk`): pair with the **QR code** on the TV (Control Center → Phone) or a 6-digit code. It has the remote, Live TV, install/set up the TV, Send log and the Kids PIN.
+- **Phone app** (`TahoeTV-Phone-Remote-and-Setup.apk`, label **Tahoe TV Remote**): pair with the **QR code** on the TV (Control Center → Phone) or a 6-digit code. It has the remote, Live TV, install/set up the TV, notifications inbox, Send log, and the Kids PIN. (Want the full-screen TV launcher UI standalone on an Android phone or TV by hand? Install [`TahoeTV-App-for-TV-and-Phone.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-App-for-TV-and-Phone.apk).)
 - **Web (any phone, nothing to install):** open the address shown on the TV for a remote, gamepad, app list, send a link, ask the assistant, send photos and upload an adhan sound.
 - **Phone notifications & music on the TV:** in the phone app, allow notification access. The TV shows notifications and what's playing, with play/pause/next in Control Center.
 - **Security:** LAN only (port 8765). Every phone needs a token from a one-time code. **Menu** on the TV's "Connect phone" screen forgets all phones.

@@ -66,14 +66,14 @@ dengan Live TV yang terasa seperti TV biasa (▲ ▼ untuk ganti saluran, jelas 
 
 | Saya punya… | Unduh | Lalu |
 |---|---|---|
-| **Android TV / TV box** (Mi TV Stick, Chromecast, dll.) | [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) di HP Android | Buka app HP → **Pasang** → pilih TV di Wi-Fi yang sama. Launcher terpasang otomatis ([langkah lengkap](docs/id/INSTALL.md#pasang-dari-hp-tanpa-laptop)) |
-| **HP Android** saja | [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) | Nonton Live TV di HP, atau jadi remote TV |
+| **Android TV / TV box** (Mi TV Stick, Chromecast, dll.) | [`TahoeTV-Phone-Remote-and-Setup.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-Remote-and-Setup.apk) di HP Android (paling mudah) | Buka **Tahoe TV Remote** → **Pasang** → pilih TV di Wi-Fi yang sama. Aplikasi TV terpasang otomatis ([langkah lengkap](docs/id/INSTALL.md#pasang-dari-hp-tanpa-laptop)) |
+| **HP Android** (nonton Live TV atau remote TV) | [`TahoeTV-Phone-Remote-and-Setup.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-Remote-and-Setup.apk) **atau** [`TahoeTV-App-for-TV-and-Phone.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-App-for-TV-and-Phone.apk) | **Tahoe TV Remote** untuk Live TV + remote + pasang TV lewat Wi-Fi, atau **Tahoe TV** mandiri untuk Android TV & HP layar penuh |
 | **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | Buka → TV Live. Pertama kali: klik kanan → **Buka** (app belum dinotarisasi) |
 | **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | Pasang → TV Live |
 | **Debian / Ubuntu** (64-bit) | [`TahoeTV-linux-amd64.deb`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-linux-amd64.deb) | `sudo apt install ./TahoeTV-linux-amd64.deb` → TV Live |
-| Sudah ada launcher, mau pasang manual | [`tahoe-launcher.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-launcher.apk) | Lihat [docs/id/INSTALL.md](docs/id/INSTALL.md) |
+| Pasang **Aplikasi TV** manual (USB / ADB) | [`TahoeTV-App-for-TV-and-Phone.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-App-for-TV-and-Phone.apk) | Memasang **Tahoe TV** (launcher + Live TV untuk TV & HP Android) — lihat [docs/id/INSTALL.md](docs/id/INSTALL.md) |
 
-Pembaruan diperiksa otomatis: TV, HP, dan desktop memeriksa rilis GitHub (Pusat Kontrol → **Tentang**) untuk kamu unduh dan pasang.
+Pembaruan dan siaran pengumuman bekerja real-time: aplikasi TV, HP, dan desktop terhubung ke Control Plane (`https://tahoe.kousozo.tech`) dan rilis GitHub untuk pop-up modal pembaruan serta notifikasi push.
 
 ## Screenshot
 

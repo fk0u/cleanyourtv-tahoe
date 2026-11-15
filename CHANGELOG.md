@@ -3,9 +3,17 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
-## Unreleased
+## 3.4.0
 
 ### Baru
+- **Control Plane terpusat, Notifikasi Push Real-Time, & Pop-up Modal Update (`server/`, `website/`, `:core`, `:launcher`, `:companion`, `:desktop`).**
+  - **Server Control Plane & Situs Web (`https://tahoe.kousozo.tech`)**: Menambahkan backend Node.js/SQLite (`server/`) yang melayani statistik instalasi anonim, stream **Push Notification** real-time via Server-Sent Events (`/api/push/stream` & polling `/api/push/poll`), kebijakan **Pop-up Modal Pembaruan** (`/api/config`), serta pembaruan situs web di `website/`.
+  - **Pop-up Modal Update & Inbox Notifikasi di Semua Aplikasi**: Menambahkan modal kaca pembaruan otomatis saat ada rilis baru (terverifikasi SHA-256 sebelum pemasangan) serta ikon lonceng & riwayat notifikasi di TV (`:launcher`), HP (`:companion`), dan Desktop (`:desktop` dengan notifikasi sistem macOS/Tray).
+- **Penamaan rilis & label aplikasi bahasa awam yang jelas.**
+  - Memperjelas artefak APK rilis menjadi `TahoeTV-App-for-TV-and-Phone.apk` (label **Tahoe TV** — mendukung Android TV/Box sekaligus HP/tablet Android dalam mode potret) dan `TahoeTV-Phone-Remote-and-Setup.apk` (label **Tahoe TV Remote** — khusus remote TV, pemasangan launcher TV lewat Wi-Fi, dan Live TV di HP), sembari mempertahankan fallback kompatibilitas aset lama.
+- **Kontrol Subtitle (CC) & Track Audio, serta UI Sentuh Potret Penuh untuk HP.**
+  - Menambahkan tombol & pintasan `C`/`A` untuk mengganti subtitle (`C.TRACK_TYPE_TEXT` + `Player.Listener.onCues` di launcher) dan bahasa audio (`C.TRACK_TYPE_AUDIO`) di Android TV (`:launcher`), HP (`:companion`), dan web player (`/watch` di `:desktop`).
+  - Memperbaiki dukungan layar sentuh potret penuh pada pemilih profil (`Lock.Profiles`), onboarding (`Onboarding`), beranda, dan `LiveTv` agar `Tahoe TV` nyaman dipakai langsung di HP maupun TV.
 - **Seleksi server multi-tahap & *fuzzy scoring* (`StreamSelector`) lintas platform.**
   - **Core (`:core`)**: Menambahkan `StreamSelector` dengan alur 3 tahap saat membuka saluran (`rankOnOpen`): (1) verifikasi keaktifan (*liveness*) HLS & DASH, (2) inspeksi paralel latensi, resolusi maksimum, bandwidth, dan dukungan ABR, serta (3) penghitungan skor kelayakan fuzzy (`fuzzyScore`, 0–100) beserta pencocokan nama berbasis bigram (`fuzzySimilarity`). `SourceHealth` kini menyimpan metrik kualitas (`height`, `bandwidth`, `score`) dalam format TSV 7 kolom (kompatibel mundur dengan 4 kolom) dan mengurutkan server live berdasarkan skor terbaik.
   - **Desktop (`:desktop`), HP (`:companion`), & Android TV (`:launcher`)**: Mengintegrasikan `StreamSelector.rankOnOpen` secara asinkron di `PlayerWindow`, `Playback`, dan `LiveTv` agar server finalis dengan kualitas dan latensi terbaik langsung dipilih setiap kali saluran dibuka atau dicoba ulang.
@@ -18,6 +26,10 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
   - **Desktop (`:desktop`)**: Menambahkan konversi dan dekripsi DASH/ClearKey on-the-fly melalui `HlsProxy.wrapDash` agar siaran `.mpd` dan ClearKey diputar langsung di `PlayerWindow` tanpa memaksa keluar ke browser; memperbarui `WebPlayer`, `IptvServer`, dan `ServerRelay` (`/live/{id}.mpd` dan `/live/{id}.m3u8` untuk DASH/DRM via Shaka Player & `DashToHls`).
 
 ### Perbaikan
+- **Keamanan jaringan, SSRF, CSP Nonce, & autentikasi lokal:**
+  - Memblokir redirect SSRF dari sumber publik ke alamat jaringan privat/loopback di `ServerRelay` (`Web.openFollowingRedirects` + `blockPrivateNetwork`), memindahkan `/api/connect` LAN di `IptvServer` ke autentikasi Bearer per sesi (`connectToken`), mengganti script inline web dashboard/watch dengan token CSP `nonce-` acak per respons (tanpa `'unsafe-inline'` di `script-src`), menambahkan sesi cookie `HttpOnly` untuk WebSocket companion PWA di `:launcher`, dan menegakkan TLS lewat `network_security_config.xml` untuk domain `tahoe.kousozo.tech`.
+- **Stabilitas perangkat nyata & *race condition* pergantian saluran:**
+  - Memisahkan executor pemuatan aplikasi lokal (`Net.local`) dari unduhan playlist/EPG (`Net.bg`) sehingga dock launcher TV langsung tampil tanpa tertahan antrean jaringan; mempercepat pergantian saluran dengan `StreamSelector.newZapGeneration()` agar probe lama dibatalkan saat pindah cepat (`zapping`).
 - **Status saluran desktop (`Live.kt`):** Memperbaiki `isChannelLive` agar saluran tidak ditandai `OFFLINE` selama masih ada sumber cadangan yang aktif/live.
 
 ## 3.3.1

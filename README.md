@@ -66,14 +66,14 @@ where live TV behaves like a normal TV (▲ ▼ to change channel, a clear "what
 
 | I have… | Download | Then |
 |---|---|---|
-| **Android TV / TV box** (Mi TV Stick, Chromecast, …) | [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) on an Android phone | Open the phone app → **Install** → pick your TV on the same Wi-Fi. The launcher installs itself ([full steps](docs/INSTALL.md#install-from-your-phone-no-computer)) |
-| **An Android phone** only | [`tahoe-tv.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-tv.apk) | Watch live TV on the phone, or use it as a TV remote |
-| **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | Open → Live TV. First time: right-click → **Open** (the app isn't notarized yet) |
+| **Android TV / TV box** (Mi TV Stick, Chromecast, …) | [`TahoeTV-Phone-Remote-and-Setup.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-Remote-and-Setup.apk) on an Android phone (easiest) | Open **Tahoe TV Remote** → **Install** → pick your TV on the same Wi-Fi. The launcher installs itself ([full steps](docs/INSTALL.md#install-from-your-phone-no-computer)) |
+| **An Android phone** (Live TV or TV remote) | [`TahoeTV-Phone-Remote-and-Setup.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-Remote-and-Setup.apk) **or** [`TahoeTV-App-for-TV-and-Phone.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-App-for-TV-and-Phone.apk) | **Tahoe TV Remote** for Live TV + remote + TV Wi-Fi setup, or **Tahoe TV** standalone on TVs & portrait phones |
+| **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | Open → Live TV. First time: right-click → **Open** (not notarized yet) |
 | **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | Install → Live TV |
 | **Debian / Ubuntu** (64-bit) | [`TahoeTV-linux-amd64.deb`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-linux-amd64.deb) | `sudo apt install ./TahoeTV-linux-amd64.deb` → Live TV |
-| A launcher already, want to install by hand | [`tahoe-launcher.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/tahoe-launcher.apk) | See [docs/INSTALL.md](docs/INSTALL.md) |
+| TV / Phone without Remote tools (manual APK / ADB) | [`TahoeTV-App-for-TV-and-Phone.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-App-for-TV-and-Phone.apk) | Installs **Tahoe TV** directly on Android TV/Box or Android phone — see [docs/INSTALL.md](docs/INSTALL.md) |
 
-Updates are checked automatically: the TV, phone and desktop apps check GitHub releases (Control Center → **About**) so you can download and install them.
+Updates and announcements work in real time: TV, phone and desktop apps check both GitHub releases and the Control Plane (`https://tahoe.kousozo.tech`), showing a pop-up update modal and real-time push notifications.
 
 ## Screenshots
 
