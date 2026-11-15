@@ -9,8 +9,10 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 - **Control Plane terpusat, Notifikasi Push Real-Time, & Pop-up Modal Update (`server/`, `website/`, `:core`, `:launcher`, `:companion`, `:desktop`).**
   - **Server Control Plane & Situs Web (`https://tahoe.kousozo.tech`)**: Menambahkan backend Node.js/SQLite (`server/`) yang melayani statistik instalasi anonim, stream **Push Notification** real-time via Server-Sent Events (`/api/push/stream` & polling `/api/push/poll`), kebijakan **Pop-up Modal Pembaruan** (`/api/config`), serta pembaruan situs web di `website/`.
   - **Pop-up Modal Update & Inbox Notifikasi di Semua Aplikasi**: Menambahkan modal kaca pembaruan otomatis saat ada rilis baru (terverifikasi SHA-256 sebelum pemasangan) serta ikon lonceng & riwayat notifikasi di TV (`:launcher`), HP (`:companion`), dan Desktop (`:desktop` dengan notifikasi sistem macOS/Tray).
-- **Penamaan rilis & label aplikasi bahasa awam yang jelas.**
-  - Memperjelas artefak APK rilis menjadi `TahoeTV-App-for-TV-and-Phone.apk` (label **Tahoe TV** — mendukung Android TV/Box sekaligus HP/tablet Android dalam mode potret) dan `TahoeTV-Phone-Remote-and-Setup.apk` (label **Tahoe TV Remote** — khusus remote TV, pemasangan launcher TV lewat Wi-Fi, dan Live TV di HP), sembari mempertahankan fallback kompatibilitas aset lama.
+- **Pemisahan tegas aplikasi TV vs HP/Tablet & penamaan artefak rilis bahasa awam.**
+  - Memisahkan peran dan penamaan artefak rilis APK secara tegas: `TahoeTV-Android-TV.apk` (**Tahoe TV Launcher** — khusus Android TV & Google TV dengan penjagaan runtime `TvGuard`) dan `TahoeTV-Phone-and-Tablet.apk` (**Tahoe TV** — khusus HP & tablet Android untuk setup launcher TV via Wi-Fi, remote TV, serta Live TV potret/PiP), sembari mempertahankan fallback kompatibilitas aset lama di alur pembaruan.
+- **Katalog kota global (`CountryCatalog`), popularitas saluran (`PopularityScraper`), filter wilayah, & lokalisasi penuh.**
+  - Menambahkan katalog negara/zona waktu/kata kunci lokal (`CountryCatalog`), penyusunan saluran berdasarkan negara prioritas (negara pilihan dimuat lebih dulu), opsi urut **Popularitas**, **A–Z**, dan **Z–A** (`LocalTv.SortMode`), serta lokalisasi menyeluruh termasuk salam beranda dan dialog sistem lintas EN, ID, dan 中文.
 - **Kontrol Subtitle (CC) & Track Audio, serta UI Sentuh Potret Penuh untuk HP.**
   - Menambahkan tombol & pintasan `C`/`A` untuk mengganti subtitle (`C.TRACK_TYPE_TEXT` + `Player.Listener.onCues` di launcher) dan bahasa audio (`C.TRACK_TYPE_AUDIO`) di Android TV (`:launcher`), HP (`:companion`), dan web player (`/watch` di `:desktop`).
   - Memperbaiki dukungan layar sentuh potret penuh pada pemilih profil (`Lock.Profiles`), onboarding (`Onboarding`), beranda, dan `LiveTv` agar `Tahoe TV` nyaman dipakai langsung di HP maupun TV.
@@ -30,7 +32,9 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
   - Memblokir redirect SSRF dari sumber publik ke alamat jaringan privat/loopback di `ServerRelay` (`Web.openFollowingRedirects` + `blockPrivateNetwork`), memindahkan `/api/connect` LAN di `IptvServer` ke autentikasi Bearer per sesi (`connectToken`), mengganti script inline web dashboard/watch dengan token CSP `nonce-` acak per respons (tanpa `'unsafe-inline'` di `script-src`), menambahkan sesi cookie `HttpOnly` untuk WebSocket companion PWA di `:launcher`, dan menegakkan TLS lewat `network_security_config.xml` untuk domain `tahoe.kousozo.tech`.
 - **Stabilitas perangkat nyata & *race condition* pergantian saluran:**
   - Memisahkan executor pemuatan aplikasi lokal (`Net.local`) dari unduhan playlist/EPG (`Net.bg`) sehingga dock launcher TV langsung tampil tanpa tertahan antrean jaringan; mempercepat pergantian saluran dengan `StreamSelector.newZapGeneration()` agar probe lama dibatalkan saat pindah cepat (`zapping`).
-- **Status saluran desktop (`Live.kt`):** Memperbaiki `isChannelLive` agar saluran tidak ditandai `OFFLINE` selama masih ada sumber cadangan yang aktif/live.
+- **Status saluran desktop (`Live.kt`) & perbaikan kontrol/fokus remote Android TV:**
+  - Memperbaiki `isChannelLive` di desktop agar saluran tidak ditandai `OFFLINE` selama masih ada sumber cadangan yang aktif/live.
+  - Memperbaiki fokus Android TV pada modul `:launcher` (`Home`, `LiveTv`, `Live`, `Onboarding`, `Sheets`, `About`, `Weather`, `Prayer`, `Lock`, `RemoteController`) agar tombol `OK`/gamepad/`NUMPAD_ENTER` selalu membuka aplikasi/saluran/pengaturan yang sedang disorot (tidak ter-hijack chip Cuaca di bar atas).
 
 ## 3.3.1
 

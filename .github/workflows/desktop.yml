@@ -24,7 +24,8 @@ jobs:
         run: |
           expected=$(awk -F= '/^tahoe\.version=/{gsub(/\r/,"",$2); print $2}' gradle.properties)
           actual="${GITHUB_REF_NAME#v}"
-          test "$actual" = "$expected" || { echo "::error::Tag $GITHUB_REF_NAME does not match tahoe.version=$expected"; exit 1; }
+          actual_base="${actual%%-*}"
+          test "$actual_base" = "$expected" || { echo "::error::Tag $GITHUB_REF_NAME (base $actual_base) does not match tahoe.version=$expected"; exit 1; }
       - name: JVM tests (core, desktop)
         run: ./gradlew --no-daemon -PpublicBuild :core:test :desktop:test
 
@@ -86,7 +87,9 @@ jobs:
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
+          name: ${{ contains(github.ref_name, '-') && format('Tahoe TV {0} (Beta)', github.ref_name) || github.ref_name }}
           files: ${{ matrix.out }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
   android:
     needs: verify
@@ -128,10 +131,13 @@ jobs:
         shell: bash
         run: |
           v="${GITHUB_REF_NAME#v}"
-          awk -v v="$v" '$0 ~ "^## " {p = ($2 == v)} p && !/^## /' CHANGELOG.md > release-notes.md
+          vb="${v%%-*}"
+          awk -v v="$v" -v vb="$vb" '$0 ~ "^## " {p = ($2 == v || $2 == vb)} p && !/^## /' CHANGELOG.md > release-notes.md
           test -s release-notes.md || echo "Tahoe TV $v" > release-notes.md
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
+          name: ${{ contains(github.ref_name, '-') && format('Tahoe TV {0} (Beta)', github.ref_name) || github.ref_name }}
           files: dist/*
           body_path: release-notes.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
