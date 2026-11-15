@@ -35,7 +35,8 @@ object Web {
         openFollowingRedirects(url, timeoutMs)
 
     /** Opens a GET connection following HTTP redirects (including cross-protocol http <-> https, which
-     *  HttpURLConnection skips by default), resolving relative Location headers up to 5 hops. */
+     *  HttpURLConnection skips by default), resolving relative Location headers up to 5 hops.
+     *  Set [blockPrivateNetwork] to reject redirects into loopback/LAN/link-local addresses (anti-SSRF). */
     @JvmOverloads
     fun openFollowingRedirects(
         url: String,
@@ -44,10 +45,19 @@ object Web {
         range: String? = null,
         connectTimeoutMs: Int = 8000,
         userAgent: String = STREAM_UA,
+        blockPrivateNetwork: Boolean = false,
     ): HttpURLConnection {
         var u = url
         repeat(6) {
-            val c = URI(u).toURL().openConnection() as HttpURLConnection
+            val uri = URI(u)
+            val scheme = uri.scheme?.lowercase()
+            if (scheme != "http" && scheme != "https") {
+                throw java.io.IOException("Unsupported URL scheme: $u")
+            }
+            if (blockPrivateNetwork && isPrivateOrLocalUri(uri)) {
+                throw java.io.IOException("Blocked private/loopback URL target")
+            }
+            val c = uri.toURL().openConnection() as HttpURLConnection
             c.connectTimeout = connectTimeoutMs; c.readTimeout = timeoutMs
             c.instanceFollowRedirects = false; c.requestMethod = "GET"
             c.setRequestProperty("User-Agent", userAgent)
@@ -59,12 +69,45 @@ object Web {
                 val loc = c.getHeaderField("Location")?.takeIf { it.isNotBlank() }
                     ?: run { c.disconnect(); throw java.io.IOException("Redirect without Location from $u") }
                 c.disconnect()
-                u = URI(u).resolve(loc).toString()
+                val next = uri.resolve(loc)
+                val nextScheme = next.scheme?.lowercase()
+                if (nextScheme != "http" && nextScheme != "https") {
+                    throw java.io.IOException("Blocked unsafe redirect scheme: $next")
+                }
+                if (blockPrivateNetwork && isPrivateOrLocalUri(next)) {
+                    throw java.io.IOException("Blocked redirect into private/loopback network")
+                }
+                u = next.toString()
             } else {
                 return c
             }
         }
         throw java.io.IOException("Too many redirects: $url")
+    }
+
+    /** Returns true if [uri] points to loopback, site-local/LAN, link-local, or cloud metadata addresses. */
+    @JvmStatic
+    fun isPrivateOrLocalUri(uri: URI): Boolean = runCatching {
+        val host = uri.host?.lowercase() ?: return true
+        if (host == "localhost" || host.endsWith(".local")) return true
+        val addrs = java.net.InetAddress.getAllByName(host)
+        addrs.any { a ->
+            a.isLoopbackAddress || a.isAnyLocalAddress || a.isLinkLocalAddress ||
+                a.isSiteLocalAddress || a.isMulticastAddress || isCgnatOrUniqueLocal(a)
+        }
+    }.getOrDefault(true)
+
+    private fun isCgnatOrUniqueLocal(addr: java.net.InetAddress): Boolean {
+        val b = addr.address
+        if (b.size == 4) {
+            val b0 = b[0].toInt() and 0xFF
+            val b1 = b[1].toInt() and 0xFF
+            if (b0 == 100 && b1 in 64..127) return true // RFC 6598 CGNAT
+        } else if (b.size == 16) {
+            val b0 = b[0].toInt() and 0xFF
+            if ((b0 and 0xFE) == 0xFC) return true // IPv6 ULA fc00::/7
+        }
+        return false
     }
 
     fun stream(url: String, timeoutMs: Int = 30_000): java.io.InputStream {

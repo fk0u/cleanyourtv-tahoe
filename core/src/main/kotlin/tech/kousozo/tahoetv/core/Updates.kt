@@ -11,18 +11,89 @@ import org.json.JSONObject
 object Updates {
     const val REPO = "fk0u/cleanyourtv-tahoe"
     const val PAGE = "https://github.com/$REPO/releases"
+    const val CONTROL_PLANE_RELEASE = "https://tahoe.kousozo.tech/api/releases/latest"
 
-    class Release(val version: String, val notes: String, val page: String, val date: String, val assets: Map<String, String>) {
-        /** Fetches and finds the SHA-256 hash for [assetName] if a SHA256SUMS asset exists. */
-        fun checksumFor(assetName: String): String? = runCatching {
-            val url = assets["SHA256SUMS"] ?: return null
-            val text = Web.get(url, 10_000)
-            parseChecksums(text)[assetName]
-        }.getOrNull()
+    /** Clear everyday APK filenames first, with fallback to historical pre-3.4 asset names for older releases. */
+    @JvmField val LAUNCHER_ASSETS = listOf("TahoeTV-App-for-TV-and-Phone.apk", "tahoe-launcher.apk")
+    @JvmField val REMOTE_ASSETS = listOf("TahoeTV-Phone-Remote-and-Setup.apk", "tahoe-tv.apk")
+
+    class Release(
+        val version: String,
+        val notes: String,
+        val page: String,
+        val date: String,
+        val assets: Map<String, String>,
+        val sha256Map: Map<String, String> = emptyMap(),
+        val forceModal: Boolean = false,
+        val minVersionCode: Int = 0,
+        val modalTitle: String = "",
+        val modalMessage: String = "",
+    ) {
+        /** Returns the first present asset key among [candidates]. */
+        fun pickAsset(candidates: List<String>): String? = candidates.firstOrNull { it in assets }
+
+        fun hasAnyAsset(candidates: List<String>): Boolean = pickAsset(candidates) != null
+
+        /** Fetches and finds the SHA-256 hash for [assetName] if a SHA256SUMS asset exists (or preloaded map). */
+        fun checksumFor(assetName: String): String? {
+            sha256Map[assetName]?.let { return it }
+            return runCatching {
+                val url = assets["SHA256SUMS"] ?: return null
+                val text = Web.get(url, 10_000)
+                parseChecksums(text)[assetName]
+            }.getOrNull()
+        }
+
+        /** Resolves asset + required SHA-256 (fail-closed if SHA256SUMS exists but entry is missing). */
+        fun resolveDownload(candidates: List<String>): Triple<String, String, String?> {
+            val name = pickAsset(candidates)
+                ?: throw java.io.IOException("Asset pembaruan tidak ditemukan pada rilis $version")
+            val url = assets.getValue(name)
+            val hash = sha256Map[name] ?: if ("SHA256SUMS" in assets) {
+                val text = Web.get(assets.getValue("SHA256SUMS"), 10_000)
+                parseChecksums(text)[name]
+                    ?: throw java.io.IOException("Checksum SHA-256 untuk $name tidak ditemukan di SHA256SUMS")
+            } else null
+            return Triple(name, url, hash)
+        }
     }
 
-    /** Blocks; throws when offline. */
+    /** Fetches latest release from Control Plane first (for policy/hashes), falling back to GitHub Releases. Blocks. */
     @JvmStatic fun latest(): Release {
+        runCatching {
+            val o = JSONObject(Web.get(CONTROL_PLANE_RELEASE, 5000))
+            val version = o.optString("version").trim()
+            if (version.isNotBlank()) {
+                val assets = linkedMapOf<String, String>()
+                val sha = linkedMapOf<String, String>()
+                o.optJSONArray("assets")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        val a = arr.getJSONObject(i)
+                        val n = a.optString("name")
+                        val u = a.optString("url")
+                        if (n.isNotBlank() && u.isNotBlank()) {
+                            assets[n] = u
+                            a.optString("sha256").takeIf { it.length == 64 }?.let { sha[n] = it.lowercase() }
+                        }
+                    }
+                }
+                val pol = o.optJSONObject("update_policy")
+                if (assets.isNotEmpty()) {
+                    return Release(
+                        version = version,
+                        notes = o.optString("notes"),
+                        page = o.optString("page", PAGE),
+                        date = o.optString("date"),
+                        assets = assets,
+                        sha256Map = sha,
+                        forceModal = pol?.optBoolean("force_modal", false) == true,
+                        minVersionCode = pol?.optInt("min_version_code", 0) ?: 0,
+                        modalTitle = pol?.optString("modal_title").orEmpty(),
+                        modalMessage = pol?.optString("modal_message").orEmpty(),
+                    )
+                }
+            }
+        }
         val o = JSONObject(Web.get("https://api.github.com/repos/$REPO/releases/latest", 8000))
         val assets = o.optJSONArray("assets")?.let { a -> (0 until a.length()).associate { a.getJSONObject(it).let { x -> x.getString("name") to x.getString("browser_download_url") } } }.orEmpty()
         return Release(o.getString("tag_name").removePrefix("v"), o.optString("body"), o.optString("html_url", PAGE), o.optString("published_at").take(10), assets)
@@ -52,14 +123,25 @@ object Updates {
     ) {
         var u = url
         repeat(5) {
-            val c = URI(u).toURL().openConnection() as HttpURLConnection
+            val parsed = URI(u)
+            val scheme = parsed.scheme?.lowercase()
+            if (scheme != "http" && scheme != "https") {
+                throw java.io.IOException("Skema URL unduhan tidak diizinkan: $scheme")
+            }
+            val c = parsed.toURL().openConnection() as HttpURLConnection
             c.instanceFollowRedirects = false
             c.connectTimeout = 10_000
             c.readTimeout = 30_000
             c.setRequestProperty("User-Agent", "TahoeTV")
             if (c.responseCode in 301..308) {
                 val loc = c.getHeaderField("Location") ?: throw java.io.IOException("Redirect without Location")
-                u = URI(u).resolve(loc).toString()
+                val next = parsed.resolve(loc)
+                val nextScheme = next.scheme?.lowercase()
+                if (nextScheme != "http" && nextScheme != "https") {
+                    c.disconnect()
+                    throw java.io.IOException("Skema redirect tidak diizinkan: $nextScheme")
+                }
+                u = next.toString()
                 c.disconnect()
                 return@repeat
             }

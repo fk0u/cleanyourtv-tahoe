@@ -48,11 +48,19 @@ object Sources {
         val dir = playlistCacheDir()
         val key = url.hashCode().toUInt().toString(16) + "-" + url.substringAfterLast('/').replace(Regex("[^a-zA-Z0-9._-]"), "_").take(32)
         val cached = dir?.let { File(it, "$key.m3u") }
-        val fresh = cached != null && cached.isFile && !forceRefresh && (System.currentTimeMillis() - cached.lastModified() < DAILY_MS)
-        if (fresh) return M3u.parse(cached!!.readText())
+        if (cached != null && cached.isFile && !forceRefresh && (System.currentTimeMillis() - cached.lastModified() < DAILY_MS)) {
+            return M3u.parse(cached.readText())
+        }
         val fetched = runCatching { Web.get(url, 30_000) }.getOrNull()
         if (!fetched.isNullOrBlank()) {
-            if (cached != null) runCatching { cached.writeText(fetched) }
+            if (cached != null) runCatching {
+                val tmp = File(cached.parentFile, "${cached.name}.tmp")
+                tmp.writeText(fetched)
+                if (!tmp.renameTo(cached)) {
+                    cached.writeText(fetched)
+                    tmp.delete()
+                }
+            }
             return M3u.parse(fetched)
         }
         if (cached != null && cached.isFile) return M3u.parse(cached.readText())
@@ -133,7 +141,7 @@ object Sources {
         // before; another country's iptv-org list goes through the free-TV filter (it also lists paid/DRM/VOD entries).
         if (out.isEmpty()) builtIn(country).forEach { ch -> if (seenUrls.add(ch.url)) out += ch }
 
-        return out
+        return out.filterNot(ControlPlane::isChannelBlocked)
     }
 
     /** A country's built-in channels: Indonesia keeps all channels (including premium/DASH/DRM); other countries use [load]. */
@@ -150,7 +158,8 @@ object Sources {
     @JvmStatic fun loadCountries(extra: String?, countries: List<String>): List<M3u.Channel> {
         val list = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
         val seen = HashSet<String>()
-        return (loadAll(extra, country = list.first()) + list.drop(1).flatMap(::builtIn)).filter { seen.add(it.url) }
+        return (loadAll(extra, country = list.first()) + list.drop(1).flatMap(::builtIn))
+            .filter { seen.add(it.url) && !ControlPlane.isChannelBlocked(it) }
     }
 
     /** [loadAll] for the viewer's [country] (the usual call from the apps). */
