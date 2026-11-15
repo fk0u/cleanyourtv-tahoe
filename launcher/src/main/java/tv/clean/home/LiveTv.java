@@ -22,19 +22,28 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.drm.DefaultDrmSessionManager;
+import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider;
+import androidx.media3.exoplayer.drm.FrameworkMediaDrm;
+import androidx.media3.exoplayer.drm.LocalMediaDrmCallback;
 import androidx.media3.exoplayer.hls.HlsManifest;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import tech.kousozo.tahoetv.core.Drm;
 import tech.kousozo.tahoetv.core.SourceHealth;
 import tech.kousozo.tahoetv.core.Epg;
 import tech.kousozo.tahoetv.core.LocalTv;
@@ -247,10 +256,38 @@ public class LiveTv extends Activity {
                 .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : tech.kousozo.tahoetv.core.Web.STREAM_UA);
         java.util.HashMap<String, String> h = new java.util.HashMap<>(c.getHeaders()); h.remove("User-Agent");
         http.setDefaultRequestProperties(h);
-        player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(new MediaItem.Builder().setUri(Uri.parse(c.getUrl()))
+        MediaItem.Builder item = new MediaItem.Builder().setUri(Uri.parse(c.getUrl()))
                 // Play behind live by the chosen latency (default ~20 s; ExoPlayer's own is ~12 s) so a slow piece from
                 // the server doesn't empty the buffer. ExoPlayer clamps this to what the stream keeps available.
-                .setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(lat.getOffsetMs()).build()).build()));
+                .setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(lat.getOffsetMs()).build());
+        if (Drm.isDash(c.getUrl(), c.getDrmType(), c.getManifestType())) {
+            item.setMimeType(MimeTypes.APPLICATION_MPD);
+        } else if (c.getUrl().toLowerCase(Locale.ROOT).contains(".m3u8")) {
+            item.setMimeType(MimeTypes.APPLICATION_M3U8);
+        }
+        DefaultMediaSourceFactory factory = new DefaultMediaSourceFactory(http);
+        Drm.Scheme scheme = Drm.scheme(c.getDrmType(), c.getDrmKey());
+        String jwk = Drm.toClearKeyJwk(c.getDrmKey());
+        String licUrl = Drm.licenseUrl(c.getDrmKey());
+        if (jwk != null) {
+            DefaultDrmSessionManager mgr = new DefaultDrmSessionManager.Builder()
+                    .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                    .setMultiSession(true)
+                    .build(new LocalMediaDrmCallback(jwk.getBytes(StandardCharsets.UTF_8)));
+            factory.setDrmSessionManagerProvider(mediaItem -> mgr);
+        } else if (licUrl != null && scheme != Drm.Scheme.NONE) {
+            UUID uuid = scheme == Drm.Scheme.WIDEVINE ? C.WIDEVINE_UUID
+                    : scheme == Drm.Scheme.PLAYREADY ? C.PLAYREADY_UUID : C.CLEARKEY_UUID;
+            MediaItem.DrmConfiguration.Builder drmCfg = new MediaItem.DrmConfiguration.Builder(uuid)
+                    .setLicenseUri(licUrl)
+                    .setMultiSession(true);
+            if (!c.getHeaders().isEmpty()) drmCfg.setLicenseRequestHeaders(c.getHeaders());
+            item.setDrmConfiguration(drmCfg.build());
+            DefaultDrmSessionManagerProvider drmProv = new DefaultDrmSessionManagerProvider();
+            drmProv.setDrmHttpDataSourceFactory(http);
+            factory.setDrmSessionManagerProvider(drmProv);
+        }
+        player.setMediaSource(factory.createMediaSource(item.build()));
         targetOffsetMs = lat.getOffsetMs();
         player.prepare(); player.play();
         sourceStarted = System.currentTimeMillis(); everReady = false; retries = 0; lastPos = -1; stuckSince = System.currentTimeMillis();

@@ -347,7 +347,7 @@ private fun Detail(
                 Text(stText, fontSize = 12.sp, color = stColor, fontWeight = FontWeight.SemiBold)
 
                 if (e.category == LocalTv.Category.Vod) Badge("VOD", Color(0xFFFF2D55))
-                if (e.channel.drm || e.channel.url.contains(".mpd", true)) {
+                if (PlayerWindow.needsBrowserDrm(e.channel)) {
                     Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_web"), Tahoe.Accent)
                 }
             }
@@ -367,7 +367,7 @@ private fun Detail(
                 if (!isPlaying) PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), Icons.Rounded.PlayArrow) { onWatch(e) }
                 else { PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.show_player"), Icons.Rounded.PictureInPicture) { PlayerWindow.show() }; GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.stop"), Icons.Rounded.Stop, onClick = onStop) }
 
-                if (e.channel.drm || e.channel.url.contains(".mpd", true)) {
+                if (PlayerWindow.needsBrowserDrm(e.channel)) {
                     GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.open_web_player"), Icons.Rounded.OpenInBrowser) {
                         runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(IptvServer.webUrl())) }
                     }

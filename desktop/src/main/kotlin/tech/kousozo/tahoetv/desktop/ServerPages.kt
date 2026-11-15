@@ -283,7 +283,7 @@ internal object ServerPages {
 <script>
 const v = document.getElementById('v'), veil = document.getElementById('veil'), msg = document.getElementById('msg'), spin = document.getElementById('spin');
 const SLATE = __SLATE__;
-let ids = JSON.parse("__IDS__".replace(/&quot;/g,'"')), seq = __SEQ__, maxH = 0, lat = 20, i = 0, hls = null, timer = null, reported = false, session = false;
+let ids = JSON.parse("__IDS__".replace(/&quot;/g,'"')), seq = __SEQ__, maxH = 0, lat = 20, i = 0, hls = null, shp = null, srcs = [], timer = null, reported = false, session = false;
 function post(q){ return fetch('/api/watch?' + q, { method: 'POST' }).catch(() => {}); }
 function fail(t){ spin.style.display='none'; msg.textContent=t; veil.classList.remove('hide'); post('event=failed&s=' + seq + '&msg=' + encodeURIComponent(t)); }
 function next(){ i++; start(); }
@@ -312,8 +312,12 @@ function tryPlay(){
 function start(){
   clearTimeout(timer); reported = false;
   if (hls) { hls.destroy(); hls = null; }
+  if (shp) { shp.destroy().catch(()=>{}); shp = null; }
   if (i >= ids.length) { slate(); return; }
   spin.style.display=''; msg.textContent='Memuat…'; veil.classList.remove('hide');
+  const info = srcs.find(x => x.id === ids[i]) || {};
+  timer = setTimeout(() => { if (v.readyState < 3) next(); }, 20000);
+  if (info.dash || info.scheme === 'widevine' || info.scheme === 'playready') { startShaka(info); return; }
   const src = '/live/' + encodeURIComponent(ids[i]) + '.m3u8';
   if (window.Hls && Hls.isSupported()) {
     hls = new Hls({ liveSyncDuration: lat, liveMaxLatencyDuration: lat * 3, enableWorker: true });
@@ -331,15 +335,33 @@ function start(){
     hls.on(Hls.Events.LEVEL_SWITCHED, (e, d) => { const l = hls.levels[d.level]; if (l) document.getElementById('fmt').textContent = (l.height ? l.height + 'p · ' : '') + (l.videoCodec || '').split('.')[0].replace('avc1','H.264').replace('hvc1','H.265'); });
     hls.loadSource(src); hls.attachMedia(v);
   } else { v.src = src; v.addEventListener('loadedmetadata', tryPlay, { once: true }); }
-  timer = setTimeout(() => { if (v.readyState < 3) next(); }, 20000);
 }
-function load(s){ clearInterval(slateTimer); slateTries = 0; session = true; seq = s.seq; ids = s.ids; maxH = s.q || 0; lat = Math.min(60, Math.max(4, s.lat || 20)); i = 0;
+// DASH and DRM (ClearKey keys, or a Widevine/PlayReady licence server) through Shaka, loaded only when needed
+function loadShaka(){ return window.shaka ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/assets/shaka-player.compiled.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
+async function startShaka(info){
+  const mine = i, mineSeq = seq;
+  try {
+    await loadShaka();
+    if (mine !== i || mineSeq !== seq) return;
+    shaka.polyfill.installAll();
+    shp = new shaka.Player(); await shp.attach(v);
+    const cfg = { streaming: { lowLatencyMode: false } };
+    if (info.keys) cfg.drm = { clearKeys: info.keys };
+    else if (info.license) cfg.drm = { servers: { [info.scheme === 'playready' ? 'com.microsoft.playready' : info.scheme === 'clearkey' ? 'org.w3.clearkey' : 'com.widevine.alpha']: info.license } };
+    if (maxH) cfg.abr = { restrictions: { maxHeight: maxH } };
+    shp.configure(cfg);
+    shp.addEventListener('error', () => next());
+    await shp.load('/live/' + encodeURIComponent(info.id) + (info.dash ? '.mpd' : '.m3u8'));
+    tryPlay();
+  } catch (e) { if (mine === i && mineSeq === seq) next(); }
+}
+function load(s){ clearInterval(slateTimer); slateTries = 0; session = true; seq = s.seq; ids = s.ids; srcs = s.src || []; maxH = s.q || 0; lat = Math.min(60, Math.max(4, s.lat || 20)); i = 0;
   document.getElementById('name').textContent = s.title; document.title = s.title + ' — Tahoe TV'; start(); }
 // follow the app: a new channel replaces this one; Stop stops and closes the window
 async function poll(){
   try {
     const s = await (await fetch('/api/watch', { cache: 'no-store' })).json();
-    if (s.stopped && session) { if (hls) { hls.destroy(); hls = null; } v.pause(); v.removeAttribute('src'); fail('Pemutar dihentikan.'); window.close(); }
+    if (s.stopped && session) { if (hls) { hls.destroy(); hls = null; } if (shp) { shp.destroy().catch(()=>{}); shp = null; } v.pause(); v.removeAttribute('src'); fail('Pemutar dihentikan.'); window.close(); }
     else if (!s.stopped && s.seq !== seq && s.ids.length) load(s);
   } catch (e) {}
 }

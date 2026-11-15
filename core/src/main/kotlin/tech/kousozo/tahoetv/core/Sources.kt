@@ -166,7 +166,20 @@ object Sources {
         val con = Web.openFollowingRedirects(c.url, timeoutMs, c.headers, connectTimeoutMs = timeoutMs)
         try {
             if (con.responseCode !in 200..299) return@runCatching false
-            val head = Web.body(con)!!.use { s -> ByteArray(16).let { b -> String(b, 0, s.read(b).coerceAtLeast(0)) } }
+            val buf = ByteArray(512)
+            val head = Web.body(con)!!.use { s ->
+                var total = 0
+                while (total < buf.size) {
+                    val n = s.read(buf, total, buf.size - total)
+                    if (n < 0) break
+                    total += n
+                }
+                String(buf, 0, total).trimStart()
+            }
+            if (c.isDash) {
+                val low = head.lowercase()
+                return@runCatching ("<mpd" in low || "<?xml" in low) && !low.startsWith("<html") && !low.startsWith("<!doctype html")
+            }
             !c.url.contains(".m3u8", true) || head.startsWith("#EXTM3U")
         } finally { con.disconnect() }
     }.getOrDefault(false)

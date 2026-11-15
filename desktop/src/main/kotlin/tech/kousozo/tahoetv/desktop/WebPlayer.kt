@@ -32,12 +32,12 @@ object WebPlayer {
     /** The page polled within the last few seconds: it will pick up a new session by itself. */
     private val pageAlive get() = System.currentTimeMillis() - lastPoll < 5_000
 
-    /** Plays [streams] (main stream first, then backups) in the web player. HLS only: DASH/DRM sources are skipped (the
-     *  dashboard's Shaka player handles those). Returns an error text, or null when the page has it. Blocks (server start). */
+    /** Plays [streams] (main stream first, then backups) in the web player: HLS through hls.js, DASH (and ClearKey /
+     *  Widevine DRM) through Shaka. Returns an error text, or null when the page has it. Blocks (server start). */
     fun open(streams: List<M3u.Channel>, title: String, onSwitch: (Int) -> Unit, onStatus: (String?) -> Unit): String? {
         val mine = request.incrementAndGet()
-        val hls = streams.filter { !it.drm && !it.url.substringBefore('?').endsWith(".mpd", true) }
-        if (hls.isEmpty()) { stop(); return "Saluran ini memakai DASH/DRM. Tonton di Web Player server (Setelan → Server IPTV)." }
+        val hls = streams
+        if (hls.isEmpty()) { stop(); return "Saluran ini tidak punya sumber." }
         val port = IptvServer.ensureRunning() // slow the first time (loads the channel list): not under this object's lock
         return synchronized(this) {
             if (request.get() != mine) return null // Stop (or another channel) came while the server was starting
@@ -72,6 +72,7 @@ object WebPlayer {
         lastPoll = System.currentTimeMillis()
         return JSONObject().put("seq", seq).put("ids", JSONArray(ids)).put("title", title).put("stopped", stopped)
             .put("q", Settings.quality.maxHeight).put("lat", Settings.latency.offsetMs / 1000)
+            .put("src", JSONArray(ids.map { IptvServer.sourceInfo(it) }))
     }
 
     /** The page reports for session [s]: "playing", "failed" (with [msg]) or "closed". Older sessions are ignored. */

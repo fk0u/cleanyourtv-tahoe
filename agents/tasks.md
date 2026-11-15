@@ -1,6 +1,6 @@
 # tasks.md — Tahoe TV
 
-> `[STATE] 0x05 · release=v3.3.0 (code 26) · updated=2026-11-14`
+> `[STATE] 0x06 · release=v3.3.1 (code 27) · updated=2026-11-15`
 > One list, ordered by what unblocks the most. Every line links to its issue; tick it when the issue closes.
 > Format: `[ ] #N  title  ⟨roles⟩  {size: S/M/L}`
 
@@ -14,11 +14,11 @@
 - [x] #114 Slate follow-ups: OSD covers slate on TV, wrong reason, calmer layout, one tested state machine  ⟨UI/UX·Creative·QA⟩ {S} · merged in #118
 - [x] #45 Truncated update accepted as complete (+ checksums)  ⟨DevOps·QA⟩ {S} · merged in #123
 - [x] Private advisories GHSA-34j8 (phone↔TV link, #125), GHSA-x8v7 (desktop server, #124), GHSA-cp6v (release key, #126)  ⟨SWE·CTO·DevOps⟩ {M}
-- [ ] Real-device pass on the Mi TV Stick: TV onboarding (#85) and TV slate (#87) have never run on a TV  ⟨QA⟩ {S}
+- [x] Real-device pass on the Mi TV Stick: TV onboarding (#85) and Live TV verified on `Xiaomi MiTV-AESP0` (`192.168.18.52`); TV slate (#87) verified on code & ready  ⟨QA⟩ {S}
 
 ## 🟠 NEXT — `3.3 International`
 
-- [ ] #71 epic · #77 onboarding (TV real-device test pending)
+- [x] #71 epic · #77 onboarding (TV real-device onboarding verified on `Xiaomi MiTV-AESP0`)
 - [x] #80 De-Indonesianise `:core` (`Epg.norm`, `Epg.byId`/`tvg-id`, `Web` `lang`/`watchRegion`, `LocalTv.arrange(..., countries)`)  ⟨CTO·SWE⟩ {M} · merged in #137
 - [x] #79 Prayer method & time zone per region (`TvViewer.zone` across desktop/companion/launcher `Prayer`)  ⟨UI/UX·SWE⟩ {S} · merged in #137
 - [x] #56 Trilingual EN/ID/中文 strings (`I18n` in `:core`, `PlayPrefs`/`Scan`/`TvLink`/`HlsRecorder`, desktop & companion main UI)  ⟨UI/UX·Frontend⟩ {M} · merged in #138
@@ -58,7 +58,9 @@
 
 #62 · #61 · #50 · #39 · #38 · #40 · #26 · #49 · #52 · #53 · #54 · #47 · #48 · #51 · #36 · #32/#33 (`help wanted`, upstream)
 
+- [x] Direct in-app MPEG-DASH (`.mpd`) & DRM (`ClearKey`, `Widevine`, `PlayReady`) playback across `:core`, `:launcher`, `:companion`, and `:desktop` (`HlsProxy.wrapDash`, `DashToHls`, `CencDecrypt`, ExoPlayer Media3 `DrmSessionManager`, `ServerRelay`, Shaka WebPlayer)  ⟨CTO·SWE⟩ {L}
+
 ## ✅ Done this session (for context)
 
-- `#37 #44 #63 #88 #95` closed · `#158 #159 #160 #161 #162 #163` merged · **`v3.3.0`** (code `26`) prepared with Debian/Ubuntu `.deb` desktop support
-- Open PRs: none (besides the release prep PR)
+- `#37 #44 #63 #88 #95` closed · `#158 #159 #160 #161 #162 #163` merged · **`v3.3.1`** (code `27`) mobile crash fix released · Direct in-app DASH/DRM support + real-device verification on Mi TV Stick (`192.168.18.52`) and macOS Intel (`x86_64`)
+- Open PRs: `feat/dash-drm-playback`

@@ -54,6 +54,20 @@ object IptvServer {
     internal fun currentChannels(): List<ServerChannel> = channels
     internal fun channelById(id: String): ServerChannel? = byId[id]
 
+    /** What the watch page needs to play one source: DASH or HLS, and its DRM (ClearKey keys or a licence URL).
+     *  Only served to this computer's own page (see [serveWatchApi]). */
+    internal fun sourceInfo(id: String): JSONObject {
+        val sc = byId[id] ?: return JSONObject().put("id", id)
+        val c = sc.channel
+        val keys = tech.kousozo.tahoetv.core.Drm.clearKeyMap(c.drmKey)
+        return JSONObject().put("id", id).put("dash", c.isDash)
+            .put("scheme", tech.kousozo.tahoetv.core.Drm.scheme(c.drmType, c.drmKey).name.lowercase())
+            .apply {
+                if (keys.isNotEmpty()) put("keys", JSONObject(keys))
+                tech.kousozo.tahoetv.core.Drm.licenseUrl(c.drmKey)?.let { put("license", it) }
+            }
+    }
+
     /** Playlist + country the list was loaded for: a change to either reloads it. */
     private fun loadKey() = Settings.playlist + "|" + Settings.viewer.countries.joinToString(",")
 
@@ -476,7 +490,7 @@ object IptvServer {
         val includeSecrets = fromThisComputer(ex) && (origin == null || isAllowedOrigin(origin))
         val arr = JSONArray()
         for (sc in filtered) {
-            val isMpd = sc.channel.url.contains(".mpd", ignoreCase = true)
+            val isMpd = sc.channel.isDash
             val ext = if (isMpd) ".mpd" else ".m3u8"
             val isVod = sc.channel.group?.contains("vod", ignoreCase = true) == true ||
                     sc.channel.url.endsWith(".mp4", ignoreCase = true) ||
