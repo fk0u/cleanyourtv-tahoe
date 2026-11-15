@@ -44,6 +44,18 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(5_000); now = Instant.now() } }
     val schedule = remember(Channels.epg, e, now) { Channels.epg?.schedule(e.name, now, e.channel.tvgId).orEmpty() }
     val cur = schedule.firstOrNull()?.takeIf { it.start <= now }
+    val scrapedLogo by produceState(e.channel.logo, e.channel.url, e.name) {
+        if (value.isNullOrBlank()) value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            tech.kousozo.tahoetv.core.MediaScraper.channelLogo(e.name, e.channel.logo)
+        }
+    }
+    val progThumbUrl by produceState<String?>(null, cur?.title, e.name) {
+        value = cur?.title?.let { t -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            tech.kousozo.tahoetv.core.MediaScraper.programmeThumbnail(t, e.name)
+        } }
+    }
+    val scrapedBmp = scrapedLogo?.let { rememberNetImage(it) } ?: logo
+    val progThumb = progThumbUrl?.let { rememberNetImage(it) }
     val today = java.time.LocalDate.now()
     val later = schedule.filter { it.start > now && it.start.atZone(java.time.ZoneId.systemDefault()).toLocalDate() == today }.take(8)
     val sources = listOf(e.channel) + e.alternates
@@ -51,9 +63,10 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
     val checked = remember(now, e) { sources.any { SourceHealth.status(it.url) != null } }
 
     Box(Modifier.fillMaxSize().background(Tahoe.Bg)) {
-        // header wash: the logo blown up and blurred (Android 12+) under the channel colour, fading into the page
+        // header wash: programme thumbnail (or logo) under the channel colour, fading into the page
         Box(Modifier.fillMaxWidth().height(380.dp).background(Brush.verticalGradient(listOf(tint.copy(alpha = 0.85f), tint.copy(alpha = 0.35f), Tahoe.Bg)))) {
-            if (logo != null) Image(logo, null, Modifier.matchParentSize().blur(60.dp).alpha(0.35f), contentScale = ContentScale.Crop)
+            val wash = progThumb ?: scrapedBmp
+            if (wash != null) Image(wash, null, Modifier.matchParentSize().blur(if (progThumb != null) 12.dp else 60.dp).alpha(if (progThumb != null) 0.55f else 0.35f), contentScale = ContentScale.Crop)
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Tahoe.Bg)))
         }
         Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = TabInset)) {
@@ -64,7 +77,7 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Box(Modifier.size(92.dp).clip(CircleShape).background(Color.White).border(3.dp, Color.White.copy(alpha = 0.35f), CircleShape),
                     contentAlignment = Alignment.Center) {
-                    if (logo != null) Image(logo, null, Modifier.padding(14.dp).fillMaxSize(), contentScale = ContentScale.Fit)
+                    if (scrapedBmp != null) Image(scrapedBmp, null, Modifier.padding(14.dp).fillMaxSize(), contentScale = ContentScale.Fit)
                     else Text(e.name.take(3).uppercase(), color = Color(0xFF141216), fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
                 }
                 Text(e.name.uppercase(), fontSize = 40.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp,

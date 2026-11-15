@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import tech.kousozo.tahoetv.core.Epg
 import tech.kousozo.tahoetv.core.LocalTv
+import tech.kousozo.tahoetv.core.MediaScraper
 import tech.kousozo.tahoetv.core.SourceHealth
 import tech.kousozo.tahoetv.core.Search
 import tech.kousozo.tahoetv.core.M3u
@@ -73,7 +74,10 @@ fun LiveScreen() {
     var checkingDone by remember { mutableStateOf(false) }
     var statusFilter by remember { mutableStateOf<String?>(null) } // null = all, "live", "offline"
 
-    LaunchedEffect(playlist, countries) {
+    var refreshNonce by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) { Sources.scheduleDailyRefresh { refreshNonce++ } }
+
+    LaunchedEffect(playlist, countries, refreshNonce) {
         channels = null; error = null
         statusMap = emptyMap()
         checkingDone = false
@@ -265,7 +269,10 @@ fun LiveScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.size(110.dp, 72.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center) {
-                        rememberImage(ch.logo)?.let { Image(it, null, Modifier.padding(8.dp).fillMaxSize(), contentScale = ContentScale.Fit) }
+                        val rowLogoUrl by produceState(ch.logo, ch.url, e.name) {
+                            if (value.isNullOrBlank()) value = withContext(Dispatchers.IO) { MediaScraper.channelLogo(e.name, ch.logo) }
+                        }
+                        rememberImage(rowLogoUrl)?.let { Image(it, null, Modifier.padding(8.dp).fillMaxSize(), contentScale = ContentScale.Fit) }
                             ?: Text(e.name.take(3).uppercase(), color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.width(14.dp))
@@ -331,15 +338,30 @@ private fun Detail(
 ) {
     Box(Modifier.width(400.dp).fillMaxHeight().clip(RoundedCornerShape(26.dp)).background(Color(0xFF111118)).border(1.dp, Tahoe.Stroke, RoundedCornerShape(26.dp))) {
         if (e == null) { Text("Pilih saluran", Modifier.align(Alignment.Center), color = Tahoe.Dim); return@Box }
-        val logo = rememberImage(e.channel.logo)
-        if (logo != null) Image(logo, null, Modifier.fillMaxWidth().height(260.dp).blur(28.dp).alpha(0.55f), contentScale = ContentScale.Crop)
+        val logoUrl by produceState(e.channel.logo, e.channel.url, e.name) {
+            if (value.isNullOrBlank()) value = withContext(Dispatchers.IO) { MediaScraper.channelLogo(e.name, e.channel.logo) }
+        }
+        val s = epg?.schedule(e.name, now, e.channel.tvgId).orEmpty()
+        val cur = s.firstOrNull()?.takeIf { it.start <= now }
+        val thumbUrl by produceState<String?>(null, cur?.title, e.name) {
+            value = cur?.title?.let { t -> withContext(Dispatchers.IO) { MediaScraper.programmeThumbnail(t, e.name) } }
+        }
+        val logo = rememberImage(logoUrl)
+        val thumb = rememberImage(thumbUrl)
+        val backdrop = thumb ?: logo
+        if (backdrop != null) Image(backdrop, null, Modifier.fillMaxWidth().height(260.dp).blur(if (thumb != null) 14.dp else 28.dp).alpha(0.55f), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.25f to Color(0x66111118), 0.45f to Color(0xFF111118))))
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.size(150.dp, 96.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.94f)), contentAlignment = Alignment.Center) {
-                if (logo != null) Image(logo, null, Modifier.padding(12.dp).fillMaxSize(), contentScale = ContentScale.Fit)
-                else Text(e.name, color = Color.Black, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(120.dp, 76.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.94f)), contentAlignment = Alignment.Center) {
+                    if (logo != null) Image(logo, null, Modifier.padding(10.dp).fillMaxSize(), contentScale = ContentScale.Fit)
+                    else Text(e.name, color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+                if (thumb != null) {
+                    Image(thumb, cur?.title, Modifier.weight(1f).height(76.dp).clip(RoundedCornerShape(14.dp)).border(1.dp, Tahoe.Stroke, RoundedCornerShape(14.dp)), contentScale = ContentScale.Crop)
+                }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(10.dp))
             val lang = Settings.lang
 
             // Channel Status Line
@@ -358,8 +380,6 @@ private fun Detail(
                 }
             }
 
-            val s = epg?.schedule(e.name, now, e.channel.tvgId).orEmpty()
-            val cur = s.firstOrNull()?.takeIf { it.start <= now }
             Text(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "live.playing_now") else e.category.label.uppercase(), fontSize = 11.sp, letterSpacing = 1.2.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold)
             Text(cur?.title ?: e.name, fontSize = 26.sp, fontWeight = FontWeight.Bold, lineHeight = 31.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
             cur?.desc?.let { Text(it, fontSize = 13.sp, color = Tahoe.Dim, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis) }

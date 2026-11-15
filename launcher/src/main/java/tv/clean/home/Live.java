@@ -100,6 +100,9 @@ public class Live extends Activity {
                       java.util.function.Consumer<Epg> guide, Runnable failed) {
         Handler main = new Handler(Looper.getMainLooper());
         SourceHealth.init(new java.io.File(c.getCacheDir(), "source-health.tsv"), new java.io.File(c.getFilesDir(), "source-banned.txt")); // bans: durable
+        Sources.initCache(c.getCacheDir());
+        tech.kousozo.tahoetv.core.MediaScraper.initCache(c.getCacheDir());
+        Sources.scheduleDailyRefresh(() -> cachedAt = 0);
         boolean fresh = cached != null && System.currentTimeMillis() - cachedAt < 6 * 3600_000L;
         if (fresh) { probe(c, cached); list.accept(cached); if (epg != null) { guide.accept(epg); return; } }
         Net.bg.execute(() -> {

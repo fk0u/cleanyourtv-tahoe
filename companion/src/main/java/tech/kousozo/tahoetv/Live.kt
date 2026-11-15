@@ -495,6 +495,9 @@ object Channels {
             val province = viewer.nearRegion ?: setup.getString("region", null).takeIf { !viewer.done } ?: setup.getString("city", "").orEmpty().takeIf { it.isNotBlank() }
                 ?.let { Web.geocode(it)?.region }?.also { setup.edit().putString("region", it).apply() }
             SourceHealth.init(java.io.File(c.cacheDir, "source-health.tsv"), java.io.File(c.filesDir, "source-banned.txt")) // bans: durable
+            tech.kousozo.tahoetv.core.Sources.initCache(c.cacheDir)
+            tech.kousozo.tahoetv.core.MediaScraper.initCache(c.cacheDir)
+            tech.kousozo.tahoetv.core.Sources.scheduleDailyRefresh { all = null; entries = null }
             val list = runCatching { LocalTv.arrange(Sources.loadCountries(null, viewer.countries), province, viewer.countries) }.getOrNull()
             val channelFilter = list?.flatMap { listOfNotNull(it.name, it.channel.tvgId) }?.toSet()
             val guide = runCatching { Epg.load(viewer.countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct(), channelFilter) }.getOrNull()
