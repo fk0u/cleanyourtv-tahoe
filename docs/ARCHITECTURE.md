@@ -6,7 +6,7 @@
 
 | Module | Language / UI | Contents |
 |---|---|---|
-| `core/` | Kotlin (pure JVM) | Shared logic: M3U playlists, EPG, channel arrangement (`LocalTv`), source checks (`Sources`, `HlsProbe`, `SourceHealth`), HLS recorder (`HlsRecorder`), search, play preferences (`PlayPrefs`), diagnostics (`DiagLog`), TV discovery, ADB (`TvAdb`), phone ↔ TV link (`TvLink`), OTA (`Updates`) |
+| `core/` | Kotlin (pure JVM) | Shared logic: M3U playlists (`Sources`), EPG, channel arrangement (`LocalTv`), source checks & multi-stage fuzzy selection (`HlsProbe`, `StreamSelector`, `SourceHealth`), in-app DASH/DRM (`Drm`, `DashToHls`, `CencDecrypt`), logo/thumbnail scraping (`MediaScraper`), HLS recorder (`HlsRecorder`), search, play preferences (`PlayPrefs`), diagnostics (`DiagLog`), TV discovery, ADB (`TvAdb`), phone ↔ TV link (`TvLink`), OTA (`Updates`) |
 | `launcher/` | Java, Android Views | Android TV launcher (`tv.clean.home`, package `tech.kousozo.tahoetv.launcher`). No Compose, to stay light on 1 GB RAM |
 | `companion/` | Kotlin, Jetpack Compose | Phone app (`tech.kousozo.tahoetv`): install/set up the TV over ADB, remote, Live TV, notifications to the TV. Ships the launcher APK in `assets/` |
 | `desktop/` | Kotlin, Compose Multiplatform + JavaFX | macOS/Windows app: Live TV, DVR, IPTV server, Home TVs, remote + mirroring |
@@ -17,18 +17,18 @@ All three apps use the same `:core`, so playback fixes (for example detecting re
 
 ## Live TV flow
 
-1. **Load channels** (`Sources.loadAll`): public playlists (iptv-org, dhanytv, yositapjani), the user's playlists and local files. The built-in sources are trimmed to free TV (`Sources.load`); DRM channels from the user's own playlists are kept and only play where a DRM player exists (the server dashboard's Shaka player).
+1. **Load channels** (`Sources.loadAll` + `Sources.scheduleDailyRefresh`): public playlists (`iptv-org`, `dhanytv`, `dhanytv-ott`, `windozalmi`, `yositapjani`), the user's playlists, and local files, refreshed automatically every 24 hours. `MediaScraper` enriches channels with logos and live programme thumbnails.
 2. **Arrange** (`LocalTv.arrange`): merge sources with the same name into one channel + backups, assign categories, and sort "near you" (province) first.
-3. **Check sources** (`Sources.check` / `HlsProbe`) in parallel in the background:
-   - `ENDLIST`/VOD playlist → **REPLAY**;
-   - `PROGRAM-DATE-TIME` more than 15 minutes ago → **STALE** (yesterday's broadcast on repeat);
-   - otherwise **LIVE**.
+3. **Multi-stage check & fuzzy ranking** (`StreamSelector` / `HlsProbe` / `SourceHealth`):
+   - **Stage 1 (Liveness):** `ENDLIST`/VOD → **REPLAY**, `PROGRAM-DATE-TIME` older than 15 minutes → **STALE**, invalid HTML/4xx/5xx → **DEAD**, otherwise **LIVE** (HLS & DASH `.mpd`).
+   - **Stage 2 (Inspection):** measures response latency, max resolution (`height`), bandwidth, and ABR support.
+   - **Stage 3 (Fuzzy Selection):** `StreamSelector.fuzzyScore` computes a `0..100` suitability score; `StreamSelector.rankOnOpen` benchmarks candidate servers in parallel when opening a channel so the best finalist plays first.
 
-   Results are kept in `SourceHealth` (cache + sources the user marked).
-4. **Play:** sources are ordered live-first, capped to the chosen quality and played at the chosen distance from live (`PlayPrefs`).
-   - TV/phone: ExoPlayer with fallback decoders + FFmpeg.
-   - macOS desktop: JavaFX through a local `HlsProxy` for sources that need headers (`Referer`, `Origin`, `User-Agent`).
-   - Windows desktop: JavaFX can't play HLS there, so the IPTV server's `/watch` page (hls.js) plays in an Edge app window, driven by the app through `/api/watch`.
+   Results (latency, height, bandwidth, score) are persisted in `SourceHealth`.
+4. **Play:** sources are ordered by fuzzy score / live status, capped to the chosen quality and played at the chosen distance from live (`PlayPrefs`).
+   - TV/phone: ExoPlayer (Media3) with fallback decoders + FFmpeg, plus direct `.mpd` DASH & `ClearKey`/`Widevine`/`PlayReady` DRM (`Drm`).
+   - macOS desktop: JavaFX through local `HlsProxy` (including `HlsProxy.wrapDash` + `CencDecrypt` for DASH/ClearKey and header injection).
+   - Windows desktop: JavaFX can't play HLS there, so the IPTV server's `/watch` page (hls.js / Shaka Player) plays in an Edge app window, driven by the app through `/api/watch`.
 5. **Recover automatically:** a source that played and then dropped reconnects; one that never plays (20 seconds), stalls or turns out to be a recording → next backup.
 
 ## Phone ↔ TV

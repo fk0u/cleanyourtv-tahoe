@@ -6,7 +6,7 @@
 
 | Modul | Bahasa / UI | Isi |
 |---|---|---|
-| `core/` | Kotlin (JVM murni) | Logika bersama: playlist M3U, EPG, susunan saluran (`LocalTv`), pengecekan sumber (`Sources`, `HlsProbe`, `SourceHealth`), perekam HLS (`HlsRecorder`), pencarian, log diagnostik (`DiagLog`), penemuan TV, ADB (`TvAdb`), link HP ↔ TV (`TvLink`), OTA (`Updates`) |
+| `core/` | Kotlin (JVM murni) | Logika bersama: playlist M3U (`Sources`), EPG, susunan saluran (`LocalTv`), pengecekan sumber & seleksi fuzzy multi-tahap (`HlsProbe`, `StreamSelector`, `SourceHealth`), pemutaran DASH/DRM (`Drm`, `DashToHls`, `CencDecrypt`), scraping logo/thumbnail (`MediaScraper`), perekam HLS (`HlsRecorder`), pencarian, log diagnostik (`DiagLog`), penemuan TV, ADB (`TvAdb`), link HP ↔ TV (`TvLink`), OTA (`Updates`) |
 | `launcher/` | Java, Android Views | Launcher Android TV (`tv.clean.home`, paket `tech.kousozo.tahoetv.launcher`). Tanpa Compose agar ringan di RAM 1 GB |
 | `companion/` | Kotlin, Jetpack Compose | App HP (`tech.kousozo.tahoetv`): pasang/atur TV lewat ADB, remote, Live TV, notifikasi ke TV. Membawa APK launcher di `assets/` |
 | `desktop/` | Kotlin, Compose Multiplatform + JavaFX | App macOS/Windows: Live TV, DVR, server IPTV, TV Rumah, remote + cermin |
@@ -16,15 +16,15 @@ Ketiga aplikasi memakai `:core` yang sama, jadi perbaikan pemutaran (misalnya de
 
 ## Alur Live TV
 
-1. **Muat saluran** (`Sources.loadAll`): playlist publik (iptv-org, dhanytv, yositapjani), playlist pengguna, dan file lokal. Disaring "TV gratis" (tanpa DRM, tanpa restream berbayar).
+1. **Muat saluran** (`Sources.loadAll` + `Sources.scheduleDailyRefresh`): playlist publik (`iptv-org`, `dhanytv`, `dhanytv-ott`, `windozalmi`, `yositapjani`), playlist pengguna, dan file lokal, dengan pembaruan otomatis tiap 24 jam. `MediaScraper` melengkapi logo saluran dan thumbnail acara yang sedang tayang.
 2. **Susun** (`LocalTv.arrange`): gabungkan sumber dengan nama sama jadi satu saluran + cadangan, beri kategori, dan urutkan "dekat kamu" (provinsi) lebih dulu.
-3. **Cek sumber** (`Sources.check` / `HlsProbe`) paralel di latar:
-   - playlist `ENDLIST`/VOD → **REPLAY**;
-   - `PROGRAM-DATE-TIME` lebih dari 15 menit lalu → **STALE** (siaran kemarin yang diulang);
-   - selain itu **LIVE**.
+3. **Cek sumber multi-tahap & ranking fuzzy** (`StreamSelector` / `HlsProbe` / `SourceHealth`):
+   - **Tahap 1 (Liveness):** playlist `ENDLIST`/VOD → **REPLAY**, `PROGRAM-DATE-TIME` lebih dari 15 menit lalu → **STALE**, HTML/4xx/5xx → **DEAD**, selain itu **LIVE** (HLS & DASH `.mpd`).
+   - **Tahap 2 (Inspeksi):** mengukur latensi respons, resolusi maksimum (`height`), bandwidth, dan dukungan ABR.
+   - **Tahap 3 (Seleksi Fuzzy):** `StreamSelector.fuzzyScore` menghitung skor `0..100`; `StreamSelector.rankOnOpen` menguji semua server kandidat secara paralel saat saluran dibuka agar server terbaik langsung dipilih.
 
-   Hasil disimpan di `SourceHealth` (cache + daftar sumber yang ditandai pengguna).
-4. **Putar:** sumber diurutkan hidup-duluan. ExoPlayer (TV/HP) dengan dekoder cadangan + FFmpeg; JavaFX di desktop lewat `HlsProxy` lokal untuk sumber yang butuh header (`Referer`, `Origin`, `User-Agent`).
+   Hasil (latensi, resolusi, bandwidth, skor) disimpan di `SourceHealth`.
+4. **Putar:** sumber diurutkan berdasarkan skor fuzzy tertinggi / status live. ExoPlayer Media3 (TV/HP) dengan dekoder cadangan + FFmpeg serta dukungan langsung DASH `.mpd` & DRM (`ClearKey`/`Widevine`/`PlayReady`); JavaFX di macOS lewat `HlsProxy` lokal (termasuk `HlsProxy.wrapDash` + `CencDecrypt`); dan Web Player (hls.js / Shaka Player) di Windows.
 5. **Pulih otomatis:** sumber yang sempat tayang lalu putus disambung ulang; yang tidak pernah tayang (20 detik), macet, atau ternyata rekaman → sumber cadangan berikutnya.
 
 ## HP ↔ TV

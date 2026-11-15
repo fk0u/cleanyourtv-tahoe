@@ -16,12 +16,14 @@ Tahoe TV is strictly an open-source launcher, remote, and media player frontend.
 
 Out of the box, `:core` reads only public, community-maintained playlists and XMLTV programme guides:
 
-- **[iptv-org/iptv](https://github.com/iptv-org/iptv)** — country-based public playlists (`https://iptv-org.github.io/iptv/countries/<xx>.m3u`) for international and Indonesian free-to-air channels.
+- **[iptv-org/iptv](https://github.com/iptv-org/iptv)** — country-based public playlists (`https://iptv-org.github.io/iptv/countries/<xx>.m3u`) and the global `index.m3u` index.
 - **[yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia)** — community-tested Indonesian free-to-air channel backups.
-- **[dhasap/dhanytv](https://github.com/dhasap/dhanytv)** — only its explicitly whitelisted free Indonesian broadcast groups (`Indonesia Channels`, `TVRI`, `Local Channels`, `Nasional`, `TV HIBURAN`).
+- **[dhasap/dhanytv](https://github.com/dhasap/dhanytv)** — `playlist.m3u` and `ott.m3u` playlists plus `epg.xml`.
+- **[windozalmi/Playlist_IPTV_Pribadi](https://github.com/windozalmi/Playlist_IPTV_Pribadi/tree/m3u-ipvt)** — Indonesian IPTV channel playlist (`m3u-ipvt` branch).
 - **XMLTV guides (schedules only, no media streams):** [epg.pw](https://epg.pw) and `dhanytv/epg.xml`.
+- **Automatic updates & media enrichment:** Built-in playlists refresh automatically every 24 hours (`Sources.scheduleDailyRefresh`), and `MediaScraper` fetches channel logos and live programme thumbnails from public metadata.
 
-Users can also supply their own local `.m3u`/`.m3u8` files or playlist URLs on their own device; those custom playlists are never uploaded or shared.
+Users can also supply their own local `.m3u`/`.m3u8` files or playlist URLs on their own device; those custom playlists are never uploaded or shared. For streams carrying standard `#KODIPROP` / license URLs (such as DASH `.mpd`, `ClearKey`, `Widevine`, or `PlayReady`), Tahoe TV supports direct in-app playback via `Drm`, `DashToHls`, and `CencDecrypt`.
 
 ### 3. Free-to-air only & no DRM circumvention
 
@@ -56,10 +58,12 @@ Tahoe TV murni berfungsi sebagai launcher, remote, dan pemutar media open-source
 
 Secara bawaan, modul `:core` hanya membaca daftar putar publik dan panduan acara XMLTV:
 
-- **[iptv-org/iptv](https://github.com/iptv-org/iptv)** — daftar putar per negara untuk saluran gratis (free-to-air) internasional dan Indonesia.
+- **[iptv-org/iptv](https://github.com/iptv-org/iptv)** — daftar putar per negara serta indeks global `index.m3u`.
 - **[yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia)** — cadangan saluran free-to-air Indonesia yang diuji komunitas.
-- **[dhasap/dhanytv](https://github.com/dhasap/dhanytv)** — hanya grup free-to-air Indonesia yang diizinkan (`Indonesia Channels`, `TVRI`, `Local Channels`, `Nasional`, `TV HIBURAN`).
+- **[dhasap/dhanytv](https://github.com/dhasap/dhanytv)** — playlist `playlist.m3u`, `ott.m3u`, dan panduan `epg.xml`.
+- **[windozalmi/Playlist_IPTV_Pribadi](https://github.com/windozalmi/Playlist_IPTV_Pribadi/tree/m3u-ipvt)** — daftar saluran IPTV Indonesia (branch `m3u-ipvt`).
 - **Panduan XMLTV (hanya jadwal acara):** [epg.pw](https://epg.pw) dan `dhanytv/epg.xml`.
+- **Pembaruan otomatis:** Playlist bawaan diperbarui otomatis setiap 24 jam (`Sources.scheduleDailyRefresh`), dan `MediaScraper` mengambil logo saluran serta thumbnail acara yang sedang tayang.
 
 Pengguna juga dapat menambahkan file `.m3u`/`.m3u8` atau URL playlist pribadi di perangkat masing-masing tanpa pernah diunggah ke luar perangkat.
 
@@ -91,9 +95,10 @@ Tahoe TV 仅是一个开源的 Android TV 桌面、遥控器与播放器前端�
 
 `:core` 模块默认仅读取公开的社区播放列表与 XMLTV 节目单（仅含节目时间表）：
 
-- **[iptv-org/iptv](https://github.com/iptv-org/iptv)** — 各国家/地区的免费公共频道列表。
+- **[iptv-org/iptv](https://github.com/iptv-org/iptv)** — 各国家/地区的免费公共频道列表及全球索引 `index.m3u`。
 - **[yositapjani/iptv-indonesia](https://github.com/yositapjani/iptv-indonesia)** — 社区维护的印度尼西亚免费频道备用源。
-- **[dhasap/dhanytv](https://github.com/dhasap/dhanytv)** — 仅限其免费公共印度尼西亚频道分组。
+- **[dhasap/dhanytv](https://github.com/dhasap/dhanytv)** — `playlist.m3u`、`ott.m3u` 列表与 `epg.xml` 节目表。
+- **[windozalmi/Playlist_IPTV_Pribadi](https://github.com/windozalmi/Playlist_IPTV_Pribadi/tree/m3u-ipvt)** — 印度尼西亚 IPTV 频道列表（`m3u-ipvt` 分支）。
 - **XMLTV 节目单（仅节目表，无视频流）：** [epg.pw](https://epg.pw) 与 `dhanytv/epg.xml`。
 
 ### 3. 仅限免费频道，绝不绕过 DRM

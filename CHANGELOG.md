@@ -6,10 +6,19 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 ## Unreleased
 
 ### Baru
+- **Seleksi server multi-tahap & *fuzzy scoring* (`StreamSelector`) lintas platform.**
+  - **Core (`:core`)**: Menambahkan `StreamSelector` dengan alur 3 tahap saat membuka saluran (`rankOnOpen`): (1) verifikasi keaktifan (*liveness*) HLS & DASH, (2) inspeksi paralel latensi, resolusi maksimum, bandwidth, dan dukungan ABR, serta (3) penghitungan skor kelayakan fuzzy (`fuzzyScore`, 0–100) beserta pencocokan nama berbasis bigram (`fuzzySimilarity`). `SourceHealth` kini menyimpan metrik kualitas (`height`, `bandwidth`, `score`) dalam format TSV 7 kolom (kompatibel mundur dengan 4 kolom) dan mengurutkan server live berdasarkan skor terbaik.
+  - **Desktop (`:desktop`), HP (`:companion`), & Android TV (`:launcher`)**: Mengintegrasikan `StreamSelector.rankOnOpen` secara asinkron di `PlayerWindow`, `Playback`, dan `LiveTv` agar server finalis dengan kualitas dan latensi terbaik langsung dipilih setiap kali saluran dibuka atau dicoba ulang.
+- **Perluasan sumber IPTV, auto-refresh harian, & scraping logo/thumbnail acara (`MediaScraper`).**
+  - **Sumber lengkap (`Sources`)**: Membuka sumber penuh `dhasap/dhanytv` (`playlist.m3u`, `ott.m3u`, `epg.xml`), `windozalmi/Playlist_IPTV_Pribadi` (`m3u-ipvt`), dan `iptv-org/index.m3u` untuk wilayah asal (`HOME`), serta menambahkan `Sources.scheduleDailyRefresh` untuk pembaruan daftar putar otomatis setiap 24 jam.
+  - **Scraping media (`MediaScraper`)**: Mengambil logo saluran dan thumbnail pratinjau program yang sedang berlangsung secara otomatis dari internet.
 - **Pemutaran DASH (`.mpd`) & DRM (`ClearKey`, `Widevine`, `PlayReady`) langsung di dalam aplikasi.**
   - **Core (`:core`)**: Menambahkan `Drm` untuk mendeteksi `.mpd` serta skema/kunci/lisensi DRM dari `#KODIPROP`, `#EXTVLCOPT`, `#EXTHTTP`, dan parameter URL bertanda pipa (`|`), `DashToHls` untuk konversi manifes DASH (`SegmentTemplate`/`SegmentList`/`SegmentBase`) ke HLS fMP4 atau penulisan ulang MPD, serta `CencDecrypt` untuk dekripsi segmen fMP4 `cenc` (AES-128-CTR) dan `cbcs` (AES-128-CBC) ClearKey secara langsung.
   - **Android TV (`:launcher`) & HP (`:companion`)**: Menambahkan konfigurasi `MimeTypes.APPLICATION_MPD` dan `DrmSessionManager` (`LocalMediaDrmCallback` untuk ClearKey inline serta `DefaultDrmSessionManagerProvider` untuk URL lisensi Widevine/PlayReady/ClearKey) langsung di `LiveTv` dan `Playback` (ExoPlayer Media3).
   - **Desktop (`:desktop`)**: Menambahkan konversi dan dekripsi DASH/ClearKey on-the-fly melalui `HlsProxy.wrapDash` agar siaran `.mpd` dan ClearKey diputar langsung di `PlayerWindow` tanpa memaksa keluar ke browser; memperbarui `WebPlayer`, `IptvServer`, dan `ServerRelay` (`/live/{id}.mpd` dan `/live/{id}.m3u8` untuk DASH/DRM via Shaka Player & `DashToHls`).
+
+### Perbaikan
+- **Status saluran desktop (`Live.kt`):** Memperbaiki `isChannelLive` agar saluran tidak ditandai `OFFLINE` selama masih ada sumber cadangan yang aktif/live.
 
 ## 3.3.1
 

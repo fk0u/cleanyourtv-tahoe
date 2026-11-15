@@ -54,8 +54,8 @@ where live TV behaves like a normal TV (▲ ▼ to change channel, a clear "what
 - 📺 **A beautiful home screen that stays light.** Calm glass-style look without heavy real-time blur, so it runs smoothly on a 1 GB TV stick.
 - 👵 **Easy for everyone.** Big readable tiles, one-step navigation with the remote, and live TV that works like a native TV: ▲ ▼ changes channel, the guide shows what's on now. (Consistent channel numbers for every country's lineup are coming.)
 - 🗣️ **Your language first.** First-run setup on TV, phone and desktop starts with the language (English, Bahasa Indonesia, 中文), then your country, city, prayer times, channels and favourites.
-- 🌍 **Free live TV.** 1,000+ free channels today (Indonesia first: national, regional, "near you", news, sports…) with a program guide, from public sources. Every country is next ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)).
-- ⚡ **Plays right away.** Working sources play first; reruns of yesterday's broadcast and dead sources are skipped automatically. Choose quality (Auto/1080p/720p/480p) and latency.
+- 🌍 **Free live TV & auto-updating sources.** 1,000+ channels (national, regional, "near you", news, sports…) with a program guide, channel logos & live show thumbnails (`MediaScraper`), and 24-hour automatic playlist updates from public sources (`iptv-org`, `dhanytv`, `windozalmi`, `yositapjani`).
+- ⚡ **Multi-stage fuzzy stream selection.** When you open a channel, candidate servers are tested for liveness, latency, resolution, bandwidth, and ABR, then ranked with a fuzzy suitability score (`0–100`) so the fastest, clearest finalist plays first. Supports HLS and direct in-app DASH (`.mpd`) & DRM (`ClearKey`, `Widevine`, `PlayReady`). Choose quality (Auto/1080p/720p/480p) and latency.
 - 📱 **Your phone is the remote and the control center.** Full remote, type on the TV, send photos, watch on the phone, install Tahoe on the TV over Wi-Fi without a computer.
 - 💻 **Desktop app (macOS, Windows & Linux).** Live TV, recording (DVR), an IPTV server for the whole home, and TV remote + screen mirroring.
 - 👨‍👩‍👧 **Family profiles.** Me, Guest and **Kids** (PIN-locked, kids' channels only).
@@ -88,8 +88,10 @@ Updates are checked automatically: the TV, phone and desktop apps check GitHub r
 <details>
 <summary>More screenshots (full size)</summary>
 
-| Home | **Prayer times & adhan** |
+| Home (Mi TV Stick) | **Live TV Guide (Mi TV Stick)** |
 |---|---|
+| ![Mi TV Home](docs/screenshots/v3/mitv-home.png) | ![Mi TV Live Guide](docs/screenshots/v3/mitv-live-guide.png) |
+| Home (v2) | **Prayer times & adhan** |
 | ![Home](docs/screenshots/v2/02-beranda.jpg) | ![Prayer times](docs/screenshots/v2/05-jadwal-shalat.jpg) |
 | **Phone notifications & music** | **Connect a phone (QR + code)** |
 | ![Phone notifications](docs/screenshots/v2/08-notifikasi-hp.jpg) | ![Connect phone](docs/screenshots/v2/09-hubungkan-hp.jpg) |
@@ -101,7 +103,7 @@ Updates are checked automatically: the TV, phone and desktop apps check GitHub r
 - **Calm, cinematic look:** glass-style tiles with lift and shine, a floating dock, Launchpad with a Games shelf, an editorial hero (YouTube trending, popular on Netflix) and app-opening transitions.
 - **Profiles:** Me, Guest and **Kids**. Kids is locked with a 4-digit PIN and only shows kids' & documentary channels and allowed apps. The PIN can be reset from a paired phone.
 - **Live TV:** channels by category, program guide, favorites and recently watched, channel numbers, 30-second pause/skip, a calm fullscreen loader, and quality + latency options.
-- **Smart source picking:** live sources first; recorded/stale broadcasts skipped; hold **OK** to mark a source "not live". Fallback decoders + **FFmpeg** for AC-3/E-AC-3/DTS/MP2 audio.
+- **Smart multi-stage source picking:** candidate servers are benchmarked on open (`StreamSelector`) for liveness, latency, resolution, and ABR, then ranked via fuzzy score so the best finalist plays first; recorded/stale broadcasts are skipped automatically; hold **OK** to mark a source "not live". Fallback decoders + **FFmpeg** for AC-3/E-AC-3/DTS/MP2 audio, plus direct in-app DASH (`.mpd`) & DRM (`ClearKey`, `Widevine`, `PlayReady`).
 - **Control Center:** volume, phone music, Wi-Fi, Bluetooth, wallpaper, weather, prayer times, assistant, home, sleep timer, **Send log** and updates.
 - **Prayer times & adhan**, hourly/7-day **weather** (Open-Meteo), **Gemini assistant**, **Home Assistant**, **gamepads** and an energy-saving **screensaver**.
 
@@ -122,10 +124,10 @@ Updates are checked automatically: the TV, phone and desktop apps check GitHub r
 ```mermaid
 flowchart LR
   subgraph Public sources
-    A[iptv-org] --- B[dhanytv] --- C[yositapjani]
+    A[iptv-org] --- B[dhanytv] --- C[windozalmi] --- D[yositapjani]
     E[EPG: dhanytv, epg.pw]
   end
-  A & B & C --> Core[":core<br/>M3U · EPG · source checks · HLS"]
+  A & B & C & D --> Core[":core<br/>M3U · EPG · StreamSelector · DASH/DRM"]
   E --> Core
   Core --> TV["📺 TV launcher<br/>ExoPlayer + FFmpeg"]
   Core --> HP["📱 Phone app<br/>Compose + ExoPlayer"]
@@ -158,7 +160,7 @@ Translating a document into your language? Add it under `docs/<language-code>/` 
 
 - **No root:** the Assistant, volume popup and system Settings can't be replaced; keys can't be injected into other apps (Back/Home still work).
 - **Notifications from the TV itself** are blocked by low-RAM firmware; the phone app is the workaround.
-- **Paid/DRM channels don't play** on the TV and phone; Tahoe only uses free broadcasts from public sources and hosts no streams.
+- **No hosted streams:** Tahoe TV hosts no video/audio streams; channels come from public playlists or user-configured URLs/files. In-app DASH (`.mpd`) and DRM (`ClearKey`, `Widevine`, `PlayReady`) require valid stream licenses/keys from the configured source.
 - **Google TV and webOS** aren't fully supported yet: see [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) and [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26).
 
 ## Contributing

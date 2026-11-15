@@ -54,8 +54,8 @@ dengan Live TV yang terasa seperti TV biasa (▲ ▼ untuk ganti saluran, jelas 
 - 📺 **Beranda TV yang cantik dan ringan.** Gaya kaca yang tenang tanpa blur berat, jadi tetap lancar di TV stick 1 GB.
 - 👵 **Mudah untuk semua orang.** Tile besar yang mudah dibaca, navigasi satu langkah dengan remote, dan Live TV seperti TV biasa: ▲ ▼ ganti saluran, jadwal menampilkan acara yang sedang tayang. (Nomor saluran yang konsisten untuk tiap negara menyusul.)
 - 🗣️ **Bahasamu duluan.** Setup awal di TV, HP, dan desktop dimulai dari bahasa (English, Bahasa Indonesia, 中文), lalu negara, kota, jadwal shalat, saluran, dan favorit.
-- 🌍 **Live TV gratis.** 1.000+ saluran gratis (Indonesia dulu: nasional, TVRI daerah, TV lokal "dekat kamu", berita, olahraga…) dengan jadwal acara, dari sumber publik. Berikutnya semua negara ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)).
-- ⚡ **Langsung tayang.** Sumber yang hidup diputar duluan; siaran ulang dan sumber mati dilewati otomatis. Pilih kualitas (Otomatis/1080p/720p/480p) dan latensi.
+- 🌍 **Live TV & pembaruan sumber otomatis.** 1.000+ saluran (nasional, TVRI daerah, TV lokal "dekat kamu", berita, olahraga…) lengkap dengan jadwal acara, scraping logo & thumbnail acara yang sedang tayang (`MediaScraper`), serta auto-refresh playlist tiap 24 jam dari sumber publik (`iptv-org`, `dhanytv`, `windozalmi`, `yositapjani`).
+- ⚡ **Seleksi server multi-tahap & *fuzzy scoring*.** Saat saluran dibuka, semua server kandidat diuji keaktifan, latensi, resolusi, bandwidth, dan dukungan ABR, lalu diberi skor fuzzy (`0–100`) agar server finalis terbaik langsung diputar duluan. Mendukung HLS serta pemutaran DASH (`.mpd`) & DRM (`ClearKey`, `Widevine`, `PlayReady`) langsung di dalam aplikasi. Pilih kualitas (Otomatis/1080p/720p/480p) dan latensi.
 - 📱 **HP jadi remote dan pusat kendali.** Remote lengkap, ketik ke TV, kirim foto, nonton di HP, pasang Tahoe ke TV lewat Wi-Fi tanpa laptop.
 - 💻 **App desktop (macOS, Windows & Linux).** Live TV, rekam acara (DVR), server IPTV untuk seluruh rumah, serta remote + cermin layar TV.
 - 👨‍👩‍👧 **Profil keluarga.** Saya, Tamu, dan **Anak** (dikunci PIN, hanya saluran anak).
@@ -88,8 +88,10 @@ Pembaruan diperiksa otomatis: TV, HP, dan desktop memeriksa rilis GitHub (Pusat 
 <details>
 <summary>Screenshot lainnya (ukuran penuh)</summary>
 
-| Beranda | **Jadwal shalat & adzan** |
+| Beranda (Mi TV Stick) | **Panduan Live TV (Mi TV Stick)** |
 |---|---|
+| ![Mi TV Home](docs/screenshots/v3/mitv-home.png) | ![Mi TV Live Guide](docs/screenshots/v3/mitv-live-guide.png) |
+| Beranda (v2) | **Jadwal shalat & adzan** |
 | ![Beranda](docs/screenshots/v2/02-beranda.jpg) | ![Jadwal shalat](docs/screenshots/v2/05-jadwal-shalat.jpg) |
 | **Notifikasi & musik dari HP** | **Hubungkan HP (QR + kode)** |
 | ![Notifikasi HP](docs/screenshots/v2/08-notifikasi-hp.jpg) | ![Hubungkan HP](docs/screenshots/v2/09-hubungkan-hp.jpg) |
@@ -101,7 +103,7 @@ Pembaruan diperiksa otomatis: TV, HP, dan desktop memeriksa rilis GitHub (Pusat 
 - **Tampilan tenang dan sinematik:** material kaca dengan efek lift dan kilau, dock mengambang, Launchpad dengan rak Game, hero editorial (trending YouTube, populer di Netflix), dan transisi buka aplikasi.
 - **Profil:** Saya, Tamu, dan **Anak**. Profil Anak dikunci PIN 4 angka, hanya menampilkan saluran Anak & Dokumenter dan aplikasi yang diizinkan. PIN bisa diatur ulang dari HP yang sudah dipasangkan.
 - **Live TV:** saluran per kategori, jadwal acara, favorit dan terakhir ditonton, nomor saluran, tunda/maju 30 detik, loading layar penuh yang tenang, serta pilihan kualitas + latensi.
-- **Pintar memilih sumber:** sumber hidup diputar duluan; siaran rekaman/basi dilewati; tahan **OK** untuk menandai sumber "bukan live". Dekoder cadangan + **FFmpeg** untuk audio AC-3/E-AC-3/DTS/MP2.
+- **Pintar memilih sumber multi-tahap:** server kandidat diuji saat dibuka (`StreamSelector`) untuk keaktifan, latensi, resolusi, dan ABR, lalu diurutkan dengan skor fuzzy agar sumber terbaik langsung tayang; siaran rekaman/basi dilewati; tahan **OK** untuk menandai sumber "bukan live". Dekoder cadangan + **FFmpeg** untuk audio AC-3/E-AC-3/DTS/MP2, plus pemutaran DASH (`.mpd`) & DRM (`ClearKey`, `Widevine`, `PlayReady`) langsung di dalam aplikasi.
 - **Pusat Kontrol:** volume, musik dari HP, Wi-Fi, Bluetooth, wallpaper, cuaca, shalat, asisten, rumah, timer tidur, **Kirim log**, dan pembaruan.
 - **Jadwal shalat & adzan** (Kemenag RI lewat Aladhan), **cuaca** per jam/7 hari (Open-Meteo), **asisten Gemini**, **Home Assistant**, **gamepad**, dan **screensaver** hemat energi.
 
@@ -122,10 +124,10 @@ Pembaruan diperiksa otomatis: TV, HP, dan desktop memeriksa rilis GitHub (Pusat 
 ```mermaid
 flowchart LR
   subgraph Sumber publik
-    A[iptv-org] --- B[dhanytv] --- C[yositapjani]
+    A[iptv-org] --- B[dhanytv] --- C[windozalmi] --- D[yositapjani]
     E[EPG: dhanytv, epg.pw]
   end
-  A & B & C --> Core[":core<br/>M3U · EPG · cek sumber · HLS"]
+  A & B & C & D --> Core[":core<br/>M3U · EPG · StreamSelector · DASH/DRM"]
   E --> Core
   Core --> TV["📺 Launcher TV<br/>ExoPlayer + FFmpeg"]
   Core --> HP["📱 App HP<br/>Compose + ExoPlayer"]
@@ -156,7 +158,7 @@ Mau menerjemahkan dokumen ke bahasamu? Taruh di `docs/<kode-bahasa>/` dan tautka
 
 - **Tanpa root:** Assistant, popup volume, dan Settings sistem tidak bisa diganti; tombol tidak bisa disuntik ke aplikasi lain (Back/Home tetap bisa).
 - **Notifikasi dari TV sendiri** diblokir firmware low-RAM. Solusinya app HP.
-- **Saluran berbayar/DRM tidak diputar** di TV dan HP; Tahoe hanya memakai siaran gratis dari sumber publik dan tidak meng-host siaran apa pun.
+- **Tidak meng-host siaran:** Tahoe TV tidak meng-host stream video/audio apa pun; saluran berasal dari playlist publik atau URL/file pengguna sendiri. Pemutaran DASH (`.mpd`) dan DRM (`ClearKey`, `Widevine`, `PlayReady`) membutuhkan kunci/lisensi yang valid dari sumber yang dikonfigurasi.
 - **Google TV dan webOS** belum didukung penuh: lihat [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) dan [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26).
 
 ## Ikut berkontribusi
