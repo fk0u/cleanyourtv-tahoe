@@ -89,10 +89,14 @@ fun LiveScreen() {
         }.fold(
             { loaded ->
                 channels = loaded
-                // Asynchronously check reachability of each channel
+                // Check arranged channels & their backups first, reusing any fresh SourceHealth cache
                 withContext(Dispatchers.IO) {
+                    val ordered = SourceHealth.streamsOf(viewer.arrange(LocalTv.arrange(loaded, Settings.nearProvince, countries)))
+                    val cached = ordered.mapNotNull { c -> SourceHealth.status(c.url)?.let { c.url to it.live } }.toMap()
                     val lock = Any()
-                    Sources.checkStatus(loaded, timeoutMs = 3500) { url, isLive ->
+                    if (cached.isNotEmpty()) synchronized(lock) { statusMap = statusMap + cached }
+                    val todo = ordered.filter { it.url !in cached }
+                    Sources.checkStatus(todo, timeoutMs = 3500) { url, isLive ->
                         SourceHealth.report(url, isLive) // the player then starts a source known to work
                         // 32 checker threads report at once: without the lock, read-add-write lost results
                         synchronized(lock) { statusMap = statusMap + (url to isLive) }
@@ -110,10 +114,12 @@ fun LiveScreen() {
     val names = remember(entries) { entries.associate { it.channel.url to it.name } }
     val byUrl = remember(entries) { entries.associateBy { it.channel.url } }
     fun isChannelLive(e: LocalTv.Entry): Boolean? {
-        val st = statusMap[e.channel.url]
-        if (st != null) return st
-        val altLive = e.alternates.mapNotNull { statusMap[it.url] }
-        return if (altLive.isNotEmpty()) altLive.any { it } else null
+        val all = (listOf(e.channel) + e.alternates).map { statusMap[it.url] }
+        return when {
+            all.any { it == true } -> true
+            all.all { it != null } -> false
+            else -> null
+        }
     }
     val liveCount = remember(entries, statusMap) { entries.count { isChannelLive(it) == true } }
     val offlineCount = remember(entries, statusMap) { entries.count { isChannelLive(it) == false } }
