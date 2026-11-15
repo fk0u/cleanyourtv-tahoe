@@ -6,8 +6,11 @@ set -e
 cd "$(dirname "$0")/.."
 rm -rf website/_site
 mkdir -p website/_site/assets/shots
-cp website/index.html website/robots.txt website/sitemap.xml website/_site/
+cp website/index.html website/admin.html website/robots.txt website/sitemap.xml website/_site/
 cp website/assets/*.css website/assets/*.js website/_site/assets/
 cp -R docs/screenshots/v2 docs/screenshots/mobile-v4 website/_site/assets/shots/
+if [ -d docs/screenshots/v3 ]; then
+  cp -R docs/screenshots/v3 website/_site/assets/shots/
+fi
 cp docs/readme/hero.svg docs/brand/logo-mark.svg docs/brand/app-icon-1024.png website/_site/assets/
 echo "website/_site ready"

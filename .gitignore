@@ -28,3 +28,4 @@ __pycache__/
 
 # website build output
 website/_site/
+.claude/
