@@ -88,6 +88,15 @@ fun SettingsScreen() {
         Text("Menentukan daftar saluran dan jadwal acara. Teks aplikasi lainnya masih berbahasa Indonesia; terjemahan sedang dikerjakan (#56).",
             color = Tahoe.Faint, fontSize = 12.sp)
 
+        Section("Pembaruan")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            GhostButton("Cek Pembaruan (Pop-up)", Icons.Rounded.SystemUpdate) {
+                DesktopPush.checkUpdateModal(manual = true)
+            }
+        }
+        Text("Tahoe TV terhubung ke https://tahoe.kousozo.tech untuk notifikasi rilis baru dan pemeriksaan integritas SHA-256.",
+            color = Tahoe.Faint, fontSize = 12.sp)
+
         Section("Berbagi saluran di Wi-Fi rumah")
         Text("Bagikan saluran TV ke TV lain, HP, atau pemutar di jaringan Wi-Fi rumah yang sama.", color = Tahoe.Dim, fontSize = 13.sp)
 

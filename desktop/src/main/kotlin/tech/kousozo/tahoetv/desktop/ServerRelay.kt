@@ -311,19 +311,14 @@ internal object ServerRelay {
         }
     }
 
-    private fun open(url: String, headers: Map<String, String>, range: String? = null): HttpURLConnection {
-        var u = url
-        repeat(5) {
-            val c = URI(u).toURL().openConnection() as HttpURLConnection
-            c.connectTimeout = 10000; c.readTimeout = 18000; c.instanceFollowRedirects = false
-            c.setRequestProperty("User-Agent", Web.STREAM_UA)
-            headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
-            if (!range.isNullOrEmpty()) c.setRequestProperty("Range", range)
-            if (c.responseCode in 300..399) {
-                u = URI(u).resolve(c.getHeaderField("Location")).toString()
-                c.disconnect()
-            } else return c
-        }
-        error("Too many redirects: $url")
-    }
+    private fun open(url: String, headers: Map<String, String>, range: String? = null): HttpURLConnection =
+        Web.openFollowingRedirects(
+            url = url,
+            timeoutMs = 18_000,
+            headers = headers,
+            range = range,
+            connectTimeoutMs = 10_000,
+            userAgent = Web.STREAM_UA,
+            blockPrivateNetwork = runCatching { !Web.isPrivateOrLocalUri(URI(url)) }.getOrDefault(true),
+        )
 }

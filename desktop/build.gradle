@@ -32,7 +32,7 @@ tasks.register("bundleLauncher", Copy) {
     dependsOn(":launcher:assembleRelease")
     from(project(":launcher").layout.buildDirectory.file("outputs/apk/release/launcher-release.apk"))
     into(bundled)
-    rename { "tahoe-launcher.apk" }
+    rename { "TahoeTV-App-for-TV-and-Phone.apk" }
 }
 sourceSets.main.resources.srcDir(bundled)
 tasks.named("processResources") { dependsOn("bundleLauncher") }

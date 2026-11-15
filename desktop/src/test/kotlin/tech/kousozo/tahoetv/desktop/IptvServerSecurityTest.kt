@@ -69,17 +69,23 @@ class IptvServerSecurityTest {
             assertEquals(200, conDash.responseCode)
             val csp = conDash.getHeaderField("Content-Security-Policy")
             assertTrue(csp != null && csp.contains("default-src 'self'"), "Dashboard must enforce CSP")
+            assertTrue(csp.contains("script-src 'self' 'nonce-"), "Dashboard CSP must use per-response script nonce")
+            assertFalse(csp.substringBefore("; style-src").contains("'unsafe-inline'"), "Dashboard script-src must not allow 'unsafe-inline'")
             assertFalse(csp.contains("cloudflare.com"), "Dashboard CSP must not depend on external CDN")
             val dashHtml = conDash.inputStream.bufferedReader().readText()
             assertTrue(dashHtml.contains("/assets/shaka-player.compiled.js"))
+            assertTrue(dashHtml.contains("<script nonce="))
             assertFalse(dashHtml.contains("cdnjs.cloudflare.com"))
 
             val conWatch = URI("$baseUrl/watch").toURL().openConnection() as HttpURLConnection
             assertEquals(200, conWatch.responseCode)
             val watchCsp = conWatch.getHeaderField("Content-Security-Policy")
             assertTrue(watchCsp != null && !watchCsp.contains("jsdelivr.net"), "Watch CSP must not depend on external CDN")
+            assertTrue(watchCsp.contains("script-src 'self' 'nonce-"), "Watch CSP must use per-response script nonce")
+            assertFalse(watchCsp.substringBefore("; style-src").contains("'unsafe-inline'"), "Watch script-src must not allow 'unsafe-inline'")
             val watchHtml = conWatch.inputStream.bufferedReader().readText()
             assertTrue(watchHtml.contains("/assets/hls.min.js"))
+            assertTrue(watchHtml.contains("<script nonce="))
             assertFalse(watchHtml.contains("cdn.jsdelivr.net"))
 
             for (asset in listOf("/assets/hls.min.js", "/assets/shaka-player.compiled.js")) {
