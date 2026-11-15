@@ -28,11 +28,11 @@ dependencies {
 
 // The launcher APK ships inside the desktop app too, so installing on a TV needs no download.
 def bundled = layout.buildDirectory.dir("generated/tahoeRes")
-tasks.register("bundleLauncher", Copy) {
+tasks.register("bundleLauncher", Sync) {
     dependsOn(":launcher:assembleRelease")
     from(project(":launcher").layout.buildDirectory.file("outputs/apk/release/launcher-release.apk"))
     into(bundled)
-    rename { "TahoeTV-App-for-TV-and-Phone.apk" }
+    rename { "TahoeTV-Android-TV.apk" }
 }
 sourceSets.main.resources.srcDir(bundled)
 tasks.named("processResources") { dependsOn("bundleLauncher") }
