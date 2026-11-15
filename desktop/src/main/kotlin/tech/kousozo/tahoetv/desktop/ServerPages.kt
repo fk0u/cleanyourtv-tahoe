@@ -6,17 +6,19 @@ import org.json.JSONObject
 /** HTML/JS page templates rendered by [IptvServer] (`/watch` web player and `/` LAN dashboard). */
 internal object ServerPages {
 
-    fun renderWatch(title: String, ids: List<String>, seq: Int, slateJson: String): String =
+    fun renderWatch(title: String, ids: List<String>, seq: Int, slateJson: String, nonce: String = ""): String =
         WATCH_HTML
             .replace("__TITLE__", IptvServer.esc(title))
             .replace("__IDS__", IptvServer.esc(JSONArray(ids).toString()))
             .replace("__SEQ__", seq.toString())
             .replace("__SLATE__", slateJson)
+            .replace("__NONCE__", IptvServer.esc(nonce))
 
     fun renderDashboard(
         base: String,
         channels: List<IptvServer.ServerChannel>,
-        sources: List<String>
+        sources: List<String>,
+        nonce: String = "",
     ): String {
         val groups = channels.mapNotNull { it.channel.group }.distinct().sorted()
         val total = channels.size
@@ -50,7 +52,7 @@ internal object ServerPages {
                 put("has_headers", sc.channel.headers.isNotEmpty())
             }.toString().let(IptvServer::esc)
 
-            """<div class="card" data-id="${IptvServer.esc(sc.id)}" data-name="${IptvServer.esc(sc.channel.name.lowercase())}" data-group="${IptvServer.esc(sc.channel.group)}" data-info="$infoJson" onclick="playCard(this)">
+            """<div class="card" data-id="${IptvServer.esc(sc.id)}" data-name="${IptvServer.esc(sc.channel.name.lowercase())}" data-group="${IptvServer.esc(sc.channel.group)}" data-info="$infoJson">
   <div class="logo">
     $logo
     <div class="placeholder" $placeholderStyle>$initial</div>
@@ -67,9 +69,10 @@ internal object ServerPages {
 
         val groupPillsHtml = groups.joinToString("\n") { g ->
             val count = channels.count { it.channel.group == g }
-            """<button class="pill" data-group="${IptvServer.esc(g)}" onclick="selectGroup(this.dataset.group, this)">${IptvServer.esc(g)} ($count)</button>"""
+            """<button class="pill" data-group="${IptvServer.esc(g)}">${IptvServer.esc(g)} ($count)</button>"""
         }
 
+        val nonceEsc = IptvServer.esc(nonce)
         return """
 <!DOCTYPE html>
 <html lang="id">
@@ -77,7 +80,7 @@ internal object ServerPages {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tahoe IPTV Server</title>
-<script src="/assets/shaka-player.compiled.js"></script>
+<script nonce="$nonceEsc" src="/assets/shaka-player.compiled.js"></script>
 <style>
   :root { --bg: #07080d; --surface: rgba(255,255,255,0.06); --hover: rgba(255,255,255,0.12); --border: rgba(255,255,255,0.1); --text: #f5f5f7; --dim: #86868b; --accent: #0a84ff; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -122,16 +125,16 @@ internal object ServerPages {
     <div style="font-size: 13px; color: var(--dim); margin-top: 4px;">$total saluran siap ditonton · Sumber: ${IptvServer.esc(sources.joinToString(", "))}</div>
   </div>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-    <button class="btn primary" onclick="copy('$base/playlist.m3u', 'Playlist Master disalin!')">📋 Salin M3U Master</button>
-    <a href="$base/playlist.m3u" class="btn" target="_blank">⬇️ Download</a>
-    <button class="btn" onclick="copy('$base/epg.xml', 'EPG disalin!')">📅 Salin EPG</button>
+    <button class="btn primary" data-copy-text="$base/playlist.m3u" data-copy-msg="Playlist Master disalin!">📋 Salin M3U Master</button>
+    <a href="$base/playlist.m3u" class="btn" target="_blank" rel="noopener">⬇️ Download</a>
+    <button class="btn" data-copy-text="$base/epg.xml" data-copy-msg="EPG disalin!">📅 Salin EPG</button>
   </div>
 </header>
 <div class="layout">
   <div>
-    <input type="text" id="q" class="search" placeholder="Cari saluran (contoh: RCTI, Trans TV, beIN, Sports, HBO, Movies, VOD)..." oninput="filter()">
+    <input type="text" id="q" class="search" placeholder="Cari saluran (contoh: RCTI, Trans TV, beIN, Sports, HBO, Movies, VOD)..." aria-label="Cari saluran TV">
     <div class="pills" id="pills">
-      <button class="pill active" onclick="selectGroup(null, this)">Semua ($total)</button>
+      <button class="pill active" data-group="">Semua ($total)</button>
       $groupPillsHtml
     </div>
     <div class="grid" id="grid">
@@ -145,19 +148,33 @@ internal object ServerPages {
       <p id="pSub" style="font-size: 12px; color: var(--dim); margin-top: 4px;">Klik salah satu saluran di sebelah kiri.</p>
       <div id="drmBox" style="display:none; margin-top:10px; font-size:12px; background:rgba(255,255,255,0.06); padding:8px 10px; border-radius:8px;"></div>
       <div style="margin-top: 14px; display: flex; gap: 8px;">
-        <button id="copyBtn" class="btn" style="display: none;" onclick="copyCurrent()">🔗 Salin Link Stream Ini</button>
+        <button id="copyBtn" class="btn" style="display: none;">🔗 Salin Link Stream Ini</button>
       </div>
     </div>
   </div>
 </div>
 <div id="t" class="toast"></div>
-<script>
+<script nonce="$nonceEsc">
   let shakaPlayer = null;
   let currentCh = null;
   let activeGroup = null;
   const v = document.getElementById('v');
 
   document.addEventListener('DOMContentLoaded', async () => {
+    document.querySelectorAll('[data-copy-text]').forEach(btn => {
+      btn.addEventListener('click', () => copy(btn.dataset.copyText, btn.dataset.copyMsg));
+    });
+    document.getElementById('q').addEventListener('input', filter);
+    document.getElementById('pills').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill');
+      if (btn) selectGroup(btn.dataset.group || null, btn);
+    });
+    document.getElementById('grid').addEventListener('click', (e) => {
+      const card = e.target.closest('.card');
+      if (card) playCard(card);
+    });
+    document.getElementById('copyBtn').addEventListener('click', copyCurrent);
+
     shaka.polyfill.installAll();
     if (shaka.Player.isBrowserSupported()) {
       shakaPlayer = new shaka.Player(v);
@@ -256,7 +273,7 @@ internal object ServerPages {
     private const val WATCH_HTML = """<!DOCTYPE html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__ — Tahoe TV</title>
-<script src="/assets/hls.min.js"></script>
+<script nonce="__NONCE__" src="/assets/hls.min.js"></script>
 <style>
   html,body{margin:0;height:100%;background:#000;color:#f5f5f7;font-family:"Segoe UI",-apple-system,system-ui,sans-serif;overflow:hidden}
   video{position:fixed;inset:0;width:100%;height:100%;background:#000}
@@ -276,11 +293,12 @@ internal object ServerPages {
 </style></head><body>
 <video id="v" playsinline controls></video>
 <div id="top"><span class="live">LIVE</span><span id="name">__TITLE__</span>
-  <button class="btn" id="prev" title="Saluran sebelumnya (↑)">◀</button><button class="btn" id="next" title="Saluran berikutnya (↓)">▶</button>
+  <button class="btn" id="prev" title="Saluran sebelumnya (↑)" aria-label="Saluran sebelumnya">◀</button><button class="btn" id="next" title="Saluran berikutnya (↓)" aria-label="Saluran berikutnya">▶</button>
+  <button class="btn" id="ccBtn" title="Subtitle / CC (C)" aria-label="Ganti subtitle">CC</button><button class="btn" id="audBtn" title="Trek Audio (A)" aria-label="Ganti trek audio">Audio</button>
   <span id="fmt"></span></div>
 <div id="veil"><div class="spin" id="spin"></div><div id="msg">Memuat __TITLE__…</div></div>
 <button id="sound">🔊 Klik untuk menyalakan suara</button>
-<script>
+<script nonce="__NONCE__">
 const v = document.getElementById('v'), veil = document.getElementById('veil'), msg = document.getElementById('msg'), spin = document.getElementById('spin');
 const SLATE = __SLATE__;
 let ids = JSON.parse("__IDS__".replace(/&quot;/g,'"')), seq = __SEQ__, maxH = 0, lat = 20, i = 0, hls = null, shp = null, srcs = [], timer = null, reported = false, session = false;
@@ -337,7 +355,7 @@ function start(){
   } else { v.src = src; v.addEventListener('loadedmetadata', tryPlay, { once: true }); }
 }
 // DASH and DRM (ClearKey keys, or a Widevine/PlayReady licence server) through Shaka, loaded only when needed
-function loadShaka(){ return window.shaka ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/assets/shaka-player.compiled.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
+function loadShaka(){ return window.shaka ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.nonce = '__NONCE__'; s.src = '/assets/shaka-player.compiled.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
 async function startShaka(info){
   const mine = i, mineSeq = seq;
   try {
@@ -365,16 +383,61 @@ async function poll(){
     else if (!s.stopped && s.seq !== seq && s.ids.length) load(s);
   } catch (e) {}
 }
+function toggleCc(){
+  if (shp) {
+    const tracks = shp.getTextTracks() || [];
+    if (!tracks.length) return;
+    if (!shp.isTextTrackVisible()) { shp.selectTextTrack(tracks[0]); shp.setTextTrackVisibility(true); document.getElementById('ccBtn').textContent = 'CC: ' + (tracks[0].language || 'ON').toUpperCase(); }
+    else {
+      const idx = tracks.findIndex(t => t.active);
+      if (idx + 1 < tracks.length) { shp.selectTextTrack(tracks[idx + 1]); document.getElementById('ccBtn').textContent = 'CC: ' + (tracks[idx + 1].language || 'ON').toUpperCase(); }
+      else { shp.setTextTrackVisibility(false); document.getElementById('ccBtn').textContent = 'CC: Off'; }
+    }
+    return;
+  }
+  if (hls && hls.subtitleTracks && hls.subtitleTracks.length) {
+    const nxt = (hls.subtitleTrack + 1 >= hls.subtitleTracks.length) ? -1 : hls.subtitleTrack + 1;
+    hls.subtitleTrack = nxt;
+    document.getElementById('ccBtn').textContent = nxt >= 0 ? 'CC: ' + (hls.subtitleTracks[nxt].lang || 'ON').toUpperCase() : 'CC: Off';
+    return;
+  }
+  const tt = Array.from(v.textTracks || []);
+  if (!tt.length) return;
+  const active = tt.findIndex(t => t.mode === 'showing');
+  tt.forEach(t => { t.mode = 'hidden'; });
+  if (active + 1 < tt.length) { tt[active + 1].mode = 'showing'; document.getElementById('ccBtn').textContent = 'CC: ' + (tt[active + 1].language || 'ON').toUpperCase(); }
+  else { document.getElementById('ccBtn').textContent = 'CC: Off'; }
+}
+function cycleAudio(){
+  if (shp) {
+    const langs = shp.getAudioLanguages() || [];
+    if (!langs.length) return;
+    const cur = shp.getVariantTracks().find(t => t.active)?.language;
+    const nextLang = langs[(langs.indexOf(cur) + 1) % langs.length];
+    shp.selectAudioLanguage(nextLang);
+    document.getElementById('audBtn').textContent = 'Audio: ' + nextLang.toUpperCase();
+    return;
+  }
+  if (hls && hls.audioTracks && hls.audioTracks.length) {
+    const nxt = (hls.audioTrack + 1) % hls.audioTracks.length;
+    hls.audioTrack = nxt;
+    document.getElementById('audBtn').textContent = 'Audio: ' + (hls.audioTracks[nxt].lang || ('#' + (nxt + 1))).toUpperCase();
+  }
+}
 v.addEventListener('playing', () => { clearTimeout(timer); clearInterval(slateTimer); slateTries = 0; veil.classList.add('hide'); if (!reported) { reported = true; post('event=playing&s=' + seq); } });
 v.addEventListener('error', () => { if (!hls) next(); });
-document.getElementById('sound').onclick = (e) => { v.muted = false; e.target.style.display='none'; };
-document.getElementById('prev').onclick = () => post('zap=-1&s=' + seq);
-document.getElementById('next').onclick = () => post('zap=1&s=' + seq);
+document.getElementById('sound').addEventListener('click', (e) => { v.muted = false; e.target.style.display='none'; });
+document.getElementById('prev').addEventListener('click', () => post('zap=-1&s=' + seq));
+document.getElementById('next').addEventListener('click', () => post('zap=1&s=' + seq));
+document.getElementById('ccBtn').addEventListener('click', toggleCc);
+document.getElementById('audBtn').addEventListener('click', cycleAudio);
 let idle; document.addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idle); idle = setTimeout(()=>document.body.classList.add('idle'), 3000); });
 document.addEventListener('keydown', (e) => {
   if (e.key === ' ') { v.paused ? v.play() : v.pause(); e.preventDefault(); }
   if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
   if (e.key === 'm' || e.key === 'M') { v.muted = !v.muted; }
+  if (e.key === 'c' || e.key === 'C') { toggleCc(); }
+  if (e.key === 'a' || e.key === 'A') { cycleAudio(); }
   if (e.key === 'ArrowUp' || e.key === 'PageUp') { post('zap=-1&s=' + seq); e.preventDefault(); }
   if (e.key === 'ArrowDown' || e.key === 'PageDown') { post('zap=1&s=' + seq); e.preventDefault(); }
 });

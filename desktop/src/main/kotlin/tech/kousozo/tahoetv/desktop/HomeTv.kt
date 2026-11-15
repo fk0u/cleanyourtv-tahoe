@@ -171,7 +171,9 @@ private fun install(tv: TvAdb, disable: Set<String>, dock: List<String>, disable
     }
     if (tv.sdk < 26) { say("! Android terlalu lama untuk launcher Tahoe (butuh 8.0+). Hanya debloat."); return }
     val apk = File.createTempFile("tahoe", ".apk").apply { deleteOnExit() }
-    Session::class.java.getResourceAsStream("/tahoe-launcher.apk")!!.use { input -> apk.outputStream().use { input.copyTo(it) } }
+    val apkStream = Session::class.java.getResourceAsStream("/TahoeTV-App-for-TV-and-Phone.apk")
+        ?: Session::class.java.getResourceAsStream("/tahoe-launcher.apk")!!
+    apkStream.use { input -> apk.outputStream().use { input.copyTo(it) } }
     tv.installLauncher(apk, say); say("✓ Tahoe TV terpasang")
     val home = tv.makeHome(say, disableStock)
     say(if (home == TvAdb.PKG) "✓ Tahoe jadi Home" else "! Home masih $home (cek manual)")

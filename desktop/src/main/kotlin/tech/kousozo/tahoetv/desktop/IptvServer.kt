@@ -54,6 +54,21 @@ object IptvServer {
     internal fun currentChannels(): List<ServerChannel> = channels
     internal fun channelById(id: String): ServerChannel? = byId[id]
 
+    private val rng = java.security.SecureRandom()
+    @Volatile private var connectToken: String = newToken()
+
+    private fun newToken(): String = ByteArray(24).also(rng::nextBytes).let {
+        java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(it)
+    }
+
+    private fun isAuthorizedConnect(ex: HttpExchange): Boolean {
+        val auth = ex.requestHeaders.getFirst("Authorization").orEmpty().trim()
+        if (!auth.startsWith("Bearer ", ignoreCase = true)) return false
+        val supplied = auth.substring(7).trim().toByteArray(Charsets.UTF_8)
+        val expected = connectToken.toByteArray(Charsets.UTF_8)
+        return supplied.isNotEmpty() && java.security.MessageDigest.isEqual(supplied, expected)
+    }
+
     /** What the watch page needs to play one source: DASH or HLS, and its DRM (ClearKey keys or a licence URL).
      *  Only served to this computer's own page (see [serveWatchApi]). */
     internal fun sourceInfo(id: String): JSONObject {
@@ -173,6 +188,7 @@ object IptvServer {
     /** Blocks while the channel list loads: call off the UI thread. A second call while one runs waits, then does nothing. */
     @Synchronized fun start(bindPort: Int = 8088, customFiles: List<String> = emptyList()) {
         if (isRunning.value) return
+        connectToken = newToken()
         loadPlaylists(customFiles)
 
         val s = HttpServer.create(InetSocketAddress("0.0.0.0", bindPort), 0)
@@ -309,6 +325,7 @@ object IptvServer {
                 }
                 path == "/segment" -> ServerRelay.serveSegment(ex, query["u"], query["cid"], query["s"])
                 path == "/info" -> serveInfo(ex)
+                path == "/api/connect/token" -> serveConnectToken(ex)
                 path == "/api/connect" -> serveConnect(ex)
                 path == "/api/status" -> serveStatus(ex)
                 path == "/api/channels" -> serveChannels(ex, query)
@@ -331,7 +348,7 @@ object IptvServer {
         if (origin != null && isAllowedOrigin(origin)) {
             ex.responseHeaders.set("Access-Control-Allow-Origin", origin)
             ex.responseHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
-            ex.responseHeaders.set("Access-Control-Allow-Headers", "Range, User-Agent, Referer, Accept, Content-Type")
+            ex.responseHeaders.set("Access-Control-Allow-Headers", "Range, User-Agent, Referer, Accept, Content-Type, Authorization")
             ex.responseHeaders.set("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
             ex.responseHeaders.set("Vary", "Origin")
         }
@@ -404,7 +421,16 @@ object IptvServer {
             .put("port", port.value)
             .put("channels", channels.size)
             .put("caps", JSONArray(listOf("live", "handoff", "session")))
+            .put("connect_auth_required", !fromThisComputer(ex))
         sendJson(ex, 200, info)
+    }
+
+    private fun serveConnectToken(ex: HttpExchange) {
+        val origin = ex.requestHeaders.getFirst("Origin")
+        if (!fromThisComputer(ex) || (origin != null && !isAllowedOrigin(origin))) {
+            return sendJson(ex, 403, JSONObject().put("error", "forbidden"))
+        }
+        sendJson(ex, 200, JSONObject().put("token", connectToken))
     }
 
     /** Tahoe Connect LAN receiver endpoint: GET returns device + playback session state; POST accepts Protocol v2 messages. */
@@ -434,6 +460,9 @@ object IptvServer {
                 val origin = ex.requestHeaders.getFirst("Origin")
                 if (origin != null && !isAllowedOrigin(origin)) {
                     return sendJson(ex, 403, Protocol.error("", "forbidden", "forbidden origin"))
+                }
+                if (!fromThisComputer(ex) && !isAuthorizedConnect(ex)) {
+                    return sendJson(ex, 401, Protocol.error("", "unauthorized", "bearer token required for remote /api/connect"))
                 }
                 val rawBytes = ex.requestBody.readNBytes(8193)
                 if (rawBytes.size > 8192) {
@@ -551,10 +580,11 @@ object IptvServer {
     private fun serveWatch(ex: HttpExchange, query: Map<String, String>) {
         val ids = query["ids"].orEmpty().split(",").map { it.trim() }.filter { byId.containsKey(it) }
         val title = query["t"].orEmpty().ifBlank { ids.firstOrNull()?.let { byId[it]?.channel?.name } ?: "Tahoe TV" }
-        val html = ServerPages.renderWatch(title, ids, query["s"]?.toIntOrNull() ?: -1, slateJson())
+        val nonce = newToken()
+        val html = ServerPages.renderWatch(title, ids, query["s"]?.toIntOrNull() ?: -1, slateJson(), nonce)
         val body = html.toByteArray(Charsets.UTF_8)
         ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
-        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
+        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
         ex.responseHeaders.add("Cache-Control", "no-store")
         ex.sendResponseHeaders(200, body.size.toLong())
         ex.responseBody.use { it.write(body) }
@@ -584,10 +614,11 @@ object IptvServer {
     internal fun safeUrl(u: String?): String? = u?.trim()?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
 
     private fun serveDashboard(ex: HttpExchange) {
-        val body = ServerPages.renderDashboard(baseUrl(ex), channels, sourcesSnapshot).toByteArray(Charsets.UTF_8)
+        val nonce = newToken()
+        val body = ServerPages.renderDashboard(baseUrl(ex), channels, sourcesSnapshot, nonce).toByteArray(Charsets.UTF_8)
         sendCors(ex)
         ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
-        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
+        ex.responseHeaders.add("Content-Security-Policy", "default-src 'self'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'unsafe-inline'; img-src 'self' http: https: data:; media-src 'self' blob: http: https:; connect-src 'self' blob: http: https:;")
         ex.sendResponseHeaders(200, body.size.toLong())
         ex.responseBody.use { it.write(body) }
     }

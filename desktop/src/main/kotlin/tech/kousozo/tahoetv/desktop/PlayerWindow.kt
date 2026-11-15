@@ -163,13 +163,33 @@ object PlayerWindow {
         probedLiveInSession = streams.any { SourceHealth.status(it.url)?.live == true }
         webFallbackTriedGen = -1
         val gen = ++generation
+        val zapGen = tech.kousozo.tahoetv.core.StreamSelector.newZapGeneration()
+        if (streams.isNotEmpty() && streams.all { needsBrowserDrm(it) }) {
+            loading(true)
+            Thread({
+                val err = WebPlayer.open(streams, title, onSwitch, onStatus)
+                Platform.runLater {
+                    if (generation != gen) return@runLater
+                    if (err == null) {
+                        slateTimer?.stop()
+                        release()
+                        loading(false)
+                        stage?.hide()
+                    } else {
+                        failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Unsupported
+                        slate(gen)
+                    }
+                }
+            }, "tahoe-drm-web").apply { isDaemon = true }.start()
+            return@fx
+        }
         s.show(); s.toFront(); reveal()
         if (streams.size <= 1) {
             start(SourceHealth.order(streams), 0, gen)
         } else {
             loading(true)
             Thread({
-                val ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(streams)
+                val ranked = tech.kousozo.tahoetv.core.StreamSelector.rankOnOpen(streams, generation = zapGen)
                 fx { if (generation == gen) start(ranked, 0, gen) }
             }, "tahoe-rank").apply { isDaemon = true }.start()
         }
@@ -384,18 +404,21 @@ object PlayerWindow {
             style = "-fx-text-fill: white; -fx-font-size: 16px; -fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 14; -fx-padding: 12 18;"
             isWrapText = true; maxWidth = 560.0; isVisible = false
         }
-        nextBtn = button("Saluran berikutnya ▶") { onSwitch(1) }.apply { isVisible = false; isManaged = false }
-        webBtn = button("Buka di Web Player") { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(IptvServer.webUrl())) } }.apply { isVisible = false; isManaged = false }
-        retryBtn = button("Coba lagi ↻") { slateTimer?.stop(); start(SourceHealth.order(channelStreams), 0, ++generation) }.apply { isVisible = false; isManaged = false }
+        nextBtn = button("Saluran berikutnya ▶") { onSwitch(1) }.apply { accessibleText = "Saluran berikutnya"; isVisible = false; isManaged = false }
+        webBtn = button("Buka di Web Player") { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(IptvServer.webUrl())) } }.apply { accessibleText = "Buka di Web Player"; isVisible = false; isManaged = false }
+        retryBtn = button("Coba lagi ↻") { slateTimer?.stop(); start(SourceHealth.order(channelStreams), 0, ++generation) }.apply { accessibleText = "Muat ulang saluran"; isVisible = false; isManaged = false }
         restoreBtn = button("Pulihkan sumber yang ditandai") {
             SourceHealth.unbanAll(channelStreams); start(SourceHealth.order(channelStreams), 0, ++generation)
-        }.apply { isVisible = false; isManaged = false }
-        flagBtn = button("⚑ Bukan live") { reportRecording() }.apply { tooltip = javafx.scene.control.Tooltip("Sumber ini memutar rekaman / siaran lama: lewati dan jangan dipakai lagi") }
-        fullBtn = button("⤢  Layar penuh") { toggleFull() }
-        pauseBtn = button("⏸") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }
+        }.apply { accessibleText = "Pulihkan sumber yang ditandai"; isVisible = false; isManaged = false }
+        flagBtn = button("⚑ Bukan live") { reportRecording() }.apply { accessibleText = "Tandai bukan live"; tooltip = javafx.scene.control.Tooltip("Sumber ini memutar rekaman / siaran lama: lewati dan jangan dipakai lagi") }
+        fullBtn = button("⤢  Layar penuh") { toggleFull() }.apply { accessibleText = "Alihkan layar penuh" }
+        pauseBtn = button("⏸") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }.apply { accessibleText = "Jeda atau putar" }
+        val prevTopBtn = button("⏮") { onSwitch(-1) }.apply { accessibleText = "Saluran sebelumnya" }
+        val nextTopBtn = button("⏭") { onSwitch(1) }.apply { accessibleText = "Saluran berikutnya" }
+        val closeTopBtn = button("✕") { st.close() }.apply { accessibleText = "Tutup pemutar" }
         val left = VBox(4.0, HBox(8.0, liveBadge).apply { alignment = Pos.CENTER_LEFT }, showLabel, titleLabel, elapsedLabel).apply { alignment = Pos.BOTTOM_LEFT }
-        val mid = HBox(12.0, button("⏮") { onSwitch(-1) }, pauseBtn, button("⏭") { onSwitch(1) }).apply { alignment = Pos.CENTER }
-        val right = HBox(10.0, flagBtn, fullBtn, button("✕") { st.close() }).apply { alignment = Pos.BOTTOM_RIGHT }
+        val mid = HBox(12.0, prevTopBtn, pauseBtn, nextTopBtn).apply { alignment = Pos.CENTER }
+        val right = HBox(10.0, flagBtn, fullBtn, closeTopBtn).apply { alignment = Pos.BOTTOM_RIGHT }
         val spacer = Region().also { HBox.setHgrow(it, Priority.ALWAYS) }
         bar = BorderPane().apply {
             top = HBox(16.0, spacer, timeLabel).apply { alignment = Pos.CENTER_RIGHT }
@@ -405,7 +428,7 @@ object PlayerWindow {
             style = "-fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent 30%, transparent 70%, rgba(0,0,0,0.7));"
             isPickOnBounds = false
         }
-        hint = Label("▲▼ ganti saluran  ·  F layar penuh  ·  Esc keluar  ·  Spasi jeda").apply {
+        hint = Label("▲▼ ganti saluran  ·  F layar penuh  ·  M bisu  ·  Esc keluar  ·  Spasi jeda").apply {
             style = "-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12px;"; StackPane.setAlignment(this, Pos.BOTTOM_CENTER)
             StackPane.setMargin(this, Insets(0.0, 0.0, 70.0, 0.0))
         }
@@ -432,6 +455,7 @@ object PlayerWindow {
         st.scene.setOnKeyPressed { k ->
             when (k.code) {
                 KeyCode.F -> toggleFull()
+                KeyCode.M -> player?.let { p -> p.isMute = !p.isMute }
                 KeyCode.ESCAPE -> if (st.isFullScreen) st.isFullScreen = false else st.close()
                 KeyCode.UP, KeyCode.PAGE_UP, KeyCode.LEFT -> onSwitch(-1)
                 KeyCode.DOWN, KeyCode.PAGE_DOWN, KeyCode.RIGHT -> onSwitch(1)

@@ -23,6 +23,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -38,8 +47,9 @@ enum class Screen(private val labelKey: String, val icon: ImageVector) {
     Recordings("nav.recordings", Icons.Rounded.VideoLibrary),
     Tv("nav.tv", Icons.Rounded.Tv),
     Remote("nav.remote", Icons.Rounded.SettingsRemote),
-    Prefs("nav.prefs", Icons.Rounded.Settings);
-    val label: String get() = tech.kousozo.tahoetv.core.I18n.get(Settings.lang, labelKey)
+    Prefs("nav.prefs", Icons.Rounded.Settings),
+    Admin("nav.admin", Icons.Rounded.AdminPanelSettings);
+    val label: String get() = if (labelKey == "nav.admin") "Admin" else tech.kousozo.tahoetv.core.I18n.get(Settings.lang, labelKey)
 }
 
 /** The ADB session to the home TV, shared by "TV Rumah" (setup) and "Remote & Cermin". */
@@ -60,6 +70,7 @@ fun main(args: Array<String>) {
 private fun app() = application {
     LaunchedEffect(Unit) {
         Recordings.boot() // scheduled recordings start on time while the app is open
+        DesktopPush.start()
         if (Settings.iptvAutoStart) { // loads the channel list over the network: not on the UI thread
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { IptvServer.start(Settings.iptvPort) } }
         }
@@ -67,11 +78,19 @@ private fun app() = application {
     val icon = remember { Screen::class.java.getResourceAsStream("/icon.png")?.use { BitmapPainter(org.jetbrains.skia.Image.makeFromEncoded(it.readBytes()).toComposeImageBitmap()) } }
     Window(
         onCloseRequest = {
+            DesktopPush.stop()
             Session.tv?.close()
             PlayerWindow.close()
             IptvServer.stop()
             exitApplication()
-        }, title = "Tahoe TV", icon = icon,
+        },
+        onPreviewKeyEvent = { ev ->
+            if (ev.type == KeyEventType.KeyDown && ev.isShiftPressed && (ev.isMetaPressed || ev.isCtrlPressed) && ev.key == Key.A) {
+                DeskNav.screen = Screen.Admin
+                true
+            } else false
+        },
+        title = "Tahoe TV", icon = icon,
         state = rememberWindowState(size = DpSize(1280.dp, 820.dp)),
     ) {
         window.minimumSize = java.awt.Dimension(980, 640)
@@ -106,10 +125,14 @@ fun App(initial: Screen = Screen.Home, askRegion: Boolean = true) { // askRegion
                         Screen.Tv -> HomeTvScreen(onRemote = { DeskNav.screen = Screen.Remote })
                         Screen.Remote -> RemoteScreen(onSetup = { DeskNav.screen = Screen.Tv })
                         Screen.Prefs -> SettingsScreen()
+                        Screen.Admin -> AdminScreen()
                     }
                 }
             }
         }
+        DesktopPushBanner(modifier = Modifier.align(Alignment.TopEnd))
+        DesktopNotificationDialog()
+        DesktopUpdateModal()
     }
 }
 
@@ -122,13 +145,14 @@ private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) = Column(
     BrandTile(46.dp)
     Spacer(Modifier.height(26.dp))
     Column(Modifier.clip(RoundedCornerShape(30.dp)).background(Tahoe.Card).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Screen.entries.forEach { s ->
+        Screen.entries.filter { it != Screen.Admin }.forEach { s ->
             val on = s == selected
             val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             val hover by src.collectIsHoveredAsState()
             Box(Modifier.size(46.dp).clip(CircleShape)
                 .background(if (on) Tahoe.Accent else if (hover) Tahoe.CardHi else Color.Transparent)
-                .hoverable(src).clickable { onSelect(s) }, contentAlignment = Alignment.Center) {
+                .hoverable(src).clickable { onSelect(s) }
+                .semantics { contentDescription = s.label }, contentAlignment = Alignment.Center) {
                 Icon(s.icon, s.label, tint = if (on) Tahoe.OnAccent else Tahoe.Dim, modifier = Modifier.size(21.dp))
             }
         }
@@ -166,6 +190,40 @@ private fun TopBar() {
                 decorationBox = { inner -> Box { if (q.isEmpty()) Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"), color = Tahoe.Faint, fontSize = 14.sp); inner() } })
         }
         Spacer(Modifier.width(12.dp))
+        val rel = DesktopPush.latestRelease
+        val (curVer, _) = remember { DesktopPush.appVersion() }
+        if (rel != null && tech.kousozo.tahoetv.core.Updates.newer(rel.version, curVer)) {
+            Row(
+                Modifier.height(44.dp).clip(RoundedCornerShape(50)).background(Tahoe.Accent.copy(alpha = 0.18f))
+                    .border(1.dp, Tahoe.Accent.copy(alpha = 0.45f), RoundedCornerShape(50))
+                    .clickable { DesktopPush.checkUpdateModal(manual = true) }
+                    .padding(horizontal = 14.dp)
+                    .semantics { contentDescription = "Pembaruan Tahoe TV tersedia" },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.SystemUpdate, null, tint = Tahoe.Accent, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("v${rel.version}", color = Tahoe.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.width(10.dp))
+        }
+        Box(
+            Modifier.size(44.dp).clip(CircleShape).background(Tahoe.Card)
+                .clickable { DesktopPush.showInbox = true }
+                .semantics { contentDescription = "Notifikasi (${DesktopPush.unreadCount})" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.Notifications,
+                "Notifikasi",
+                tint = if (DesktopPush.unreadCount > 0) Tahoe.Accent else Tahoe.Text,
+                modifier = Modifier.size(20.dp),
+            )
+            if (DesktopPush.unreadCount > 0) {
+                Box(Modifier.align(Alignment.TopEnd).padding(9.dp).size(8.dp).clip(CircleShape).background(Tahoe.Accent))
+            }
+        }
+        Spacer(Modifier.width(10.dp))
         Box(Modifier.height(44.dp).clip(RoundedCornerShape(50)).background(Tahoe.Card).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
             Text(now.format(java.time.format.DateTimeFormatter.ofPattern("HH.mm")), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }
