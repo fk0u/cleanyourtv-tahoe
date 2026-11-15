@@ -12,18 +12,11 @@ object Sources {
 
     val DEFAULT = listOf(
         Source("iptv-org", M3u.DEFAULT),
-        // dhanytv mixes free Indonesian TV with paid channels; only its Indonesian free-TV groups are used.
-        Source("dhanytv", "https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv.m3u",
-            setOf("Indonesia Channels", "TVRI", "Local Channels", "Nasional", "TV HIBURAN")),
-        Source("dhanytv-ott", "https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv-ott.m3u",
-            setOf("Indonesia Channels", "Indonesian Entertainment & Movies", "News", "News Channel",
-                "Kids Channel", "Documentary Channels", "Entertainment & LifeStyle", "General Channels")),
-        // windozalmi curated Indonesian IPTV playlist (m3u-ipvt branch); free-TV groups only.
-        Source("windozalmi", "https://raw.githubusercontent.com/windozalmi/Playlist_IPTV_Pribadi/m3u-ipvt/IPTV%20Indonesia%20by%20WINDO%20ZALMI",
-            setOf("Indonesia Channels", "Indonesian Entertainment & Movies", "News", "News Channel",
-                "Kids Channel", "Knowledge and Documentary", "PENGETAHUAN", "RELIGION")),
-        // Indonesian channels re-tested daily for picture + sound; mostly broadcaster/free hosts. Adds backups.
+        Source("dhanytv", "https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv.m3u"),
+        Source("dhanytv-ott", "https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv-ott.m3u"),
+        Source("windozalmi", "https://raw.githubusercontent.com/windozalmi/Playlist_IPTV_Pribadi/m3u-ipvt/IPTV%20Indonesia%20by%20WINDO%20ZALMI"),
         Source("yositapjani", "https://raw.githubusercontent.com/yositapjani/iptv-indonesia/main/indonesia.m3u"),
+        Source("iptv-org-all", "https://iptv-org.github.io/iptv/index.m3u"),
     )
 
     /** Guides in order of preference (schedules only, no streams). */
@@ -143,8 +136,14 @@ object Sources {
         return out
     }
 
-    /** A country's built-in channels, filtered by each source's group allow-list and [free]. */
-    private fun builtIn(country: String): List<M3u.Channel> = load(Region.sources(country))
+    /** A country's built-in channels: Indonesia keeps all channels (including premium/DASH/DRM); other countries use [load]. */
+    private fun builtIn(country: String): List<M3u.Channel> =
+        if (country.equals(Region.HOME, true)) {
+            Region.sources(country).flatMap { s ->
+                runCatching { loadSource(s.url) }.getOrDefault(emptyList())
+                    .filter { (s.groups == null || it.group in s.groups) && !FILE.containsMatchIn(it.url) }
+            }.distinctBy { it.url }
+        } else load(Region.sources(country))
 
     /** Channels of several countries (the onboarding's "channel countries"), merged without duplicates: the first as
      *  [loadAll] (local files, [extra], or its built-ins), then every other country's built-in channels. */
