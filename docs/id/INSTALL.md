@@ -11,7 +11,7 @@ Daftar isi: [Pasang dari HP](#pasang-dari-hp-tanpa-laptop) · [Pasang dari kompu
 Cara yang disarankan. Butuh HP Android di Wi-Fi yang sama dengan TV.
 
 1. Di TV: **Settings → Device Preferences → About → tekan "Build" 7×**, lalu **Developer options → USB debugging: ON**.
-2. Di HP: pasang [`TahoeTV-Phone-Remote-and-Setup.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-Remote-and-Setup.apk) (**Tahoe TV Remote**), buka tab **Pasang**.
+2. Di HP atau Tablet Android: pasang [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) (**Tahoe TV**), buka tab **Pasang**.
 3. App memindai Wi-Fi dan menampilkan TV yang ditemukan (port ADB 5555, dan TV yang sudah memakai Tahoe lewat `/info`). Bisa juga ketik IP.
 4. Di TV muncul **"Izinkan debugging USB?"**: centang *Selalu izinkan*, lalu **OKE**.
 5. Pilih aplikasi bawaan yang dimatikan, isi nama, kota (dicari otomatis), foto, dock, dan API key (opsional), lalu **Pasang ke TV**.
@@ -85,7 +85,7 @@ Di **Live TV**: ▲▼ ganti saluran, angka 0–9 nomor saluran, ⏪⏩ tunda/ma
 
 ## HP ↔ TV
 
-- **App HP** (`TahoeTV-Phone-Remote-and-Setup.apk`, nama **Tahoe TV Remote**): pairing lewat **QR** di TV (Pusat Kontrol → HP) atau kode 6 digit. Isinya remote, Live TV, pasang/atur TV, kotak masuk notifikasi, Kirim log, dan PIN Anak. (Ingin antarmuka TV layar penuh langsung di HP atau pasang manual ke TV? Gunakan [`TahoeTV-App-for-TV-and-Phone.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-App-for-TV-and-Phone.apk).)
+- **App HP & Tablet** (`TahoeTV-Phone-and-Tablet.apk`, nama **Tahoe TV**): pairing lewat **QR** di TV (Pusat Kontrol → HP) atau kode 6 digit. Isinya Live TV HP/tablet (dengan layar penuh lanskap), remote, pasang/atur TV, kotak masuk notifikasi, Kirim log, dan PIN Anak. (**Khusus Android TV:** pasang [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Android-TV.apk) — nama **Tahoe TV Launcher** — langsung di Android TV/Box lewat USB atau ADB.)
 - **Web (HP apa pun, tanpa install):** buka alamat yang tampil di TV untuk remote, gamepad, daftar aplikasi, kirim link, tanya asisten, kirim foto, dan unggah suara adzan.
 - **Notifikasi & musik HP di TV:** di app HP, izinkan akses notifikasi. TV menampilkan notifikasi dan musik yang diputar, dan bisa play/pause/next dari Pusat Kontrol.
 - **Keamanan:** hanya di LAN (port 8765). Setiap HP butuh token dari kode yang hanya bisa dipakai sekali. **Menu** di layar "Hubungkan HP" di TV melupakan semua HP.

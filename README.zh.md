@@ -64,8 +64,9 @@ Tahoe TV 起初只是作者闲来无事做的一个业余项目——也源于�
 
 | 我有… | 下载 | 然后 |
 |---|---|---|
-| **Android TV / 电视盒子**（小米电视棒、Chromecast 等） | 在 Android 手机上安装 [`TahoeTV-Phone-Remote-and-Setup.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-Remote-and-Setup.apk) | 打开 **Tahoe TV Remote** → **安装** → 选择同一 Wi-Fi 下的电视，启动器会自动安装（[详细步骤](docs/INSTALL.md)） |
-| 只有 **Android 手机** | [`TahoeTV-Phone-Remote-and-Setup.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-Remote-and-Setup.apk) 或 [`TahoeTV-App-for-TV-and-Phone.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-App-for-TV-and-Phone.apk) | **Tahoe TV Remote** 可在手机看直播并遥控电视；**Tahoe TV** 可在电视和竖屏手机上独立运行 |
+| **Android TV / 电视盒子**（小米电视棒、Chromecast 等） | 在 Android 手机上安装 [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | 打开 **Tahoe TV** → **安装** → 选择同一 Wi-Fi 下的电视，**Tahoe TV Launcher** 将自动安装（[详细步骤](docs/INSTALL.md)） |
+| **Android 手机与平板**（观看直播 + 电视遥控） | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | **Tahoe TV** — 专为手机与平板打造（电视直播、横屏全屏、遥控与 Wi-Fi 安装电视） |
+| **仅限 Android TV** 手动安装 (USB / ADB) | [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Android-TV.apk) | **Tahoe TV Launcher**（仅限 Android TV 电视/盒子，手机不可安装） |
 | **Mac**（Apple 芯片 / Intel） | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | 打开 → 电视直播。首次打开：右键 → **打开**（应用尚未公证） |
 | **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | 安装 → 电视直播 |
 

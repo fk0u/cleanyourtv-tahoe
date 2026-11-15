@@ -19,7 +19,7 @@ async function startTestServer() {
       date: "2026-11-15",
       assets: [
         {
-          name: "TahoeTV-App-for-TV-and-Phone.apk",
+          name: "TahoeTV-Android-TV.apk",
           url: "https://example.com/tv.apk",
           size: 12345,
           sha256: "a".repeat(64),

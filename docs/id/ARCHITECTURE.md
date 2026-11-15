@@ -7,8 +7,8 @@
 | Modul | Bahasa / UI | Isi |
 |---|---|---|
 | `core/` | Kotlin (JVM murni) | Logika bersama: playlist M3U (`Sources`), EPG, susunan saluran (`LocalTv`), pengecekan sumber & seleksi fuzzy multi-tahap (`HlsProbe`, `StreamSelector`, `SourceHealth`), pemutaran DASH/DRM (`Drm`, `DashToHls`, `CencDecrypt`), scraping logo/thumbnail (`MediaScraper`), perekam HLS (`HlsRecorder`), pencarian, log diagnostik (`DiagLog`), penemuan TV, ADB (`TvAdb`), link HP ↔ TV (`TvLink`), OTA (`Updates`) |
-| `launcher/` | Java, Android Views | Aplikasi TV & HP potret (`tv.clean.home`, paket `tech.kousozo.tahoetv.launcher`, rilis `TahoeTV-App-for-TV-and-Phone.apk`). Tanpa Compose agar ringan di RAM 1 GB |
-| `companion/` | Kotlin, Jetpack Compose | Aplikasi HP Remote & Setup (`tech.kousozo.tahoetv`, rilis `TahoeTV-Phone-Remote-and-Setup.apk`): pasang/atur TV lewat ADB, remote, Live TV, kotak masuk notifikasi. Membawa APK TV+HP di `assets/` |
+| `launcher/` | Java, Android Views | Launcher Khusus Android TV (`tv.clean.home`, paket `tech.kousozo.tahoetv.launcher`, nama `Tahoe TV Launcher`, rilis `TahoeTV-Android-TV.apk`, mewajibkan `android.software.leanback`). Tanpa Compose agar ringan di RAM 1 GB |
+| `companion/` | Kotlin, Jetpack Compose | Aplikasi HP & Tablet Android (`tech.kousozo.tahoetv`, nama `Tahoe TV`, rilis `TahoeTV-Phone-and-Tablet.apk`): Live TV HP/tablet, remote, pasang/atur TV lewat ADB, kotak masuk notifikasi. Membawa `TahoeTV-Android-TV.apk` di `assets/` |
 | `desktop/` | Kotlin, Compose Multiplatform + JavaFX | App macOS/Windows/Linux: Live TV, DVR, server IPTV, TV Rumah, remote + cermin, serta notifikasi update & push |
 | `server/` | Node.js + SQLite | Control Plane Tahoe (`https://tahoe.kousozo.tech`): statistik perangkat anonim, push notification SSE & polling, kebijakan modal pembaruan, override saluran |
 | `website/` | HTML/CSS/JS Statis | [tahoe.kousozo.tech](https://tahoe.kousozo.tech): situs produk, direktori saluran publik, dan tautan unduhan dinamis |

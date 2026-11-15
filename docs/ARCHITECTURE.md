@@ -7,8 +7,8 @@
 | Module | Language / UI | Contents |
 |---|---|---|
 | `core/` | Kotlin (pure JVM) | Shared logic: M3U playlists (`Sources`), EPG, channel arrangement (`LocalTv`), source checks & multi-stage fuzzy selection (`HlsProbe`, `StreamSelector`, `SourceHealth`), in-app DASH/DRM (`Drm`, `DashToHls`, `CencDecrypt`), logo/thumbnail scraping (`MediaScraper`), HLS recorder (`HlsRecorder`), search, play preferences (`PlayPrefs`), diagnostics (`DiagLog`), TV discovery, ADB (`TvAdb`), phone ↔ TV link (`TvLink`), OTA (`Updates`) |
-| `launcher/` | Java, Android Views | TV & Portrait-Phone app (`tv.clean.home`, package `tech.kousozo.tahoetv.launcher`, release `TahoeTV-App-for-TV-and-Phone.apk`). No Compose, to stay light on 1 GB RAM |
-| `companion/` | Kotlin, Jetpack Compose | Phone Remote & Setup app (`tech.kousozo.tahoetv`, release `TahoeTV-Phone-Remote-and-Setup.apk`): install/set up the TV over ADB, remote, Live TV, notification inbox. Ships the TV+Phone APK in `assets/` |
+| `launcher/` | Java, Android Views | Android TV Only Launcher (`tv.clean.home`, package `tech.kousozo.tahoetv.launcher`, label `Tahoe TV Launcher`, release `TahoeTV-Android-TV.apk`, requires `android.software.leanback`). No Compose, to stay light on 1 GB RAM |
+| `companion/` | Kotlin, Jetpack Compose | Phone & Tablet App (`tech.kousozo.tahoetv`, label `Tahoe TV`, release `TahoeTV-Phone-and-Tablet.apk`): mobile/tablet Live TV, remote, install/set up the TV over ADB, notification inbox. Ships `TahoeTV-Android-TV.apk` in `assets/` |
 | `desktop/` | Kotlin, Compose Multiplatform + JavaFX | macOS/Windows/Linux app: Live TV, DVR, IPTV server, Home TVs, remote + mirroring, update & push notifications |
 | `server/` | Node.js + SQLite | Tahoe Control Plane (`https://tahoe.kousozo.tech`): anonymous device counts, real-time SSE & polled push notifications, update modal policy, remote channel overrides |
 | `website/` | Static HTML/CSS/JS | [tahoe.kousozo.tech](https://tahoe.kousozo.tech): live landing page, channel directory, and dynamic release downloads |

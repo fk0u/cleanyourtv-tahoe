@@ -183,8 +183,10 @@
 
   // ---------------------------------------------------------------- asset roles table
   const ROLE_DESC = {
-    "TahoeTV-App-for-TV-and-Phone.apk": "Smart TV / Mi TV Stick (and Phone TV mode)",
-    "TahoeTV-Phone-Remote-and-Setup.apk": "Android Phone Remote + TV Wi-Fi Setup",
+    "TahoeTV-Android-TV.apk": "Android TV Only · Tahoe TV Launcher (Smart TV / TV Stick)",
+    "TahoeTV-Phone-and-Tablet.apk": "Android Phone & Tablet · Tahoe TV (Watch + Remote + TV Setup)",
+    "TahoeTV-App-for-TV-and-Phone.apk": "Legacy TV APK filename",
+    "TahoeTV-Phone-Remote-and-Setup.apk": "Legacy Phone APK filename",
     "TahoeTV-macos-intel.dmg": "macOS Intel",
     "TahoeTV-macos-arm64.dmg": "macOS Apple Silicon",
     "TahoeTV-windows.msi": "Windows 10 / 11 (64-bit)",
@@ -219,8 +221,8 @@
     }).join("");
 
     const findUrl = name => rel.assets.find(x => x.name === name)?.url;
-    const uMain = findUrl("TahoeTV-App-for-TV-and-Phone.apk") || findUrl("tahoe-launcher.apk");
-    const uRem = findUrl("TahoeTV-Phone-Remote-and-Setup.apk") || findUrl("tahoe-tv.apk");
+    const uMain = findUrl("TahoeTV-Android-TV.apk") || findUrl("TahoeTV-App-for-TV-and-Phone.apk") || findUrl("tahoe-launcher.apk");
+    const uRem = findUrl("TahoeTV-Phone-and-Tablet.apk") || findUrl("TahoeTV-Phone-Remote-and-Setup.apk") || findUrl("tahoe-tv.apk");
     if (uMain && $("#dl-main-apk")) $("#dl-main-apk").href = uMain;
     if (uRem && $("#dl-remote-apk")) $("#dl-remote-apk").href = uRem;
     if (findUrl("TahoeTV-macos-intel.dmg") && $("#dl-mac-intel")) $("#dl-mac-intel").href = findUrl("TahoeTV-macos-intel.dmg");
