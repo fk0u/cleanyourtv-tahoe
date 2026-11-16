@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080d">
+<title>Tahoe TV — Setup Wizard</title>
+<style>
+  :root { --bg:#07080d; --glass:rgba(255,255,255,.08); --rim:rgba(255,255,255,.18); --text:#f5f5f7; --t2:rgba(245,245,247,.72); --t3:rgba(245,245,247,.46); --accent:#64d2ff; --good:#30d158; --bad:#ff5f57; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:radial-gradient(60% 40% at 15% 0%, rgba(64,110,255,.32), transparent), radial-gradient(50% 40% at 100% 30%, rgba(160,80,255,.22), transparent), var(--bg); color:var(--text); font:15px/1.45 -apple-system,Inter,Roboto,system-ui,sans-serif; padding:24px 16px 48px; }
+  main { max-width:680px; margin:0 auto; }
+  .glass { background:var(--glass); border:1px solid var(--rim); border-radius:22px; backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px); padding:20px; margin-bottom:16px; }
+  h1 { margin:0 0 6px; font-size:24px; letter-spacing:-.02em; }
+  h2 { margin:0 0 10px; font-size:16px; color:var(--accent); text-transform:uppercase; letter-spacing:.08em; }
+  p.muted { color:var(--t2); font-size:13.5px; margin:4px 0 12px; }
+  label { display:block; font-size:13px; color:var(--t2); margin:10px 0 5px; }
+  input[type=text], input[type=url], input[type=tel], input[type=password], input[type=number], select { width:100%; font:inherit; color:var(--text); background:rgba(0,0,0,.38); border:1px solid var(--rim); border-radius:14px; padding:11px 14px; outline:none; }
+  input:focus, select:focus { border-color:var(--accent); }
+  button { font:inherit; font-weight:600; color:var(--text); background:var(--glass); border:1px solid var(--rim); border-radius:14px; padding:11px 16px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#071018; border-color:transparent; width:100%; padding:13px; font-size:16px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px) { .row { grid-template-columns:1fr; } }
+  .app-item { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); margin-bottom:7px; }
+  .app-item label { margin:0; display:flex; align-items:center; gap:9px; color:var(--text); cursor:pointer; flex:1; }
+  .mini { padding:5px 10px; font-size:12px; border-radius:9px; }
+  .switch { display:flex; align-items:center; justify-content:space-between; padding:8px 0; }
+  .hidden { display:none !important; }
+  .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; background:rgba(48,209,88,.18); color:var(--good); margin-left:6px; }
+  #status { margin-top:12px; font-size:14px; color:var(--good); text-align:center; }
+  #err { margin-top:10px; font-size:14px; color:var(--bad); text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <div class="glass">
+    <h1>Tahoe TV — Setup & Pusat Setelan</h1>
+    <p class="muted">Atur Android TV langsung dari browser HP atau laptop melalui Wi-Fi rumah (tanpa kabel/ADB).</p>
+  </div>
+
+  <section id="pairCard" class="glass">
+    <h2>1. Hubungkan ke TV</h2>
+    <p class="muted">Masukkan kode 6 digit yang tampil di layar TV.</p>
+    <label for="code">Kode 6 digit</label>
+    <input id="code" type="tel" maxlength="6" inputmode="numeric" placeholder="123456" style="text-align:center;font-size:26px;letter-spacing:.28em;">
+    <div style="margin-top:14px"><button id="pairBtn" class="primary">Sambungkan</button></div>
+    <div id="pairErr" style="color:var(--bad);font-size:13px;margin-top:10px;"></div>
+  </section>
+
+  <form id="wizard" class="hidden">
+    <section class="glass">
+      <h2>Profil, Bahasa & Wilayah</h2>
+      <div class="row">
+        <div>
+          <label for="lang">Bahasa antarmuka</label>
+          <select id="lang">
+            <option value="id">Bahasa Indonesia</option>
+            <option value="en">English</option>
+            <option value="zh">中文（简体）</option>
+          </select>
+        </div>
+        <div>
+          <label for="country">Negara utama</label>
+          <select id="country">
+            <option value="ID">Indonesia</option>
+            <option value="MY">Malaysia</option>
+            <option value="SG">Singapore</option>
+            <option value="US">United States</option>
+            <option value="GB">United Kingdom</option>
+            <option value="JP">Japan</option>
+            <option value="KR">South Korea</option>
+            <option value="AU">Australia</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="userName">Nama pemilik (sapaan Beranda)</label>
+          <input id="userName" type="text" placeholder="Contoh: Keluarga Budi">
+        </div>
+        <div>
+          <label for="tvName">Nama TV</label>
+          <input id="tvName" type="text" placeholder="Tahoe TV">
+        </div>
+      </div>
+      <label for="city">Kota (opsional untuk cuaca & jadwal shalat)</label>
+      <input id="city" type="text" placeholder="Contoh: Jakarta / Bandung / Surabaya">
+      <div class="switch"><span>Mode Sederhana (kartu besar & teks tegas)</span><input id="simpleMode" type="checkbox"></div>
+    </section>
+
+    <section class="glass">
+      <h2>Tampilan & Dock Aplikasi</h2>
+      <div class="row">
+        <div>
+          <label for="wallMode">Wallpaper</label>
+          <select id="wallMode">
+            <option value="personal">Foto pribadi / Galeri</option>
+            <option value="default">Gradien Tahoe bawaan</option>
+          </select>
+        </div>
+        <div>
+          <label for="dockSlots">Jumlah slot Dock</label>
+          <input id="dockSlots" type="number" min="3" max="12" value="6">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="subSize">Ukuran subtitle</label>
+          <select id="subSize">
+            <option value="normal">Normal</option>
+            <option value="large">Besar</option>
+            <option value="xlarge">Sangat besar</option>
+          </select>
+        </div>
+        <div>
+          <label for="perfTier">Profil performa</label>
+          <select id="perfTier">
+            <option value="auto">Otomatis</option>
+            <option value="light">Ringan</option>
+            <option value="standard">Standar</option>
+            <option value="full">Penuh</option>
+          </select>
+        </div>
+      </div>
+      <div class="switch"><span>Screensaver gaya kunci layar</span><input id="screensaverEnabled" type="checkbox" checked></div>
+      <label>Urutan & pilihan aplikasi Dock</label>
+      <div id="appList"></div>
+    </section>
+
+    <section class="glass">
+      <h2>Profil Anak & Keamanan Keluarga</h2>
+      <div class="row">
+        <div>
+          <label for="kidsPin">PIN Anak baru (4 digit, opsional)</label>
+          <input id="kidsPin" type="tel" maxlength="4" inputmode="numeric" placeholder="Kosongkan jika tetap">
+        </div>
+        <div>
+          <label for="kidsGateMode">Metode kunci dewasa</label>
+          <select id="kidsGateMode">
+            <option value="pin">PIN 4 angka</option>
+            <option value="math">Soal matematika</option>
+            <option value="pin_math">PIN + matematika</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="dailyLimitMinutes">Batas menonton harian Anak</label>
+          <select id="dailyLimitMinutes">
+            <option value="0">Tanpa batas</option>
+            <option value="30">30 menit / hari</option>
+            <option value="60">60 menit / hari</option>
+            <option value="90">90 menit / hari</option>
+            <option value="120">120 menit / hari</option>
+            <option value="180">180 menit / hari</option>
+          </select>
+        </div>
+        <div>
+          <label for="schedulePreset">Jam tayang Anak</label>
+          <select id="schedulePreset">
+            <option value="off">Kapan saja</option>
+            <option value="360-1140">06:00 – 19:00</option>
+            <option value="360-1200">06:00 – 20:00</option>
+            <option value="420-1260">07:00 – 21:00</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="glass">
+      <h2>Siaran & API Key Opsional</h2>
+      <label for="playlistUrl">URL Playlist M3U kustom</label>
+      <input id="playlistUrl" type="url" placeholder="https://…/playlist.m3u">
+      <label for="epgUrl">URL EPG XMLTV kustom</label>
+      <input id="epgUrl" type="url" placeholder="https://…/epg.xml">
+      <label for="geminiKey">Gemini API Key (Asisten TV) <span id="bGemini" class="badge hidden">Terpasang</span></label>
+      <input id="geminiKey" type="password" placeholder="Tulis untuk mengubah / menambah">
+      <label for="ytKey">YouTube Data API Key <span id="bYt" class="badge hidden">Terpasang</span></label>
+      <input id="ytKey" type="password" placeholder="Tulis untuk mengubah / menambah">
+    </section>
+
+    <button id="saveBtn" type="submit" class="primary">Terapkan Setelan ke TV</button>
+    <div id="status"></div>
+    <div id="err"></div>
+  </form>
+</main>
+<script>
+(() => {
+  const qs = new URLSearchParams(location.search);
+  let token = '';
+  let appsState = [];
+
+  const $ = (id) => document.getElementById(id);
+  const headers = () => {
+    const h = { 'Content-Type': 'application/json' };
+    if (token) h['Authorization'] = 'Bearer ' + token;
+    return h;
+  };
+
+  function renderApps() {
+    const root = $('appList');
+    root.textContent = '';
+    appsState.forEach((a, idx) => {
+      const row = document.createElement('div');
+      row.className = 'app-item';
+      const lbl = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!a.dock;
+      cb.onchange = () => { a.dock = cb.checked; };
+      const span = document.createElement('span');
+      span.textContent = a.label;
+      lbl.append(cb, span);
+
+      const ctrls = document.createElement('div');
+      ctrls.style.display = 'flex';
+      ctrls.style.gap = '4px';
+      const up = document.createElement('button');
+      up.type = 'button'; up.className = 'mini'; up.textContent = '▲';
+      up.disabled = idx === 0;
+      up.onclick = () => { [appsState[idx - 1], appsState[idx]] = [appsState[idx], appsState[idx - 1]]; renderApps(); };
+      const dn = document.createElement('button');
+      dn.type = 'button'; dn.className = 'mini'; dn.textContent = '▼';
+      dn.disabled = idx === appsState.length - 1;
+      dn.onclick = () => { [appsState[idx + 1], appsState[idx]] = [appsState[idx], appsState[idx + 1]]; renderApps(); };
+      ctrls.append(up, dn);
+      row.append(lbl, ctrls);
+      root.append(row);
+    });
+  }
+
+  async function loadSettings() {
+    const res = await fetch('/settings', { headers: headers(), credentials: 'same-origin' });
+    if (!res.ok) return false;
+    const s = await res.json();
+    $('pairCard').classList.add('hidden');
+    $('wizard').classList.remove('hidden');
+    $('lang').value = s.language || 'id';
+    $('userName').value = s.userName || '';
+    $('tvName').value = s.tvName || 'Tahoe TV';
+    $('simpleMode').checked = !!s.simpleMode;
+    $('wallMode').value = s.wallMode || 'personal';
+    $('dockSlots').value = s.dockSlots || 6;
+    $('subSize').value = s.subtitleSize || 'normal';
+    $('perfTier').value = s.performanceTier || 'auto';
+    $('screensaverEnabled').checked = s.screensaverEnabled !== false;
+    $('kidsGateMode').value = s.kidsGateMode || 'pin';
+    const kp = s.kidsPolicy || {};
+    $('dailyLimitMinutes').value = String(kp.dailyLimitMinutes || 0);
+    if (kp.scheduleEnabled) {
+      const k = (kp.allowedStartMin || 360) + '-' + (kp.allowedEndMin || 1200);
+      if ([...$('schedulePreset').options].some(o => o.value === k)) $('schedulePreset').value = k;
+    }
+    $('playlistUrl').value = s.playlistUrl || '';
+    $('epgUrl').value = s.epgUrl || '';
+    if (s.hasGeminiKey) $('bGemini').classList.remove('hidden');
+    if (s.hasYoutubeKey) $('bYt').classList.remove('hidden');
+    appsState = (s.allApps || []).map(a => ({ ...a }));
+    renderApps();
+    return true;
+  }
+
+  async function doPair(code) {
+    $('pairErr').textContent = '';
+    try {
+      const r = await fetch('/pair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ code, deviceName: 'Browser Setup' }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.token) {
+        $('pairErr').textContent = d.error || 'Kode salah atau kedaluwarsa';
+        return;
+      }
+      token = d.token;
+      await loadSettings();
+    } catch (e) {
+      $('pairErr').textContent = 'Gagal terhubung ke TV';
+    }
+  }
+
+  $('pairBtn').onclick = () => {
+    const c = $('code').value.replace(/\D/g, '');
+    if (c.length !== 6) { $('pairErr').textContent = 'Masukkan 6 angka'; return; }
+    doPair(c);
+  };
+
+  $('wizard').onsubmit = async (ev) => {
+    ev.preventDefault();
+    $('status').textContent = '';
+    $('err').textContent = '';
+    $('saveBtn').disabled = true;
+    try {
+      const sched = $('schedulePreset').value;
+      const kp = { dailyLimitMinutes: Number($('dailyLimitMinutes').value) || 0, scheduleEnabled: sched !== 'off' };
+      if (sched !== 'off') {
+        const [a, b] = sched.split('-').map(Number);
+        kp.allowedStartMin = a; kp.allowedEndMin = b;
+      }
+      const patch = {
+        userName: $('userName').value.trim(),
+        tvName: $('tvName').value.trim() || 'Tahoe TV',
+        language: $('lang').value,
+        simpleMode: $('simpleMode').checked,
+        wallMode: $('wallMode').value,
+        dockSlots: Number($('dockSlots').value) || 6,
+        dockPackages: appsState.filter(a => a.dock).map(a => a.pkg),
+        subtitleSize: $('subSize').value,
+        performanceTier: $('perfTier').value,
+        screensaverEnabled: $('screensaverEnabled').checked,
+        kidsGateMode: $('kidsGateMode').value,
+        kidsPolicy: kp,
+        playlistUrl: $('playlistUrl').value.trim(),
+        epgUrl: $('epgUrl').value.trim(),
+      };
+      if ($('geminiKey').value.trim()) patch.geminiKey = $('geminiKey').value.trim();
+      if ($('ytKey').value.trim()) patch.youtubeKey = $('ytKey').value.trim();
+
+      const country = $('country').value;
+      const viewerPatch = {
+        language: $('lang').value,
+        country,
+        countries: [country],
+        city: $('city').value.trim(),
+        done: true,
+        simpleMode: $('simpleMode').checked,
+      };
+      await fetch('/viewer', { method: 'POST', headers: headers(), credentials: 'same-origin', body: JSON.stringify(viewerPatch) });
+      const res = await fetch('/settings', { method: 'POST', headers: headers(), credentials: 'same-origin', body: JSON.stringify(patch) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      const pin = $('kidsPin').value.replace(/\D/g, '');
+      if (pin.length === 4) {
+        await fetch('/kids_pin', { method: 'POST', headers: headers(), credentials: 'same-origin', body: JSON.stringify({ pin }) });
+        $('kidsPin').value = '';
+      }
+      $('status').textContent = 'Setelan berhasil diterapkan ke TV! Anda bisa membuka Remote Web (/) kapan saja.';
+      await loadSettings();
+    } catch (e) {
+      $('err').textContent = 'Gagal menyimpan setelan: ' + (e.message || e);
+    } finally {
+      $('saveBtn').disabled = false;
+    }
+  };
+
+  loadSettings().then(ok => {
+    if (!ok) {
+      const c = (qs.get('code') || '').replace(/\D/g, '');
+      if (c.length === 6) {
+        $('code').value = c;
+        doPair(c);
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

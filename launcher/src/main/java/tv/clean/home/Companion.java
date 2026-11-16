@@ -45,6 +45,8 @@ final class Companion extends NanoWSD {
         void onSessionControl(String action);
         JSONObject state();           // volume, mute, channel: sent to phones on connect and on change
         JSONArray apps();
+        JSONObject settings();        // full TV settings snapshot (no raw secret keys)
+        JSONObject applySettings(JSONObject patch);
     }
 
     final Context ctx;
@@ -141,6 +143,7 @@ final class Companion extends NanoWSD {
     }
 
     String pairUrl() { return "http://" + ip() + ":" + PORT + "/?code=" + code(); }
+    String setupUrl() { return "http://" + ip() + ":" + PORT + "/setup?code=" + code(); }
 
     Set<String> tokens() { return new HashSet<>(prefs.getStringSet("tokens", new HashSet<>())); }
     private JSONObject tokenMeta() {
@@ -211,12 +214,56 @@ final class Companion extends NanoWSD {
         String uri = s.getUri();
         try {
             if (uri.equals("/") || uri.equals("/index.html")) return asset("web/index.html", "text/html; charset=utf-8");
+            if (uri.equals("/setup") || uri.equals("/setup.html")) return asset("web/setup.html", "text/html; charset=utf-8");
             if (uri.equals("/manifest.webmanifest")) return asset("web/manifest.webmanifest", "application/manifest+json");
             if (uri.equals("/pair") && s.getMethod() == Method.POST) return pair(s);
             if (uri.equals("/info")) // public: lets the phone's scanner tell a Tahoe TV from any open port
                 return json(Response.Status.OK, new JSONObject().put("app", "tahoe").put("model", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
                         .put("version", appVersion()).put("id", deviceId()).put("proto", Protocol.VERSION).put("roles", "receiver"));
             if (!authed(s)) return json(Response.Status.UNAUTHORIZED, new JSONObject().put("error", "pair first"));
+            if (uri.equals("/settings") && s.getMethod() == Method.GET) {
+                JSONObject[] out = new JSONObject[1];
+                java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+                ui.post(() -> { out[0] = l.settings(); done.countDown(); });
+                if (!done.await(2, java.util.concurrent.TimeUnit.SECONDS) || out[0] == null)
+                    return json(Response.Status.SERVICE_UNAVAILABLE, new JSONObject().put("error", "TV busy"));
+                return json(Response.Status.OK, out[0]);
+            }
+            if (uri.equals("/settings") && s.getMethod() == Method.POST) {
+                String raw;
+                try { raw = body(s, 16384); }
+                catch (TooLarge e) {
+                    Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
+                    r.closeConnection(true);
+                    return r;
+                }
+                final JSONObject patch;
+                try { patch = raw.isEmpty() ? new JSONObject() : new JSONObject(raw); }
+                catch (Exception e) { return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "format JSON tidak valid")); }
+                JSONObject[] out = new JSONObject[1];
+                java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+                ui.post(() -> { out[0] = l.applySettings(patch); done.countDown(); });
+                if (!done.await(3, java.util.concurrent.TimeUnit.SECONDS) || out[0] == null)
+                    return json(Response.Status.SERVICE_UNAVAILABLE, new JSONObject().put("error", "TV busy"));
+                return json(Response.Status.OK, new JSONObject().put("ok", true).put("settings", out[0]));
+            }
+            if (uri.equals("/viewer") && s.getMethod() == Method.POST) {
+                String raw;
+                try { raw = body(s, 16384); }
+                catch (TooLarge e) {
+                    Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
+                    r.closeConnection(true);
+                    return r;
+                }
+                if (raw.isEmpty()) return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "data kosong"));
+                java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+                ui.post(() -> { Onboarding.fromPhone(ctx, raw); done.countDown(); });
+                done.await(2, java.util.concurrent.TimeUnit.SECONDS);
+                return json(Response.Status.OK, new JSONObject().put("ok", true));
+            }
+            if (uri.equals("/kids/report") && s.getMethod() == Method.GET) {
+                return json(Response.Status.OK, Kids.reportJson(ctx));
+            }
             if (uri.equals("/apps")) {
                 JSONArray[] out = new JSONArray[1];
                 java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);

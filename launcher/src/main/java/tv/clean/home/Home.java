@@ -63,6 +63,8 @@ public class Home extends Activity {
     Sheet sheet; View sheetView;
     Lock.Profiles profiles; // boot "who's watching" screen
     JSONObject weather, phoneMedia;
+    String launchedKidsAppLabel;
+    long launchedKidsAtMs;
     List<Trending.Video> trending = new ArrayList<>(), netflix = new ArrayList<>();
     int trendIndex;
     Companion companion;
@@ -146,7 +148,9 @@ public class Home extends Activity {
         // first run (#77): onboarding until it's done, also after Home was pressed in the middle of it
         if (!TvViewer.done(this) && Onboarding.open == null) startActivity(new android.content.Intent(this, Onboarding.class));
         if (hero == null) return;
+        flushKidsAppUsage();
         tick(); checkGamepad(); markRunning();
+        if (kids()) enforceKidsAllowance();
         if (transition != null) { // coming back from an app: dissolve the launch overlay
             View t = transition; transition = null;
             t.animate().alpha(0).setDuration(Ui.MED).withEndAction(() -> root.removeView(t)).start();
@@ -590,8 +594,9 @@ public class Home extends Activity {
             live.banner = LiveTv.banner(this); live.color = Ui.average(live.banner);
             found.put(live.pkg, live);
             if (kids()) found.keySet().retainAll(Kids.apps(this)); // only what the owner allowed
+            int cap = dockSlotCap();
             List<App> d = new ArrayList<>();
-            for (String p : dockPackages()) { App a = found.get(p); if (a != null && d.size() < dockSize) d.add(a); }
+            for (String p : dockPackages()) { App a = found.get(p); if (a != null && d.size() < cap) d.add(a); }
             List<App> everything = new ArrayList<>(found.values());
             Collections.sort(everything, (x, y) -> x.label.compareToIgnoreCase(y.label));
             ui.post(() -> populate(d, everything, keep));
@@ -908,6 +913,17 @@ public class Home extends Activity {
 
     /** Tile grows to fill the screen in the app's colour, then the app fades in over it. */
     void launch(Intent intent, App a, Tile from) {
+        if (kids()) {
+            tech.kousozo.tahoetv.core.KidsPolicy.EvalResult ev = Kids.evaluate(this);
+            if (!ev.getAllowed()) {
+                openSheet(new Sheets.KidsBlocked(this, ev));
+                return;
+            }
+            if (!LiveTv.PKG.equals(a.pkg)) {
+                launchedKidsAppLabel = a.label;
+                launchedKidsAtMs = System.currentTimeMillis();
+            }
+        }
         if (from == null || Ui.motion(this) == 0) { start(intent); return; }
         int[] xy = new int[2]; from.image.getLocationInWindow(xy);
         float sw = from.w * from.scale, sh = from.h * from.scale;
@@ -1094,4 +1110,189 @@ public class Home extends Activity {
     void pushState() { remote.pushState(); }
     void sendLog() { remote.sendLog(); }
     void phoneMediaCommand(String c) { remote.phoneMediaCommand(c); }
+
+    int dockSlotCap() {
+        return Math.max(3, Math.min(12, prefs.getInt("dock_slots", dockSize)));
+    }
+
+    String tvName() {
+        String n = prefs.getString("tv_name", "Tahoe TV");
+        return (n == null || n.trim().isEmpty()) ? "Tahoe TV" : n.trim();
+    }
+
+    void flushKidsAppUsage() {
+        if (launchedKidsAppLabel != null && launchedKidsAtMs > 0L) {
+            long sec = (System.currentTimeMillis() - launchedKidsAtMs) / 1000L;
+            if (sec >= 15L && kids()) {
+                Kids.addAppSeconds(this, launchedKidsAppLabel, (int) Math.min(sec, 3600L));
+            }
+        }
+        launchedKidsAppLabel = null;
+        launchedKidsAtMs = 0L;
+    }
+
+    boolean enforceKidsAllowance() {
+        if (!kids()) return true;
+        tech.kousozo.tahoetv.core.KidsPolicy.EvalResult ev = Kids.evaluate(this);
+        if (!ev.getAllowed()) {
+            if (!(sheetView instanceof Sheets.KidsBlocked)) openSheet(new Sheets.KidsBlocked(this, ev));
+            return false;
+        }
+        if (ev.getWarnFiveMinutes()) {
+            Kids.markWarned(this);
+            String msg = tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "kids.warn_5m");
+            toast(msg);
+            Notif.banner(this, null, "Tahoe TV", msg, "");
+        }
+        return true;
+    }
+
+    JSONObject settingsSnapshot() {
+        SharedPreferences liveP = getSharedPreferences("live", Context.MODE_PRIVATE);
+        SharedPreferences cfgP = Cfg.p(this);
+        tech.kousozo.tahoetv.core.Viewer vw = TvViewer.get(this);
+        tech.kousozo.tahoetv.core.DeviceProfile.Profile prof = DeviceProfiler.current(this);
+        Set<String> dockSet = new HashSet<>(dockPackages());
+        Set<String> kidsAppSet = Kids.apps(this);
+        List<tech.kousozo.tahoetv.core.TvSettings.AppItem> appItems = new ArrayList<>();
+        for (App a : all) {
+            appItems.add(new tech.kousozo.tahoetv.core.TvSettings.AppItem(
+                    a.pkg, a.label, dockSet.contains(a.pkg), kidsAppSet.contains(a.pkg)));
+        }
+        String perfTier = prof.getManualOverride() == null ? "auto" : prof.getManualOverride().getKey();
+        int rotateMin = Math.max(1, prefs.getInt("hero_rotate_min", Math.max(1, getResources().getInteger(R.integer.wallpaper_minutes))));
+        tech.kousozo.tahoetv.core.TvSettings.Snapshot snap = new tech.kousozo.tahoetv.core.TvSettings.Snapshot(
+                cfgP.getString("user_name", ""),
+                tvName(),
+                vw.getLanguage(),
+                TvViewer.simpleMode(this),
+                vw.getSortMode(),
+                perfTier,
+                tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize.of(liveP.getString("sub_size", null)).getKey(),
+                prefs.getString("wall_mode", "personal"),
+                rotateMin,
+                prefs.getBoolean("dream_enabled", true),
+                dockSlotCap(),
+                dockPackages(),
+                appItems,
+                cfgP.getString("playlist_url", ""),
+                cfgP.getString("epg_url", ""),
+                sleepLeft(),
+                Kids.gateMode(this).getKey(),
+                Kids.mathDifficulty(this).getKey(),
+                new ArrayList<>(kidsAppSet),
+                Kids.policy(this),
+                !cfgP.getString("gemini_key", "").isEmpty(),
+                !cfgP.getString("youtube_key", "").isEmpty(),
+                !cfgP.getString("tmdb_key", "").isEmpty(),
+                !cfgP.getString("ha_url", "").isEmpty()
+        );
+        return snap.toJson();
+    }
+
+    JSONObject applySettings(JSONObject p) {
+        if (p == null) return settingsSnapshot();
+        SharedPreferences.Editor he = prefs.edit();
+        SharedPreferences.Editor ce = Cfg.p(this).edit();
+        SharedPreferences.Editor le = getSharedPreferences("live", Context.MODE_PRIVATE).edit();
+        boolean reloadApps = false;
+        boolean reloadHero = false;
+
+        if (p.has("userName")) { ce.putString("user_name", p.optString("userName", "").trim()); }
+        if (p.has("tvName")) {
+            String tn = p.optString("tvName", "Tahoe TV").trim();
+            he.putString("tv_name", tn.isEmpty() ? "Tahoe TV" : tn);
+        }
+        if (p.has("wallMode")) {
+            he.putString("wall_mode", "default".equals(p.optString("wallMode")) ? "default" : "personal");
+            reloadHero = true;
+        }
+        if (p.has("wallRotateMinutes")) {
+            he.putInt("hero_rotate_min", Math.max(1, Math.min(120, p.optInt("wallRotateMinutes", 5))));
+            reloadHero = true;
+        }
+        if (p.has("screensaverEnabled")) { he.putBoolean("dream_enabled", p.optBoolean("screensaverEnabled", true)); }
+        if (p.has("dockSlots")) {
+            he.putInt("dock_slots", Math.max(3, Math.min(12, p.optInt("dockSlots", 6))));
+            reloadApps = true;
+        }
+        if (p.has("subtitleSize")) {
+            le.putString("sub_size", tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize.of(p.optString("subtitleSize")).getKey());
+        }
+        if (p.has("performanceTier")) {
+            String t = p.optString("performanceTier", "auto").trim();
+            tech.kousozo.tahoetv.core.DeviceProfile.Tier manual = "auto".equalsIgnoreCase(t)
+                    ? null : tech.kousozo.tahoetv.core.DeviceProfile.Tier.of(t);
+            DeviceProfiler.setOverrideTier(this, manual);
+        }
+        if (p.has("playlistUrl")) { ce.putString("playlist_url", p.optString("playlistUrl", "").trim()); Live.cachedAt = 0L; }
+        if (p.has("epgUrl")) { ce.putString("epg_url", p.optString("epgUrl", "").trim()); Live.cachedAt = 0L; }
+        if (p.has("sleepMinutes")) { remote.onSleep(p.optInt("sleepMinutes", 0)); }
+
+        if (p.has("kidsGateMode")) Kids.setGateMode(this, tech.kousozo.tahoetv.core.MathGate.Mode.of(p.optString("kidsGateMode")));
+        if (p.has("kidsMathDifficulty")) Kids.setMathDifficulty(this, tech.kousozo.tahoetv.core.MathGate.Difficulty.of(p.optString("kidsMathDifficulty")));
+        if (p.has("kidsApps")) {
+            org.json.JSONArray arr = p.optJSONArray("kidsApps");
+            if (arr != null) {
+                List<String> ka = new ArrayList<>();
+                for (int i = 0; i < arr.length(); i++) {
+                    String pkg = arr.optString(i).trim();
+                    if (!pkg.isEmpty()) ka.add(pkg);
+                }
+                he.putString("kids_apps", android.text.TextUtils.join(",", ka));
+                reloadApps = true;
+            }
+        }
+        if (p.has("kidsPolicy")) {
+            Kids.setPolicy(this, tech.kousozo.tahoetv.core.KidsPolicy.Config.fromJson(p.optJSONObject("kidsPolicy")));
+        }
+        if (p.has("kidsBonusMinutes")) {
+            int mins = p.optInt("kidsBonusMinutes", 0);
+            if (mins > 0) Kids.grantBonusMinutes(this, mins);
+        }
+        // Write-only API keys (updated only when non-empty string supplied)
+        String gk = p.optString("geminiKey", "").trim(); if (!gk.isEmpty()) ce.putString("gemini_key", gk);
+        String yk = p.optString("youtubeKey", "").trim(); if (!yk.isEmpty()) ce.putString("youtube_key", yk);
+        String tk = p.optString("tmdbKey", "").trim(); if (!tk.isEmpty()) ce.putString("tmdb_key", tk);
+        String haU = p.optString("haUrl", "").trim(); if (!haU.isEmpty()) ce.putString("ha_url", haU);
+        String haT = p.optString("haToken", "").trim(); if (!haT.isEmpty()) ce.putString("ha_token", haT);
+
+        he.apply(); ce.apply(); le.apply();
+
+        tech.kousozo.tahoetv.core.Viewer curVw = TvViewer.get(this);
+        if (p.has("language") || p.has("simpleMode") || p.has("sortMode")) {
+            String nextLang = p.has("language") ? tech.kousozo.tahoetv.core.Region.language(p.optString("language")) : curVw.getLanguage();
+            boolean nextSimple = p.has("simpleMode") ? p.optBoolean("simpleMode", false) : curVw.getSimpleMode();
+            String nextSort = p.has("sortMode") ? tech.kousozo.tahoetv.core.LocalTv.SortMode.fromKey(p.optString("sortMode")).getKey() : curVw.getSortMode();
+            tech.kousozo.tahoetv.core.Viewer nextVw = new tech.kousozo.tahoetv.core.Viewer(
+                    nextLang, curVw.getCountry(), curVw.getCity(), curVw.getLat(), curVw.getLon(),
+                    curVw.getRegion(), curVw.getTimeZone(), curVw.getPrayer(), curVw.getPrayerMethod(),
+                    curVw.getChannelCountries(), curVw.getCategories(), curVw.getFavorites(),
+                    curVw.getSchema(), curVw.getRevision(), nextSimple, nextSort
+            );
+            TvViewer.save(this, nextVw);
+        }
+
+        if (p.has("dockPackages") && !kids()) {
+            org.json.JSONArray arr = p.optJSONArray("dockPackages");
+            if (arr != null) {
+                List<String> dp = new ArrayList<>();
+                for (int i = 0; i < arr.length(); i++) {
+                    String pkg = arr.optString(i).trim();
+                    if (!pkg.isEmpty() && !dp.contains(pkg)) dp.add(pkg);
+                }
+                saveDock(dp);
+                reloadApps = false;
+            }
+        }
+
+        if (reloadHero && hero != null) hero.refreshWallpaperSettings();
+        if (p.has("simpleMode")) applySimpleMode();
+        else if (reloadApps) loadApps();
+        buildChips();
+        tick();
+        pushState();
+        toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tvset.saved"));
+        return settingsSnapshot();
+    }
 }

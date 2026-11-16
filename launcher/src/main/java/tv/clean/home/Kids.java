@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import tech.kousozo.tahoetv.core.KidsPolicy;
 import tech.kousozo.tahoetv.core.LocalTv;
 import tech.kousozo.tahoetv.core.MathGate;
 
@@ -33,12 +34,71 @@ final class Kids {
         return LocalTv.INSTANCE.inCategory(e, LocalTv.Category.Kids) || LocalTv.INSTANCE.inCategory(e, LocalTv.Category.Documentary);
     }
 
-    /** [l] as it should be shown now: everything, or only kids' and documentary channels in the kids profile. */
+    static boolean channelAllowed(Context c, LocalTv.Entry e) {
+        boolean base = channelAllowed(e);
+        return policy(c).isChannelAllowed(base, e.getChannel().getChannelId(), e.getName());
+    }
+
+    /** [l] as it should be shown now: everything, or only kids' and allowed channels in the kids profile. */
     static List<LocalTv.Entry> channels(Context c, List<LocalTv.Entry> l) {
         if (!on(c)) return l;
+        KidsPolicy.Config cfg = policy(c);
         List<LocalTv.Entry> out = new ArrayList<>();
-        for (LocalTv.Entry e : l) if (channelAllowed(e)) out.add(e);
+        for (LocalTv.Entry e : l) {
+            boolean base = channelAllowed(e);
+            if (cfg.isChannelAllowed(base, e.getChannel().getChannelId(), e.getName())) out.add(e);
+        }
         return out;
+    }
+
+    static KidsPolicy.Config policy(Context c) {
+        return KidsPolicy.Config.fromJsonString(prefs(c).getString("kids_policy", null));
+    }
+
+    static void setPolicy(Context c, KidsPolicy.Config cfg) {
+        prefs(c).edit().putString("kids_policy", cfg.toJsonString()).apply();
+    }
+
+    private static synchronized KidsPolicy.UsageState loadUsage(Context c) {
+        return KidsPolicy.UsageState.fromJson(prefs(c).getString("kids_usage", null), KidsPolicy.todayKey());
+    }
+
+    private static synchronized void saveUsage(Context c, KidsPolicy.UsageState st) {
+        prefs(c).edit().putString("kids_usage", st.toJsonString()).apply();
+    }
+
+    static synchronized KidsPolicy.EvalResult evaluate(Context c) {
+        return loadUsage(c).evaluate(policy(c), KidsPolicy.currentMinuteOfDay(), KidsPolicy.todayKey());
+    }
+
+    static synchronized void addChannelSeconds(Context c, String channelName, int sec) {
+        if (sec <= 0) return;
+        KidsPolicy.UsageState st = loadUsage(c);
+        st.addChannelSeconds(channelName, sec, KidsPolicy.todayKey());
+        saveUsage(c, st);
+    }
+
+    static synchronized void addAppSeconds(Context c, String appLabel, int sec) {
+        if (sec <= 0) return;
+        KidsPolicy.UsageState st = loadUsage(c);
+        st.addAppSeconds(appLabel, sec, KidsPolicy.todayKey());
+        saveUsage(c, st);
+    }
+
+    static synchronized void markWarned(Context c) {
+        KidsPolicy.UsageState st = loadUsage(c);
+        st.markWarned(KidsPolicy.todayKey());
+        saveUsage(c, st);
+    }
+
+    static synchronized void grantBonusMinutes(Context c, int minutes) {
+        KidsPolicy.UsageState st = loadUsage(c);
+        st.grantBonusMinutes(minutes, KidsPolicy.todayKey());
+        saveUsage(c, st);
+    }
+
+    static synchronized org.json.JSONObject reportJson(Context c) {
+        return loadUsage(c).reportJson(policy(c), KidsPolicy.currentMinuteOfDay(), KidsPolicy.todayKey());
     }
 
     // ------------------------------------------------------------------ apps

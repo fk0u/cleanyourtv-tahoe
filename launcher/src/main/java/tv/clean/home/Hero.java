@@ -26,7 +26,9 @@ final class Hero extends FrameLayout {
 
     Hero(Context c, int width, int rotateMinutes) {
         super(c);
-        W = width; this.rotateMinutes = rotateMinutes;
+        W = width;
+        int customMin = c.getSharedPreferences("home", Context.MODE_PRIVATE).getInt("hero_rotate_min", 0);
+        this.rotateMinutes = Math.max(1, customMin > 0 ? customMin : rotateMinutes);
         setBackgroundColor(Color.BLACK);
         back = img(c); front = img(c); front.setAlpha(0f);
         addView(back, new LayoutParams(-1, -1)); addView(front, new LayoutParams(-1, -1));
@@ -94,6 +96,13 @@ final class Hero extends FrameLayout {
             for (String n : names) if (n.matches("(?i).*\\.(jpe?g|png|webp)")) walls.add(new File(dir, n).getPath());
         }
         wallIndex = getContext().getSharedPreferences("home", Context.MODE_PRIVATE).getInt("wp", 0);
+    }
+
+    void refreshWallpaperSettings() {
+        int customMin = getContext().getSharedPreferences("home", Context.MODE_PRIVATE).getInt("hero_rotate_min", 0);
+        if (customMin > 0) rotateMinutes = Math.max(1, customMin);
+        loadWalls();
+        showWall(false);
     }
 
     final Runnable rotate = () -> nextWall();

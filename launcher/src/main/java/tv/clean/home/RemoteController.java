@@ -299,6 +299,9 @@ final class RemoteController implements Companion.Listener, Tools {
         return out;
     }
 
+    @Override public JSONObject settings() { return home.settingsSnapshot(); }
+    @Override public JSONObject applySettings(JSONObject patch) { return home.applySettings(patch); }
+
     void phoneMediaCommand(String c) {
         try { home.companion.broadcast(new JSONObject().put("t", "media_cmd").put("c", c)); } catch (Exception ignored) {}
     }

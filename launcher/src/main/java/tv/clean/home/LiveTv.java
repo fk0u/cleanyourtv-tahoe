@@ -293,6 +293,7 @@ public class LiveTv extends Activity {
             tune(i);
         }, e -> { epg = e; if (guide.getVisibility() == View.VISIBLE) buildRows(); else guideDirty = true; if (index >= 0) showBanner(); }, () -> loading.setText(I18n.get(TvViewer.get(this).getLanguage(), "tv.live_load_failed")));
         ui.post(watchdog);
+        if (Kids.on(this)) ui.postDelayed(kidsQuotaTick, 30_000L);
     }
 
     @Override protected void onNewIntent(android.content.Intent intent) {
@@ -332,6 +333,15 @@ public class LiveTv extends Activity {
 
     void tune(int i) {
         if (list.isEmpty()) return;
+        flushRecapSession();
+        if (Kids.on(this)) {
+            tech.kousozo.tahoetv.core.KidsPolicy.EvalResult ev = Kids.evaluate(this);
+            if (!ev.getAllowed()) {
+                Toast.makeText(this, I18n.get(TvViewer.get(this).getLanguage(), "kids.time_up_title"), Toast.LENGTH_LONG).show();
+                finish();
+                return;
+            }
+        }
         if (index >= 0) previous = index;
         index = ((i % list.size()) + list.size()) % list.size();
         source = 0;
@@ -346,6 +356,14 @@ public class LiveTv extends Activity {
         }
         hideSlate(); slateRetries = 0; // another channel: a fresh start
         LocalTv.Entry e = list.get(index);
+        activeRecapStartMs = System.currentTimeMillis();
+        activeRecapChannelId = e.getChannel().getChannelId();
+        activeRecapChannelName = e.getName();
+        activeRecapShow = "";
+        if (epg != null) {
+            List<tech.kousozo.tahoetv.core.Epg.Programme> sch = epg.schedule(e.getName(), Instant.now(), e.getChannel().getTvgId());
+            if (!sch.isEmpty() && !sch.get(0).getStart().isAfter(Instant.now())) activeRecapShow = sch.get(0).getTitle();
+        }
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
         String url = list.get(index).getChannel().getUrl();
         List<String> rc = recent(); rc.remove(url); rc.add(0, url); while (rc.size() > 10) rc.remove(rc.size() - 1);
@@ -375,8 +393,43 @@ public class LiveTv extends Activity {
 
     /** This channel's streams, known-live first (SourceHealth), as ordered when it was tuned. */
     private int tuneSeq = 0;
+    private long activeRecapStartMs = 0L;
+    private String activeRecapChannelId = "", activeRecapChannelName = "", activeRecapShow = "";
     List<M3u.Channel> order = new ArrayList<>();
     List<M3u.Channel> streams() { return order; }
+
+    void flushRecapSession() {
+        if (activeRecapStartMs <= 0L || activeRecapChannelName.isEmpty()) return;
+        long sec = (System.currentTimeMillis() - activeRecapStartMs) / 1000L;
+        activeRecapStartMs = 0L;
+        String prof = getSharedPreferences("home", MODE_PRIVATE).getString("profile", "main");
+        tech.kousozo.tahoetv.core.WatchRecap.record(
+                new java.io.File(getFilesDir(), "recap"),
+                activeRecapChannelId, activeRecapChannelName, activeRecapShow,
+                (int) Math.min(sec, 43200L), prof);
+    }
+
+    final Runnable kidsQuotaTick = new Runnable() {
+        @Override public void run() {
+            if (isFinishing() || !Kids.on(LiveTv.this)) return;
+            if (player != null && player.isPlaying() && index >= 0 && index < list.size()) {
+                Kids.addChannelSeconds(LiveTv.this, list.get(index).getName(), 30);
+            }
+            tech.kousozo.tahoetv.core.KidsPolicy.EvalResult ev = Kids.evaluate(LiveTv.this);
+            String lang = TvViewer.get(LiveTv.this).getLanguage();
+            if (ev.getWarnFiveMinutes()) {
+                Kids.markWarned(LiveTv.this);
+                Toast.makeText(LiveTv.this, I18n.get(lang, "kids.warn_5m"), Toast.LENGTH_LONG).show();
+            }
+            if (!ev.getAllowed()) {
+                if (player != null) player.stop();
+                Toast.makeText(LiveTv.this, I18n.get(lang, "kids.time_up_title"), Toast.LENGTH_LONG).show();
+                finish();
+                return;
+            }
+            ui.postDelayed(this, 30_000L);
+        }
+    };
 
     void play() {
         List<M3u.Channel> s = streams();
@@ -1414,7 +1467,7 @@ public class LiveTv extends Activity {
 
     @Override protected void onStop() { super.onStop(); if (live == this) live = null; if (player != null) player.pause(); if (Home.live != null) Home.live.pushState(); }
     @Override protected void onStart() { super.onStart(); live = this; if (player != null && index >= 0) player.play(); if (Home.live != null) Home.live.pushState(); }
-    @Override protected void onDestroy() { ui.removeCallbacksAndMessages(null); if (player != null) player.release(); player = null; super.onDestroy(); }
+    @Override protected void onDestroy() { flushRecapSession(); ui.removeCallbacksAndMessages(null); if (player != null) player.release(); player = null; super.onDestroy(); }
 
     // ------------------------------------------------------------------ app tile
 

@@ -285,6 +285,13 @@ final class Sheets {
                     : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_region_sub"), () -> { h.closeSheet(); h.startActivity(new android.content.Intent(h, Onboarding.class)); }),
                 new Item(R.drawable.ic_smartphone, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_send_log"),
                         tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_send_log_sub"), () -> { h.closeSheet(); h.sendLog(); }));
+            tech.kousozo.tahoetv.core.WatchRecap.Summary recap = tech.kousozo.tahoetv.core.WatchRecap.summarize(
+                    new java.io.File(h.getFilesDir(), "recap"),
+                    h.prefs.getString("profile", "main"),
+                    tech.kousozo.tahoetv.core.WatchRecap.currentMonth(),
+                    lang);
+            add(new Item(R.drawable.ic_tv, tech.kousozo.tahoetv.core.I18n.get(lang, "recap.title"),
+                    recap.getTotalHoursDecimal(), () -> { h.closeSheet(); h.openSheet(new Recap(h)); }).wide());
             if (h.guest()) add(switchProfile.wide());
             else add(switchProfile, new Item(R.drawable.ic_lock, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_kids_profile"),
                     Kids.hasPin(h) ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_kids_sub") : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_unset"),
@@ -336,9 +343,9 @@ final class Sheets {
                         int i = pins.indexOf(app.pkg), j = i + dir;
                         if (j >= 0 && j < pins.size()) { Collections.swap(pins, i, j); h.saveDock(pins); }
                     }));
-            } else if (h.dock.size() < h.dockSize)
+            } else if (h.dock.size() < h.dockSlotCap())
                 add(new Item(R.drawable.ic_pin, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pin_dock"), null, () -> { pins.add(app.pkg); h.closeSheet(); h.saveDock(pins); }).wide());
-            else add(new Item(R.drawable.ic_pin, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.dock_full"), tech.kousozo.tahoetv.core.I18n.get(lang, "tv.dock_remove_one", String.valueOf(h.dockSize)), null).wide());
+            else add(new Item(R.drawable.ic_pin, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.dock_full"), tech.kousozo.tahoetv.core.I18n.get(lang, "tv.dock_remove_one", String.valueOf(h.dockSlotCap())), null).wide());
             Item info = new Item(R.drawable.ic_info, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.info"), null, () -> { h.closeSheet(); h.start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.pkg))); });
             if (app.system) add(info.wide());
             else add(info, new Item(R.drawable.ic_trash_2, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.uninstall"), null, () -> { h.closeSheet(); h.start(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg))); }));
@@ -373,6 +380,38 @@ final class Sheets {
                 new Item(R.drawable.ic_sparkles, tech.kousozo.tahoetv.core.I18n.get(lang, "kids.gate_diff"),
                     gd.label(lang) + "  ·  ◀ ▶", null)
                     .adjust(dir -> Kids.setMathDifficulty(h, tech.kousozo.tahoetv.core.MathGate.Difficulty.next(gd, dir))));
+            tech.kousozo.tahoetv.core.KidsPolicy.Config pol = Kids.policy(h);
+            int[] limitPresets = {0, 30, 60, 90, 120, 180};
+            String limTxt = pol.getDailyLimitMinutes() <= 0
+                    ? tech.kousozo.tahoetv.core.I18n.get(lang, "kids.limit_off")
+                    : tech.kousozo.tahoetv.core.I18n.get(lang, "kids.limit_fmt", pol.getDailyLimitMinutes());
+            String schedTxt = !pol.getScheduleEnabled()
+                    ? tech.kousozo.tahoetv.core.I18n.get(lang, "kids.schedule_off")
+                    : tech.kousozo.tahoetv.core.KidsPolicy.formatClockMinutes(pol.getAllowedStartMin()) + "–" + tech.kousozo.tahoetv.core.KidsPolicy.formatClockMinutes(pol.getAllowedEndMin());
+            add(new Item(R.drawable.ic_clock, tech.kousozo.tahoetv.core.I18n.get(lang, "kids.daily_limit"), limTxt + "  ·  ◀ ▶", null)
+                    .adjust(dir -> {
+                        int idx = 0;
+                        for (int i = 0; i < limitPresets.length; i++) if (limitPresets[i] == pol.getDailyLimitMinutes()) { idx = i; break; }
+                        int next = limitPresets[((idx + dir) % limitPresets.length + limitPresets.length) % limitPresets.length];
+                        Kids.setPolicy(h, pol.copy(next, pol.getScheduleEnabled(), pol.getAllowedStartMin(), pol.getAllowedEndMin(), pol.getExtraChannelIds(), pol.getBlockedChannelIds()));
+                    }),
+                new Item(R.drawable.ic_moon, tech.kousozo.tahoetv.core.I18n.get(lang, "kids.schedule_label"), schedTxt + "  ·  ◀ ▶", null)
+                    .adjust(dir -> {
+                        int[][] w = {{0, 360, 1140}, {1, 360, 1140}, {1, 360, 1200}, {1, 420, 1260}};
+                        int cur = 0;
+                        if (pol.getScheduleEnabled()) {
+                            for (int i = 1; i < w.length; i++) if (w[i][1] == pol.getAllowedStartMin() && w[i][2] == pol.getAllowedEndMin()) { cur = i; break; }
+                            if (cur == 0) cur = 2;
+                        }
+                        int ni = ((cur + dir) % w.length + w.length) % w.length;
+                        Kids.setPolicy(h, pol.copy(pol.getDailyLimitMinutes(), w[ni][0] == 1, w[ni][1], w[ni][2], pol.getExtraChannelIds(), pol.getBlockedChannelIds()));
+                    }));
+            org.json.JSONObject rep = Kids.reportJson(h);
+            int watchedMin = rep.optInt("watchedMinutes", 0);
+            String repText = pol.getDailyLimitMinutes() > 0
+                    ? tech.kousozo.tahoetv.core.I18n.get(lang, "kids.report_today", watchedMin, pol.getDailyLimitMinutes())
+                    : tech.kousozo.tahoetv.core.I18n.get(lang, "kids.report_no_limit", watchedMin);
+            add(new Item(R.drawable.ic_info, tech.kousozo.tahoetv.core.I18n.get(lang, "kids.report_title"), repText, null).wide());
             List<Item> row = new ArrayList<>();
             for (Home.App a : h.all) {
                 boolean on = Kids.appAllowed(h, a.pkg);
@@ -765,6 +804,81 @@ final class Sheets {
                 if (k == KeyEvent.KEYCODE_DEL) { erase(); return true; }
             } else if (!isEnabled()) return true;
             return super.key(e);
+        }
+    }
+
+    // ---------------------------------------------------------------- Kids time/schedule block (#54)
+
+    static final class KidsBlocked extends Grid {
+        final tech.kousozo.tahoetv.core.KidsPolicy.EvalResult eval;
+
+        KidsBlocked(Home h, tech.kousozo.tahoetv.core.KidsPolicy.EvalResult eval) {
+            super(h, 460, Gravity.CENTER);
+            this.eval = eval;
+            setBackgroundColor(0xD905060B);
+            rebuild();
+        }
+
+        @Override void fill() {
+            Home h = home;
+            String lang = TvViewer.get(h).getLanguage();
+            tech.kousozo.tahoetv.core.KidsPolicy.Config pol = Kids.policy(h);
+            String body = eval.getReason() == tech.kousozo.tahoetv.core.KidsPolicy.BlockReason.OUTSIDE_SCHEDULE
+                    ? tech.kousozo.tahoetv.core.I18n.get(lang, "kids.outside_hours_body",
+                        tech.kousozo.tahoetv.core.KidsPolicy.formatClockMinutes(pol.getAllowedStartMin()),
+                        tech.kousozo.tahoetv.core.KidsPolicy.formatClockMinutes(pol.getAllowedEndMin()))
+                    : tech.kousozo.tahoetv.core.I18n.get(lang, "kids.time_up_body");
+            header(tech.kousozo.tahoetv.core.I18n.get(lang, "kids.time_up_title"), body);
+            add(new Item(R.drawable.ic_clock, tech.kousozo.tahoetv.core.I18n.get(lang, "kids.extend_30m"), null, () ->
+                    h.verifyAdult(tech.kousozo.tahoetv.core.I18n.get(lang, "kids.extend_30m"), () -> {
+                        Kids.grantBonusMinutes(h, 30);
+                        h.closeSheet();
+                        h.toast("+30 min");
+                    })).wide());
+            add(new Item(R.drawable.ic_users, tech.kousozo.tahoetv.core.I18n.get(lang, "kids.exit_profile"), null, () -> {
+                h.closeSheet();
+                h.showProfiles();
+            }).wide());
+        }
+
+        @Override public boolean key(KeyEvent e) {
+            if (e.getKeyCode() == KeyEvent.KEYCODE_BACK && e.getAction() == KeyEvent.ACTION_DOWN) return true; // must choose adult unlock or switch profile
+            return super.key(e);
+        }
+    }
+
+    // ---------------------------------------------------------------- Local Monthly Recap (#62)
+
+    static final class Recap extends Grid {
+        Recap(Home h) { super(h, 520, Gravity.CENTER); rebuild(); }
+
+        @Override void fill() {
+            Home h = home;
+            String lang = TvViewer.get(h).getLanguage();
+            java.io.File dir = new java.io.File(h.getFilesDir(), "recap");
+            String prof = h.prefs.getString("profile", "main");
+            tech.kousozo.tahoetv.core.WatchRecap.Summary s = tech.kousozo.tahoetv.core.WatchRecap.summarize(
+                    dir, prof, tech.kousozo.tahoetv.core.WatchRecap.currentMonth(), lang);
+            header(tech.kousozo.tahoetv.core.I18n.get(lang, "recap.title"), s.getTagline());
+            add(new Item(R.drawable.ic_clock, tech.kousozo.tahoetv.core.I18n.get(lang, "recap.total_time"),
+                    s.getTotalHoursDecimal() + " · " + tech.kousozo.tahoetv.core.I18n.get(lang, "recap.sessions", s.getSessionCount()), null),
+                new Item(R.drawable.ic_sparkles, tech.kousozo.tahoetv.core.I18n.get(lang, "recap.peak_hour"),
+                    s.getPeakHour() >= 0 ? String.format(java.util.Locale.US, "%02d:00", s.getPeakHour()) : "—", null));
+            for (int i = 0; i < s.getTopChannels().size(); i++) {
+                tech.kousozo.tahoetv.core.WatchRecap.RankedItem it = s.getTopChannels().get(i);
+                add(new Item(R.drawable.ic_tv, "#" + (i + 1) + "  " + it.getName(), it.getMinutes() + " min", null).wide());
+            }
+            boolean on = tech.kousozo.tahoetv.core.WatchRecap.isEnabled(dir);
+            add(new Item(on ? R.drawable.ic_sparkles : R.drawable.ic_lock, tech.kousozo.tahoetv.core.I18n.get(lang, "recap.enable"),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, on ? "tv.cc_simple_on" : "tv.cc_simple_off"), () -> {
+                tech.kousozo.tahoetv.core.WatchRecap.setEnabled(dir, !on);
+                rebuild();
+            }).on(on),
+                new Item(R.drawable.ic_trash_2, tech.kousozo.tahoetv.core.I18n.get(lang, "recap.clear"), null, () -> {
+                    tech.kousozo.tahoetv.core.WatchRecap.clear(dir);
+                    h.toast(tech.kousozo.tahoetv.core.I18n.get(lang, "recap.cleared"));
+                    rebuild();
+                }));
         }
     }
 }

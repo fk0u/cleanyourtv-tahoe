@@ -119,6 +119,35 @@ public class Onboarding extends Activity {
         else if (TvViewer.done(this)) finish(); // reopened from Settings: leave unchanged
     }
 
+    void showSetupQr() {
+        Home h = Home.live;
+        Companion c = h != null ? h.companion : null;
+        if (c == null) return;
+        String url = c.setupUrl();
+        String code = c.code();
+        android.graphics.Bitmap bm = Sheets.Pair.qr(url, dp(260));
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        box.setPadding(dp(24), dp(20), dp(24), dp(16));
+        if (bm != null) {
+            android.widget.ImageView iv = new android.widget.ImageView(this);
+            iv.setImageBitmap(bm);
+            box.addView(iv, new LinearLayout.LayoutParams(dp(240), dp(240)));
+        }
+        TextView msg = Ui.text(this, Ui.BODY, 500, Ui.TEXT);
+        msg.setSingleLine(false);
+        msg.setGravity(Gravity.CENTER);
+        msg.setPadding(0, dp(14), 0, 0);
+        msg.setText(tech.kousozo.tahoetv.core.I18n.get(language, "qr.setup_web_hint", "http://" + Companion.ip() + ":" + Companion.PORT + "/setup", code));
+        box.addView(msg);
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(tech.kousozo.tahoetv.core.I18n.get(language, "qr.setup_web_btn"))
+                .setView(box)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
     void go(int d) {
         focusKey = null;
         int n = Math.max(0, Math.min(Step.values().length - 1, step.ordinal() + d));
@@ -137,6 +166,7 @@ public class Onboarding extends Activity {
         switch (step) {
             case LANGUAGE:
                 for (String l : Region.INSTANCE.getLANGUAGES()) row(OnboardingText.INSTANCE.getLANGUAGE_NAMES().get(l), null, l.equals(language), () -> { language = l; render(); });
+                row(tech.kousozo.tahoetv.core.I18n.get(language, "qr.setup_web_btn"), "📱", false, this::showSetupQr);
                 if (!TvViewer.done(this)) note("📱 " + phoneHint());
                 break;
             case COUNTRY: countryList(false); break;
