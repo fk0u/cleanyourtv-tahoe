@@ -7,7 +7,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class I18nTest {
-    private val langs = listOf("en", "id", "zh")
+    private val langs = Region.LANGUAGES
 
     @Test fun allI18nKeysPresentAndNonBlankInEnIdZh() {
         assertEquals(langs.toSet(), I18n.TABLES.keys)
@@ -20,11 +20,17 @@ class I18nTest {
                 assertTrue(v.isNotBlank(), "Blank value for ($lang, $k)")
             }
         }
-        // Verify format placeholders align across all 3 languages
+        // Community JSON files may only use known keys and must keep placeholders
+        Region.LANGUAGES.filter { it !in I18n.BUILT_IN }.forEach { lang ->
+            val raw = I18n.community(lang)
+            assertTrue(raw.isNotEmpty(), "Missing core/src/main/resources/i18n/$lang.json")
+            assertEquals(emptySet(), raw.keys - expectedKeys, "Unknown keys in $lang.json")
+        }
+        // Verify format placeholders align across every language
         val ph = Regex("%[sd]")
         expectedKeys.forEach { key ->
-            val counts = langs.map { ph.findAll(I18n.TABLES.getValue(it).getValue(key)).count() }.distinct()
-            assertEquals(1, counts.size, "Placeholder count differs for key=$key")
+            val shapes = langs.map { ph.findAll(I18n.TABLES.getValue(it).getValue(key)).map { m -> m.value }.sorted().toList() }.distinct()
+            assertEquals(1, shapes.size, "Placeholders differ for key=$key: $shapes")
         }
     }
 

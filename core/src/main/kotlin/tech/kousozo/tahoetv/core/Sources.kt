@@ -258,6 +258,17 @@ object Sources {
         extra: String?,
         countries: List<String>,
         onPriorityReady: ((List<M3u.Channel>) -> Unit)? = null,
+    ): List<M3u.Channel> = loadChannels(extra, countries, emptyList(), onPriorityReady)
+
+    /** [loadCountriesPriority] plus extra channel [languages] (ISO 639-1, see [Region.languagePlaylist]), loaded
+     *  after the countries through the free-TV filter (#71). */
+    @JvmStatic
+    @JvmOverloads
+    fun loadChannels(
+        extra: String?,
+        countries: List<String>,
+        languages: List<String>,
+        onPriorityReady: ((List<M3u.Channel>) -> Unit)? = null,
     ): List<M3u.Channel> {
         val list = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
         val primary = list.first()
@@ -267,11 +278,12 @@ object Sources {
             .filter { seen.add(it.url) && !ControlPlane.isChannelBlocked(it) }
         onPriorityReady?.invoke(priorityChannels)
         warmBackgroundAsync(list, priorityChannels.map { it.name })
-        if (list.size == 1) return priorityChannels
+        val langSources = Region.languageSources(languages)
+        if (list.size == 1 && langSources.isEmpty()) return priorityChannels
 
         val secondaryFutures = list.drop(1).map { cc ->
             fetchPool.submit<List<M3u.Channel>> { builtIn(cc) }
-        }
+        } + langSources.map { s -> fetchPool.submit<List<M3u.Channel>> { load(listOf(s)) } }
         val extraCountries = secondaryFutures.flatMap { f -> runCatching { f.get() }.getOrDefault(emptyList()) }
             .filter { seen.add(it.url) && !ControlPlane.isChannelBlocked(it) }
         return priorityChannels + extraCountries

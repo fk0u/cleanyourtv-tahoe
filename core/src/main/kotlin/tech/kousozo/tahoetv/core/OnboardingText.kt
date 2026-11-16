@@ -4,7 +4,7 @@ package tech.kousozo.tahoetv.core
  *  The rest of the apps moves to resources in #56. "%s" is filled in by the caller. */
 object OnboardingText {
     /** Each language in its own name, so people find theirs whatever is selected. */
-    val LANGUAGE_NAMES = mapOf("en" to "English", "id" to "Bahasa Indonesia", "zh" to "中文（简体）")
+    val LANGUAGE_NAMES = mapOf("en" to "English", "id" to "Bahasa Indonesia", "zh" to "中文（简体）", "ar" to "العربية")
 
     fun get(lang: String, key: String): String = (T[lang] ?: T.getValue("en"))[key] ?: T.getValue("en")[key] ?: key
     fun category(lang: String, c: LocalTv.Category): String = get(lang, "cat." + c.name)
@@ -102,5 +102,36 @@ object OnboardingText {
         "cat.Religious" to "宗教", "cat.Tvri" to "TVRI 地方台", "cat.Local" to "地方台", "cat.Vod" to "点播与电影", "cat.Other" to "其他",
     )
 
-    private val T = mapOf("en" to EN, "id" to ID, "zh" to ZH)
+    private val AR = mapOf(
+        "step" to "الخطوة %s",
+        "next" to "متابعة", "back" to "رجوع", "skip" to "تخطٍّ", "done" to "ابدأ المشاهدة", "search" to "بحث",
+        "lang.title" to "مرحبًا بك في Tahoe TV", "lang.sub" to "اختر لغتك",
+        "country.title" to "أين تعيش؟", "country.sub" to "يُستخدم للاقتراحات ودليل البرامج ومواقيت الصلاة",
+        "city.title" to "مدينتك", "city.sub" to "للطقس ومواقيت الصلاة. يمكنك التخطي.",
+        "city.search" to "ابحث عن مدينة", "city.none" to "لم تُحدَّد مدينة: يبقى الطقس ومواقيت الصلاة مخفيين.",
+        "city.empty" to "لم يُعثر على مدينة. جرّب تهجئة أخرى.",
+        "tz.title" to "المنطقة الزمنية", "tz.sub" to "تستخدم الساعة ودليل البرامج ومواقيت الصلاة هذه المنطقة",
+        "tz.auto" to "من مدينتك: %s", "tz.device" to "هذا الجهاز: %s",
+        "prayer.title" to "مواقيت الصلاة والأذان", "prayer.sub" to "عرض مواقيت الصلاة وتشغيل الأذان على التلفاز",
+        "prayer.on" to "عرض مواقيت الصلاة", "prayer.method" to "طريقة الحساب",
+        "prayer.needcity" to "حدّد مدينة أولًا للحصول على مواقيت الصلاة.",
+        "countries.title" to "قنوات من أي دول؟", "countries.sub" to "اختر دولة أو أكثر. قنوات مجانية من iptv-org.",
+        "cats.title" to "ماذا تحب أن تشاهد؟", "cats.sub" to "تُعرض هذه الفئات فقط. عدم الاختيار = الكل.",
+        "favs.title" to "اختر قنواتك المفضلة", "favs.sub" to "تظهر أولًا في كل مكان. اضغط للإضافة أو الإزالة.",
+        "favs.loading" to "جارٍ تحميل القنوات…", "favs.failed" to "تعذّر تحميل القنوات. يمكنك إضافة المفضلة لاحقًا.",
+        "order.title" to "رتّب قنواتك", "order.sub" to "تظهر المفضلة أولًا بهذا الترتيب. استخدم ▲ ▼ للنقل.",
+        "order.empty" to "لا توجد مفضلة بعد: تبقى القنوات بترتيبها المعتاد.",
+        "summary.title" to "كل شيء جاهز", "summary.sub" to "يمكنك تغيير أي من هذا لاحقًا من «المنطقة واللغة».",
+        "sum.language" to "اللغة", "sum.country" to "الدولة", "sum.city" to "المدينة", "sum.tz" to "المنطقة الزمنية",
+        "sum.prayer" to "مواقيت الصلاة", "sum.channels" to "القنوات من", "sum.cats" to "الفئات", "sum.favs" to "المفضلة",
+        "sum.all" to "الكل", "sum.off" to "إيقاف", "sum.none" to "لا شيء",
+        "note.home" to "تتضمن %s مصادر إضافية مختارة وقنوات إقليمية.",
+        "note.other" to "القنوات المجانية لـ %s مصدرها iptv-org. بعض الدول قنواتها قليلة.",
+        "cat.Near" to "بالقرب منك", "cat.National" to "وطنية", "cat.Sports" to "رياضة", "cat.Movies" to "أفلام",
+        "cat.Entertainment" to "ترفيه ومسلسلات", "cat.News" to "أخبار", "cat.Kids" to "أطفال ورسوم متحركة",
+        "cat.Documentary" to "وثائقي", "cat.Music" to "موسيقى وإذاعة", "cat.Lifestyle" to "أسلوب حياة",
+        "cat.Religious" to "ديني", "cat.Tvri" to "TVRI الإقليمية", "cat.Local" to "تلفاز محلي", "cat.Vod" to "أفلام عند الطلب", "cat.Other" to "أخرى",
+    )
+
+    private val T = mapOf("en" to EN, "id" to ID, "zh" to ZH, "ar" to AR)
 }

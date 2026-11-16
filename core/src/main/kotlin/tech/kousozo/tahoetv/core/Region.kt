@@ -7,7 +7,7 @@ import java.util.Locale
  *  `country` (ISO 3166 alpha-2, e.g. "ID", "US") and `language` (ISO 639-1, e.g. "id", "en"). */
 object Region {
     /** App languages with a translation. Others fall back to English. */
-    val LANGUAGES = listOf("en", "id", "zh")
+    val LANGUAGES = listOf("en", "id", "zh", "ar")
 
     /** The country whose channels have extra curated sources and features (prayer times on by default, "near you"). */
     const val HOME = "ID"
@@ -32,6 +32,13 @@ object Region {
         if (cc.length != 2 || !cc.all { it in 'A'..'Z' }) return "🏳️"
         return String(Character.toChars(0x1F1E6 + (cc[0] - 'A'))) + String(Character.toChars(0x1F1E6 + (cc[1] - 'A')))
     }
+
+    /** Scripts written right-to-left. */
+    private val RTL = setOf("ar", "he", "iw", "fa", "ur")
+
+    /** True when [lang] (any form: "ar", "ar-EG", "he_IL") is written right-to-left. */
+    @JvmStatic fun isRtl(lang: String?): Boolean =
+        lang?.trim()?.replace('_', '-')?.substringBefore('-')?.lowercase() in RTL
 
     /** A valid country code, or null. */
     @JvmStatic fun country(code: String?): String? = code?.trim()?.uppercase()?.takeIf { it in Locale.getISOCountries() }
@@ -67,4 +74,29 @@ object Region {
     /** Guides for [country], in order of preference (epg.pw publishes one XMLTV file per country). */
     @JvmStatic fun guides(country: String): List<String> =
         if (country.equals(HOME, true)) Sources.EPG else listOf("https://epg.pw/xmltv/epg_${country.uppercase()}.xml")
+
+    // ------------------------------------------------------------------ channels per language
+
+    /** ISO 639-1 → ISO 639-3 as used by iptv-org's `languages/<code>.m3u`. */
+    @JvmStatic val ISO639_3: Map<String, String> = mapOf(
+        "en" to "eng", "id" to "ind", "zh" to "zho", "ar" to "ara", "ms" to "msa", "ja" to "jpn", "ko" to "kor",
+        "es" to "spa", "fr" to "fra", "de" to "deu", "hi" to "hin", "pt" to "por", "ru" to "rus", "it" to "ita",
+        "nl" to "nld", "tr" to "tur", "fa" to "fas", "ur" to "urd", "he" to "heb", "th" to "tha", "vi" to "vie",
+        "tl" to "tgl", "bn" to "ben", "ta" to "tam", "pl" to "pol", "uk" to "ukr", "sv" to "swe", "el" to "ell",
+        "jv" to "jav", "su" to "sun",
+    )
+
+    /** Languages a viewer can add channels from, in [ISO639_3] order. */
+    @JvmStatic fun channelLanguages(): List<String> = ISO639_3.keys.toList()
+
+    /** iptv-org's playlist of channels in [lang] (ISO 639-1 or 639-3), or null for an unknown language. */
+    @JvmStatic fun languagePlaylist(lang: String): String? {
+        val l = lang.trim().lowercase().let { if (it == "in") "id" else it }
+        val code = ISO639_3[l] ?: l.takeIf { it.length == 3 && it in ISO639_3.values } ?: return null
+        return "https://iptv-org.github.io/iptv/languages/$code.m3u"
+    }
+
+    /** Sources for extra channel languages, unknown codes dropped, duplicates removed. */
+    @JvmStatic fun languageSources(langs: List<String>): List<Sources.Source> =
+        langs.mapNotNull { languagePlaylist(it) }.distinct().map { Sources.Source("iptv-org-lang", it) }
 }

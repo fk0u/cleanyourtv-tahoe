@@ -43,4 +43,28 @@ class RegionTest {
         assertTrue(Region.prayerByDefault("ID") && Region.prayerByDefault("my"))
         assertTrue(!Region.prayerByDefault("US"))
     }
+
+    @Test fun rtlLanguagesAreDetected() {
+        listOf("ar", "ar-EG", "he_IL", "fa", "ur").forEach { assertTrue(Region.isRtl(it), it) }
+        listOf("en", "id", "zh", null, "").forEach { assertTrue(!Region.isRtl(it), "$it") }
+        assertEquals("ar", Region.language("ar_SA"))
+        assertTrue(I18n.isRtl("ar"))
+    }
+
+    @Test fun languagePlaylistsMapIso6391To6393() {
+        assertEquals("https://iptv-org.github.io/iptv/languages/ind.m3u", Region.languagePlaylist("id"))
+        assertEquals("https://iptv-org.github.io/iptv/languages/ara.m3u", Region.languagePlaylist("ar"))
+        assertEquals("https://iptv-org.github.io/iptv/languages/zho.m3u", Region.languagePlaylist("zh"))
+        assertEquals("https://iptv-org.github.io/iptv/languages/jpn.m3u", Region.languagePlaylist("jpn"))
+        assertEquals(null, Region.languagePlaylist("xx"))
+        assertEquals(2, Region.languageSources(listOf("en", "eng", "ko", "zz")).size)
+    }
+
+    @Test fun viewerKeepsChannelLanguages() {
+        val v = Viewer(language = "ar", country = "SA", channelLanguages = listOf("ar", "en", "zz"))
+        val back = Viewer.fromJson(v.toJson())
+        assertEquals(listOf("ar", "en"), back.channelLanguages)
+        assertTrue(back.rtl)
+        assertEquals(emptyList(), Viewer.fromJson("{\"country\":\"ID\"}").channelLanguages)
+    }
 }

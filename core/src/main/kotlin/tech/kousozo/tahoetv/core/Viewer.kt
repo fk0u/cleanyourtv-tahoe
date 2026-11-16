@@ -36,7 +36,12 @@ data class Viewer @JvmOverloads constructor(
     val simpleMode: Boolean = false,
     /** Channel list sort order: "popularity" (default, internet-scraped per country), "asc" (A-Z), or "desc" (Z-A). */
     val sortMode: String = "popularity",
+    /** Extra channel languages (ISO 639-1) loaded on top of [countries]; empty = countries only (#71). */
+    val channelLanguages: List<String> = emptyList(),
 ) {
+    /** True when the app language reads right-to-left (Arabic, …). */
+    val rtl: Boolean get() = Region.isRtl(language)
+
     val done get() = country.isNotBlank()
 
     /** Effective [LocalTv.SortMode] for organizing channels. */
@@ -96,6 +101,7 @@ data class Viewer @JvmOverloads constructor(
         .put("language", language).put("country", country).put("city", city).put("lat", lat ?: JSONObject.NULL).put("lon", lon ?: JSONObject.NULL)
         .put("region", region).put("timeZone", timeZone).put("prayer", prayer).put("prayerMethod", prayerMethod)
         .put("channelCountries", JSONArray(channelCountries)).put("categories", JSONArray(categories.toList())).put("favorites", JSONArray(favorites))
+        .put("channelLanguages", JSONArray(channelLanguages))
         .toString()
 
     companion object {
@@ -114,6 +120,7 @@ data class Viewer @JvmOverloads constructor(
                 revision = j.optLong("revision", 0L),
                 simpleMode = j.optBoolean("simpleMode", false),
                 sortMode = LocalTv.SortMode.fromKey(j.optString("sortMode", "popularity")).key,
+                channelLanguages = list("channelLanguages").filter { Region.languagePlaylist(it) != null }.distinct(),
             )
         }
 

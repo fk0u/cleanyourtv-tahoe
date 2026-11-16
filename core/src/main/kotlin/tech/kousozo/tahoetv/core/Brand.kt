@@ -38,6 +38,25 @@ object Brand {
     const val STROKE = 0x24FFFFFF.toInt()       // hairlines and card borders (14 %)
     const val GLASS = 0x17FFFFFF.toInt()        // translucent fill over images (9 %)
 
+    // ----------------------------------------------------------------- light & high-contrast palettes (#41)
+    /** Light mode: "lake by day". Video stages stay [NIGHT] in every theme. */
+    const val LIGHT_CANVAS = 0xFFF5F6F8.toInt()
+    const val LIGHT_SURFACE = 0xFFFFFFFF.toInt()
+    const val LIGHT_SURFACE_HI = 0xFFE9ECF1.toInt()
+    const val LIGHT_TEXT = 0xFF0E0F13.toInt()
+    const val LIGHT_TEXT_2 = 0xB30E0F13.toInt()
+    const val LIGHT_TEXT_3 = 0x800E0F13.toInt()
+    const val LIGHT_STROKE = 0x1F0E0F13.toInt()
+    /** Accent on light surfaces (cyan is too pale on white). */
+    const val LIGHT_ACCENT = 0xFF0A6FA8.toInt()
+
+    /** High contrast: pure black/white surfaces, solid borders, yellow focus ring. */
+    const val HC_CANVAS = 0xFF000000.toInt()
+    const val HC_SURFACE = 0xFF000000.toInt()
+    const val HC_TEXT = 0xFFFFFFFF.toInt()
+    const val HC_STROKE = 0xFFFFFFFF.toInt()
+    const val HC_FOCUS = 0xFFFFD60A.toInt()
+
     /** Category tints: all shades around cyan/lake so grids stay one family. */
     val CATEGORY_TINTS = intArrayOf(CYAN, 0xFF5E8BFF.toInt(), 0xFF4FE3C1.toInt(), 0xFF9FB4FF.toInt())
 
@@ -97,6 +116,7 @@ object Brand {
     fun tagline(lang: String): String = when (lang.lowercase()) {
         "en" -> "Tahoe TV: calm, simple TV for the whole family."
         "zh" -> "Tahoe TV：安静、简单，全家都会用的电视。"
+        "ar" -> "Tahoe TV: تلفاز هادئ وبسيط لكل العائلة."
         else -> TAGLINE
     }
 
@@ -107,6 +127,11 @@ object Brand {
         "color.night" to hex(NIGHT), "color.canvas" to hex(CANVAS), "color.surface" to hex(SURFACE), "color.surfaceHi" to hex(SURFACE_HI), "color.snow" to hex(SNOW),
         "color.live" to hex(LIVE), "color.pine" to hex(PINE), "color.sun" to hex(SUN),
         "color.text2" to hex(TEXT_2), "color.text3" to hex(TEXT_3), "color.stroke" to hex(STROKE), "color.glass" to hex(GLASS),
+        "color.light.canvas" to hex(LIGHT_CANVAS), "color.light.surface" to hex(LIGHT_SURFACE), "color.light.surfaceHi" to hex(LIGHT_SURFACE_HI),
+        "color.light.text" to hex(LIGHT_TEXT), "color.light.text2" to hex(LIGHT_TEXT_2), "color.light.text3" to hex(LIGHT_TEXT_3),
+        "color.light.stroke" to hex(LIGHT_STROKE), "color.light.accent" to hex(LIGHT_ACCENT),
+        "color.hc.canvas" to hex(HC_CANVAS), "color.hc.surface" to hex(HC_SURFACE), "color.hc.text" to hex(HC_TEXT),
+        "color.hc.stroke" to hex(HC_STROKE), "color.hc.focus" to hex(HC_FOCUS),
         "type.font" to FONT, "type.display" to TYPE_DISPLAY, "type.title" to TYPE_TITLE, "type.headline" to TYPE_HEADLINE,
         "type.body" to TYPE_BODY, "type.label" to TYPE_LABEL, "type.caption" to TYPE_CAPTION,
         "type.tv.display" to TV_DISPLAY, "type.tv.title" to TV_TITLE, "type.tv.headline" to TV_HEADLINE, "type.tv.body" to TV_BODY, "type.tv.caption" to TV_CAPTION,

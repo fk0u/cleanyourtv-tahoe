@@ -2,7 +2,9 @@ package tech.kousozo.tahoetv.core
 
 import java.util.Locale
 
-/** Trilingual UI copy shared across core, desktop, and companion (`"en"`, `"id"`, `"zh"`). */
+/** UI copy shared across core, desktop, companion and launcher. `en`/`id`/`zh` live here in full; community
+ *  languages (e.g. `ar`) are JSON files in `core/src/main/resources/i18n/<lang>.json` merged over English, so a
+ *  translator never needs to touch this file. See docs/TRANSLATING.md. */
 object I18n {
     private val EN = mapOf(
         "nav.home" to "Home",
@@ -2911,13 +2913,29 @@ object I18n {
         "tv.live_record_btn" to "录制",
     )
 
-    internal val TABLES = mapOf("en" to EN, "id" to ID, "zh" to ZH)
+    /** Built-in, always-complete tables. */
+    internal val BUILT_IN = mapOf("en" to EN, "id" to ID, "zh" to ZH)
+
+    /** Raw community table for [lang] from `/i18n/<lang>.json` (empty when missing or malformed). */
+    internal fun community(lang: String): Map<String, String> = runCatching {
+        val stream = I18n::class.java.getResourceAsStream("/i18n/$lang.json") ?: return emptyMap()
+        val j = org.json.JSONObject(stream.use { it.bufferedReader(Charsets.UTF_8).readText() })
+        j.keys().asSequence().associateWith { j.getString(it) }.filterValues { it.isNotBlank() }
+    }.getOrDefault(emptyMap())
+
+    /** Every app language ([Region.LANGUAGES]) → its table; community languages fall back to English per key. */
+    internal val TABLES: Map<String, Map<String, String>> by lazy {
+        Region.LANGUAGES.associateWith { l -> BUILT_IN[l] ?: (EN + community(l).filterKeys { it in EN }) }
+    }
+
+    @JvmStatic fun isRtl(lang: String?): Boolean = Region.isRtl(lang)
 
     @JvmStatic
-    fun table(lang: String): Map<String, String> = when (lang.lowercase(Locale.US)) {
+    fun table(lang: String): Map<String, String> = when (val l = lang.lowercase(Locale.US)) {
         "en" -> EN
         "zh" -> ZH
-        else -> ID
+        "id" -> ID
+        else -> TABLES[l] ?: ID
     }
 
     @JvmStatic
