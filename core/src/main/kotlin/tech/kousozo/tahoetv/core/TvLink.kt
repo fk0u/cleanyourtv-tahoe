@@ -171,6 +171,13 @@ class TvLink(val host: String, private val token: String, private val onState: (
 
     data class PairResult(val token: String, val id: String, val name: String, val role: String)
 
+    data class QrPayload(
+        val host: String,
+        val code: String,
+        val isSetup: Boolean = false,
+        val port: Int = 8765,
+    )
+
     companion object {
         private const val MAX_PENDING = 64
         @Volatile private var sharedLink: TvLink? = null
@@ -218,9 +225,64 @@ class TvLink(val host: String, private val token: String, private val onState: (
         @JvmOverloads
         fun pair(host: String, code: String, lang: String = "id"): String = pairWithInfo(host, code, lang).token
 
+        /** Parses a TV pairing/setup QR code URL (`http://<ip>:8765/?code=123456`, `/setup?code=123456`, or `tahoe://pair?...`). */
+        @JvmStatic
+        fun parseQrPayload(raw: String): QrPayload? {
+            val s = raw.trim()
+            if (s.isEmpty()) return null
+            val uri = runCatching { URI(s) }.getOrNull() ?: return null
+            val scheme = uri.scheme?.lowercase().orEmpty()
+            if (scheme !in setOf("http", "https", "tahoe")) return null
+            val params = HashMap<String, String>()
+            uri.rawQuery.orEmpty().split('&').forEach { pair ->
+                val idx = pair.indexOf('=')
+                if (idx > 0) {
+                    val k = runCatching { java.net.URLDecoder.decode(pair.substring(0, idx), "UTF-8") }.getOrNull().orEmpty()
+                    val v = runCatching { java.net.URLDecoder.decode(pair.substring(idx + 1), "UTF-8") }.getOrNull().orEmpty()
+                    if (k.isNotEmpty()) params[k] = v
+                }
+            }
+            val code = params["code"]?.trim().orEmpty()
+            if (!code.matches(Regex("\\d{6}"))) return null
+            val host = if (scheme == "tahoe") params["host"]?.trim().orEmpty() else uri.host?.trim().orEmpty()
+            if (host.isEmpty()) return null
+            val port = if (uri.port > 0) uri.port else (params["port"]?.toIntOrNull() ?: 8765)
+            val isSetup = uri.path.orEmpty().contains("setup", ignoreCase = true) || params["setup"] == "1"
+            return QrPayload(host = host, code = code, isSetup = isSetup, port = port)
+        }
+
+        @JvmStatic
+        fun setupUrl(host: String, code: String? = null): String =
+            "${httpBase(host)}/setup" + (code?.takeIf { it.matches(Regex("\\d{6}")) }?.let { "?code=$it" } ?: "")
+
         /** The TV's diagnostic report for "Send log" (GET /log). Blocks; throws when the TV can't be reached. */
         fun fetchLog(host: String, token: String): String =
             Web.get("${httpBase(host)}/log", 8000, mapOf("Authorization" to "Bearer $token"))
+
+        /** Fetches the complete TV settings snapshot (`GET /settings`, secrets omitted). Blocks. */
+        @JvmStatic
+        @JvmOverloads
+        fun fetchSettings(host: String, token: String, lang: String = "id"): TvSettings.Snapshot {
+            val raw = runCatching { Web.get("${httpBase(host)}/settings", 8000, mapOf("Authorization" to "Bearer $token")) }
+                .getOrElse { throw java.io.IOException(if ("HTTP 401" in "${it.message}") I18n.get(lang, "pair.not_paired") else I18n.get(lang, "pair.unreachable")) }
+            return TvSettings.Snapshot.fromJson(JSONObject(raw))
+        }
+
+        /** Updates TV settings via `POST /settings` with bearer auth. Blocks. */
+        @JvmStatic
+        @JvmOverloads
+        fun pushSettings(host: String, token: String, patch: JSONObject, lang: String = "id"): TvSettings.Snapshot {
+            val raw = runCatching {
+                Web.request("POST", "${httpBase(host)}/settings", patch.toString(), 8000, mapOf("Authorization" to "Bearer $token"))
+            }.getOrElse { throw java.io.IOException(if ("HTTP 401" in "${it.message}") I18n.get(lang, "pair.not_paired") else I18n.get(lang, "pair.unreachable")) }
+            val o = JSONObject(raw)
+            return if (o.has("settings")) TvSettings.Snapshot.fromJson(o.getJSONObject("settings")) else fetchSettings(host, token, lang)
+        }
+
+        /** Fetches today's & 7-day Kids watch report (`GET /kids/report`). Blocks. */
+        @JvmStatic
+        fun fetchKidsReport(host: String, token: String): JSONObject =
+            JSONObject(Web.get("${httpBase(host)}/kids/report", 8000, mapOf("Authorization" to "Bearer $token")))
 
         /** Sets a new 4-digit PIN for the TV's kids profile (forgotten PIN). Only a paired phone holds the token. Blocks. */
         @JvmOverloads
