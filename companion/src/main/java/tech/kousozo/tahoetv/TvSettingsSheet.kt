@@ -63,8 +63,11 @@ fun TvSettingsSheet(
     var subSize by remember { mutableStateOf("normal") }
     var perfTier by remember { mutableStateOf("auto") }
     var wallMode by remember { mutableStateOf("personal") }
+    var wallSource by remember { mutableStateOf("auto") }
+    var wallTheme by remember { mutableStateOf("nature") }
     var wallMinutes by remember { mutableIntStateOf(5) }
     var screensaverEnabled by remember { mutableStateOf(true) }
+    var sleepMinutes by remember { mutableIntStateOf(0) }
     var playlistUrl by remember { mutableStateOf("") }
     var epgUrl by remember { mutableStateOf("") }
     var sortMode by remember { mutableStateOf("popularity") }
@@ -90,11 +93,15 @@ fun TvSettingsSheet(
     var hasYoutube by remember { mutableStateOf(false) }
     var hasTmdb by remember { mutableStateOf(false) }
     var hasHa by remember { mutableStateOf(false) }
+    var hasUnsplash by remember { mutableStateOf(false) }
+    var hasPexels by remember { mutableStateOf(false) }
     var geminiKey by remember { mutableStateOf("") }
     var youtubeKey by remember { mutableStateOf("") }
     var tmdbKey by remember { mutableStateOf("") }
     var haUrl by remember { mutableStateOf("") }
     var haToken by remember { mutableStateOf("") }
+    var unsplashKey by remember { mutableStateOf("") }
+    var pexelsKey by remember { mutableStateOf("") }
 
     fun hydrate(s: TvSettings.Snapshot) {
         userName = s.userName
@@ -103,8 +110,11 @@ fun TvSettingsSheet(
         subSize = s.subtitleSize
         perfTier = s.performanceTier
         wallMode = s.wallMode
+        wallSource = s.wallSource
+        wallTheme = s.wallTheme
         wallMinutes = s.wallRotateMinutes
         screensaverEnabled = s.screensaverEnabled
+        sleepMinutes = s.sleepMinutes
         playlistUrl = s.playlistUrl
         epgUrl = s.epgUrl
         sortMode = s.sortMode
@@ -130,6 +140,8 @@ fun TvSettingsSheet(
         hasYoutube = s.hasYoutubeKey
         hasTmdb = s.hasTmdbKey
         hasHa = s.hasHaUrl
+        hasUnsplash = s.hasUnsplashKey
+        hasPexels = s.hasPexelsKey
     }
 
     LaunchedEffect(host, token) {
@@ -224,6 +236,28 @@ fun TvSettingsSheet(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ChoicePill(I18n.get(lang, "tvset.wall_personal"), wallMode == "personal", Modifier.weight(1f)) { wallMode = "personal" }
                             ChoicePill(I18n.get(lang, "tvset.wall_default"), wallMode == "default", Modifier.weight(1f)) { wallMode = "default" }
+                        }
+
+                        Text(I18n.get(lang, "wall.source_label"), fontSize = 13.sp, color = Tahoe.Dim)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            WallpaperProvider.Source.entries.forEach { ws ->
+                                ChoicePill(I18n.get(lang, "wall.source_${ws.key}"), wallSource == ws.key, Modifier.weight(1f)) { wallSource = ws.key }
+                            }
+                        }
+
+                        Text(I18n.get(lang, "wall.theme_label"), fontSize = 13.sp, color = Tahoe.Dim)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            WallpaperProvider.Theme.entries.forEach { wt ->
+                                ChoicePill(I18n.get(lang, "wall.theme_${wt.key}"), wallTheme == wt.key, Modifier.weight(1f)) { wallTheme = wt.key }
+                            }
+                        }
+
+                        Text(I18n.get(lang, "tvset.sleep_timer"), fontSize = 13.sp, color = Tahoe.Dim)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(0, 15, 30, 60, 90).forEach { m ->
+                                val lbl = if (m == 0) I18n.get(lang, "tvset.sleep_off") else I18n.get(lang, "tvset.sleep_min", m)
+                                ChoicePill(lbl, sleepMinutes == m, Modifier.weight(1f)) { sleepMinutes = m }
+                            }
                         }
 
                         Text(I18n.get(lang, "sub.size_label"), fontSize = 13.sp, color = Tahoe.Dim)
@@ -386,6 +420,8 @@ fun TvSettingsSheet(
                         Field(tmdbKey, { tmdbKey = it }, "TMDB API Key" + if (hasTmdb) " (${I18n.get(lang, "tvset.key_set")})" else "", secret = true)
                         Field(haUrl, { haUrl = it }, "Home Assistant URL" + if (hasHa) " (${I18n.get(lang, "tvset.key_set")})" else "", KeyboardType.Uri)
                         Field(haToken, { haToken = it }, "Home Assistant Token", secret = true)
+                        Field(unsplashKey, { unsplashKey = it }, I18n.get(lang, "wall.unsplash_key") + if (hasUnsplash) " (${I18n.get(lang, "tvset.key_set")})" else "", secret = true)
+                        Field(pexelsKey, { pexelsKey = it }, I18n.get(lang, "wall.pexels_key") + if (hasPexels) " (${I18n.get(lang, "tvset.key_set")})" else "", secret = true)
                     }
                 }
             }
@@ -404,8 +440,11 @@ fun TvSettingsSheet(
                                 put("subtitleSize", subSize)
                                 put("performanceTier", perfTier)
                                 put("wallMode", wallMode)
+                                put("wallSource", wallSource)
+                                put("wallTheme", wallTheme)
                                 put("wallRotateMinutes", wallMinutes)
                                 put("screensaverEnabled", screensaverEnabled)
+                                put("sleepMinutes", sleepMinutes)
                                 put("sortMode", sortMode)
                                 put("playlistUrl", playlistUrl.trim())
                                 put("epgUrl", epgUrl.trim())
@@ -420,6 +459,8 @@ fun TvSettingsSheet(
                                 if (tmdbKey.isNotBlank()) put("tmdbKey", tmdbKey.trim())
                                 if (haUrl.isNotBlank()) put("haUrl", haUrl.trim())
                                 if (haToken.isNotBlank()) put("haToken", haToken.trim())
+                                if (unsplashKey.isNotBlank()) put("unsplashKey", unsplashKey.trim())
+                                if (pexelsKey.isNotBlank()) put("pexelsKey", pexelsKey.trim())
                             }
                             TvLink.pushSettings(host, token, patch, lang)
                         }
@@ -427,7 +468,7 @@ fun TvSettingsSheet(
                     saving = false
                     res.fold({
                         hydrate(it)
-                        geminiKey = ""; youtubeKey = ""; tmdbKey = ""; haUrl = ""; haToken = ""
+                        geminiKey = ""; youtubeKey = ""; tmdbKey = ""; haUrl = ""; haToken = ""; unsplashKey = ""; pexelsKey = ""
                         Toast.makeText(c, I18n.get(lang, "tvset.saved"), Toast.LENGTH_SHORT).show()
                         onDismiss()
                     }, {
