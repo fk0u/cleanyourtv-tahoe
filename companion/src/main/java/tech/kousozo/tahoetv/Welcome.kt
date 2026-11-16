@@ -263,7 +263,7 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
         delay(400) // typing: wait for a pause
         results = withContext(Dispatchers.IO) { Web.searchPlaces(query.trim(), v.language, v.country) }
     }
-    Field(query, { query = it }, t("city.search"))
+    Field(query, { query = it }, tech.kousozo.tahoetv.core.I18n.get(v.language, "onboarding.city_subdistrict_hint"))
     Spacer(Modifier.height(10.dp))
     if (v.lat != null) {
         Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", ") + "  ✕", "📍", true) {
