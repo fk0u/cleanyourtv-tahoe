@@ -29,6 +29,7 @@ Struktur dan alur kode: [docs/ARCHITECTURE.md](ARCHITECTURE.md).
 - Privasi: jangan mencatat token, kunci, atau data pribadi; URL di log melewati `DiagLog.redact`.
 
 ## Terjemahan
+- **Aplikasi:** ikuti [docs/TRANSLATING.md](../TRANSLATING.md): satu file JSON per bahasa, diperiksa oleh `I18nTest`.
 - **Dokumentasi:** salin file ke `docs/<kode-bahasa>/` (misalnya `docs/es/INSTALL.md`), terjemahkan, lalu tautkan dari tabel dokumentasi di README.
 - **README:** tambahkan `README.<kode-bahasa>.md` dan tautannya di pemilih bahasa di atas setiap README.
 - **Situs web:** tambahkan bahasamu di tabel `I18N` pada `website/assets/i18n.js` (salin blok `id` sebagai contoh; kunci yang kosong memakai bahasa Inggris).

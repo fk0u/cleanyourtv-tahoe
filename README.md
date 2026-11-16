@@ -154,7 +154,7 @@ three apps. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Release notes | [CHANGELOG.md](CHANGELOG.md) | (Indonesian, shown in the apps) |
 | Brand | [BRAND.md](docs/brand/BRAND.md) | |
 
-Translating a document into your language? Add it under `docs/<language-code>/` and link it here.
+Translating a document into your language? Add it under `docs/<language-code>/` and link it here. Translating the apps? See [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
 ## Limitations
 

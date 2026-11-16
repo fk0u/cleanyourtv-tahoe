@@ -123,5 +123,19 @@ window.I18N = {
     "dl.rem.btn": "下载手机与平板端 (APK)",
     "dl.rem.label": "Android 图标名称：<b>Tahoe TV</b>",
     "dot.label": "截图 ", "_docs": "README.zh.md", "_title": "Tahoe TV — 免费开源智能电视桌面与直播应用"
+  },
+  ar: {
+    "nav.features": "الميزات", "nav.explore": "القنوات", "nav.start": "تنزيل", "nav.tools": "الأدوات و SHA-256", "nav.faq": "الأسئلة الشائعة",
+    "notice.view": "عرض التحديث",
+    "hero.badge": "مفتوح المصدر · MIT", "hero.title": "تلفازك، جميل وبسيط.",
+    "hero.lead": "Tahoe TV: تلفاز هادئ وبسيط لكل العائلة. واجهة رئيسية وبث مباشر مجاني لـ Android TV وهواتف Android و Mac و Windows و Linux.",
+    "hero.download": "تنزيل", "hero.explore": "تصفح القنوات", "hero.source": "عرض الشيفرة",
+    "stats.channels": "قناة مفهرسة", "stats.platforms": "منصات", "stats.ram": "ذاكرة تكفي", "stats.ads": "إعلانات، بلا روت",
+    "start.title": "على أي جهاز تريد التثبيت؟",
+    "dl.filter.all": "كل الأجهزة", "dl.filter.tv": "📺 تلفاز ذكي / صندوق", "dl.filter.phone": "📱 هاتف Android", "dl.filter.desktop": "💻 Mac / Windows / Linux",
+    "dl.main.btn": "تنزيل واجهة التلفاز (APK)", "dl.rem.btn": "تنزيل تطبيق الهاتف والجهاز اللوحي (APK)",
+    "dot.label": "صورة ", "_docs": "docs/TRANSLATING.md", "_title": "Tahoe TV — تطبيق تلفاز وبث مباشر مجاني"
   }
 };
+/** Languages written right-to-left: app.js sets <html dir="rtl"> for these. */
+window.I18N_RTL = ["ar", "he", "fa", "ur"];

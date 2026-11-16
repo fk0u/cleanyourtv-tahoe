@@ -39,6 +39,7 @@
     current = lang;
     const t = window.I18N[lang] || {};
     document.documentElement.lang = lang === "zh" ? "zh-Hans" : lang;
+    document.documentElement.dir = window.I18N_RTL && window.I18N_RTL.includes(lang) ? "rtl" : "ltr";
     $$("[data-i18n]").forEach(el => {
       const k = el.dataset.i18n;
       el.textContent = t[k] || english[k] || el.textContent;

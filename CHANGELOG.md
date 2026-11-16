@@ -6,6 +6,14 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 ## 3.4.0
 
 ### Baru
+- **Bahasa Arab & kesiapan RTL, paket saluran per bahasa, dan alur terjemahan komunitas (#71).**
+  - **Core (`:core`)**: `Region.isRtl`/`I18n.isRtl`, `"ar"` di `Region.LANGUAGES` (onboarding Arab lengkap; string aplikasi dari `resources/i18n/ar.json` dengan fallback Inggris per kunci), `Region.languagePlaylist` (ISO 639-1 → 639-3, `iptv-org/languages/*.m3u`), `Viewer.channelLanguages`, dan `Sources.loadChannels`.
+  - **Aplikasi**: `android:supportsRtl` di HP & TV; Compose HP/Desktop mengikuti arah bahasa (video & seekbar tetap LTR); TV memakai `setLayoutDirection`, margin *start/end*, dan chevron *auto-mirrored*; situs web mengatur `dir="rtl"`.
+  - **Dokumentasi**: [docs/TRANSLATING.md](docs/TRANSLATING.md); `I18nTest` memeriksa semua bahasa (kunci, teks kosong, placeholder).
+- **Tema Gelap/Terang/Ikuti sistem, Kontras tinggi, & Kurangi gerakan (#41).**
+  - `Brand` + `tokens.json` punya palet Light & High Contrast; `Theme` di `:core` (dengan uji kontras WCAG). HP & Desktop memakai tema reaktif (pemutar tetap gelap), bilah sistem HP mengikuti tema, dan `ANIMATOR_DURATION_SCALE = 0` dihormati.
+  - **HP**: `NavigationRail` di layar ≥ 600 dp, usap kiri/kanan untuk ganti saluran (di luar tepi gestur kembali), cubit untuk Pas ↔ Zoom, target sentuh 48 dp, dan string hardcoded dipindah ke `I18n`.
+  - **TV**: toggle Kontras tinggi, Kurangi gerakan, dan Suara klik remote di Pusat Kontrol; dialog **Detail saluran** di panduan (tahan OK / tombol Info: Tonton, Tambah/Hapus favorit).
 - **Control Plane terpusat, Notifikasi Push Real-Time, & Pop-up Modal Update (`server/`, `website/`, `:core`, `:launcher`, `:companion`, `:desktop`).**
   - **Server Control Plane & Situs Web (`https://tahoe.kousozo.tech`)**: Menambahkan backend Node.js/SQLite (`server/`) yang melayani statistik instalasi anonim, stream **Push Notification** real-time via Server-Sent Events (`/api/push/stream` & polling `/api/push/poll`), kebijakan **Pop-up Modal Pembaruan** (`/api/config`), serta pembaruan situs web di `website/`.
   - **Pop-up Modal Update & Inbox Notifikasi di Semua Aplikasi**: Menambahkan modal kaca pembaruan otomatis saat ada rilis baru (terverifikasi SHA-256 sebelum pemasangan) serta ikon lonceng & riwayat notifikasi di TV (`:launcher`), HP (`:companion`), dan Desktop (`:desktop` dengan notifikasi sistem macOS/Tray).

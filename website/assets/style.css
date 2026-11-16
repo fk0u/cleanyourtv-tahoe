@@ -31,10 +31,10 @@ h3 { font-size: 19px; font-weight: 600; }
 .nav { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 20px; padding: 14px clamp(16px, 4vw, 48px);
   background: rgba(7,8,13,.65); backdrop-filter: saturate(160%) blur(18px); -webkit-backdrop-filter: saturate(160%) blur(18px); border-bottom: 1px solid rgba(255,255,255,.06); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 19px; text-decoration: none; }
-.nav .links { display: flex; gap: 18px; margin-left: 12px; }
+.nav .links { display: flex; gap: 18px; margin-inline-start: 12px; }
 .nav .links a { text-decoration: none; color: var(--text2); font-size: 15px; transition: color .2s; }
 .nav .links a:hover { color: var(--text); }
-.nav-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.nav-right { margin-inline-start: auto; display: flex; gap: 10px; align-items: center; }
 .lang { display: flex; background: var(--glass); border: 1px solid var(--stroke); border-radius: 99px; padding: 3px; }
 .lang button { background: none; border: 0; color: var(--text2); font: 600 13px Outfit, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; padding: 5px 10px; border-radius: 99px; cursor: pointer; }
 .lang button.on { background: var(--text); color: var(--night); }
@@ -86,10 +86,10 @@ h3 { font-size: 19px; font-weight: 600; }
 .intl { padding: 0 clamp(16px, 4vw, 48px); max-width: 1100px; margin: 24px auto 0; }
 .intl-card { display: flex; gap: 18px; align-items: center; padding: 20px 24px; border-radius: var(--radius); background: linear-gradient(120deg, rgba(31,59,209,.35), rgba(122,50,220,.25)); border: 1px solid var(--stroke); }
 .intl-card p { margin: 4px 0 0; color: var(--text2); font-size: 15px; }
-.intl-card .btn { margin-left: auto; flex-shrink: 0; background: var(--glass-hi); }
+.intl-card .btn { margin-inline-start: auto; flex-shrink: 0; background: var(--glass-hi); }
 .globe { font-size: 34px; animation: spin 12s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (max-width: 640px) { .intl-card { flex-direction: column; align-items: flex-start; } .intl-card .btn { margin-left: 0; } }
+@media (max-width: 640px) { .intl-card { flex-direction: column; align-items: flex-start; } .intl-card .btn { margin-inline-start: 0; } }
 
 /* sections */
 .section { padding: clamp(56px, 8vw, 110px) clamp(16px, 4vw, 48px) 0; max-width: 1200px; margin: 0 auto; }
@@ -128,7 +128,7 @@ h3 { font-size: 19px; font-weight: 600; }
 
 /* device picker + downloads */
 .downloads { grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
-.dl ol { padding-left: 20px; color: var(--text2); font-size: 15px; margin: 14px 0 18px; }
+.dl ol { padding-inline-start: 20px; color: var(--text2); font-size: 15px; margin: 14px 0 18px; }
 .dl ol li { margin-bottom: 6px; }
 .dl.mine { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan), 0 20px 60px rgba(100,210,255,.18); }
 .dl .row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -160,12 +160,12 @@ textarea.input { width: 100%; min-height: 110px; resize: vertical; font-family: 
 .ch-meta { min-width: 0; flex: 1; }
 .ch-meta b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ch-meta small { color: var(--text3); font-size: 12px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; margin-left: 4px; background: rgba(100,210,255,.16); color: var(--cyan); }
+.tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; margin-inline-start: 4px; background: rgba(100,210,255,.16); color: var(--cyan); }
 .tag.drm { background: rgba(255,214,10,.16); color: var(--amber); }
 
 /* checksum table & admin tables */
 .table-wrap { overflow-x: auto; border: 1px solid var(--stroke); border-radius: 16px; background: rgba(255,255,255,.035); }
-table.data { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
+table.data { width: 100%; border-collapse: collapse; font-size: 14px; text-align: start; }
 table.data th, table.data td { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.08); vertical-align: middle; }
 table.data th { color: var(--text3); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
 table.data code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--cyan); word-break: break-all; }

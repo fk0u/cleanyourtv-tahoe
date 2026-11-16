@@ -32,6 +32,7 @@ Code structure and flows: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Privacy: never log tokens, keys or personal data; URLs in logs go through `DiagLog.redact`.
 
 ## Translations
+- **Apps:** follow [docs/TRANSLATING.md](docs/TRANSLATING.md): one JSON file per language, checked by `I18nTest`.
 - **Docs:** copy a file into `docs/<language-code>/` (e.g. `docs/es/INSTALL.md`), translate it, link it from the README's documentation table.
 - **README:** add `README.<language-code>.md` and a link in the language switcher at the top of each README.
 - **Website:** add your language to the `I18N` table in `website/assets/i18n.js` (copy the `id` block as a template; missing keys fall back to English).
