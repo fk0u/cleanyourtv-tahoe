@@ -219,6 +219,19 @@ object Playback {
     private var everReady = false
     private var retries = 0
     private var attempt = 0 // bumped per source start: a late 20 s timeout of an old attempt does nothing
+    private var recapDir: java.io.File? = null
+    private var recapStartedAt: Long = 0L
+    private var recapChannelId: String = ""
+    private var recapChannelName: String = ""
+    private var recapShow: String = ""
+
+    private fun flushRecap() {
+        val dir = recapDir ?: return
+        if (recapStartedAt <= 0L || recapChannelName.isBlank()) return
+        val sec = ((System.currentTimeMillis() - recapStartedAt) / 1000L).toInt()
+        recapStartedAt = 0L
+        if (sec >= 15) tech.kousozo.tahoetv.core.WatchRecap.record(dir, recapChannelId, recapChannelName, recapShow, sec, "main")
+    }
 
     /** Built with, and its callbacks keep, the application context only: this object outlives activities (rotation). */
     fun player(ctx: Context): ExoPlayer = player ?: ctx.applicationContext.let { c ->
@@ -284,6 +297,12 @@ object Playback {
     /** Start [e] (from its best source), or carry on if it's already the channel playing. */
     fun play(c: Context, e: LocalTv.Entry) {
         if (entry?.channel?.url == e.channel.url && slate == null) { resume(); return }
+        flushRecap()
+        recapDir = java.io.File(c.applicationContext.filesDir, "recap")
+        recapStartedAt = System.currentTimeMillis()
+        recapChannelId = e.channel.channelId
+        recapChannelName = e.name
+        recapShow = nowOn(Channels.epg, e, java.time.Instant.now())?.title.orEmpty()
         entry = e; slate = null; autoRetries = 0; retryIn = 0; sawRecording = false
         Channels.remember(c, e)
         val raw = listOf(e.channel) + e.alternates
@@ -320,7 +339,7 @@ object Playback {
     fun resume() { player?.play(); paused = false }
 
     /** Stop and forget the channel (the mini-player's ✕). */
-    fun stop() { attempt++; player?.stop(); entry = null; message = null; format = null; paused = false; slate = null; retryIn = 0 }
+    fun stop() { flushRecap(); attempt++; player?.stop(); entry = null; message = null; format = null; paused = false; slate = null; retryIn = 0 }
 
     /** "Coba lagi" on the slate, or the background retry: every source again, best first. */
     fun retry(c: Context) {

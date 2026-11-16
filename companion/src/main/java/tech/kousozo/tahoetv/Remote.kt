@@ -56,6 +56,7 @@ fun RemoteScreen() {
     val token = activeDev?.token ?: p.getString("token", "").orEmpty()
     val tvName = activeDev?.name?.ifBlank { "Tahoe TV" } ?: "Tahoe TV"
     var showDevices by remember { mutableStateOf(false) }
+    var showTvSettings by remember { mutableStateOf(false) }
     var online by remember { mutableStateOf(false) }
     var tv by remember { mutableStateOf<org.json.JSONObject?>(null) } // volume / channel reported by the TV
     // TvLink calls back on its network thread; change screen state on the main thread only.
@@ -74,6 +75,7 @@ fun RemoteScreen() {
 
 
     if (showDevices) TvDevicesSheet({ showDevices = false }) { Nav.tab = 0 }
+    if (showTvSettings && host.isNotBlank() && token.isNotEmpty()) TvSettingsSheet(host, token) { showTvSettings = false }
 
     Column(
         Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState())
@@ -102,6 +104,10 @@ fun RemoteScreen() {
                 Icon(Icons.Rounded.ExpandMore, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "connect.devices"), tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
             }
             Spacer(Modifier.width(10.dp))
+            if (link != null) {
+                RoundKey(Icons.Rounded.Tune, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "tvset.title"), 44.dp, tint = Tahoe.Accent) { showTvSettings = true }
+                Spacer(Modifier.width(8.dp))
+            }
             RoundKey(Icons.Rounded.Settings, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.tv_settings"), 44.dp) { key("settings") }
             Spacer(Modifier.width(8.dp))
             RoundKey(Icons.Rounded.PowerSettingsNew, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.standby"), 44.dp, tint = Color(0xFFFF6B6B)) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); link?.power() }

@@ -260,6 +260,9 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
     var code by remember { mutableStateOf("") }
     var showPair by remember { mutableStateOf(false) }
     var showDevices by remember { mutableStateOf(false) }
+    var showQrScanner by remember { mutableStateOf(false) }
+    var showTvSettings by remember { mutableStateOf(false) }
+    var showRecap by remember { mutableStateOf(false) }
     var notif by remember { mutableStateOf(p.getBoolean("notif", true)) }
     var media by remember { mutableStateOf(p.getBoolean("media", true)) }
     val granted = remember(resumeTick) {
@@ -324,12 +327,41 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
         }
 
         // pairing / TV card opens from the TV button
-        if (showDevices) TvDevicesSheet({ showDevices = false }) { pickedHost ->
+        val activeToken = devState.active()?.token ?: p.getString("token", "").orEmpty()
+        if (showTvSettings && host.isNotBlank() && activeToken.isNotEmpty()) {
+            TvSettingsSheet(host, activeToken) { showTvSettings = false }
+        }
+        if (showRecap) {
+            RecapSheet { showRecap = false }
+        }
+        if (showQrScanner) {
+            QrCodeScannerDialog(
+                onScanned = { qr ->
+                    showQrScanner = false
+                    scope.launch {
+                        val res = withContext(Dispatchers.IO) {
+                            runCatching { TvLink.pairWithInfo(qr.host, qr.code, lang, android.os.Build.MODEL.orEmpty()) }
+                        }
+                        res.onSuccess { pr ->
+                            Sync.recordPaired(c, qr.host, pr)
+                            host = qr.host
+                            code = ""
+                            paired = true
+                            showPair = false
+                            if (qr.isSetup) showTvSettings = true
+                        }
+                        Toast.makeText(c, res.exceptionOrNull()?.message ?: tech.kousozo.tahoetv.core.I18n.get(lang, "pair.connected"), Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onDismiss = { showQrScanner = false },
+            )
+        }
+        if (showDevices) TvDevicesSheet({ showDevices = false }, onScanQr = { showDevices = false; showQrScanner = true }) { pickedHost ->
             host = pickedHost
             showPair = true
         }
         if (showPair || !paired) TvCard(host, { host = it }, paired, code, { code = it }, showPair, { showPair = it }, granted, notif, { notif = it; p.edit().putBoolean("notif", it).apply() },
-            media, { media = it; p.edit().putBoolean("media", it).apply(); Sync.inst?.sendMedia() }) { res ->
+            media, { media = it; p.edit().putBoolean("media", it).apply(); Sync.inst?.sendMedia() }, onScanQr = { showQrScanner = true }) { res ->
             Sync.recordPaired(c, host, res); code = ""; paired = true; showPair = false
         }
 
@@ -373,6 +405,24 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                     PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote"), Icons.Rounded.SettingsRemote) { Nav.tab = 2 }
                 }
             }
+            if (activeToken.isNotEmpty()) SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tvset.open_full"), Icons.Rounded.Tune) { showTvSettings = true }
+        }
+        val recapSummary = remember(resumeTick, lang) {
+            tech.kousozo.tahoetv.core.WatchRecap.summarize(java.io.File(c.filesDir, "recap"), "main", tech.kousozo.tahoetv.core.WatchRecap.currentMonth(), lang)
+        }
+        Box(Modifier.padding(horizontal = 20.dp)) {
+            GlassCard(onClick = { showRecap = true }) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Tahoe.Accent.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.AutoAwesome, null, tint = Tahoe.Accent)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "recap.title"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(recapSummary.tagline, color = Tahoe.Dim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Dim)
+                }
+            }
         }
         Box(Modifier.padding(horizontal = 20.dp)) {
             GlassCard(onClick = { Playback.stop(); PhoneRegion.reset() }) { // reopens the first-run setup
@@ -396,7 +446,8 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
 /** Pairing + notification settings (was the "TV kamu" card). */
 @Composable
 private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, code: String, setCode: (String) -> Unit, open: Boolean, setOpen: (Boolean) -> Unit,
-                   granted: Boolean, notif: Boolean, setNotif: (Boolean) -> Unit, media: Boolean, setMedia: (Boolean) -> Unit, onPaired: (TvLink.PairResult) -> Unit) {
+                   granted: Boolean, notif: Boolean, setNotif: (Boolean) -> Unit, media: Boolean, setMedia: (Boolean) -> Unit,
+                   onScanQr: () -> Unit = {}, onPaired: (TvLink.PairResult) -> Unit) {
     val c = LocalContext.current
     val scope = rememberCoroutineScope()
     val lang = PhoneRegion.language
@@ -405,10 +456,15 @@ private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, cod
         GlassCard {
             if (!paired && !open) {
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect_desc"), color = Tahoe.Dim, fontSize = 14.sp)
-                Row { PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), Icons.Rounded.Link) { setOpen(true) }; Spacer(Modifier.width(8.dp)); TextButton({ Nav.tab = 4 }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.install_on_tv"), color = Tahoe.Text) } }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), Icons.Rounded.QrCodeScanner) { onScanQr() }
+                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), Icons.Rounded.Link) { setOpen(true) }
+                }
+                TextButton({ Nav.tab = 4 }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.install_on_tv"), color = Tahoe.Text) }
                 return@GlassCard
             }
             Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pair_hint"), color = Tahoe.Dim, fontSize = 13.sp)
+            SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), Icons.Rounded.QrCodeScanner) { onScanQr() }
             Field(host, setHost, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.host_hint"), KeyboardType.Uri)
             Field(code, { if (it.length <= 6) setCode(it.filter(Char::isDigit)) }, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.code_hint"), KeyboardType.NumberPassword)
             PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), enabled = host.isNotBlank() && code.length == 6, icon = Icons.Rounded.Link) {
@@ -511,7 +567,7 @@ fun categoryTint(k: LocalTv.Category): Color = Color(Brand.CATEGORY_TINTS[k.ordi
 /** Bottom sheet listing saved paired TVs (switch active / rename / forget) and mDNS-discovered receivers (#88, #37). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TvDevicesSheet(onDismiss: () -> Unit, onPickUnpaired: (String) -> Unit) {
+fun TvDevicesSheet(onDismiss: () -> Unit, onScanQr: (() -> Unit)? = null, onPickUnpaired: (String) -> Unit) {
     val c = LocalContext.current
     val lang = PhoneRegion.language
     LaunchedEffect(Unit) { TvDiscovery.start(c) }
@@ -540,7 +596,14 @@ fun TvDevicesSheet(onDismiss: () -> Unit, onPickUnpaired: (String) -> Unit) {
 
     ModalBottomSheet(onDismiss, containerColor = Tahoe.Surface) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.devices"), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.devices"), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                if (onScanQr != null) TextButton(onScanQr) {
+                    Icon(Icons.Rounded.QrCodeScanner, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), color = Tahoe.Accent)
+                }
+            }
             state.devices.forEach { d ->
                 val isActive = state.active()?.id == d.id
                 GlassCard(onClick = {
