@@ -12,7 +12,7 @@ import java.net.URI
  *  Each segment is downloaded fully before it is appended, so a failed download never leaves half a piece in the file;
  *  it is retried on the next playlist refresh. The file is started empty (a new run replaces what was there).
  *  Plain JVM (java.net), so the desktop app and the IPTV server can both use it. [run] blocks until done. */
-class HlsRecorder(
+class HlsRecorder @JvmOverloads constructor(
     private val url: String,
     private val headers: Map<String, String>,
     val out: File,

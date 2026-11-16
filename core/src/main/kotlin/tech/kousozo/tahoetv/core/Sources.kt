@@ -77,7 +77,10 @@ object Sources {
         if (!swrInFlight.add(url)) return
         fetchPool.execute {
             try {
-                val fetched = runCatching { Web.get(url, 30_000) }.getOrNull()
+                val fetched = runCatching { Web.get(url, 30_000) }
+            .recoverCatching { Web.get(url, 30_000) }
+            .onFailure { DiagLog.error("sources", "gagal memuat playlist $url", it) }
+            .getOrNull()
                 if (!fetched.isNullOrBlank()) {
                     writeCacheAtomic(cached, fetched)
                     memCache[url] = MemPlaylist(M3u.parse(fetched), System.currentTimeMillis())
@@ -105,7 +108,10 @@ object Sources {
                 return parsed
             }
         }
-        val fetched = runCatching { Web.get(url, 30_000) }.getOrNull()
+        val fetched = runCatching { Web.get(url, 30_000) }
+            .recoverCatching { Web.get(url, 30_000) }
+            .onFailure { DiagLog.error("sources", "gagal memuat playlist $url", it) }
+            .getOrNull()
         if (!fetched.isNullOrBlank()) {
             if (cached != null) writeCacheAtomic(cached, fetched)
             return M3u.parse(fetched).also { memCache[url] = MemPlaylist(it, System.currentTimeMillis()) }

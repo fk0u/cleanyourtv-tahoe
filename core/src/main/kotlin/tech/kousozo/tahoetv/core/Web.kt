@@ -127,27 +127,45 @@ object Web {
 
     @JvmOverloads
     fun request(method: String, url: String, body: String?, timeoutMs: Int = 20_000, headers: Map<String, String>? = null): String {
-        val c = if (method.equals("GET", ignoreCase = true) && body == null) {
-            openFollowingRedirects(url, timeoutMs, headers.orEmpty(), userAgent = "TahoeTV")
-        } else {
-            (URL(url).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 8000; readTimeout = timeoutMs; requestMethod = method
-                setRequestProperty("User-Agent", "TahoeTV")
-                headers?.forEach { (k, v) -> setRequestProperty(k, v) }
-                if (body != null) {
-                    doOutput = true; setRequestProperty("Content-Type", "application/json")
-                    outputStream.use { it.write(body.toByteArray()) }
+        val isSimpleGet = method.equals("GET", ignoreCase = true) && body == null
+        val maxAttempts = if (isSimpleGet) 2 else 1
+        var lastError: Exception? = null
+        for (attempt in 1..maxAttempts) {
+            val c = if (isSimpleGet) {
+                try {
+                    openFollowingRedirects(url, timeoutMs, headers.orEmpty(), userAgent = "TahoeTV")
+                } catch (e: java.io.IOException) {
+                    lastError = e
+                    if (attempt < maxAttempts) {
+                        runCatching { Thread.sleep(250) }
+                        continue
+                    }
+                    throw e
+                }
+            } else {
+                (URL(url).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 8000; readTimeout = timeoutMs; requestMethod = method
+                    setRequestProperty("User-Agent", "TahoeTV")
+                    headers?.forEach { (k, v) -> setRequestProperty(k, v) }
+                    if (body != null) {
+                        doOutput = true; setRequestProperty("Content-Type", "application/json")
+                        outputStream.use { it.write(body.toByteArray()) }
+                    }
                 }
             }
+            try {
+                val code = c.responseCode
+                val text = body(c, code >= 400)?.bufferedReader()?.readText().orEmpty()
+                if (code >= 400) throw java.io.IOException("HTTP $code")
+                return text
+            } catch (e: java.io.IOException) {
+                lastError = e
+                if (attempt >= maxAttempts) throw e
+            } finally {
+                c.disconnect()
+            }
         }
-        try {
-            val code = c.responseCode
-            val text = body(c, code >= 400)?.bufferedReader()?.readText().orEmpty()
-            if (code >= 400) throw java.io.IOException("HTTP $code")
-            return text
-        } finally {
-            c.disconnect()
-        }
+        throw lastError ?: java.io.IOException("Request failed: $url")
     }
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
@@ -165,15 +183,72 @@ object Web {
     /** A city found by [searchPlaces], with its IANA time zone and country code. */
     data class City(val name: String, val label: String, val lat: Double, val lon: Double, val region: String, val country: String, val timeZone: String)
 
-    /** Cities matching [q] (up to 10), names in [language]: for the onboarding's city step. */
-    fun searchPlaces(q: String, language: String = "en", country: String? = null): List<City> = runCatching {
-        val a = JSONObject(get("https://geocoding-api.open-meteo.com/v1/search?count=10&language=" + enc(language) + "&name=" + enc(q) +
-            (country?.takeIf { it.isNotBlank() }?.let { "&countryCode=" + enc(it) } ?: ""))).optJSONArray("results") ?: return@runCatching emptyList()
-        (0 until a.length()).map { i -> a.getJSONObject(i) }.map { r ->
-            City(r.getString("name"), listOf(r.getString("name"), r.optString("admin1"), r.optString("country")).filter { it.isNotBlank() }.joinToString(", "),
-                r.getDouble("latitude"), r.getDouble("longitude"), r.optString("admin1"), r.optString("country_code"), r.optString("timezone"))
-        }
-    }.getOrDefault(emptyList())
+    /** Cities, sub-districts, and villages (kecamatan/kelurahan, #48) matching [q], names in [language]: for onboarding & adhan setup. */
+    fun searchPlaces(q: String, language: String = "en", country: String? = null): List<City> {
+        val ccParam = country?.takeIf { it.isNotBlank() }?.let { "&countryCode=" + enc(it) } ?: ""
+        val openMeteo = runCatching {
+            val a = JSONObject(get("https://geocoding-api.open-meteo.com/v1/search?count=15&language=" + enc(language) + "&name=" + enc(q) + ccParam))
+                .optJSONArray("results") ?: return@runCatching emptyList()
+            (0 until a.length()).map { i -> a.getJSONObject(i) }.map { r ->
+                val sub = listOf(r.optString("admin4"), r.optString("admin3"), r.optString("admin2"))
+                    .firstOrNull { it.isNotBlank() && !it.equals(r.getString("name"), ignoreCase = true) }
+                    .orEmpty()
+                val admin1 = r.optString("admin1")
+                val label = listOf(r.getString("name"), sub, admin1, r.optString("country"))
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .joinToString(", ")
+                City(
+                    name = r.getString("name"),
+                    label = label,
+                    lat = r.getDouble("latitude"),
+                    lon = r.getDouble("longitude"),
+                    region = admin1.ifBlank { sub },
+                    country = r.optString("country_code"),
+                    timeZone = r.optString("timezone"),
+                )
+            }
+        }.getOrDefault(emptyList())
+        if (openMeteo.size >= 2 || q.trim().length < 3) return openMeteo
+        val nomCc = country?.takeIf { it.isNotBlank() }?.let { "&countrycodes=" + enc(it.lowercase()) } ?: ""
+        val nominatim = runCatching {
+            val arr = JSONArray(
+                get(
+                    "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&q=" + enc(q) + nomCc,
+                    timeoutMs = 8_000,
+                    headers = mapOf("Accept-Language" to language, "User-Agent" to "TahoeTV/${TahoeVersion.VERSION}"),
+                )
+            )
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val lat = o.optString("lat").toDoubleOrNull() ?: return@mapNotNull null
+                val lon = o.optString("lon").toDoubleOrNull() ?: return@mapNotNull null
+                val addr = o.optJSONObject("address")
+                val localName = listOf("village", "suburb", "neighbourhood", "town", "city_district", "city", "county")
+                    .firstNotNullOfOrNull { k -> addr?.optString(k)?.takeIf { it.isNotBlank() } }
+                    ?: o.optString("name").ifBlank { return@mapNotNull null }
+                val admin1 = addr?.optString("state").orEmpty()
+                val subDistrict = listOf("city_district", "municipality", "county", "city")
+                    .firstNotNullOfOrNull { k -> addr?.optString(k)?.takeIf { it.isNotBlank() && !it.equals(localName, true) } }
+                    .orEmpty()
+                val cc = addr?.optString("country_code")?.uppercase().orEmpty()
+                val lbl = listOf(localName, subDistrict, admin1, addr?.optString("country").orEmpty())
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .joinToString(", ")
+                City(
+                    name = localName,
+                    label = lbl,
+                    lat = lat,
+                    lon = lon,
+                    region = admin1.ifBlank { subDistrict },
+                    country = cc,
+                    timeZone = CountryCatalog.defaultZone(cc.ifBlank { country.orEmpty() }),
+                )
+            }
+        }.getOrDefault(emptyList())
+        return (openMeteo + nominatim).distinctBy { "${it.name.lowercase()}|${it.region.lowercase()}" }
+    }
 
     data class Weather(val tempC: Int, val code: Int, val label: String)
 
