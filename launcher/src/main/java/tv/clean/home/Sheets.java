@@ -326,6 +326,10 @@ final class Sheets {
                 h.applySimpleMode();
                 rebuild();
             }).wide().on(simple));
+            if (BuildConfig.STANDALONE_MODE) {
+                add(new Item(R.drawable.ic_tv, I18n.get(lang, "tv.standalone_title"),
+                        I18n.get(lang, "tv.standalone_guide"), null).wide());
+            }
         }
 
         static String ssid(Context c) {

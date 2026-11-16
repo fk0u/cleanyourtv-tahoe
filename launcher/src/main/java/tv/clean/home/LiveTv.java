@@ -634,7 +634,8 @@ public class LiveTv extends Activity {
             // Buffering is ExoPlayer's job: give it 30 s. "Ready" but the picture not moving for 12 s = frozen.
             else if (lastPos >= 0 && now - stuckSince > (state == Player.STATE_BUFFERING ? 30_000 : 12_000)) { tech.kousozo.tahoetv.core.DiagLog.add("live", "gambar macet → sambung ulang"); recover(); }
         }
-        ui.postDelayed(this, 2000);
+        ui.postDelayed(this, assDocument != null ? 250 : 2000);
+        if (assDocument != null) refreshAssCue();
     }};
 
     // ------------------------------------------------------------------ banner + list
@@ -814,9 +815,10 @@ public class LiveTv extends Activity {
                 {"ⓘ", I18n.get(lang, "stats.btn_info")},
                 {"⏪⏩", I18n.get(lang, "tv.live_key_seek")},
                 {"▶", I18n.get(lang, "tv.live_key_info")},
+                {"● REC", I18n.get(lang, "tv.live_record_btn")},
                 {"↩", I18n.get(lang, "tv.live_key_exit")}
         };
-        int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.ACCENT, Ui.TEXT_2, Ui.GOOD, Ui.SUN, Ui.TEXT_3, Ui.TEXT_2};
+        int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.ACCENT, Ui.TEXT_2, Ui.GOOD, Ui.SUN, Ui.TEXT_3, 0xFFFF453A, Ui.TEXT_2};
         for (int k = 0; k < keys.length; k++) {
             final int keyIdx = k;
             LinearLayout pillBtn = new LinearLayout(this); pillBtn.setGravity(Gravity.CENTER_VERTICAL);
@@ -832,7 +834,8 @@ public class LiveTv extends Activity {
                     case 4: toggleTechPanel(); break;
                     case 5: seekRel(-30_000); break;
                     case 6: showBanner(); break;
-                    case 7: finish(); break;
+                    case 7: toggleLocalRecord(); break;
+                    case 8: finish(); break;
                 }
             });
             View dot = new View(this); android.graphics.drawable.GradientDrawable dg = new android.graphics.drawable.GradientDrawable();
@@ -1478,9 +1481,80 @@ public class LiveTv extends Activity {
         return super.onKeyUp(code, e);
     }
 
+    // ------------------------------------------------------------------ ASS/SSA + local TV recording (#51, #52, #53)
+
+    private volatile tech.kousozo.tahoetv.core.HlsRecorder activeRecorder;
+    private volatile tech.kousozo.tahoetv.core.AssSubtitleParser.Document assDocument;
+
+    void setAssOverlayDocument(String rawAss) {
+        assDocument = rawAss == null ? null : tech.kousozo.tahoetv.core.AssSubtitleParser.parseDocument(rawAss);
+        refreshAssCue();
+    }
+
+    private void refreshAssCue() {
+        if (subtitleOverlay == null || assDocument == null || player == null) return;
+        long pos = Math.max(0L, player.getCurrentPosition());
+        List<tech.kousozo.tahoetv.core.AssSubtitleParser.Cue> cues = assDocument.activeAt(pos);
+        if (cues.isEmpty()) {
+            subtitleOverlay.setVisibility(View.GONE);
+            return;
+        }
+        tech.kousozo.tahoetv.core.AssSubtitleParser.Cue first = cues.get(0);
+        StringBuilder sb = new StringBuilder();
+        for (tech.kousozo.tahoetv.core.AssSubtitleParser.Cue cue : cues) {
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(cue.getText());
+        }
+        subtitleOverlay.setText(sb.toString());
+        subtitleOverlay.setTextColor(first.getColorArgb());
+        int style = (first.getBold() ? Typeface.BOLD : 0) | (first.getItalic() ? Typeface.ITALIC : 0);
+        subtitleOverlay.setTypeface(subtitleOverlay.getTypeface(), style);
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) subtitleOverlay.getLayoutParams();
+        int al = first.getAlignment();
+        lp.gravity = (al >= 7 ? Gravity.TOP : Gravity.BOTTOM) | Gravity.CENTER_HORIZONTAL;
+        subtitleOverlay.setLayoutParams(lp);
+        subtitleOverlay.setVisibility(View.VISIBLE);
+    }
+
+    void toggleLocalRecord() {
+        String lang = TvViewer.get(this).getLanguage();
+        if (activeRecorder != null) {
+            activeRecorder.cancel();
+            activeRecorder = null;
+            Toast.makeText(this, I18n.get(lang, "rec.stop"), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (index < 0 || source >= order.size()) return;
+        LocalTv.Entry e = list.get(index);
+        M3u.Channel ch = order.get(source);
+        if (ch.getDrm() || ch.isDash()) {
+            Toast.makeText(this, "DRM/DASH tidak mendukung rekam langsung", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        java.io.File recDir = getExternalFilesDir("recordings");
+        if (recDir == null) recDir = new java.io.File(getFilesDir(), "recordings");
+        String safe = e.getName().replaceAll("[^a-zA-Z0-9._-]+", "_");
+        java.io.File out = new java.io.File(recDir, safe + "-" + System.currentTimeMillis() + ".ts");
+        long stopAt = System.currentTimeMillis() + 60 * 60_000L;
+        tech.kousozo.tahoetv.core.HlsRecorder rec = new tech.kousozo.tahoetv.core.HlsRecorder(
+                ch.getUrl(), ch.getHeaders(), out, stopAt
+        );
+        activeRecorder = rec;
+        Toast.makeText(this, I18n.get(lang, "live.recording_now"), Toast.LENGTH_SHORT).show();
+        Net.bg.execute(() -> {
+            boolean ok = rec.run();
+            if (activeRecorder == rec) activeRecorder = null;
+            ui.post(() -> {
+                String msg = I18n.get(lang, ok ? "rec.done_notif" : "rec.done_partial", e.getName());
+                Toast.makeText(LiveTv.this, msg, Toast.LENGTH_LONG).show();
+                Notif.banner(LiveTv.this, null, "Tahoe TV", msg, out.getName());
+            });
+        });
+    }
+
     @Override protected void onStop() { super.onStop(); if (live == this) live = null; if (player != null) player.pause(); if (Home.live != null) Home.live.pushState(); }
     @Override protected void onStart() { super.onStart(); live = this; if (player != null && index >= 0) player.play(); if (Home.live != null) Home.live.pushState(); }
-    @Override protected void onDestroy() { flushRecapSession(); ui.removeCallbacksAndMessages(null); if (player != null) player.release(); player = null; super.onDestroy(); }
+    @Override protected void onDestroy() { if (activeRecorder != null) { activeRecorder.cancel(); activeRecorder = null; } flushRecapSession(); ui.removeCallbacksAndMessages(null); if (player != null) player.release(); player = null; super.onDestroy(); }
 
     // ------------------------------------------------------------------ app tile
 

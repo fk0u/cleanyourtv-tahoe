@@ -177,6 +177,11 @@ public class Onboarding extends Activity {
             case TIMEZONE: zoneStep(); break;
             case PRAYER:
                 row(t("prayer.on") + (prayer ? "  ●" : "  ○"), null, prayer, () -> { prayer = !prayer; postRender(); });
+                if (prayer) {
+                    boolean wakeOn = Cfg.p(this).getBoolean("prayer_wake_screen", true);
+                    row(tech.kousozo.tahoetv.core.I18n.get(language, "tv.prayer_wake_screen") + (wakeOn ? "  ●" : "  ○"),
+                            "🌙", wakeOn, () -> { Cfg.p(this).edit().putBoolean("prayer_wake_screen", !wakeOn).apply(); postRender(); });
+                }
                 if (prayer && lat == null) note(t("prayer.needcity"));
                 if (prayer) {
                     note(t("prayer.method"));
@@ -289,7 +294,7 @@ public class Onboarding extends Activity {
             }
         }
         final int[] baseCount = new int[1];
-        searchField(t("city.search"), q -> {
+        searchField(tech.kousozo.tahoetv.core.I18n.get(language, "onboarding.city_subdistrict_hint"), q -> {
             if (q.trim().length() < 2) return;
             String lang = language;
             int mine = ++citySearch;

@@ -21,6 +21,7 @@ android {
         targetSdk 34
         versionCode project.property("tahoe.versionCode").toString().toInteger()
         versionName project.property("tahoe.version").toString()
+        buildConfigField "boolean", "STANDALONE_MODE", "false"
         buildConfigField "String", "YOUTUBE_API_KEY", secret("youtube.apiKey")
         buildConfigField "String", "GEMINI_API_KEY", secret("gemini.apiKey")
         buildConfigField "String", "TMDB_API_KEY", secret("tmdb.apiKey")
@@ -51,6 +52,12 @@ android {
             shrinkResources false
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             signingConfig ksFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+        standalone {
+            initWith release
+            applicationIdSuffix ".standalone"
+            buildConfigField "boolean", "STANDALONE_MODE", "true"
+            matchingFallbacks = ["release"]
         }
     }
     lint { abortOnError false }

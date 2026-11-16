@@ -256,6 +256,7 @@ final class Prayer {
             }
             String name = prefs(c).getString("alarm_for", "");
             String lang = TvViewer.get(c).getLanguage();
+            wakeScreen(c, name, lang);
             Notif.banner(c, null, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_alarm_title"),
                     tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_alarm_body", name),
                     tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_alarm_area", Cfg.s(c, "city", R.string.city)));
@@ -267,6 +268,76 @@ final class Prayer {
                 scheduleAfter(c, Math.max(System.currentTimeMillis(), firedCutoff));
                 pending.finish();
             }, main);
+        }
+    }
+
+    static void wakeScreen(Context c, String prayerName, String lang) {
+        if (!Cfg.p(c).getBoolean("prayer_wake_screen", true)) return;
+        try {
+            android.os.PowerManager pm = (android.os.PowerManager) c.getSystemService(Context.POWER_SERVICE);
+            if (pm != null && !pm.isInteractive()) {
+                @SuppressWarnings("deprecation")
+                android.os.PowerManager.WakeLock wl = pm.newWakeLock(
+                        android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK | android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                        "tahoetv:adzan_wake");
+                wl.acquire(45_000L);
+            }
+            Intent act = new Intent(c, WakeActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("prayer", prayerName)
+                    .putExtra("city", Cfg.s(c, "city", R.string.city))
+                    .putExtra("lang", lang);
+            c.startActivity(act);
+        } catch (Exception e) {
+            tech.kousozo.tahoetv.core.DiagLog.error("prayer", "gagal membangunkan layar standby", e);
+        }
+    }
+
+    /** Calm full-screen overlay activity that wakes the screen briefly during standby for Adhan (#48). */
+    public static final class WakeActivity extends android.app.Activity {
+        private final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
+        @Override protected void onCreate(android.os.Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            if (android.os.Build.VERSION.SDK_INT >= 27) {
+                setShowWhenLocked(true);
+                setTurnScreenOn(true);
+            }
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                    | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                    | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+            String pName = getIntent().getStringExtra("prayer");
+            String city = getIntent().getStringExtra("city");
+            String lang = getIntent().getStringExtra("lang");
+            if (lang == null) lang = TvViewer.get(this).getLanguage();
+            FrameLayout root = new FrameLayout(this);
+            root.setBackgroundColor(0xF2060810);
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setGravity(Gravity.CENTER_HORIZONTAL);
+            int pad = (int) Ui.dp(this, 36);
+            card.setPadding(pad, pad, pad, pad);
+            card.setBackground(new GlassDrawable(Ui.dp(this, 24), 0x33FFFFFF, Ui.dp(this, 1)));
+            TextView eb = Ui.eyebrow(this, Ui.ACCENT);
+            eb.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.prayer_alarm_title"));
+            TextView ti = Ui.text(this, Ui.DISPLAY, 600, Ui.TEXT);
+            ti.setText(pName == null || pName.isEmpty() ? "Adzan" : pName);
+            TextView sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2);
+            sub.setText(city == null ? "" : city);
+            card.addView(eb);
+            card.addView(ti);
+            card.addView(sub);
+            root.addView(card, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+            root.setOnClickListener(v -> finish());
+            setContentView(root);
+            h.postDelayed(this::finish, 45_000L);
+        }
+        @Override public boolean onKeyDown(int code, KeyEvent event) {
+            finish();
+            return true;
+        }
+        @Override protected void onDestroy() {
+            h.removeCallbacksAndMessages(null);
+            super.onDestroy();
         }
     }
 

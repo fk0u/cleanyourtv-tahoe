@@ -50,6 +50,9 @@
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize" />
         <activity android:name=".Live" android:exported="false" android:screenOrientation="sensorLandscape"
             android:theme="@style/HomeTheme" android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize" />
+        <activity android:name=".Prayer$WakeActivity" android:exported="false" android:excludeFromRecents="true"
+            android:showOnLockScreen="true" android:turnScreenOn="true" android:screenOrientation="sensorLandscape"
+            android:theme="@style/HomeTheme" />
         <service android:name=".PushJobService" android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
         <service android:name=".Keys" android:exported="true"
