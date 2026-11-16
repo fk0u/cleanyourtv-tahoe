@@ -229,7 +229,7 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(show?.let { "${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}" } ?: e.category.label(PhoneRegion.language),
                     Modifier.weight(1f, fill = false), color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Playback.format?.let { Spacer(Modifier.width(8.dp)); FormatBadge(it) }
+                Playback.format?.let { Spacer(Modifier.width(8.dp)); FormatBadge(it, onClick = { statsSheetOpen = true }) }
             }
         }
         Spacer(Modifier.width(10.dp))
@@ -299,10 +299,14 @@ private fun TvConnectBar(state: org.json.JSONObject, link: tech.kousozo.tahoetv.
     }
 }
 
+private var statsSheetOpen by mutableStateOf(false)
+
 /** "1080p · H.264 · AAC" in a hairline box, like a music app's "AAC · 44,1 kHz". */
 @Composable
-fun FormatBadge(text: String) = Text(text,
-    Modifier.border(1.dp, Tahoe.Faint, RoundedCornerShape(5.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
+fun FormatBadge(text: String, onClick: (() -> Unit)? = null) = Text(text,
+    Modifier.clip(RoundedCornerShape(5.dp))
+        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+        .border(1.dp, Tahoe.Faint, RoundedCornerShape(5.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
     color = Tahoe.Dim, fontSize = 10.sp, fontFamily = Mono)
 
 @Composable
@@ -349,6 +353,7 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
     var settings by remember { mutableStateOf(false) }
     var zoomFill by remember { mutableStateOf(false) }
     if (settings) PlayerSettingsSheet { settings = false }
+    if (statsSheetOpen) PlayerStatsSheet { statsSheetOpen = false }
     var visible by remember { mutableStateOf(true) }
     val busy = Playback.message != null
     LaunchedEffect(shownAt, busy, touchExploration) {
@@ -399,11 +404,13 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
             PlayerView(it).apply {
                 this.player = player
                 useController = false
+                subtitleView?.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, Playback.subtitleSize.spPhone)
                 resizeMode = if (zoomFill) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                 layoutParams = ViewGroup.LayoutParams(-1, -1)
             }
         }, Modifier.fillMaxSize(), update = {
             it.player = player
+            it.subtitleView?.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, Playback.subtitleSize.spPhone)
             it.resizeMode = if (zoomFill) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
         })
         val slate = Playback.slate
@@ -454,7 +461,7 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                         }
                         IconButton({
                             poke()
-                            val res = Playback.cycleTrack(androidx.media3.common.C.TRACK_TYPE_TEXT)
+                            val res = Playback.cycleTrack(c, androidx.media3.common.C.TRACK_TYPE_TEXT)
                             android.widget.Toast.makeText(c, "Subtitle: $res", android.widget.Toast.LENGTH_SHORT).show()
                         }, Modifier.size(actSize)) {
                             Icon(androidx.compose.material.icons.Icons.Rounded.ClosedCaption,
@@ -462,11 +469,14 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                         }
                         IconButton({
                             poke()
-                            val res = Playback.cycleTrack(androidx.media3.common.C.TRACK_TYPE_AUDIO)
+                            val res = Playback.cycleTrack(c, androidx.media3.common.C.TRACK_TYPE_AUDIO)
                             android.widget.Toast.makeText(c, "Audio: $res", android.widget.Toast.LENGTH_SHORT).show()
                         }, Modifier.size(actSize)) {
                             Icon(androidx.compose.material.icons.Icons.Rounded.Audiotrack,
                                 "Ganti trek audio (${Playback.audioLabel ?: "Auto"})", tint = Color.White, modifier = Modifier.size(actIcon))
+                        }
+                        IconButton({ poke(); statsSheetOpen = true }, Modifier.size(actSize)) {
+                            Icon(Icons.Rounded.Info, tech.kousozo.tahoetv.core.I18n.get(lang, "stats.title"), tint = Color.White, modifier = Modifier.size(actIcon))
                         }
                         IconButton({ poke(); settings = true }, Modifier.size(actSize)) {
                             Icon(Icons.Rounded.Settings, "Setelan pemutar: kualitas dan latensi", tint = Color.White, modifier = Modifier.size(actIcon))
@@ -720,6 +730,54 @@ fun PlayerSettingsSheet(onDismiss: () -> Unit) {
             Text(if (Playback.latency == tech.kousozo.tahoetv.core.PlayPrefs.Latency.Low) tech.kousozo.tahoetv.core.I18n.get(lang, "player.latency_low_warn", Playback.latency.note(lang))
                 else tech.kousozo.tahoetv.core.I18n.get(lang, "player.latency_note_dot", Playback.latency.note(lang)),
                 fontSize = 13.sp, color = Tahoe.Dim)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "sub.size_label"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize.entries.forEach { sz ->
+                    Chip(sz.label(lang), Playback.subtitleSize == sz) { Playback.setSubtitleSize(c, sz) }
+                }
+            }
+        }
+    }
+}
+
+/** Technical diagnostics sheet ("Stats for Nerds", #61) on phone & tablet. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlayerStatsSheet(onDismiss: () -> Unit) {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    var snap by remember { mutableStateOf(Playback.statsSnapshot()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            snap = Playback.statsSnapshot()
+            delay(1000)
+        }
+    }
+    ModalBottomSheet(onDismiss, containerColor = Tahoe.Surface) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.title"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            snap?.let { s ->
+                tech.kousozo.tahoetv.core.PlayerStats.rows(s, lang).forEach { (k, v) ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(k, color = Tahoe.Dim, fontSize = 13.sp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(v, color = Tahoe.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono)
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button({
+                        val txt = tech.kousozo.tahoetv.core.PlayerStats.formatText(s, lang)
+                        val cm = c.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                        cm?.setPrimaryClip(android.content.ClipData.newPlainText("Tahoe TV Stats", txt))
+                        android.widget.Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "stats.copied"), android.widget.Toast.LENGTH_SHORT).show()
+                    }, Modifier.weight(1f)) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.copy")) }
+                    OutlinedButton({
+                        val txt = tech.kousozo.tahoetv.core.PlayerStats.formatText(s, lang)
+                        tech.kousozo.tahoetv.core.DiagLog.add("stats", txt.replace("\n", " | "))
+                        android.widget.Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "stats.log_saved"), android.widget.Toast.LENGTH_SHORT).show()
+                    }, Modifier.weight(1f)) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.send_log")) }
+                }
+            }
         }
     }
 }

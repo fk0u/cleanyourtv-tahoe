@@ -110,9 +110,50 @@ class Sync : NotificationListenerService() {
 
     private fun command(m: String) = runCatching {
         val o = JSONObject(m)
+        if (o.optString("t") == "tv_notif") {
+            postTvNotification(
+                kind = o.optString("kind", "reminder"),
+                title = o.optString("title", "Tahoe TV"),
+                body = o.optString("body", ""),
+            )
+            return@runCatching
+        }
         val tc = media?.transportControls ?: return@runCatching
         if (o.optString("t") != "media_cmd") return@runCatching
         when (o.optString("c")) { "play" -> tc.play(); "pause" -> tc.pause(); "next" -> tc.skipToNext(); "prev" -> tc.skipToPrevious() }
+    }
+
+    private fun postTvNotification(kind: String, title: String, body: String) {
+        if (title.isBlank() && body.isBlank()) return
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) return
+        val nm = getSystemService(android.app.NotificationManager::class.java) ?: return
+        val lang = PhoneRegion.language
+        val isReminder = kind == "reminder"
+        val chId = if (isReminder) "tahoe_tv_reminders" else "tahoe_tv_status"
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            val chName = tech.kousozo.tahoetv.core.I18n.get(lang, if (isReminder) "notif.tv_reminder_channel" else "notif.tv_status_channel")
+            if (nm.getNotificationChannel(chId) == null) {
+                nm.createNotificationChannel(android.app.NotificationChannel(chId, chName, android.app.NotificationManager.IMPORTANCE_HIGH))
+            }
+        }
+        val pi = android.app.PendingIntent.getActivity(
+            this,
+            chId.hashCode(),
+            android.content.Intent(this, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        val n = androidx.core.app.NotificationCompat.Builder(this, chId)
+            .setSmallIcon(R.drawable.ic_launcher_mono)
+            .setContentTitle(title.ifBlank { "Tahoe TV" })
+            .setContentText(body)
+            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+        nm.notify((System.currentTimeMillis() and 0x7FFFFFFFL).toInt(), n)
     }
 
     private fun appLabel(pkg: String) = packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()

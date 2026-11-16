@@ -81,8 +81,57 @@ object Playback {
     /** Viewer choices (Setelan pemutar), kept in the "live" prefs. */
     var quality by mutableStateOf(tech.kousozo.tahoetv.core.PlayPrefs.Quality.Auto); private set
     var latency by mutableStateOf(tech.kousozo.tahoetv.core.PlayPrefs.Latency.Standard); private set
+    var subtitleSize by mutableStateOf(tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize.Normal); private set
 
-    fun cycleTrack(trackType: Int): String {
+    private var statsVideoDecoder = ""
+    private var statsAudioDecoder = ""
+    private var rebufferCount = 0
+    private var rebufferMs = 0L
+    private var bufferingSince = -1L
+    private var droppedFramesCount = 0L
+    private var bandwidthKbps = 0
+
+    fun statsSnapshot(): tech.kousozo.tahoetv.core.PlayerStats.Snapshot? {
+        val e = entry ?: return null
+        val cur = streams.getOrNull(source) ?: e.channel
+        val p = player
+        val vf = p?.videoFormat
+        val af = p?.audioFormat
+        val bufSec = if (p != null) maxOf(0.0, (p.bufferedPosition - p.currentPosition) / 1000.0) else 0.0
+        val offMs = p?.currentLiveOffset ?: C.TIME_UNSET
+        val offSec = if (offMs == C.TIME_UNSET) Double.NaN else maxOf(0.0, offMs / 1000.0)
+        val liveRebuf = if (bufferingSince > 0) rebufferMs + maxOf(0L, System.currentTimeMillis() - bufferingSince) else rebufferMs
+        val status = when {
+            slate != null -> "OFFLINE"
+            paused -> "PAUSED"
+            message != null -> "LOADING"
+            else -> "LIVE"
+        }
+        return tech.kousozo.tahoetv.core.PlayerStats.Snapshot(
+            channelName = e.name,
+            sourceIndex = source + 1,
+            sourceTotal = maxOf(1, streams.size),
+            streamUrl = cur.url,
+            status = status,
+            width = vf?.width?.coerceAtLeast(0) ?: 0,
+            height = vf?.height?.coerceAtLeast(0) ?: 0,
+            fps = vf?.frameRate?.takeIf { it > 0f } ?: 0f,
+            videoCodec = vf?.sampleMimeType.orEmpty(),
+            audioCodec = af?.sampleMimeType.orEmpty(),
+            decoderName = statsVideoDecoder.ifBlank { statsAudioDecoder },
+            videoBitrateKbps = vf?.bitrate?.takeIf { it > 0 }?.div(1000) ?: 0,
+            bufferSeconds = bufSec,
+            liveOffsetSeconds = offSec,
+            rebufferCount = rebufferCount,
+            rebufferMs = liveRebuf,
+            droppedFrames = droppedFramesCount,
+            bandwidthKbps = bandwidthKbps,
+        )
+    }
+
+    fun cycleTrack(trackType: Int): String = cycleTrack(null, trackType)
+
+    fun cycleTrack(ctx: Context?, trackType: Int): String {
         val p = player ?: return "-"
         val groups = p.currentTracks.groups.filter { it.type == trackType && it.isSupported }
         if (groups.isEmpty()) {
@@ -110,9 +159,13 @@ object Playback {
             }
         } ?: -1
         val b = p.trackSelectionParameters.buildUpon()
+        b.clearOverridesOfType(trackType)
+        val chKey = entry?.let { tech.kousozo.tahoetv.core.PlayPrefs.channelTrackKey(it.channel.channelId, it.name) }
+        val lp = ctx?.applicationContext?.getSharedPreferences("live", 0)
         if (trackType == C.TRACK_TYPE_TEXT && curIdx == options.lastIndex) {
             b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
             p.trackSelectionParameters = b.build()
+            if (lp != null && chKey != null) lp.edit().putString("tr_s_$chKey", "off").apply()
             subtitleLabel = "Off"
             return "CC: Off"
         }
@@ -120,6 +173,10 @@ object Playback {
         b.setTrackTypeDisabled(trackType, false)
             .setOverrideForType(androidx.media3.common.TrackSelectionOverride(next.first, next.second))
         p.trackSelectionParameters = b.build()
+        val chosenLang = next.first.getFormat(next.second).language
+        if (lp != null && chKey != null && !chosenLang.isNullOrBlank()) {
+            lp.edit().putString((if (trackType == C.TRACK_TYPE_TEXT) "tr_s_" else "tr_a_") + chKey, chosenLang).apply()
+        }
         if (trackType == C.TRACK_TYPE_TEXT) subtitleLabel = next.third
         if (trackType == C.TRACK_TYPE_AUDIO) audioLabel = next.third
         return next.third
@@ -129,6 +186,12 @@ object Playback {
         val p = c.getSharedPreferences("live", 0)
         quality = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(p.getString("quality", null))
         latency = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(p.getString("latency", null))
+        subtitleSize = tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize.of(p.getString("sub_size", null))
+    }
+
+    fun setSubtitleSize(c: Context, sz: tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize) {
+        subtitleSize = sz
+        c.getSharedPreferences("live", 0).edit().putString("sub_size", sz.key).apply()
     }
 
     /** Applies right away: the player switches to a variant at or under the cap. */
@@ -158,13 +221,30 @@ object Playback {
     private var attempt = 0 // bumped per source start: a late 20 s timeout of an old attempt does nothing
 
     /** Built with, and its callbacks keep, the application context only: this object outlives activities (rotation). */
-    fun player(ctx: Context): ExoPlayer = player ?: ctx.applicationContext.let { c -> ExoPlayer.Builder(c,
-        // decoder fallback + FFmpeg (AC-3, E-AC-3, DTS, MP2…) after the phone's own decoders
-        DefaultRenderersFactory(c).setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)).build().also { p ->
+    fun player(ctx: Context): ExoPlayer = player ?: ctx.applicationContext.let { c ->
+        val tuning = tech.kousozo.tahoetv.core.PlayPrefs.tuningFor(latency)
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(tuning.minBufferMs, tuning.maxBufferMs, tuning.bufferForPlaybackMs, tuning.bufferForPlaybackAfterRebufferMs)
+            .build()
+        ExoPlayer.Builder(
+            c,
+            // decoder fallback + FFmpeg (AC-3, E-AC-3, DTS, MP2…) after the phone's own decoders
+            DefaultRenderersFactory(c).setEnableDecoderFallback(true)
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON),
+        ).setLoadControl(loadControl).build().also { p ->
         p.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
-            override fun onAudioDecoderInitialized(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, name: String, a: Long, b: Long) = DiagLog.add("live", "audio decoder $name")
-            override fun onVideoDecoderInitialized(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, name: String, a: Long, b: Long) = DiagLog.add("live", "video decoder $name")
+            override fun onAudioDecoderInitialized(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, name: String, a: Long, b: Long) {
+                statsAudioDecoder = name; DiagLog.add("live", "audio decoder $name")
+            }
+            override fun onVideoDecoderInitialized(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, name: String, a: Long, b: Long) {
+                statsVideoDecoder = name; DiagLog.add("live", "video decoder $name")
+            }
+            override fun onDroppedVideoFrames(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, count: Int, elapsedMs: Long) {
+                droppedFramesCount += maxOf(0, count)
+            }
+            override fun onBandwidthEstimate(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, totalLoadTimeMs: Int, totalBytesLoaded: Long, bitrateEstimate: Long) {
+                if (bitrateEstimate > 0) bandwidthKbps = (bitrateEstimate / 1000L).toInt()
+            }
         })
         p.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
@@ -176,7 +256,16 @@ object Playback {
                 p.prepare(); p.play()
             }
             override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_BUFFERING && everReady && bufferingSince < 0) {
+                    bufferingSince = System.currentTimeMillis()
+                    return
+                }
                 if (state != Player.STATE_READY) return
+                if (bufferingSince > 0) {
+                    rebufferCount++
+                    rebufferMs += maxOf(0L, System.currentTimeMillis() - bufferingSince)
+                    bufferingSince = -1L
+                }
                 // a finished playlist, or a "live" window far in the past, is a recording (yesterday's show on a loop)
                 if (!everReady && isRecording(p, streams.getOrNull(source))) { DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); sawRecording = true; next(c); return }
                 streams.getOrNull(source)?.let { SourceHealth.report(it.url, true) }
@@ -291,11 +380,42 @@ object Playback {
         }
         DiagLog.add("live", "${e.name} sumber ${source + 1}/${streams.size} ${s.url}")
         everReady = false; retries = 0; message = ""; format = null; paused = false
+        rebufferCount = 0; rebufferMs = 0L; bufferingSince = -1L; droppedFramesCount = 0L
+        statsVideoDecoder = ""; statsAudioDecoder = ""
+        val chKey = tech.kousozo.tahoetv.core.PlayPrefs.channelTrackKey(e.channel.channelId, e.name)
+        val lp = c.applicationContext.getSharedPreferences("live", 0)
+        val tsp = p.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+        val remAudio = lp.getString("tr_a_$chKey", null)
+        if (!remAudio.isNullOrBlank()) tsp.setPreferredAudioLanguage(remAudio) else tsp.setPreferredAudioLanguages()
+        val remSub = lp.getString("tr_s_$chKey", null)
+        if (remSub == "off") {
+            tsp.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            subtitleLabel = "Off"
+        } else if (!remSub.isNullOrBlank()) {
+            tsp.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setPreferredTextLanguage(remSub)
+            subtitleLabel = remSub.uppercase()
+        } else {
+            tsp.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setPreferredTextLanguages()
+            subtitleLabel = null
+        }
+        p.trackSelectionParameters = tsp.build()
+
+        val tuning = tech.kousozo.tahoetv.core.PlayPrefs.tuningFor(latency, SourceHealth.isTightWindow(s.url), false)
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
             .setUserAgent(s.headers["User-Agent"] ?: tech.kousozo.tahoetv.core.Web.STREAM_UA).setDefaultRequestProperties(s.headers - "User-Agent")
         val item = MediaItem.Builder().setUri(Uri.parse(s.url))
-            // behind live by the chosen latency (default ~20 s): a cushion against slow pieces; clamped to what the stream keeps
-            .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(latency.offsetMs).build())
+            // bounded live offset & gentle speed correction so tight 2s-segment HLS feeds play without ±2s stalls (#32)
+            .setLiveConfiguration(
+                MediaItem.LiveConfiguration.Builder()
+                    .setTargetOffsetMs(tuning.targetOffsetMs)
+                    .setMinOffsetMs(tuning.minOffsetMs)
+                    .setMaxOffsetMs(tuning.maxOffsetMs)
+                    .setMinPlaybackSpeed(tuning.minPlaybackSpeed)
+                    .setMaxPlaybackSpeed(tuning.maxPlaybackSpeed)
+                    .build()
+            )
         if (s.isDash) item.setMimeType(MimeTypes.APPLICATION_MPD)
         else if (s.url.contains(".m3u8", ignoreCase = true)) item.setMimeType(MimeTypes.APPLICATION_M3U8)
 
