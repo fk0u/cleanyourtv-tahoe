@@ -127,21 +127,50 @@ object PopularityScraper {
         ),
     )
 
-    private val STRIP_NONALNUM = Regex("[^a-z0-9]")
+    private val diskMissUntil = ConcurrentHashMap<String, Long>()
+
+    private val NORM_SEEDS: Map<String, List<Pair<String, Double>>> by lazy {
+        SEED_RANKINGS.mapValues { (_, list) ->
+            list.mapIndexedNotNull { idx, name ->
+                val k = norm(name)
+                if (k.isEmpty()) null else k to (550.0 - idx * 14.0)
+            }
+        }
+    }
+
+    private val SEED_EXACT: Map<String, Map<String, Double>> by lazy {
+        NORM_SEEDS.mapValues { (_, pairs) ->
+            val map = HashMap<String, Double>(pairs.size * 2)
+            for ((k, sc) in pairs) {
+                map.putIfAbsent(k, sc)
+            }
+            map
+        }
+    }
 
     @JvmStatic
     fun initCache(dir: File) {
+        diskMissUntil.clear()
         cacheDir = File(dir, "popularity").apply { mkdirs() }
     }
 
     internal fun resetForTest() {
         memory.clear()
         inFlight.clear()
+        diskMissUntil.clear()
         httpGet = { url -> Web.get(url, 8_000) }
     }
 
-    internal fun norm(name: String): String =
-        LocalTv.cleanName(name).lowercase(Locale.US).replace(STRIP_NONALNUM, "")
+    private fun normClean(cleaned: String): String {
+        val sb = StringBuilder(cleaned.length)
+        for (ch in cleaned) {
+            val lc = ch.lowercaseChar()
+            if (lc in 'a'..'z' || lc in '0'..'9') sb.append(lc)
+        }
+        return sb.toString()
+    }
+
+    internal fun norm(name: String): String = normClean(LocalTv.cleanName(name))
 
     @JvmStatic
     fun topChannelNames(country: String, limit: Int = 5): List<String> {
@@ -161,8 +190,7 @@ object PopularityScraper {
     @JvmStatic
     @JvmOverloads
     fun score(channelName: String, countries: List<String>, category: LocalTv.Category? = null): Double {
-        val clean = LocalTv.cleanName(channelName)
-        val key = norm(clean)
+        val key = norm(channelName)
         if (key.isEmpty()) return 0.0
         val list = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
 
@@ -388,12 +416,10 @@ object PopularityScraper {
     }
 
     private fun lookupSeedScore(cc: String, normChannel: String): Double {
-        val seeds = SEED_RANKINGS[cc] ?: return 0.0
-        seeds.forEachIndexed { idx, s ->
-            val ks = norm(s)
-            if (ks.isNotEmpty() && (normChannel == ks || normChannel.startsWith(ks))) {
-                return 550.0 - idx * 14.0
-            }
+        SEED_EXACT[cc]?.get(normChannel)?.let { return it }
+        val seeds = NORM_SEEDS[cc] ?: return 0.0
+        for ((ks, sc) in seeds) {
+            if (normChannel.startsWith(ks)) return sc
         }
         return 0.0
     }
@@ -414,8 +440,13 @@ object PopularityScraper {
 
     private fun getOrLoadFromDisk(cc: String): CountryCache? {
         memory[cc]?.let { return it }
+        val now = System.currentTimeMillis()
+        if ((diskMissUntil[cc] ?: 0L) > now) return null
         val file = resolvedDir()?.let { File(it, "$cc.tsv") } ?: return null
-        if (!file.isFile) return null
+        if (!file.isFile) {
+            diskMissUntil[cc] = now + 5_000L
+            return null
+        }
         return runCatching {
             val scores = HashMap<String, Double>()
             val ranked = ArrayList<Pair<String, Double>>()
@@ -462,6 +493,7 @@ object PopularityScraper {
             }
             tmp.writeText(sb.toString(), Charsets.UTF_8)
             tmp.renameTo(target)
+            diskMissUntil.remove(cc)
         }
     }
 }

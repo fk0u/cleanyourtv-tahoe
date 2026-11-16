@@ -253,6 +253,39 @@ object LocalTv {
         return if (union == 0) 0.0 else inter.toDouble() / union
     }
 
+    private val BRAND_SLUGS: List<Pair<String, Regex>> = listOf(
+        "sctv" to Regex("""(?<![a-z0-9])sctv(?![a-z0-9])"""),
+        "indosiar" to Regex("""(?<![a-z0-9])indosiar(?![a-z0-9])"""),
+        "moji" to Regex("""(?<![a-z0-9])moji(?![a-z0-9])"""),
+        "rcti" to Regex("""(?<![a-z0-9])rcti(?!plus)(?![a-z0-9])"""),
+        "mnctv" to Regex("""(?<![a-z0-9])mnctv(?![a-z0-9])"""),
+        "gtv" to Regex("""(?<![a-z0-9])(globaltv|gtv)(?![a-z0-9])"""),
+        "trans tv" to Regex("""(?<![a-z0-9])transtv(?![a-z0-9])"""),
+        "trans7" to Regex("""(?<![a-z0-9])trans7(?![a-z0-9])"""),
+        "antv" to Regex("""(?<![a-z0-9])antv(?![a-z0-9])"""),
+        "tvone" to Regex("""(?<![a-z0-9])tvone(?![a-z0-9])"""),
+    )
+
+    private val BRAND_SLUG_MAP: Map<String, Regex> = BRAND_SLUGS.toMap()
+
+    /** Rejects known mislabeled channel streams (e.g. DensTV h207 carrying Moji tagged as Indosiar, #33). */
+    @JvmStatic
+    fun isMismatchedSource(channelName: String, url: String): Boolean {
+        val norm = cleanName(channelName).lowercase()
+        val expected = BRAND_SLUG_MAP[norm] ?: return false
+        val u = url.substringBefore('?').lowercase()
+        if (norm == "indosiar" && "dens.tv" in u && Regex("""/h207(/|\.|$)""").containsMatchIn(u)) return true
+        if (expected.containsMatchIn(u)) return false
+        return BRAND_SLUGS.any { it.first != norm && it.second.containsMatchIn(u) }
+    }
+
+    /** Legacy dead/stale endpoints from #33 (SCTV timeout IP / stale DensTV feeds) ranked after healthy backups. */
+    @JvmStatic
+    fun isDeprioritizedSource(url: String): Boolean {
+        val u = url.substringBefore('?').lowercase()
+        return "202.150.172.59" in u || ("dens.tv" in u && ("/h217" in u || "/h207" in u))
+    }
+
     @JvmOverloads
     fun arrange(
         channels: List<M3u.Channel>,
@@ -265,14 +298,22 @@ object LocalTv {
         val normCountries = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
         val home = Region.HOME in normCountries
         val near = CountryCatalog.localKeywords(viewerCountry ?: normCountries.firstOrNull(), province, city)
-        val exactBuckets = channels.map {
-            val e = classify(it, near, home)
-            val spaceKey = canonicalMergeKey(e.name).replace(" ", "")
-            e to spaceKey
-        }.groupBy { "${it.second}|${it.first.category.name}" }
+        val exactBuckets = channels
+            .filterNot { isMismatchedSource(it.name, it.url) }
+            .map {
+                val e = classify(it, near, home)
+                val spaceKey = canonicalMergeKey(e.name).replace(" ", "")
+                e to spaceKey
+            }.groupBy { "${it.second}|${it.first.category.name}" }
             .values
             .map { dupes ->
-                val sorted = dupes.sortedWith(compareBy({ it.first.partTime }, { it.first.channel.headers.isNotEmpty() }))
+                val sorted = dupes.sortedWith(
+                    compareBy(
+                        { isDeprioritizedSource(it.first.channel.url) },
+                        { it.first.partTime },
+                        { it.first.channel.headers.isNotEmpty() },
+                    )
+                )
                 val first = sorted.first()
                 first.first.copy(alternates = sorted.drop(1).map { it.first.channel }) to first.second
             }
@@ -281,6 +322,8 @@ object LocalTv {
         val merged = ArrayList<Entry>(exactBuckets.size)
         val mergedKeys = ArrayList<String>(exactBuckets.size)
         val mergedBigrams = ArrayList<IntArray>(exactBuckets.size)
+        val mergedSig1 = ArrayList<Long>(exactBuckets.size)
+        val mergedSig2 = ArrayList<Long>(exactBuckets.size)
         val indexByCategory = HashMap<Int, HashMap<Int, MutableList<Int>>>()
         val seenStamp = IntArray(exactBuckets.size)
         var stamp = 0
@@ -288,22 +331,72 @@ object LocalTv {
         for ((item, kItem) in exactBuckets) {
             val catOrd = item.category.ordinal
             val itemBg = packedBigrams(kItem)
+            var itemSig1 = 0L
+            var itemSig2 = 0L
+            for (bg in itemBg) {
+                itemSig1 = itemSig1 or (1L shl ((bg * -1640531535) ushr 26))
+                itemSig2 = itemSig2 or (1L shl ((bg * -2048144777) ushr 26))
+            }
             var matchIdx = -1
             if (kItem.length >= 6) {
                 val catIdx = indexByCategory[catOrd]
                 if (catIdx != null) {
                     stamp++
-                    val probeCount = minOf(itemBg.size, (itemBg.size / 10) + 1)
+                    val n = itemBg.size
+                    val probeCount = minOf(n, (n / 10) + 1)
+                    // Probe the rarest bigrams first so shared common prefixes don't degrade to O(N^2).
+                    val bestIdx = IntArray(probeCount)
+                    val bestSize = IntArray(probeCount) { Int.MAX_VALUE }
+                    var filled = 0
+                    for (i in 0 until n) {
+                        val sz = catIdx[itemBg[i]]?.size ?: 0
+                        if (filled < probeCount) {
+                            var pos = filled++
+                            while (pos > 0 && bestSize[pos - 1] > sz) {
+                                bestSize[pos] = bestSize[pos - 1]
+                                bestIdx[pos] = bestIdx[pos - 1]
+                                pos--
+                            }
+                            bestSize[pos] = sz
+                            bestIdx[pos] = i
+                        } else if (sz < bestSize[probeCount - 1]) {
+                            var pos = probeCount - 1
+                            while (pos > 0 && bestSize[pos - 1] > sz) {
+                                bestSize[pos] = bestSize[pos - 1]
+                                bestIdx[pos] = bestIdx[pos - 1]
+                                pos--
+                            }
+                            bestSize[pos] = sz
+                            bestIdx[pos] = i
+                        }
+                        if (filled == probeCount && bestSize[probeCount - 1] == 0) break
+                    }
                     var bestSim = 0.899999
+                    val invItem1 = itemSig1.inv()
+                    val invItem2 = itemSig2.inv()
                     for (p in 0 until probeCount) {
-                        val posting = catIdx[itemBg[p]] ?: continue
-                        for (cand in posting) {
+                        val posting = catIdx[itemBg[bestIdx[p]]] ?: continue
+                        for (ci in 0 until posting.size) {
+                            val cand = posting[ci]
                             if (seenStamp[cand] == stamp) continue
                             seenStamp[cand] = stamp
                             val kEx = mergedKeys[cand]
                             if (minOf(kEx.length, kItem.length) < 6) continue
                             val exBg = mergedBigrams[cand]
                             if (maxOf(exBg.size, itemBg.size) * 9 > minOf(exBg.size, itemBg.size) * 10) continue
+                            val exSig1 = mergedSig1[cand]
+                            val exSig2 = mergedSig2[cand]
+                            val missA = maxOf(
+                                java.lang.Long.bitCount(exSig1 and invItem1),
+                                java.lang.Long.bitCount(exSig2 and invItem2),
+                            )
+                            val missB = maxOf(
+                                java.lang.Long.bitCount(itemSig1 and exSig1.inv()),
+                                java.lang.Long.bitCount(itemSig2 and exSig2.inv()),
+                            )
+                            val interUpper = minOf(exBg.size - missA, itemBg.size - missB)
+                            val unionLower = maxOf(itemBg.size + missA, exBg.size + missB)
+                            if (interUpper * 10 < unionLower * 9) continue
                             val sim = sortedJaccard(exBg, itemBg)
                             if (sim >= 0.90 && sim > bestSim) {
                                 bestSim = sim
@@ -324,6 +417,8 @@ object LocalTv {
                 merged += item
                 mergedKeys += kItem
                 mergedBigrams += itemBg
+                mergedSig1 += itemSig1
+                mergedSig2 += itemSig2
                 if (kItem.length >= 6) {
                     val catIdx = indexByCategory.getOrPut(catOrd) { HashMap() }
                     for (bg in itemBg) catIdx.getOrPut(bg) { ArrayList(2) }.add(idx)
@@ -333,6 +428,19 @@ object LocalTv {
         return sort(merged, sortMode, normCountries)
     }
 
+    private class PopSortKey(
+        val e: Entry,
+        val cRank: Int,
+        val negPop: Double,
+        val lower: String,
+    )
+
+    private class NameSortKey(
+        val e: Entry,
+        val cRank: Int,
+        val lower: String,
+    )
+
     @JvmStatic
     @JvmOverloads
     fun sort(
@@ -340,32 +448,43 @@ object LocalTv {
         sortMode: SortMode = SortMode.Popularity,
         countries: List<String> = listOf(Region.HOME),
     ): List<Entry> {
+        if (entries.size <= 1) return entries.toList()
         val normCountries = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }
         val countryOrder = normCountries.withIndex().associate { (i, c) -> c to i }
         fun countryRank(cc: String?): Int =
             if (cc.isNullOrBlank()) 0 else countryOrder[cc.uppercase()] ?: normCountries.size
+        // Precompute rank/popularity/lowercase once per entry so TimSort comparisons stay O(1).
         return when (sortMode) {
-            SortMode.NameAsc -> entries.sortedWith(
-                compareBy<Entry>({ countryRank(it.channel.countryCode) }, { it.name.lowercase() }, { it.partTime })
-            )
-            SortMode.NameDesc -> entries.sortedWith(
-                compareBy<Entry>({ countryRank(it.channel.countryCode) })
-                    .thenByDescending { it.name.lowercase() }
-                    .thenBy { it.partTime }
-            )
-            SortMode.Popularity -> entries.sortedWith(
-                compareBy<Entry>(
-                    { countryRank(it.channel.countryCode) },
-                    { it.rank >= PRIORITY.size },
-                    { !it.near },
-                    { if (it.rank < PRIORITY.size) it.rank else Int.MAX_VALUE },
-                    { -PopularityScraper.score(it.name, normCountries, it.category) },
-                    { it.category.ordinal },
-                    { it.partTime },
-                    { it.channel.logo.isNullOrBlank() },
-                    { it.name.lowercase() },
+            SortMode.NameAsc -> entries.map { NameSortKey(it, countryRank(it.channel.countryCode), it.name.lowercase()) }
+                .sortedWith(compareBy({ it.cRank }, { it.lower }, { it.e.partTime }))
+                .map { it.e }
+            SortMode.NameDesc -> entries.map { NameSortKey(it, countryRank(it.channel.countryCode), it.name.lowercase()) }
+                .sortedWith(
+                    compareBy<NameSortKey> { it.cRank }
+                        .thenByDescending { it.lower }
+                        .thenBy { it.e.partTime }
                 )
-            )
+                .map { it.e }
+            SortMode.Popularity -> entries.map {
+                PopSortKey(
+                    e = it,
+                    cRank = countryRank(it.channel.countryCode),
+                    negPop = -PopularityScraper.score(it.name, normCountries, it.category),
+                    lower = it.name.lowercase(),
+                )
+            }.sortedWith(
+                compareBy<PopSortKey>(
+                    { it.cRank },
+                    { it.e.rank >= PRIORITY.size },
+                    { !it.e.near },
+                    { if (it.e.rank < PRIORITY.size) it.e.rank else Int.MAX_VALUE },
+                    { it.negPop },
+                    { it.e.category.ordinal },
+                    { it.e.partTime },
+                    { it.e.channel.logo.isNullOrBlank() },
+                    { it.lower },
+                )
+            ).map { it.e }
         }
     }
 

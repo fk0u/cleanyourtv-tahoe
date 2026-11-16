@@ -202,7 +202,7 @@ object Sources {
         // before; another country's iptv-org list goes through the free-TV filter (it also lists paid/DRM/VOD entries).
         if (out.isEmpty()) builtIn(country).forEach { ch -> if (seenUrls.add(ch.url)) out += ch }
 
-        return out.filterNot(ControlPlane::isChannelBlocked)
+        return out.filterNot { ControlPlane.isChannelBlocked(it) || LocalTv.isMismatchedSource(it.name, it.url) }
     }
 
     /** A country's built-in channels tagged with [country]: Indonesia keeps all channels (including premium/DASH/DRM); other countries use [load]. */
@@ -213,7 +213,7 @@ object Sources {
             val futures = sources.map { s ->
                 fetchPool.submit<List<M3u.Channel>> {
                     runCatching { loadSource(s.url) }.getOrDefault(emptyList())
-                        .filter { (s.groups == null || it.group in s.groups) && !FILE.containsMatchIn(it.url) }
+                        .filter { (s.groups == null || it.group in s.groups) && !FILE.containsMatchIn(it.url) && !LocalTv.isMismatchedSource(it.name, it.url) }
                 }
             }
             futures.flatMap { f -> runCatching { f.get() }.getOrDefault(emptyList()) }.distinctBy { it.url }

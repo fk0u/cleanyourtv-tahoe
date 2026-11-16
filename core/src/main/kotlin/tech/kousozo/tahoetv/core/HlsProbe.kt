@@ -29,25 +29,50 @@ object HlsProbe {
     private const val STALE_MS = 15 * 60_000L
     private val VOD_TYPE = Regex("""#EXT-X-PLAYLIST-TYPE:\s*VOD""", RegexOption.IGNORE_CASE)
 
-    /** Verdict for one media playlist's text. A master playlist (variant list) gives [Kind.UNKNOWN]: follow [firstVariant]. */
-    fun analyze(text: String, now: Instant = Instant.now()): Kind {
-        if (!text.trimStart().startsWith("#EXTM3U")) return Kind.UNKNOWN
-        if (text.contains("#EXT-X-STREAM-INF")) return Kind.UNKNOWN
-        if (text.contains("#EXT-X-ENDLIST") || VOD_TYPE.containsMatchIn(text)) return Kind.REPLAY
-        // Wall-clock end of the newest segment, from #EXT-X-PROGRAM-DATE-TIME (later segments continue from the last stamp).
+    /** Media-playlist health and buffer geometry (target segment duration & live window width). */
+    data class PlaylistMetrics(
+        val kind: Kind,
+        val targetDurationSec: Double = 0.0,
+        val segmentCount: Int = 0,
+        val windowSec: Double = 0.0,
+        val tightLiveWindow: Boolean = false,
+    )
+
+    /** Inspects one media playlist's text for liveness and shallow/short-segment live windows (e.g. 2s Wowza feeds, #32). */
+    fun inspectMedia(text: String, now: Instant = Instant.now()): PlaylistMetrics {
+        if (!text.trimStart().startsWith("#EXTM3U")) return PlaylistMetrics(Kind.UNKNOWN)
+        if (text.contains("#EXT-X-STREAM-INF")) return PlaylistMetrics(Kind.UNKNOWN)
+        var targetDur = 0.0
+        var segments = 0
+        var window = 0.0
         var clock: Instant? = null
         var dur = 0.0
+        val finished = text.contains("#EXT-X-ENDLIST") || VOD_TYPE.containsMatchIn(text)
         for (raw in text.lineSequence()) {
             val line = raw.trim()
             when {
+                line.startsWith("#EXT-X-TARGETDURATION:") ->
+                    targetDur = line.substringAfter(':').trim().toDoubleOrNull() ?: targetDur
                 line.startsWith("#EXT-X-PROGRAM-DATE-TIME:") -> clock = parseTime(line.substringAfter(':'))
-                line.startsWith("#EXTINF:") -> dur = line.substringAfter(':').substringBefore(',').trim().toDoubleOrNull() ?: 0.0
+                line.startsWith("#EXTINF:") -> {
+                    dur = line.substringAfter(':').substringBefore(',').trim().toDoubleOrNull() ?: 0.0
+                    segments++
+                    window += dur
+                }
                 line.isNotEmpty() && !line.startsWith("#") -> clock = clock?.plusMillis((dur * 1000).toLong())
             }
         }
-        val newest = clock ?: return Kind.LIVE
-        return if (now.toEpochMilli() - newest.toEpochMilli() > STALE_MS) Kind.STALE else Kind.LIVE
+        val kind = when {
+            finished -> Kind.REPLAY
+            clock != null && now.toEpochMilli() - clock.toEpochMilli() > STALE_MS -> Kind.STALE
+            else -> Kind.LIVE
+        }
+        val tight = kind == Kind.LIVE && ((targetDur in 0.5..3.0) || (segments in 1..4 && window in 0.5..12.0))
+        return PlaylistMetrics(kind, targetDur, segments, window, tight)
     }
+
+    /** Verdict for one media playlist's text. A master playlist (variant list) gives [Kind.UNKNOWN]: follow [firstVariant]. */
+    fun analyze(text: String, now: Instant = Instant.now()): Kind = inspectMedia(text, now).kind
 
     /** URL of the first variant of a master playlist, resolved against [base]; null if [text] is not a master playlist. */
     fun firstVariant(text: String, base: String): String? {

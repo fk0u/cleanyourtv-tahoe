@@ -21,7 +21,8 @@ object StreamSelector {
         val height: Int = 0,
         val bandwidthBps: Long = 0L,
         val hasAbr: Boolean = false,
-        val score: Double = 0.0
+        val score: Double = 0.0,
+        val tightWindow: Boolean = false,
     )
 
     private val HEIGHT_RE = Regex("""RESOLUTION=\d+x(\d+)""", RegexOption.IGNORE_CASE)
@@ -133,22 +134,27 @@ object StreamSelector {
                 if (trimmed.contains("#EXT-X-STREAM-INF")) {
                     val heights = HEIGHT_RE.findAll(text).mapNotNull { it.groupValues[1].toIntOrNull() }.toList()
                     val bws = BW_RE.findAll(text).mapNotNull { it.groupValues[1].toLongOrNull() }.toList()
-                    val verdict = if (LocalTv.isVod(c)) HlsProbe.Kind.LIVE
-                    else HlsProbe.verdict(text, finalUrl, c.headers, timeoutMs)
-                    if (verdict == HlsProbe.Kind.DEAD || verdict == HlsProbe.Kind.REPLAY || verdict == HlsProbe.Kind.STALE) {
+                    val liveVar = if (LocalTv.isVod(c)) null else HlsProbe.liveVariant(text, finalUrl, c.headers, timeoutMs)
+                    val pm = when {
+                        LocalTv.isVod(c) -> HlsProbe.PlaylistMetrics(HlsProbe.Kind.LIVE)
+                        liveVar == null -> HlsProbe.PlaylistMetrics(HlsProbe.Kind.DEAD)
+                        else -> HlsProbe.inspectMedia(liveVar.second.first)
+                    }
+                    if (pm.kind == HlsProbe.Kind.DEAD || pm.kind == HlsProbe.Kind.REPLAY || pm.kind == HlsProbe.Kind.STALE) {
                         return Metrics(false, ms)
                     }
                     val maxH = heights.maxOrNull() ?: 0
                     val maxBw = bws.maxOrNull() ?: 0L
                     val abr = HlsProbe.variants(text, finalUrl).size > 1
-                    val score = fuzzyScore(ms, maxH, maxBw, abr, stability)
-                    return Metrics(true, ms, maxH, maxBw, abr, score)
+                    val score = (fuzzyScore(ms, maxH, maxBw, abr, stability) - if (pm.tightLiveWindow) 4.0 else 0.0).coerceAtLeast(0.0)
+                    return Metrics(true, ms, maxH, maxBw, abr, score, pm.tightLiveWindow)
                 }
-                val kind = if (LocalTv.isVod(c)) HlsProbe.Kind.LIVE else HlsProbe.analyze(text)
-                if (kind == HlsProbe.Kind.REPLAY || kind == HlsProbe.Kind.STALE || kind == HlsProbe.Kind.DEAD) {
+                val pm = if (LocalTv.isVod(c)) HlsProbe.PlaylistMetrics(HlsProbe.Kind.LIVE) else HlsProbe.inspectMedia(text)
+                if (pm.kind == HlsProbe.Kind.REPLAY || pm.kind == HlsProbe.Kind.STALE || pm.kind == HlsProbe.Kind.DEAD) {
                     return Metrics(false, ms)
                 }
-                return Metrics(true, ms, 0, 0L, false, fuzzyScore(ms, 0, 0L, false, stability))
+                val score = (fuzzyScore(ms, 0, 0L, false, stability) - if (pm.tightLiveWindow) 4.0 else 0.0).coerceAtLeast(0.0)
+                return Metrics(true, ms, 0, 0L, false, score, pm.tightLiveWindow)
             }
 
             Metrics(true, ms, 0, 0L, false, fuzzyScore(ms, 0, 0L, false, stability))

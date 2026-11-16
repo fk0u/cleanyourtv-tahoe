@@ -5,7 +5,7 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.exp
 
@@ -23,12 +23,23 @@ object SourceHealth {
         val okCount: Int = if (live) 1 else 0,
         val failCount: Int = if (live) 0 else 1,
         val ewma: Double = if (live) 0.85 else 0.35,
+        val tightWindow: Boolean = false,
     )
 
     private const val TTL = 15 * 60_000L
     private val map = ConcurrentHashMap<String, Status>()
-    // Few threads on purpose: probing runs while people watch, and must not starve the stream on a weak TV.
-    private val pool = Executors.newFixedThreadPool(6) { r -> Thread(r, "tahoe-probe").apply { isDaemon = true } }
+    private val pool = java.util.concurrent.ThreadPoolExecutor(
+        4, 6, 30L, TimeUnit.SECONDS,
+        java.util.concurrent.LinkedBlockingQueue(),
+    ) { r -> Thread(r, "tahoe-probe").apply { isDaemon = true } }.apply { allowCoreThreadTimeOut(true) }
+
+    /** Adapts background stream-probe concurrency to TV hardware capabilities (#38). */
+    @JvmStatic fun setProbeConcurrency(threads: Int) {
+        val n = threads.coerceIn(1, 8)
+        pool.maximumPoolSize = maxOf(n, pool.maximumPoolSize)
+        pool.corePoolSize = n
+        pool.maximumPoolSize = n
+    }
     private val queued = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var file: File? = null
     /** Streams a person marked "this is a recording, not live". Kept across sessions; never played first again. */
@@ -58,7 +69,8 @@ object SourceHealth {
                         val ok = if (p.size >= 10) p[7].toIntOrNull() ?: (if (p[1] == "1") 1 else 0) else (if (p[1] == "1") 1 else 0)
                         val fail = if (p.size >= 10) p[8].toIntOrNull() ?: (if (p[1] == "1") 0 else 1) else (if (p[1] == "1") 0 else 1)
                         val ewma = if (p.size >= 10) p[9].toDoubleOrNull() ?: 0.75 else if (p[1] == "1") 0.85 else 0.35
-                        if (now - at < TTL) map[p[0]] = Status(p[1] == "1", ms, at, h, bw, sc, ok, fail, ewma)
+                        val tight = p.size >= 11 && p[10] == "1"
+                        if (now - at < TTL) map[p[0]] = Status(p[1] == "1", ms, at, h, bw, sc, ok, fail, ewma, tight)
                     }
                 }
             }
@@ -80,9 +92,11 @@ object SourceHealth {
 
     @Synchronized internal fun save() = file?.let { f ->
         atomicWrite(f, map.entries.joinToString("\n") { (u, s) ->
-            "$u\t${if (s.live) 1 else 0}\t${s.ms}\t${s.at}\t${s.height}\t${s.bandwidth}\t${s.score}\t${s.okCount}\t${s.failCount}\t${s.ewma}"
+            "$u\t${if (s.live) 1 else 0}\t${s.ms}\t${s.at}\t${s.height}\t${s.bandwidth}\t${s.score}\t${s.okCount}\t${s.failCount}\t${s.ewma}\t${if (s.tightWindow) 1 else 0}"
         })
     }
+
+    @JvmStatic fun isTightWindow(url: String): Boolean = map[url]?.tightWindow == true
 
     @JvmStatic fun status(url: String): Status? =
         if (url in banned) Status(false, 0, System.currentTimeMillis()) else map[url]?.takeIf { System.currentTimeMillis() - it.at < TTL }
@@ -130,7 +144,7 @@ object SourceHealth {
         val newScore = if (prev != null && prev.score > 0.0) {
             StreamSelector.fuzzyScore(prev.ms, prev.height, prev.bandwidth, false, ewma)
         } else prev?.score ?: 0.0
-        map[url] = Status(live, prev?.ms ?: 0, now, prev?.height ?: 0, prev?.bandwidth ?: 0L, newScore, ok, fail, ewma)
+        map[url] = Status(live, prev?.ms ?: 0, now, prev?.height ?: 0, prev?.bandwidth ?: 0L, newScore, ok, fail, ewma, prev?.tightWindow ?: false)
     }
 
     @JvmStatic fun reportMetrics(url: String, m: StreamSelector.Metrics) {
@@ -139,9 +153,9 @@ object SourceHealth {
         val prev = map[url]
         val (ok, fail, ewma) = updateEwma(prev, m.live, now)
         val adjustedScore = if (m.live) {
-            StreamSelector.fuzzyScore(m.latencyMs, m.height, m.bandwidthBps, m.hasAbr, ewma)
+            StreamSelector.fuzzyScore(m.latencyMs, m.height, m.bandwidthBps, m.hasAbr, ewma) - if (m.tightWindow) 4.0 else 0.0
         } else 0.0
-        map[url] = Status(m.live, m.latencyMs, now, m.height, m.bandwidthBps, adjustedScore, ok, fail, ewma)
+        map[url] = Status(m.live, m.latencyMs, now, m.height, m.bandwidthBps, adjustedScore.coerceAtLeast(0.0), ok, fail, ewma, m.tightWindow)
     }
 
     /** Probes every stream not checked in the last 15 min, in the given order (put the likely next channels first). */
