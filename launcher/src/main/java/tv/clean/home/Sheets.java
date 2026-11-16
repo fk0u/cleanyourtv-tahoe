@@ -98,7 +98,7 @@ final class Sheets {
                         else if (it.adjust != null) { it.adjust.by(1); rebuild(); }
                     });
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
-                    if (i > 0) lp.leftMargin = (int) (10 * d);
+                    if (i > 0) lp.setMarginStart((int) (10 * d));
                     line.addView(v, lp); vs.add(v);
                 }
                 LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-1, -2); ll.topMargin = (int) (8 * d);
@@ -119,12 +119,12 @@ final class Sheets {
             LinearLayout top = new LinearLayout(ctx); top.setGravity(Gravity.CENTER_VERTICAL);
             ImageView g = Ui.icon(ctx, it.icon, simple ? 24 : 20, Ui.TEXT); g.setTag("g");
             TextView ti = Ui.text(ctx, simple ? 18 : 15, 600, Ui.TEXT); ti.setText(it.title); ti.setTag("t");
-            LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1); tl.leftMargin = (int) (12 * d);
+            LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1); tl.setMarginStart((int) (12 * d));
             top.addView(g); top.addView(ti, tl);
             t.addView(top);
             if (it.sub != null && !it.sub.isEmpty()) {
                 TextView s = Ui.text(ctx, simple ? 14.5f : 12.5f, 400, Ui.TEXT_2); s.setText(it.sub); s.setTag("s");
-                s.setPadding((int) (32 * d), (int) (2 * d), 0, 0);
+                s.setPaddingRelative((int) (32 * d), (int) (2 * d), 0, 0);
                 t.addView(s);
             }
             if (it.level >= 0) {
@@ -132,7 +132,7 @@ final class Sheets {
                 LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, (int) (10 * d)); sp.topMargin = (int) (10 * d);
                 t.addView(sl, sp);
             }
-            t.setBackground(new GlassDrawable(Ui.dp(ctx, 20), it.on ? 0x40FFFFFF : 0x1FFFFFFF, d));
+            t.setBackground(new GlassDrawable(Ui.dp(ctx, 20), Ui.cardFill(ctx, it.on ? 0x40FFFFFF : 0x1FFFFFFF), Ui.highContrast(ctx) ? 2 * d : d));
             return t;
         }
 
@@ -142,7 +142,7 @@ final class Sheets {
                 boolean f = i == r && j == c;
                 View v = views.get(i).get(j);
                 Item it = rows.get(i).get(j);
-                ((GlassDrawable) v.getBackground()).fill(f ? 0xF2F5F5F7 : it.on ? 0x40FFFFFF : 0x1FFFFFFF);
+                ((GlassDrawable) v.getBackground()).fill(f ? Ui.focusFill(v.getContext(), 0xF2F5F5F7) : Ui.cardFill(v.getContext(), it.on ? 0x40FFFFFF : 0x1FFFFFFF));
                 int col = f ? 0xFF111114 : Ui.TEXT;
                 ImageView ic = v.findViewWithTag("g");
                 if (ic != null) ic.setImageTintList(android.content.res.ColorStateList.valueOf(col));
@@ -152,7 +152,7 @@ final class Sheets {
                 }
                 Slider sl = v.findViewWithTag("sl");
                 if (sl != null) { sl.dark = f; sl.invalidate(); }
-                v.animate().scaleX(f ? 1.03f : 1f).scaleY(f ? 1.03f : 1f).setDuration(Ui.FAST).start();
+                v.animate().scaleX(f ? 1.03f : 1f).scaleY(f ? 1.03f : 1f).setDuration(Ui.dur(v.getContext(), Ui.FAST)).start();
             }
             View line = (View) views.get(r).get(c).getParent();
             scroll.post(() -> scroll.smoothScrollTo(0, Math.max(0, line.getTop() - (int) (60 * d))));
@@ -163,10 +163,12 @@ final class Sheets {
             if (rows.isEmpty()) return false;
             Item it = rows.get(r).get(c);
             switch (e.getKeyCode()) {
-                case KeyEvent.KEYCODE_DPAD_UP: if (r > 0) { r--; c = Math.min(c, rows.get(r).size() - 1); render(); } return true;
-                case KeyEvent.KEYCODE_DPAD_DOWN: if (r < rows.size() - 1) { r++; c = Math.min(c, rows.get(r).size() - 1); render(); } return true;
+                case KeyEvent.KEYCODE_DPAD_UP: Ui.click(panel); if (r > 0) { r--; c = Math.min(c, rows.get(r).size() - 1); render(); } return true;
+                case KeyEvent.KEYCODE_DPAD_DOWN: Ui.click(panel); if (r < rows.size() - 1) { r++; c = Math.min(c, rows.get(r).size() - 1); render(); } return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT: {
+                    Ui.click(panel);
                     int dir = e.getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1;
+                    if (panel.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) dir = -dir; // D-pad follows the mirrored grid
                     if (it.adjust != null) { it.adjust.by(dir); rebuild(); }
                     else if (c + dir >= 0 && c + dir < rows.get(r).size()) { c += dir; render(); }
                     return true;
@@ -326,6 +328,14 @@ final class Sheets {
                 h.applySimpleMode();
                 rebuild();
             }).wide().on(simple));
+            android.content.SharedPreferences cfg = Cfg.p(h);
+            boolean hc = cfg.getBoolean("high_contrast", false), rm = cfg.getBoolean("reduce_motion", false), cs = cfg.getBoolean("click_sound", false);
+            add(new Item(R.drawable.ic_layout_grid, I18n.get(lang, "ui.high_contrast"), I18n.get(lang, hc ? "common.on" : "common.off"),
+                    () -> { cfg.edit().putBoolean("high_contrast", !hc).apply(); rebuild(); }).on(hc),
+                new Item(R.drawable.ic_layout_grid, I18n.get(lang, "ui.reduce_motion"), I18n.get(lang, "tv.reduce_motion_sub"),
+                    () -> { cfg.edit().putBoolean("reduce_motion", !rm).apply(); rebuild(); }).on(rm));
+            add(new Item(R.drawable.ic_layout_grid, I18n.get(lang, "tv.click_sound"), I18n.get(lang, cs ? "common.on" : "common.off"),
+                    () -> { cfg.edit().putBoolean("click_sound", !cs).apply(); rebuild(); }).wide().on(cs));
             if (BuildConfig.STANDALONE_MODE) {
                 add(new Item(R.drawable.ic_tv, I18n.get(lang, "tv.standalone_title"),
                         I18n.get(lang, "tv.standalone_guide"), null).wide());

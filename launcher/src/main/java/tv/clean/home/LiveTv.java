@@ -190,6 +190,7 @@ public class LiveTv extends Activity {
         guide.setVisibility(View.GONE);
         int guideW = (int) Math.min(dp(480), getResources().getDisplayMetrics().widthPixels * 0.85f);
         root.addView(guide, new FrameLayout.LayoutParams(guideW, -1, Gravity.START));
+        Ui.direction(root);
         setContentView(root);
 
         tech.kousozo.tahoetv.core.PlayPrefs.PlaybackTuning initTuning = tech.kousozo.tahoetv.core.PlayPrefs.tuningFor(

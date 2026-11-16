@@ -117,6 +117,7 @@ public class Home extends Activity {
         cols = DockGrid.effectiveCols(rawCols, TvViewer.simpleMode(this));
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
+        Ui.direction(root);
         setContentView(root);
         root.post(() -> {
             W = root.getWidth(); H = root.getHeight();

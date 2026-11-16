@@ -77,6 +77,7 @@ public class Onboarding extends Activity {
         footer.setPadding(0, dp(14), 0, 0);
         col.addView(footer);
         root.addView(col);
+        Ui.direction(root);
         setContentView(root);
         open = this;
         render();

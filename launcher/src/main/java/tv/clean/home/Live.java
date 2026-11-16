@@ -95,12 +95,13 @@ public class Live extends Activity {
         dHint = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); dHint.setText(I18n.get(lang, "tv.guide_ok_hint"));
         d.addView(dCat); d.addView(dName, lp(4)); d.addView(dNow, lp(18)); d.addView(dDesc, lp(6)); d.addView(dNext, lp(18));
         View spacer = new View(this); d.addView(spacer, new LinearLayout.LayoutParams(0, 0, 1)); d.addView(dHint);
-        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams((int) dp(380), -1); dl.leftMargin = (int) dp(20);
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams((int) dp(380), -1); dl.setMarginStart((int) dp(20));
         cols.addView(d, dl);
 
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-1, 0, 1); cl.topMargin = (int) dp(18);
         page.addView(cols, cl);
         root.addView(page, new FrameLayout.LayoutParams(-1, -1));
+        Ui.direction(root);
         setContentView(root);
         load();
     }
@@ -167,7 +168,7 @@ public class Live extends Activity {
                     final String nearProvince = province;
                     final String extraPlaylist = cfg.getString("playlist_url", "");
                     // Priority load: render the viewer's primary country first while secondary countries finish loading
-                    List<tech.kousozo.tahoetv.core.M3u.Channel> rawAll = Sources.loadCountriesPriority(extraPlaylist, vw.getCountries(), priorityRaw -> {
+                    List<tech.kousozo.tahoetv.core.M3u.Channel> rawAll = Sources.loadChannels(extraPlaylist, vw.getCountries(), vw.getChannelLanguages(), priorityRaw -> {
                         if (priorityRaw.isEmpty()) return kotlin.Unit.INSTANCE;
                         List<LocalTv.Entry> first = vw.arrange(LocalTv.INSTANCE.arrange(
                                 priorityRaw, nearProvince, vw.getCountries(), vw.getSort(), vw.getCity(), vw.getCountry()));
@@ -288,6 +289,7 @@ public class Live extends Activity {
                 if (f) detail(e);
             });
             t.setOnClickListener(v -> watch(e));
+            t.setOnLongClickListener(v -> { channelDetail(e); return true; });
             rows.addView(t);
         }
     }
@@ -319,6 +321,27 @@ public class Live extends Activity {
         dNext.setText(next.toString().trim());
     }
 
+    /** Channel details (#41): long-press OK or the Info key on a guide row. Watch, and add/remove favourite
+     *  (the same "fav" set Live TV's favourites shelf reads). */
+    void channelDetail(LocalTv.Entry e) {
+        String lang = TvViewer.get(this).getLanguage();
+        detail(e);
+        SharedPreferences live = getSharedPreferences("live", MODE_PRIVATE);
+        java.util.Set<String> fav = new java.util.HashSet<>(live.getStringSet("fav", new java.util.HashSet<>()));
+        String url = e.getChannel().getUrl();
+        boolean isFav = fav.contains(url);
+        String body = dNow.getText() + (dNext.getText().length() > 0 ? "\n\n" + dNext.getText() : "");
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(I18n.get(lang, "tv.channel_detail") + " · " + e.getName())
+                .setMessage(body)
+                .setPositiveButton(I18n.get(lang, "home.watch"), (dlg, w) -> watch(e))
+                .setNeutralButton(I18n.get(lang, isFav ? "tv.fav_remove" : "tv.fav_add"), (dlg, w) -> {
+                    if (isFav) fav.remove(url); else fav.add(url);
+                    live.edit().putStringSet("fav", fav).apply();
+                })
+                .show();
+    }
+
     // ------------------------------------------------------------------ watch in BitTV
 
     /** Watch in Tahoe's own Live TV player, starting at this channel. */
@@ -334,6 +357,10 @@ public class Live extends Activity {
 
     @Override public boolean onKeyDown(int code, KeyEvent e) {
         if (code == KeyEvent.KEYCODE_MENU && e.getRepeatCount() == 0) { cycleSort(); return true; }
+        if ((code == KeyEvent.KEYCODE_INFO || code == KeyEvent.KEYCODE_PROG_RED) && e.getRepeatCount() == 0) {
+            View f = getCurrentFocus();
+            if (f != null && f.getTag() instanceof LocalTv.Entry) { channelDetail((LocalTv.Entry) f.getTag()); return true; }
+        }
         if (code == KeyEvent.KEYCODE_BACK) { finish(); return true; }
         return super.onKeyDown(code, e);
     }

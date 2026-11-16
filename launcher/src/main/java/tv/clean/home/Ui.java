@@ -76,22 +76,22 @@ final class Ui {
         android.widget.LinearLayout pill = new android.widget.LinearLayout(c);
         pill.setGravity(android.view.Gravity.CENTER_VERTICAL);
         pill.setBackground(new GlassDrawable(dp(c, 18), GLASS, dp(c, 1)));
-        pill.setPadding((int) dp(c, 8), (int) dp(c, 6), (int) dp(c, 14), (int) dp(c, 6));
+        pill.setPaddingRelative((int) dp(c, 8), (int) dp(c, 6), (int) dp(c, 14), (int) dp(c, 6));
         pill.addView(icon(c, R.drawable.ic_chevron_left, 16, TEXT_2));
         android.widget.ImageView i = icon(c, iconRes, 16, TEXT);
-        ((android.widget.LinearLayout.LayoutParams) i.getLayoutParams()).leftMargin = (int) dp(c, 6);
+        ((android.widget.LinearLayout.LayoutParams) i.getLayoutParams()).setMarginStart((int) dp(c, 6));
         pill.addView(i);
-        TextView t = text(c, 14, 500, TEXT); t.setText(title); t.setPadding((int) dp(c, 8), 0, 0, 0);
+        TextView t = text(c, 14, 500, TEXT); t.setText(title); t.setPaddingRelative((int) dp(c, 8), 0, 0, 0);
         pill.addView(t);
-        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(-2, -2);
-        lp.leftMargin = (int) dp(c, SAFE_SIDE - 16); lp.topMargin = (int) dp(c, SAFE_TOP);
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(-2, -2, android.view.Gravity.START);
+        lp.setMarginStart((int) dp(c, SAFE_SIDE - 16)); lp.topMargin = (int) dp(c, SAFE_TOP);
         parent.addView(pill, lp);
         TextView clock = text(c, 18, 500, TEXT);
         clock.setText(new java.text.SimpleDateFormat("HH.mm", java.util.Locale.getDefault()).format(new java.util.Date()));
         clock.setBackground(new GlassDrawable(dp(c, 20), GLASS, dp(c, 1)));
         clock.setPadding((int) dp(c, 14), (int) dp(c, 7), (int) dp(c, 14), (int) dp(c, 7));
         android.widget.FrameLayout.LayoutParams cl = new android.widget.FrameLayout.LayoutParams(-2, -2, android.view.Gravity.END);
-        cl.rightMargin = (int) dp(c, SAFE_SIDE - 16); cl.topMargin = (int) dp(c, SAFE_TOP);
+        cl.setMarginEnd((int) dp(c, SAFE_SIDE - 16)); cl.topMargin = (int) dp(c, SAFE_TOP);
         parent.addView(clock, cl);
         return lp;
     }
@@ -102,9 +102,31 @@ final class Ui {
 
     static void clip(View v, float r) { v.setOutlineProvider(round(r)); v.setClipToOutline(true); }
 
-    /** System "remove animations" setting: 0 means skip motion. */
+    /** System "remove animations" setting or the in-app "Reduce motion" toggle: 0 means skip motion. */
     static float motion(Context c) {
+        if (Cfg.p(c).getBoolean("reduce_motion", false)) return 0f;
         return Settings.Global.getFloat(c.getContentResolver(), Settings.Global.ANIMATOR_DURATION_SCALE, 1f);
+    }
+
+    /** Animation duration scaled by [motion]: 0 when motion is reduced. */
+    static long dur(Context c, long ms) { return (long) (ms * Math.min(1f, motion(c))); }
+
+    /** High-contrast toggle (#41): solid focus ring and darker card backgrounds. */
+    static boolean highContrast(Context c) { return Cfg.p(c).getBoolean("high_contrast", false); }
+    /** Card fill: [normal] unless high contrast, then near-opaque black. */
+    static int cardFill(Context c, int normal) { return highContrast(c) ? 0xF2000000 : normal; }
+    /** Focus fill: high contrast uses the brand's yellow focus colour. */
+    static int focusFill(Context c, int normal) { return highContrast(c) ? tech.kousozo.tahoetv.core.Brand.HC_FOCUS : normal; }
+
+    /** Remote navigation click sound, when enabled in Control Center. */
+    static void click(View v) {
+        if (v != null && Cfg.p(v.getContext()).getBoolean("click_sound", false)) v.playSoundEffect(android.view.SoundEffectConstants.CLICK);
+    }
+
+    /** Mirrors a TV activity's root for right-to-left languages (Arabic, …) (#71). */
+    static void direction(View root) {
+        String lang = TvViewer.get(root.getContext()).getLanguage();
+        root.setLayoutDirection(tech.kousozo.tahoetv.core.Region.isRtl(lang) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
     }
 
     static android.view.animation.Interpolator spring() { return new OvershootInterpolator(1.05f); }
