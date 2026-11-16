@@ -8,6 +8,7 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -113,7 +114,26 @@ fun HomeScreen(onLive: () -> Unit) {
             }
         }
 
-        // row 3: featured channels | assistant
+        // row 3: continue watching + recap + featured channels | assistant
+        val recent = Settings.recentChannels
+        if (recent.isNotEmpty()) {
+            Glass(Modifier.fillMaxWidth(), radius = 22, padding = 16) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.continue_watching"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    recent.take(6).forEach { chName ->
+                        Box(
+                            Modifier.clip(RoundedCornerShape(14.dp)).background(Tahoe.CardHi)
+                                .clickable { DeskNav.query = chName; onLive() }
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                        ) {
+                            Text(chName, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Glass(Modifier.weight(1.6f), radius = 26, padding = 20) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -145,7 +165,23 @@ fun HomeScreen(onLive: () -> Unit) {
                     }
                 }
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val recap = remember(lang) {
+                    tech.kousozo.tahoetv.core.WatchRecap.summarize(
+                        java.io.File(System.getProperty("user.home"), ".tahoetv/recap"),
+                        "main", tech.kousozo.tahoetv.core.WatchRecap.currentMonth(), lang,
+                    )
+                }
+                Glass(Modifier.fillMaxWidth(), radius = 22, padding = 16) {
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "recap.title"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Tahoe.Accent)
+                    Spacer(Modifier.height(4.dp))
+                    Text(recap.tagline, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text("${recap.totalHoursDecimal} · ${tech.kousozo.tahoetv.core.I18n.get(lang, "recap.sessions", recap.sessionCount)}", fontSize = 12.sp, color = Tahoe.Dim)
+                    if (recap.topChannels.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(recap.topChannels.take(3).joinToString(" · ") { "${it.name} (${it.minutes}m)" }, fontSize = 12.sp, color = Tahoe.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
                 Text(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.ask_tahoe"), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 AssistantPanel()
             }

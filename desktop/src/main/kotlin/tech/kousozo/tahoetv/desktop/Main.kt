@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.MenuOpen
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -136,34 +137,69 @@ fun App(initial: Screen = Screen.Home, askRegion: Boolean = true) { // askRegion
     }
 }
 
-/** Slim icon rail: logo on top, one round button per screen (active = filled accent), TV status + version at the bottom. */
+/** Slim collapsible rail: logo on top, icon or labeled buttons, TV status + version at the bottom (#41). */
 @Composable
-private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) = Column(
-    Modifier.width(84.dp).fillMaxHeight().padding(vertical = 18.dp, horizontal = 12.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-) {
-    BrandTile(46.dp)
-    Spacer(Modifier.height(26.dp))
-    Column(Modifier.clip(RoundedCornerShape(30.dp)).background(Tahoe.Card).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Screen.entries.filter { it != Screen.Admin }.forEach { s ->
-            val on = s == selected
-            val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            val hover by src.collectIsHoveredAsState()
-            Box(Modifier.size(46.dp).clip(CircleShape)
-                .background(if (on) Tahoe.Accent else if (hover) Tahoe.CardHi else Color.Transparent)
-                .hoverable(src).clickable { onSelect(s) }
-                .semantics { contentDescription = s.label }, contentAlignment = Alignment.Center) {
-                Icon(s.icon, s.label, tint = if (on) Tahoe.OnAccent else Tahoe.Dim, modifier = Modifier.size(21.dp))
+private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) {
+    val collapsed = Settings.railCollapsed
+    val lang = Settings.lang
+    Column(
+        Modifier.width(if (collapsed) 84.dp else 184.dp).fillMaxHeight().padding(vertical = 18.dp, horizontal = 12.dp),
+        horizontalAlignment = if (collapsed) Alignment.CenterHorizontally else Alignment.Start,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BrandTile(46.dp)
+            if (!collapsed) Text("Tahoe TV", fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            IconButton({ Settings.railCollapsed = !collapsed }, Modifier.size(30.dp)) {
+                Icon(
+                    if (collapsed) Icons.Rounded.Menu else Icons.AutoMirrored.Rounded.MenuOpen,
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "desk.collapse_rail"),
+                    tint = Tahoe.Dim,
+                    modifier = Modifier.size(18.dp),
+                )
             }
         }
+        Spacer(Modifier.height(22.dp))
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.Card).padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Screen.entries.filter { it != Screen.Admin }.forEach { s ->
+                val on = s == selected
+                val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                val hover by src.collectIsHoveredAsState()
+                Row(
+                    Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp))
+                        .background(if (on) Tahoe.Accent else if (hover) Tahoe.CardHi else Color.Transparent)
+                        .hoverable(src).clickable { onSelect(s) }
+                        .padding(horizontal = if (collapsed) 0.dp else 12.dp)
+                        .semantics { contentDescription = s.label },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = if (collapsed) Arrangement.Center else Arrangement.Start,
+                ) {
+                    Icon(s.icon, s.label, tint = if (on) Tahoe.OnAccent else Tahoe.Dim, modifier = Modifier.size(20.dp))
+                    if (!collapsed) {
+                        Spacer(Modifier.width(10.dp))
+                        Text(s.label, fontSize = 13.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) Tahoe.OnAccent else Tahoe.Text)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        val tv = Session.tv
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Tahoe.Card).padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = if (collapsed) Arrangement.Center else Arrangement.Start,
+        ) {
+            Icon(Icons.Rounded.Cast, if (tv != null) tv.model else tech.kousozo.tahoetv.core.I18n.get(lang, "home.tv_not_connected"), tint = if (tv != null) Tahoe.Good else Tahoe.Faint, modifier = Modifier.size(20.dp))
+            if (!collapsed) {
+                Spacer(Modifier.width(8.dp))
+                Text(tv?.model ?: tech.kousozo.tahoetv.core.I18n.get(lang, "home.tv_not_connected"), fontSize = 11.sp, color = Tahoe.Dim, maxLines = 1)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("v" + (System.getProperty("jpackage.app-version") ?: "dev"), fontSize = 10.sp, color = Tahoe.Faint)
     }
-    Spacer(Modifier.weight(1f))
-    val tv = Session.tv
-    Box(Modifier.size(46.dp).clip(CircleShape).background(Tahoe.Card), contentAlignment = Alignment.Center) {
-        Icon(Icons.Rounded.Cast, if (tv != null) tv.model else tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.tv_not_connected"), tint = if (tv != null) Tahoe.Good else Tahoe.Faint, modifier = Modifier.size(20.dp))
-    }
-    Spacer(Modifier.height(8.dp))
-    Text("v" + (System.getProperty("jpackage.app-version") ?: "dev"), fontSize = 10.sp, color = Tahoe.Faint)
 }
 
 /** Greeting + search pill + clock + quick "Tonton Live" button. Search jumps to TV Live with the query. */

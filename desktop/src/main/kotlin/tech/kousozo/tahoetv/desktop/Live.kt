@@ -14,6 +14,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,7 +27,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,7 +92,24 @@ fun LiveScreen() {
     var statusFilter by remember { mutableStateOf<String?>(null) } // null = all, "live", "offline"
 
     var refreshNonce by remember { mutableStateOf(0) }
+    var recheckTick by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) { Sources.scheduleDailyRefresh { refreshNonce++ } }
+    LaunchedEffect(Unit) { while (true) { delay(5 * 60_000L); recheckTick++ } }
+
+    LaunchedEffect(recheckTick) {
+        if (recheckTick <= 0) return@LaunchedEffect
+        val curList = channels ?: return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            val todo = SourceHealth.streamsOf(
+                viewer.arrange(LocalTv.arrange(curList, Settings.nearProvince, countries, sortMode, viewer.city, viewer.country))
+            ).take(400)
+            val lock = Any()
+            Sources.checkStatus(todo, timeoutMs = 3500) { url, isLive ->
+                SourceHealth.report(url, isLive)
+                synchronized(lock) { statusMap = statusMap + (url to isLive) }
+            }
+        }
+    }
 
     LaunchedEffect(playlist, countries, refreshNonce) {
         channels = null; error = null
@@ -170,6 +198,9 @@ fun LiveScreen() {
 
     var selected by remember { mutableStateOf<LocalTv.Entry?>(null) }   // focused card → detail panel
     var status by remember { mutableStateOf<String?>(null) }
+    var viewMode by remember { mutableStateOf(0) } // 0 = List, 1 = Grid, 2 = EPG Timeline
+    val searchFocus = remember { FocusRequester() }
+    var searchFocused by remember { mutableStateOf(false) }
     val list by rememberUpdatedState(shown)   // channel up/down follows what's on screen
     LaunchedEffect(playing) {
         playing?.let { ch ->
@@ -184,9 +215,18 @@ fun LiveScreen() {
                             val i = list.indexOfFirst { it.channel.url == playing?.url }
                             val next = list[((if (i < 0) 0 else i + d) % list.size + list.size) % list.size]
                             playing = next.channel; selected = next
+                            Settings.rememberRecentChannel(next.name)
                         }
                     }
-                }
+                },
+                onJump = { targetIdx ->
+                    javax.swing.SwingUtilities.invokeLater {
+                        list.getOrNull(targetIdx)?.let { next ->
+                            playing = next.channel; selected = next
+                            Settings.rememberRecentChannel(next.name)
+                        }
+                    }
+                },
             ) { s ->
                 if (s == PlayerWindow.CLOSED) { playing = null; status = null; return@play } // window closed: clicks select again
                 status = s
@@ -194,23 +234,79 @@ fun LiveScreen() {
             }
         }
     }
-    fun watch(e: LocalTv.Entry) { selected = e; playing = e.channel }
+    fun watch(e: LocalTv.Entry) { selected = e; playing = e.channel; Settings.rememberRecentChannel(e.name) }
 
-    Row(Modifier.fillMaxSize().padding(start = 12.dp, end = 20.dp, top = 20.dp, bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+    Row(
+        Modifier.fillMaxSize().padding(start = 12.dp, end = 20.dp, top = 20.dp, bottom = 20.dp)
+            .onPreviewKeyEvent { ev ->
+                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (ev.key) {
+                    Key.Slash -> if (!searchFocused) { searchFocus.requestFocus(); true } else false
+                    Key.DirectionDown -> if (shown.isNotEmpty()) {
+                        val i = shown.indexOf(selected)
+                        selected = shown[((i + 1).coerceIn(0, shown.lastIndex))]
+                        true
+                    } else false
+                    Key.DirectionUp -> if (shown.isNotEmpty()) {
+                        val i = shown.indexOf(selected)
+                        selected = shown[((if (i <= 0) 0 else i - 1))]
+                        true
+                    } else false
+                    Key.Enter -> if (!searchFocused) {
+                        val target = selected ?: shown.firstOrNull()
+                        if (target != null) { watch(target); true } else false
+                    } else false
+                    else -> false
+                }
+            },
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
         // ---------------------------------------------------------------- rail: title, search, status filter, categories
         Column(Modifier.width(235.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Title(
-                tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"),
-                channels?.let {
-                    if (!checkingDone && statusMap.size < it.size) {
-                        tech.kousozo.tahoetv.core.I18n.get(lang, "live.checking_streams", statusMap.size, it.size)
-                    } else {
-                        tech.kousozo.tahoetv.core.I18n.get(lang, "live.live_offline_fmt", liveCount, offlineCount) +
-                            (province.takeIf { p -> p.isNotBlank() }?.let { p -> " · $p" } ?: "")
-                    }
-                } ?: error ?: tech.kousozo.tahoetv.core.I18n.get(lang, "live.loading_channels")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    Title(
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"),
+                        channels?.let {
+                            if (!checkingDone && statusMap.size < it.size) {
+                                tech.kousozo.tahoetv.core.I18n.get(lang, "live.checking_streams", statusMap.size, it.size)
+                            } else {
+                                tech.kousozo.tahoetv.core.I18n.get(lang, "live.live_offline_fmt", liveCount, offlineCount) +
+                                    (province.takeIf { p -> p.isNotBlank() }?.let { p -> " · $p" } ?: "")
+                            }
+                        } ?: error ?: tech.kousozo.tahoetv.core.I18n.get(lang, "live.loading_channels")
+                    )
+                }
+                IconButton({ recheckTick++ }, Modifier.size(34.dp)) {
+                    Icon(Icons.Rounded.Refresh, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.recheck"), tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
+                }
+            }
+            Field(
+                query, { query = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"),
+                Modifier.fillMaxWidth().focusRequester(searchFocus).onFocusChanged { searchFocused = it.isFocused },
+                trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) },
             )
-            Field(query, { query = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"), trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) })
+            // View mode switch: List / Grid / EPG Timeline (#49)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    Triple(0, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.view_list"), Icons.Rounded.Menu),
+                    Triple(1, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.view_grid"), Icons.Rounded.GridView),
+                    Triple(2, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.view_timeline"), Icons.Rounded.Schedule),
+                ).forEach { (mode, lbl, ic) ->
+                    val act = viewMode == mode
+                    Row(
+                        Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                            .background(if (act) Tahoe.Accent.copy(alpha = 0.24f) else Tahoe.Glass)
+                            .clickable { viewMode = mode }.padding(vertical = 5.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(ic, null, tint = if (act) Tahoe.Accent else Tahoe.Dim, modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(lbl, fontSize = 11.sp, fontWeight = if (act) FontWeight.Bold else FontWeight.Normal, color = if (act) Tahoe.Accent else Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
 
             // Status filter chips (All / Live / Offline)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -291,8 +387,63 @@ fun LiveScreen() {
             }
         }
 
-        // ---------------------------------------------------------------- channel cards
-        LazyColumn(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+        // ---------------------------------------------------------------- channel cards (List / Grid / EPG Timeline)
+        when (viewMode) {
+            1 -> LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 195.dp),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 4.dp),
+            ) {
+                items(shown, key = { it.channel.url }) { e ->
+                    val ch = e.channel
+                    val focused = e == selected
+                    val on = ch == playing
+                    val prog = epg?.schedule(e.name, tick)?.firstOrNull()?.takeIf { it.start <= tick }
+                    val live = isChannelLive(e)
+                    Column(
+                        Modifier.clip(RoundedCornerShape(18.dp))
+                            .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
+                            .border(1.dp, if (focused) Color.White.copy(alpha = 0.35f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
+                            .clickable { watch(e) }.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Box(Modifier.fillMaxWidth().height(76.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center) {
+                            val rowLogoUrl by produceState(ch.logo, ch.url, e.name) {
+                                if (value.isNullOrBlank()) value = withContext(Dispatchers.IO) { MediaScraper.channelLogo(e.name, ch.logo) }
+                            }
+                            rememberImage(rowLogoUrl)?.let { Image(it, null, Modifier.padding(8.dp).fillMaxSize(), contentScale = ContentScale.Fit) }
+                                ?: Text(e.name.take(3).uppercase(), color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Text(e.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(prog?.title ?: e.category.label(lang), fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            when {
+                                on -> Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_playing"), Color(0xFF0A84FF), filled = true)
+                                live == true -> Badge("LIVE", Tahoe.Good, filled = true)
+                                live == false -> Badge("OFFLINE", Tahoe.Bad, filled = true)
+                                else -> Badge("•", Tahoe.Dim)
+                            }
+                            if (e.channel.drm) Badge("DRM", Color(0xFFFF9F0A))
+                        }
+                    }
+                }
+            }
+
+            2 -> EpgTimelinePane(
+                entries = shown.take(50),
+                epg = epg,
+                now = tick,
+                hm = hm,
+                isChannelLive = ::isChannelLive,
+                lang = lang,
+                onSelect = { e -> selected = e },
+                onWatch = ::watch,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
+
+            else -> LazyColumn(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
             items(shown, key = { it.channel.url }) { e ->
                 val ch = e.channel
                 val focused = e == selected
@@ -345,6 +496,7 @@ fun LiveScreen() {
                     }
                 }
             }
+        }
         }
 
         // ---------------------------------------------------------------- detail panel (now playing on the focused channel)
@@ -432,7 +584,11 @@ private fun Detail(
             val isPlaying = e.channel.url == playingUrl
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!isPlaying) PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), Icons.Rounded.PlayArrow) { onWatch(e) }
-                else { PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.show_player"), Icons.Rounded.PictureInPicture) { PlayerWindow.show() }; GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.stop"), Icons.Rounded.Stop, onClick = onStop) }
+                else {
+                    PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.show_player"), Icons.Rounded.PictureInPicture) { PlayerWindow.show() }
+                    GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.mini_player"), Icons.Rounded.PictureInPictureAlt) { PlayerWindow.toggleMiniPlayer() }
+                    GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.stop"), Icons.Rounded.Stop, onClick = onStop)
+                }
 
                 if (PlayerWindow.needsBrowserDrm(e.channel)) {
                     GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.open_web_player"), Icons.Rounded.OpenInBrowser) {
@@ -503,3 +659,108 @@ private fun categoryIcon(key: String?) = when (key) {
 private fun Badge(text: String, color: Color, filled: Boolean = false) = Text(text, Modifier.clip(RoundedCornerShape(5.dp))
     .background(if (filled) color else color.copy(alpha = 0.14f)).padding(horizontal = 6.dp, vertical = 2.dp),
     color = if (filled) Color.White else color, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, letterSpacing = 0.4.sp)
+
+/** Hourly scrollable EPG timeline grid across channels (#49). */
+@Composable
+private fun EpgTimelinePane(
+    entries: List<LocalTv.Entry>,
+    epg: Epg?,
+    now: Instant,
+    hm: DateTimeFormatter,
+    isChannelLive: (LocalTv.Entry) -> Boolean?,
+    lang: String,
+    onSelect: (LocalTv.Entry) -> Unit,
+    onWatch: (LocalTv.Entry) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (entries.isEmpty()) {
+        Box(modifier, contentAlignment = Alignment.Center) {
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.timeline_empty"), color = Tahoe.Dim)
+        }
+        return
+    }
+    val winStart = remember(now.epochSecond / 1800) { Instant.ofEpochSecond((now.epochSecond / 1800) * 1800 - 1800) }
+    val totalMinutes = 300L // 5 hours window
+    val pxPerMin = 3.6.dp
+    val hScroll = rememberScrollState()
+
+    Column(modifier.clip(RoundedCornerShape(20.dp)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(20.dp)).padding(12.dp)) {
+        // Time ruler header
+        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(150.dp))
+            Row(Modifier.weight(1f).horizontalScroll(hScroll)) {
+                Box(Modifier.width(pxPerMin * totalMinutes.toFloat()).height(24.dp)) {
+                    for (m in 0 until totalMinutes.toInt() step 30) {
+                        val t = winStart.plusSeconds(m * 60L)
+                        Text(
+                            hm.format(t),
+                            Modifier.offset(x = pxPerMin * m.toFloat()),
+                            fontSize = 11.sp,
+                            color = Tahoe.Dim,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(entries, key = { "tl_${it.channel.url}" }) { e ->
+                val live = isChannelLive(e)
+                val progs = epg?.schedule(e.name, winStart, e.channel.tvgId).orEmpty()
+                Row(
+                    Modifier.fillMaxWidth().height(54.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        Modifier.width(150.dp).fillMaxHeight().clip(RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(alpha = 0.06f))
+                            .clickable { onWatch(e) }.padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(when (live) { true -> Tahoe.Good; false -> Tahoe.Bad; null -> Tahoe.Dim }))
+                        Text(e.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.weight(1f).horizontalScroll(hScroll)) {
+                        Box(Modifier.width(pxPerMin * totalMinutes.toFloat()).fillMaxHeight()) {
+                            val nowMin = ((now.epochSecond - winStart.epochSecond) / 60.0).toFloat().coerceIn(0f, totalMinutes.toFloat())
+                            val visible = progs.filter { it.stop > winStart && it.start < winStart.plusSeconds(totalMinutes * 60) }
+                            if (visible.isEmpty()) {
+                                Box(
+                                    Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp))
+                                        .background(Color.White.copy(alpha = 0.04f))
+                                        .clickable { onSelect(e) }.padding(horizontal = 12.dp),
+                                    contentAlignment = Alignment.CenterStart,
+                                ) {
+                                    Text(e.category.label(lang), fontSize = 12.sp, color = Tahoe.Dim)
+                                }
+                            } else {
+                                visible.forEach { p ->
+                                    val stMin = ((p.start.epochSecond - winStart.epochSecond) / 60.0).toFloat().coerceIn(0f, totalMinutes.toFloat())
+                                    val enMin = ((p.stop.epochSecond - winStart.epochSecond) / 60.0).toFloat().coerceIn(stMin + 8f, totalMinutes.toFloat())
+                                    val airing = p.start <= now && p.stop > now
+                                    Box(
+                                        Modifier.offset(x = pxPerMin * stMin).width(pxPerMin * (enMin - stMin) - 3.dp).fillMaxHeight()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (airing) Tahoe.Accent.copy(alpha = 0.24f) else Color.White.copy(alpha = 0.07f))
+                                            .border(1.dp, if (airing) Tahoe.Accent.copy(alpha = 0.55f) else Tahoe.Stroke, RoundedCornerShape(10.dp))
+                                            .clickable { if (airing) onWatch(e) else onSelect(e) }
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        contentAlignment = Alignment.CenterStart,
+                                    ) {
+                                        Column {
+                                            Text(p.title, fontSize = 12.sp, fontWeight = if (airing) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text("${hm.format(p.start)}–${hm.format(p.stop)}", fontSize = 10.sp, color = Tahoe.Dim)
+                                        }
+                                    }
+                                }
+                            }
+                            Box(Modifier.offset(x = pxPerMin * nowMin).width(2.dp).fillMaxHeight().background(Tahoe.Accent))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

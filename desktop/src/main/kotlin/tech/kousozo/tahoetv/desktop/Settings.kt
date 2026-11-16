@@ -83,6 +83,17 @@ object Settings {
 
     var iptvPort get() = pref("iptv_port", "8088").state.value.toIntOrNull() ?: 8088; set(v) = pref("iptv_port").set("$v")
     var iptvAutoStart get() = pref("iptv_autostart", "false").state.value == "true"; set(v) = pref("iptv_autostart").set("$v")
+    var railCollapsed get() = pref("rail_collapsed", "false").state.value == "true"; set(v) = pref("rail_collapsed").set("$v")
+
+    val recentChannels: List<String>
+        get() = pref("recent_ch", "").state.value.split('\n').filter { it.isNotBlank() }
+
+    fun rememberRecentChannel(name: String) {
+        val clean = name.trim()
+        if (clean.isEmpty() || tech.kousozo.tahoetv.core.Demo.isActive()) return
+        val next = (listOf(clean) + recentChannels.filterNot { it.equals(clean, ignoreCase = true) }).take(8)
+        pref("recent_ch").set(next.joinToString("\n"))
+    }
 
     /** ADB key of this computer (the TV remembers it after "Always allow"). */
     val adbDir = File(System.getProperty("user.home"), ".tahoetv/adb")

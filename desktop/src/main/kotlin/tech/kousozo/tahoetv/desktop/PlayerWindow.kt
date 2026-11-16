@@ -183,11 +183,83 @@ object PlayerWindow {
     }
 
     private lateinit var fullBtn: Button
+    private lateinit var miniBtn: Button
+    private lateinit var digitBadge: Label
     private lateinit var bar: BorderPane
     private lateinit var hint: Label
     private lateinit var nextBtn: Button
     private var onSwitch: (Int) -> Unit = {}
+    private var onJump: (Int) -> Unit = {}
     private var onStatus: (String?) -> Unit = {}
+
+    private var miniMode = false
+    private var savedBounds = doubleArrayOf(960.0, 540.0, Double.NaN, Double.NaN)
+    private var dragX = 0.0
+    private var dragY = 0.0
+    private var digitBuf = ""
+    private var digitTimer: Timeline? = null
+    private val recapDir = java.io.File(System.getProperty("user.home"), ".tahoetv/recap")
+    private var recapStartedAt = 0L
+    private var recapChannelId = ""
+    private var recapChannelName = ""
+    private var recapShow = ""
+
+    private fun flushRecap() {
+        if (recapStartedAt <= 0L || recapChannelName.isBlank()) return
+        val sec = ((System.currentTimeMillis() - recapStartedAt) / 1000L).toInt()
+        recapStartedAt = 0L
+        if (sec >= 15) tech.kousozo.tahoetv.core.WatchRecap.record(recapDir, recapChannelId, recapChannelName, recapShow, sec, "main")
+    }
+
+    fun toggleMiniPlayer() {
+        val st = stage ?: return
+        miniMode = !miniMode
+        if (miniMode) {
+            if (st.isFullScreen) st.isFullScreen = false
+            savedBounds = doubleArrayOf(st.width, st.height, st.x, st.y)
+            st.isAlwaysOnTop = true
+            val vb = javafx.stage.Screen.getPrimary().visualBounds
+            st.width = 400.0
+            st.height = 248.0
+            st.x = vb.maxX - 424.0
+            st.y = vb.maxY - 272.0
+            if (::miniBtn.isInitialized) miniBtn.text = "❐"
+            if (::elapsedLabel.isInitialized) { elapsedLabel.isVisible = false; elapsedLabel.isManaged = false }
+            if (::timeLabel.isInitialized) { timeLabel.isVisible = false; timeLabel.isManaged = false }
+            if (::flagBtn.isInitialized) { flagBtn.isVisible = false; flagBtn.isManaged = false }
+            if (::infoBtn.isInitialized) { infoBtn.isVisible = false; infoBtn.isManaged = false }
+            if (::hint.isInitialized) { hint.isVisible = false; hint.isManaged = false }
+        } else {
+            st.isAlwaysOnTop = false
+            st.width = savedBounds[0].takeIf { it > 420.0 } ?: 960.0
+            st.height = savedBounds[1].takeIf { it > 260.0 } ?: 540.0
+            if (!savedBounds[2].isNaN()) st.x = savedBounds[2]
+            if (!savedBounds[3].isNaN()) st.y = savedBounds[3]
+            if (::miniBtn.isInitialized) miniBtn.text = "❐ Mini"
+            if (::elapsedLabel.isInitialized) { elapsedLabel.isVisible = true; elapsedLabel.isManaged = true }
+            if (::timeLabel.isInitialized) { timeLabel.isVisible = true; timeLabel.isManaged = true }
+            if (::flagBtn.isInitialized) { flagBtn.isVisible = true; flagBtn.isManaged = true }
+            if (::infoBtn.isInitialized) { infoBtn.isVisible = true; infoBtn.isManaged = true }
+            if (::hint.isInitialized) { hint.isVisible = true; hint.isManaged = true }
+        }
+        reveal()
+    }
+
+    private fun pushDigit(d: Int) {
+        if (digitBuf.length >= 3) digitBuf = ""
+        digitBuf += d.toString()
+        if (::digitBadge.isInitialized) {
+            digitBadge.text = "CH ${digitBuf.padStart(3, '0')}"
+            digitBadge.isVisible = true; digitBadge.isManaged = true
+        }
+        digitTimer?.stop()
+        digitTimer = Timeline(KeyFrame(Duration.millis(1100.0), {
+            val target = digitBuf.toIntOrNull()
+            digitBuf = ""
+            if (::digitBadge.isInitialized) { digitBadge.isVisible = false; digitBadge.isManaged = false }
+            if (target != null && target >= 1) onJump(target - 1)
+        })).also { it.play() }
+    }
 
     private fun fx(block: () -> Unit) {
         if (!started) { started = true; Platform.setImplicitExit(false); runCatching { Platform.startup(block) }.onFailure { Platform.runLater(block) }; return }
@@ -197,20 +269,26 @@ object PlayerWindow {
     /** `streams` = the channel's main stream then its backups. `onSwitch(±1)` asks the app for the previous/next channel.
      *  `onStatus(null)` = playing, else a message; called on the Swing/Compose thread. */
     fun play(streams: List<M3u.Channel>, title: String, schedule: List<tech.kousozo.tahoetv.core.Epg.Programme>,
-             onSwitch: (Int) -> Unit, onStatus: (String?) -> Unit) {
+             onSwitch: (Int) -> Unit, onJump: (Int) -> Unit = {}, onStatus: (String?) -> Unit) {
         // Windows: JavaFX can't play HLS there (every channel failed with "Could not create player!"); use the web player
         // (the page reports back when video really plays, or fails, and its ◀ ▶ call onSwitch)
         if (WebPlayer.preferred) {
             Thread { WebPlayer.open(streams, title, onSwitch, onStatus)?.let { err -> javax.swing.SwingUtilities.invokeLater { onStatus(err) } } }.start()
             return
         }
-        playFx(streams, title, schedule, onSwitch, onStatus)
+        playFx(streams, title, schedule, onSwitch, onJump, onStatus)
     }
 
     private fun playFx(streams: List<M3u.Channel>, title: String, schedule: List<tech.kousozo.tahoetv.core.Epg.Programme>,
-             onSwitch: (Int) -> Unit, onStatus: (String?) -> Unit) = fx {
+             onSwitch: (Int) -> Unit, onJump: (Int) -> Unit, onStatus: (String?) -> Unit) = fx {
+        flushRecap()
         this.schedule = schedule
-        this.onSwitch = onSwitch; this.onStatus = onStatus
+        this.onSwitch = onSwitch; this.onJump = onJump; this.onStatus = onStatus
+        val now = java.time.Instant.now()
+        recapStartedAt = System.currentTimeMillis()
+        recapChannelId = streams.firstOrNull()?.channelId.orEmpty()
+        recapChannelName = title
+        recapShow = schedule.firstOrNull { it.start <= now && it.stop > now }?.title.orEmpty()
         val s = ensureStage()
         titleLabel.text = title; s.title = "$title — Tahoe TV"; refreshInfo()
         loaderName.text = title
@@ -494,6 +572,9 @@ object PlayerWindow {
         infoBtn = button("ⓘ ${tech.kousozo.tahoetv.core.I18n.get(lang, "stats.btn_info")}") { toggleStats() }.apply {
             accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "stats.btn_info")
         }
+        miniBtn = button("❐ Mini") { toggleMiniPlayer() }.apply {
+            accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "desk.mini_player")
+        }
         fullBtn = button("⤢  Layar penuh") { toggleFull() }.apply { accessibleText = "Alihkan layar penuh" }
         pauseBtn = button("⏸") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }.apply { accessibleText = "Jeda atau putar" }
         val prevTopBtn = button("⏮") { onSwitch(-1) }.apply { accessibleText = "Saluran sebelumnya" }
@@ -501,7 +582,7 @@ object PlayerWindow {
         val closeTopBtn = button("✕") { st.close() }.apply { accessibleText = "Tutup pemutar" }
         val left = VBox(4.0, HBox(8.0, liveBadge).apply { alignment = Pos.CENTER_LEFT }, showLabel, titleLabel, elapsedLabel).apply { alignment = Pos.BOTTOM_LEFT }
         val mid = HBox(12.0, prevTopBtn, pauseBtn, nextTopBtn).apply { alignment = Pos.CENTER }
-        val right = HBox(10.0, flagBtn, infoBtn, fullBtn, closeTopBtn).apply { alignment = Pos.BOTTOM_RIGHT }
+        val right = HBox(10.0, flagBtn, infoBtn, miniBtn, fullBtn, closeTopBtn).apply { alignment = Pos.BOTTOM_RIGHT }
         statsText = Label().apply {
             style = "-fx-text-fill: #e8eef7; -fx-font-family: 'Monospaced'; -fx-font-size: 12px;"
             isWrapText = true
@@ -556,9 +637,15 @@ object PlayerWindow {
             style = "-fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent 30%, transparent 70%, rgba(0,0,0,0.7));"
             isPickOnBounds = false
         }
-        hint = Label("▲▼ ganti saluran  ·  F layar penuh  ·  M bisu  ·  I stats  ·  Esc keluar  ·  Spasi jeda").apply {
+        hint = Label("▲▼ ganti saluran  ·  0-9 nomor  ·  P mini-player  ·  F layar penuh  ·  M bisu  ·  I stats  ·  Spasi jeda").apply {
             style = "-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12px;"; StackPane.setAlignment(this, Pos.BOTTOM_CENTER)
             StackPane.setMargin(this, Insets(0.0, 0.0, 70.0, 0.0))
+        }
+        digitBadge = Label("").apply {
+            style = "-fx-background-color: rgba(14,18,26,0.92); -fx-text-fill: #64D2FF; -fx-font-size: 24px; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 14; -fx-border-color: rgba(100,210,255,0.5); -fx-border-radius: 14;"
+            isVisible = false; isManaged = false
+            StackPane.setAlignment(this, Pos.TOP_CENTER)
+            StackPane.setMargin(this, Insets(24.0, 0.0, 0.0, 0.0))
         }
         val center = VBox(12.0, statusLabel, retryBtn, nextBtn, webBtn, restoreBtn).apply { alignment = Pos.CENTER; isPickOnBounds = false }
         loaderLogo = ImageView().apply { isPreserveRatio = true; fitWidth = 150.0; fitHeight = 84.0 }
@@ -572,7 +659,7 @@ object PlayerWindow {
             style = "-fx-background-color: radial-gradient(center 50% 45%, radius 80%, rgba(20,24,34,0.92), rgba(4,5,8,0.97));"
             isVisible = false; isMouseTransparent = true
         }
-        val root = StackPane(view, loader, bar, center, hint, statsCard).apply { style = "-fx-background-color: black;" }
+        val root = StackPane(view, loader, bar, center, hint, statsCard, digitBadge).apply { style = "-fx-background-color: black;" }
         view.fitWidthProperty().bind(root.widthProperty()); view.fitHeightProperty().bind(root.heightProperty())
 
         st.scene = Scene(root, 960.0, 540.0, javafx.scene.paint.Color.BLACK)
@@ -583,26 +670,39 @@ object PlayerWindow {
         st.scene.setOnKeyPressed { k ->
             when (k.code) {
                 KeyCode.F -> toggleFull()
+                KeyCode.P -> toggleMiniPlayer()
                 KeyCode.M -> player?.let { p -> p.isMute = !p.isMute }
                 KeyCode.I -> toggleStats()
-                KeyCode.ESCAPE -> if (statsCard.isVisible) toggleStats(false) else if (st.isFullScreen) st.isFullScreen = false else st.close()
+                KeyCode.ESCAPE -> if (statsCard.isVisible) toggleStats(false) else if (miniMode) toggleMiniPlayer() else if (st.isFullScreen) st.isFullScreen = false else st.close()
                 KeyCode.UP, KeyCode.PAGE_UP, KeyCode.LEFT -> onSwitch(-1)
                 KeyCode.DOWN, KeyCode.PAGE_DOWN, KeyCode.RIGHT -> onSwitch(1)
                 KeyCode.SPACE -> player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }
+                KeyCode.DIGIT0, KeyCode.NUMPAD0 -> pushDigit(0)
+                KeyCode.DIGIT1, KeyCode.NUMPAD1 -> pushDigit(1)
+                KeyCode.DIGIT2, KeyCode.NUMPAD2 -> pushDigit(2)
+                KeyCode.DIGIT3, KeyCode.NUMPAD3 -> pushDigit(3)
+                KeyCode.DIGIT4, KeyCode.NUMPAD4 -> pushDigit(4)
+                KeyCode.DIGIT5, KeyCode.NUMPAD5 -> pushDigit(5)
+                KeyCode.DIGIT6, KeyCode.NUMPAD6 -> pushDigit(6)
+                KeyCode.DIGIT7, KeyCode.NUMPAD7 -> pushDigit(7)
+                KeyCode.DIGIT8, KeyCode.NUMPAD8 -> pushDigit(8)
+                KeyCode.DIGIT9, KeyCode.NUMPAD9 -> pushDigit(9)
                 else -> {}
             }
             reveal()
         }
-        root.setOnMouseClicked { m -> if (m.button == MouseButton.PRIMARY && m.clickCount == 2) toggleFull() }
-        st.setOnHidden { generation++; watchdog?.stop(); release(); spinTimer.stop(); SwingUtilities.invokeLater { onStatus(CLOSED) } }
+        root.setOnMousePressed { m -> dragX = m.sceneX; dragY = m.sceneY }
+        root.setOnMouseDragged { m -> if (miniMode) { st.x = m.screenX - dragX; st.y = m.screenY - dragY } }
+        root.setOnMouseClicked { m -> if (m.button == MouseButton.PRIMARY && m.clickCount == 2) { if (miniMode) toggleMiniPlayer() else toggleFull() } }
+        st.setOnHidden { flushRecap(); generation++; watchdog?.stop(); release(); spinTimer.stop(); SwingUtilities.invokeLater { onStatus(CLOSED) } }
         ticker.play()
         Thread { Web.weather(Settings.lat, Settings.lon, Settings.lang)?.let { w -> Platform.runLater { weather = "${w.tempC}° ${w.label}"; refreshInfo() } } }.start()
         stage = st
     }
 
     fun show() { if (WebPlayer.preferred) { Thread { WebPlayer.reopen() }.start(); return }; fx { stage?.let { it.show(); it.toFront(); reveal() } } }
-    fun stop() { if (WebPlayer.preferred) { WebPlayer.stop(); return }; fx { generation++; watchdog?.stop(); release(); stage?.hide() } }
-    fun close() { WebPlayer.stop(); if (started) Platform.runLater { watchdog?.stop(); release(); stage?.close(); Platform.exit() } }
+    fun stop() { flushRecap(); if (WebPlayer.preferred) { WebPlayer.stop(); return }; fx { generation++; watchdog?.stop(); release(); stage?.hide() } }
+    fun close() { flushRecap(); WebPlayer.stop(); if (started) Platform.runLater { watchdog?.stop(); release(); stage?.close(); Platform.exit() } }
 
     /** "This isn't live": the current source plays a recording. Skip it now and never start it first again. */
     private fun reportRecording() {
