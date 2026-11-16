@@ -36,6 +36,16 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
   - Menambahkan mode verifikasi orang dewasa berbasis soal matematika (`PIN`, `Matematika`, atau `PIN + Matematika`), pilihan tingkat kesulitan (`Mudah`, `Sedang`, `Sulit`), panel `Sheets.MathPad`, dan opsi cadangan soal matematika saat lupa PIN.
 - **Notifikasi & pengingat acara TV → HP (`Companion`, `Reminder`, `Sync`) (#52).**
   - Mengirim peringatan pengingat acara dari TV ke HP melalui WebSocket (`tv_notif` dengan replay 10 menit untuk klien baru tersambung) dan menampilkannya melalui kanal notifikasi Android khusus pengingat & status pemutaran.
+- **Profil Anak lanjutan: batas waktu harian, jadwal tonton, saluran khusus, & laporan (`KidsPolicy`, `:core`, `:launcher`, `:companion`) (#54).**
+  - Menambahkan kebijakan lengkap Profil Anak (`KidsPolicy`): batas durasi menonton harian dengan banner peringatan 5 menit sebelum habis, perpanjangan +30 menit oleh orang dewasa, jendela jadwal jam boleh menonton, daftar saluran tambahan & blokir khusus Anak, pemantauan pemakaian app pihak ketiga saat mode Anak aktif, serta ringkasan statistik harian/mingguan lewat endpoint `/kids/report`.
+- **Pusat Pengaturan TV Lengkap dari HP & API setelan TV (`TvSettings`, `:core`, `:launcher`, `:companion`) (#35).**
+  - Menambahkan endpoint `GET/POST /settings`, `POST /viewer`, dan `GET /kids/report` di `:launcher` dengan penyimpanan kunci API tulis-saja (`write-only`), serta layar `TvSettingsSheet` 4 tab di aplikasi HP (`Tampilan`, `Dock`, `Anak`, dan `Perangkat & Kunci`) untuk mengatur wallpaper, rotasi latar, Mode Sederhana, skala huruf, bahasa, kota, slot dock/aplikasi tersembunyi, profil perangkat keras TV, dan kebijakan Anak dari jarak jauh.
+- **Setup Awal TV Tanpa HP (`/setup`) & Pemindai QR Di Dalam Aplikasi (`QrScanner`, `Onboarding`, `:launcher`, `:companion`) (#36).**
+  - Menambahkan wizard web `/setup` di `:launcher` yang dapat diakses langsung lewat kode QR dari langkah bahasa onboarding TV (tanpa perlu memasang aplikasi HP), serta pemindai QR berbasis Camera2 + ZXing (`QrCodeScannerDialog` + fallback tempel tautan) langsung di aplikasi HP dan parser payload QR terstruktur (`TvLink.parseQrPayload`).
+- **Desktop Imersif: Mini-player, Ketik Angka Saluran, Pintasan Keyboard, Timeline EPG, & Grid (`:desktop`) (#49, #41).**
+  - Menambahkan mode **Mini-player** mengambang selalu di atas (`P` / tombol mini-player) lengkap dengan drag posisi, lompat saluran cepat via angka keyboard `0–9`, pintasan keyboard di daftar saluran (`/` cari, `↑`/`↓`, `Enter`), mode tampilan **Daftar** / **Grid** / **Timeline EPG 5 jam** dengan indikator waktu berjalan, pengecekan kesehatan saluran periodik tiap 5 menit, bilah navigasi kiri yang bisa diciutkan, serta kartu **Lanjut tonton** di Beranda.
+- **Rekap Tontonan Bulanan Privat Lokal & Ekspor Story PNG (`WatchRecap`, `:core`, `:launcher`, `:companion`, `:desktop`) (#62).**
+  - Menambahkan pelacakan riwayat durasi tonton bulanan yang 100% tersimpan lokal per profil (`WatchRecap`, dapat dimatikan atau dihapus kapan saja) pada Android TV (`Sheets.Recap`), Desktop (`Home`), dan HP (`RecapSheet` dengan ekspor gambar Story PNG 900×1600 via `FileProvider`).
 
 ### Perbaikan
 - **Keandalan & penyortiran siaran lokal Indonesia serta mitigasi stall jendela live rapat (#33, #32).**

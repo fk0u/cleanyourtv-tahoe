@@ -20,6 +20,7 @@ Per-release details: [CHANGELOG.md](../CHANGELOG.md).
 - **International & Reliability (`3.3` on `main`):** multi-country EPG/channels ([#79](https://github.com/fk0u/cleanyourtv-tahoe/issues/79), [#80](https://github.com/fk0u/cleanyourtv-tahoe/issues/80)), EN/ID/中文 UI ([#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)), neutral demo mode ([#99](https://github.com/fk0u/cleanyourtv-tahoe/issues/99)), local bundled web player assets ([#81](https://github.com/fk0u/cleanyourtv-tahoe/issues/81)), stable channel IDs ([#94](https://github.com/fk0u/cleanyourtv-tahoe/issues/94)), source policy & 7-day takedown ([#97](https://github.com/fk0u/cleanyourtv-tahoe/issues/97), [#101](https://github.com/fk0u/cleanyourtv-tahoe/issues/101)), and desktop playback hardening ([#75](https://github.com/fk0u/cleanyourtv-tahoe/issues/75), [#105](https://github.com/fk0u/cleanyourtv-tahoe/issues/105)).
 - **Simple & Connect — Batch 1 (on `main`):** atomic source health cache ([#106](https://github.com/fk0u/cleanyourtv-tahoe/issues/106)), link reconnect/merge/queue safety ([#96](https://github.com/fk0u/cleanyourtv-tahoe/issues/96), [#107](https://github.com/fk0u/cleanyourtv-tahoe/issues/107), [#111](https://github.com/fk0u/cleanyourtv-tahoe/issues/111)), guide & image memory optimization ([#108](https://github.com/fk0u/cleanyourtv-tahoe/issues/108), [#109](https://github.com/fk0u/cleanyourtv-tahoe/issues/109)), and plain-language UI copy ([#65](https://github.com/fk0u/cleanyourtv-tahoe/issues/65)).
 - **Playback Reliability, Adaptive Profiling & Safety (`3.4` on `main`):** Indonesian broadcast mismatch/stale source ordering ([#33](https://github.com/fk0u/cleanyourtv-tahoe/issues/33)), tight live-window stall mitigation ([#32](https://github.com/fk0u/cleanyourtv-tahoe/issues/32)), cross-platform Stats for Nerds ([#61](https://github.com/fk0u/cleanyourtv-tahoe/issues/61)), per-channel audio/subtitle preferences & subtitle sizing ([#51](https://github.com/fk0u/cleanyourtv-tahoe/issues/51)), adaptive TV hardware profiling ([#38](https://github.com/fk0u/cleanyourtv-tahoe/issues/38)), math adult gate ([#47](https://github.com/fk0u/cleanyourtv-tahoe/issues/47)), and TV → phone reminder notifications ([#52](https://github.com/fk0u/cleanyourtv-tahoe/issues/52)).
+- **Phone Control Center, QR/Web Setup, Kids Policy, Immersive Desktop & Local Recap (`3.4` on `main`):** full TV settings center from the phone ([#35](https://github.com/fk0u/cleanyourtv-tahoe/issues/35)), browser TV onboarding (`/setup`) & in-app Camera2/ZXing QR scanner ([#36](https://github.com/fk0u/cleanyourtv-tahoe/issues/36)), Kids daily time limits, schedule window, custom channels & reports ([#54](https://github.com/fk0u/cleanyourtv-tahoe/issues/54)), immersive desktop mini-player, `0–9` tuning, keyboard shortcuts, Grid & 5h EPG timeline ([#49](https://github.com/fk0u/cleanyourtv-tahoe/issues/49)), and local privacy-first monthly Watch Recap with Story export ([#62](https://github.com/fk0u/cleanyourtv-tahoe/issues/62)).
 - **Engineering Health (on `main`):** single version source in `gradle.properties`, verified CI & release gating, Android lint in PRs, Gradle Dependabot ([#57](https://github.com/fk0u/cleanyourtv-tahoe/issues/57), [#100](https://github.com/fk0u/cleanyourtv-tahoe/issues/100)).
 - **Remaining in `3.4`:**
   - [#90](https://github.com/fk0u/cleanyourtv-tahoe/issues/90) Native-TV controls + Simple Mode (physical TV verification)
@@ -28,19 +29,16 @@ Per-release details: [CHANGELOG.md](../CHANGELOG.md).
   - [#88](https://github.com/fk0u/cleanyourtv-tahoe/issues/88) **Tahoe Connect** — hand off & control TV/desktop playback from the phone
   - Physical TV verification of [#85](https://github.com/fk0u/cleanyourtv-tahoe/issues/85) onboarding and [#87](https://github.com/fk0u/cleanyourtv-tahoe/issues/87) three-language slate
 
-## Next (`3.4`–`3.5`: Phone Control Center & Desktop Experience)
+## Next (`3.5`: Advanced Playback, Packaging & Refactoring)
 
-- [#34](https://github.com/fk0u/cleanyourtv-tahoe/issues/34) Auto-hiding player controls & [#35](https://github.com/fk0u/cleanyourtv-tahoe/issues/35) Full TV settings from the phone
-- [#36](https://github.com/fk0u/cleanyourtv-tahoe/issues/36) First TV setup without a phone + in-app QR scanner & [#37](https://github.com/fk0u/cleanyourtv-tahoe/issues/37) multi-TV / multi-controller support
-- [#49](https://github.com/fk0u/cleanyourtv-tahoe/issues/49) Immersive desktop (integrated player, mini-player, keyboard shortcuts, EPG timeline)
+- [#34](https://github.com/fk0u/cleanyourtv-tahoe/issues/34) Auto-hiding player controls & [#37](https://github.com/fk0u/cleanyourtv-tahoe/issues/37) Multi-TV / multi-controller physical verification
 - [#51](https://github.com/fk0u/cleanyourtv-tahoe/issues/51) Full ASS/SSA styled subtitle rendering · [#53](https://github.com/fk0u/cleanyourtv-tahoe/issues/53) standalone/scheduled recording
 - [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26) Standalone Android TV app (no ADB/root needed) · [#55](https://github.com/fk0u/cleanyourtv-tahoe/issues/55) Signed & notarized macOS/Windows installers · [#95](https://github.com/fk0u/cleanyourtv-tahoe/issues/95) Split `Home.java` / `IptvServer.kt`
 
 ## Later (Parked)
 
 - [#50](https://github.com/fk0u/cleanyourtv-tahoe/issues/50) Multi-view · [#39](https://github.com/fk0u/cleanyourtv-tahoe/issues/39) Free photo API wallpapers
-- [#54](https://github.com/fk0u/cleanyourtv-tahoe/issues/54) Kids limits & reports · [#48](https://github.com/fk0u/cleanyourtv-tahoe/issues/48) Village-level adhan & screen wake
-- [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) Google TV & webOS (Tizen later) · [#62](https://github.com/fk0u/cleanyourtv-tahoe/issues/62)
+- [#48](https://github.com/fk0u/cleanyourtv-tahoe/issues/48) Village-level adhan & screen wake · [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) Google TV & webOS (Tizen later)
 
 ## What we won't do
 
