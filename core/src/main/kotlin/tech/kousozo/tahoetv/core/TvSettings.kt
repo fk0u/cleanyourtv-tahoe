@@ -41,6 +41,8 @@ object TvSettings {
         val performanceTier: String = "auto",
         val subtitleSize: String = "normal",
         val wallMode: String = "personal",
+        val wallSource: String = "auto",
+        val wallTheme: String = "nature",
         val wallRotateMinutes: Int = 5,
         val screensaverEnabled: Boolean = true,
         val dockSlots: Int = 6,
@@ -57,6 +59,8 @@ object TvSettings {
         val hasYoutubeKey: Boolean = false,
         val hasTmdbKey: Boolean = false,
         val hasHaUrl: Boolean = false,
+        val hasUnsplashKey: Boolean = false,
+        val hasPexelsKey: Boolean = false,
     ) {
         fun toJson(): JSONObject = JSONObject().apply {
             put("userName", userName)
@@ -67,6 +71,8 @@ object TvSettings {
             put("performanceTier", performanceTier)
             put("subtitleSize", subtitleSize)
             put("wallMode", wallMode)
+            put("wallSource", wallSource)
+            put("wallTheme", wallTheme)
             put("wallRotateMinutes", wallRotateMinutes.coerceIn(1, 120))
             put("screensaverEnabled", screensaverEnabled)
             put("dockSlots", dockSlots.coerceIn(3, 12))
@@ -83,6 +89,8 @@ object TvSettings {
             put("hasYoutubeKey", hasYoutubeKey)
             put("hasTmdbKey", hasTmdbKey)
             put("hasHaUrl", hasHaUrl)
+            put("hasUnsplashKey", hasUnsplashKey)
+            put("hasPexelsKey", hasPexelsKey)
         }
 
         companion object {
@@ -109,6 +117,8 @@ object TvSettings {
                     performanceTier = o.optString("performanceTier", "auto"),
                     subtitleSize = PlayPrefs.SubtitleSize.of(o.optString("subtitleSize")).key,
                     wallMode = if (o.optString("wallMode") == "default") "default" else "personal",
+                    wallSource = WallpaperProvider.Source.fromKey(o.optString("wallSource", "auto")).key,
+                    wallTheme = WallpaperProvider.Theme.fromKey(o.optString("wallTheme", "nature")).key,
                     wallRotateMinutes = o.optInt("wallRotateMinutes", 5).coerceIn(1, 120),
                     screensaverEnabled = o.optBoolean("screensaverEnabled", true),
                     dockSlots = o.optInt("dockSlots", 6).coerceIn(3, 12),
@@ -125,6 +135,8 @@ object TvSettings {
                     hasYoutubeKey = o.optBoolean("hasYoutubeKey", false),
                     hasTmdbKey = o.optBoolean("hasTmdbKey", false),
                     hasHaUrl = o.optBoolean("hasHaUrl", false),
+                    hasUnsplashKey = o.optBoolean("hasUnsplashKey", false),
+                    hasPexelsKey = o.optBoolean("hasPexelsKey", false),
                 )
             }
         }
