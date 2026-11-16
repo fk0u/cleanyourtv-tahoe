@@ -1,0 +1,62 @@
+{
+  "layers": {
+    "data": [
+      "Cfg.java",
+      "Diag.java",
+      "Kids.java",
+      "Logos.java",
+      "Net.java",
+      "Reminder.java"
+    ],
+    "bridge": [
+      "Companion.java",
+      "CompanionHttp.java",
+      "Config.java",
+      "DeviceProfiler.java",
+      "HomeControl.java",
+      "HomeDock.java",
+      "HomeSettingsBridge.java",
+      "PushHelper.java",
+      "PushJobService.java",
+      "RemoteController.java",
+      "TvGuard.java",
+      "TvViewer.java"
+    ],
+    "ui": [
+      "About.java",
+      "Assistant.java",
+      "Avatar.java",
+      "ConnectSheets.java",
+      "GlassDrawable.java",
+      "Hero.java",
+      "Home.java",
+      "Keys.java",
+      "Live.java",
+      "LiveTv.java",
+      "Loader.java",
+      "Lock.java",
+      "Netflix.java",
+      "Notif.java",
+      "Onboarding.java",
+      "ParentalSheets.java",
+      "Prayer.java",
+      "Sheet.java",
+      "Sheets.java",
+      "Tile.java",
+      "Tools.java",
+      "Trending.java",
+      "Ui.java",
+      "Weather.java"
+    ]
+  },
+  "rules": [
+    {
+      "from": "data",
+      "disallow": ["bridge", "ui"]
+    },
+    {
+      "from": "bridge",
+      "disallow": ["ui"]
+    }
+  ]
+}
