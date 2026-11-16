@@ -36,9 +36,32 @@ fun RecordingsScreen() {
     }
     Column(Modifier.fillMaxSize().padding(start = 12.dp, end = 28.dp, top = 24.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Title(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.title"), tech.kousozo.tahoetv.core.I18n.get(lang, "rec.subtitle", Recordings.dir.path))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        var bgInstalled by remember { mutableStateOf(BackgroundRecorder.isInstalled()) }
+        var bgMessage by remember { mutableStateOf<String?>(null) }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.open_folder"), Icons.Rounded.FolderOpen) { open(Recordings.dir) }
             GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.from_live"), Icons.Rounded.LiveTv) { DeskNav.screen = Screen.Live }
+            if (BackgroundRecorder.isSupported()) {
+                GhostButton(
+                    tech.kousozo.tahoetv.core.I18n.get(lang, if (bgInstalled) "rec.bg_remove" else "rec.bg_install"),
+                    if (bgInstalled) Icons.Rounded.NotificationsActive else Icons.Rounded.Schedule,
+                    color = if (bgInstalled) Tahoe.Good else Tahoe.Accent,
+                ) {
+                    val res = if (bgInstalled) BackgroundRecorder.remove() else BackgroundRecorder.install()
+                    res.fold(
+                        { msg -> bgInstalled = BackgroundRecorder.isInstalled(); bgMessage = msg },
+                        { err -> bgMessage = err.message ?: "Error" },
+                    )
+                }
+            }
+        }
+        if (BackgroundRecorder.isSupported()) {
+            Text(
+                tech.kousozo.tahoetv.core.I18n.get(lang, if (bgInstalled) "rec.bg_status_on" else "rec.bg_status_off") +
+                    (bgMessage?.let { " · $it" } ?: ""),
+                color = if (bgInstalled) Tahoe.Good else Tahoe.Dim,
+                fontSize = 12.sp,
+            )
         }
         problem?.let { Text(it, color = Tahoe.Bad, fontSize = 13.sp) }
         if (jobs.isEmpty()) {

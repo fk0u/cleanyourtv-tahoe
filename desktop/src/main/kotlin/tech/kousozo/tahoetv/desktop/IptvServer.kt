@@ -61,7 +61,7 @@ object IptvServer {
         java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(it)
     }
 
-    private fun isAuthorizedConnect(ex: HttpExchange): Boolean {
+    internal fun isAuthorizedConnect(ex: HttpExchange): Boolean {
         val auth = ex.requestHeaders.getFirst("Authorization").orEmpty().trim()
         if (!auth.startsWith("Bearer ", ignoreCase = true)) return false
         val supplied = auth.substring(7).trim().toByteArray(Charsets.UTF_8)
@@ -88,6 +88,97 @@ object IptvServer {
 
     /** The playlist setting the channel list was loaded for (null = custom files, e.g. tests). */
     @Volatile private var loadedFor: String? = null
+
+    /** Registers missing ad-hoc channels (e.g. opened before background playlist reload finishes on Windows) and returns their IDs. */
+    @Synchronized
+    fun registerAdHoc(list: List<M3u.Channel>): List<String> {
+        if (list.isEmpty()) return emptyList()
+        val nextChannels = ArrayList(channels)
+        val nextById = HashMap(byId)
+        val nextIdByUrl = HashMap(idByUrl)
+        val existingIds = nextById.keys.toMutableSet()
+        var added = 0
+        var relays = relayCount.value
+        val resultIds = ArrayList<String>(list.size)
+        for (ch in list) {
+            val existing = nextIdByUrl[ch.url]
+            if (existing != null) {
+                resultIds += existing
+                continue
+            }
+            val clean = ch.channelId.replace('.', '-').ifEmpty { "ch" }
+            var id = clean
+            var idx = 1
+            while (id in existingIds) {
+                idx++
+                id = "$clean-$idx"
+            }
+            existingIds.add(id)
+            val sc = ServerChannel(id, ch, "Tahoe", ch.drmType, ch.drmKey)
+            nextChannels.add(sc)
+            nextById[id] = sc
+            nextIdByUrl[ch.url] = id
+            resultIds += id
+            added++
+            if (ch.headers.isNotEmpty()) relays++
+        }
+        if (added > 0) {
+            this.channels = nextChannels
+            this.byId = nextById
+            this.idByUrl = nextIdByUrl
+            Snapshot.withMutableSnapshot {
+                channelCount.value = nextChannels.size
+                relayCount.value = relays
+            }
+        }
+        return resultIds
+    }
+
+    /** Seeds the server directly from [LiveScreen]'s loaded channel list so [ensureRunning] never re-downloads or stalls at 0 channels. */
+    @Synchronized
+    fun seedFromApp(list: List<M3u.Channel>) {
+        if (list.isEmpty()) return
+        val key = loadKey()
+        if (loadedFor == key && channels.isNotEmpty()) return
+        applyLoadedGroups(listOf("Tahoe" to list))
+        loadedFor = key
+    }
+
+    private fun applyLoadedGroups(groups: List<Pair<String, List<M3u.Channel>>>) {
+        val channels = ArrayList<ServerChannel>()
+        val byId = HashMap<String, ServerChannel>()
+        val idByUrl = HashMap<String, String>()
+        val newSources = ArrayList<String>()
+        val existingIds = HashSet<String>()
+        var relays = 0
+        for ((sourceName, list) in groups) {
+            if (list.isEmpty()) continue
+            newSources.add(sourceName)
+            for (ch in list) {
+                val clean = ch.channelId.replace('.', '-').ifEmpty { "ch" }
+                var id = clean
+                var idx = 1
+                while (id in existingIds) {
+                    idx++
+                    id = "$clean-$idx"
+                }
+                existingIds.add(id)
+                val sc = ServerChannel(id, ch, sourceName, ch.drmType, ch.drmKey)
+                channels.add(sc)
+                byId[id] = sc
+                idByUrl.putIfAbsent(ch.url, id)
+                if (ch.headers.isNotEmpty()) relays++
+            }
+        }
+        this.channels = channels; this.byId = byId; this.idByUrl = idByUrl
+        this.sourcesSnapshot = newSources.toList()
+        Snapshot.withMutableSnapshot {
+            loadedSources.clear()
+            loadedSources.addAll(newSources)
+            channelCount.value = channels.size
+            relayCount.value = relays
+        }
+    }
 
     /** Starts the server if needed (on the configured port, or any free port if that one is taken), and reloads the
      *  channel list if the playlist setting changed since; returns the port. Blocks: call off the UI thread. */
@@ -238,46 +329,15 @@ object IptvServer {
             }
         }
 
-        val existingIds = HashSet<String>()
-        var relays = 0
-
-        // The same channels as the app's TV Live: local files, ~/.tahoetv/playlists, the user's playlists, and the
-        // built-in free-TV sources when there's nothing local. Before, only local files were read, so for almost everyone
-        // (no koutv.m3u) the server, the dashboard, the LAN playlist and the web player had 0 channels.
         val groups: List<Pair<String, List<M3u.Channel>>> =
             if (customFiles.isNotEmpty()) filesToLoad.filter { it.isFile }.map { f -> f.name to runCatching { M3u.load(f.absolutePath) }.getOrDefault(emptyList()) }
-            else loadKey().let { key -> // taken before the slow load: a change meanwhile still triggers the next reload
-                listOf("Tahoe" to runCatching { Sources.loadCountriesPriority(Settings.playlist, Settings.viewer.countries) }.getOrDefault(emptyList())).also { loadedFor = key } }
-        for ((sourceName, list) in groups) {
-            if (list.isEmpty()) continue
-
-            newSources.add(sourceName)
-            for (ch in list) {
-                val clean = ch.channelId.replace('.', '-').ifEmpty { "ch" }
-                var id = clean
-                var idx = 1
-                while (id in existingIds) {
-                    idx++
-                    id = "$clean-$idx"
-                }
-                existingIds.add(id)
-
-                val sc = ServerChannel(id, ch, sourceName, ch.drmType, ch.drmKey)
-                channels.add(sc)
-                byId[id] = sc
-                idByUrl.putIfAbsent(ch.url, id)
-                if (ch.headers.isNotEmpty()) relays++
+            else {
+                val key = loadKey()
+                val loaded = runCatching { Sources.loadCountriesPriority(Settings.playlist, Settings.viewer.countries) }.getOrDefault(emptyList())
+                if (loaded.isNotEmpty()) loadedFor = key
+                listOf("Tahoe" to loaded)
             }
-        }
-
-        this.channels = channels; this.byId = byId; this.idByUrl = idByUrl
-        this.sourcesSnapshot = newSources.toList()
-        Snapshot.withMutableSnapshot {
-            loadedSources.clear()
-            loadedSources.addAll(newSources)
-            channelCount.value = channels.size
-            relayCount.value = relays
-        }
+        applyLoadedGroups(groups)
     }
 
     private fun handleRequest(ex: HttpExchange) {

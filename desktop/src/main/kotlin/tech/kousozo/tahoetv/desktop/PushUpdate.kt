@@ -204,6 +204,17 @@ object DesktopPush {
         }
     }
 
+    fun postLocalNotification(title: String, body: String, kind: String = "info") {
+        val n = ControlPlane.PushNotification(
+            id = -System.currentTimeMillis(),
+            title = title,
+            body = body,
+            kind = kind,
+            createdAt = System.currentTimeMillis(),
+        )
+        deliverNotification(n)
+    }
+
     private fun deliverNotification(n: ControlPlane.PushNotification) {
         showOsNotification(n)
         SwingUtilities.invokeLater {

@@ -47,7 +47,7 @@ compose.desktop {
             packageVersion = project.property("tahoe.version").toString()
             description = "Tahoe TV untuk desktop"
             vendor = "kousozo"
-            modules("java.net.http", "jdk.httpserver", "jdk.unsupported", "jdk.unsupported.desktop", "java.naming", "jdk.crypto.ec") // unsupported.desktop: JavaFX-in-Swing (TV Live player)
+            modules("java.net.http", "jdk.httpserver", "jdk.unsupported", "jdk.unsupported.desktop", "java.naming", "jdk.crypto.ec", "jdk.localedata", "jdk.charsets", "jdk.naming.dns", "jdk.zipfs") // unsupported.desktop: FX-in-Swing; localedata/charsets/dns for i18n, encodings, DNS in packaged installers
             macOS {
                 bundleID = "tech.kousozo.tahoetv.desktop"
                 minimumSystemVersion = "13.0"

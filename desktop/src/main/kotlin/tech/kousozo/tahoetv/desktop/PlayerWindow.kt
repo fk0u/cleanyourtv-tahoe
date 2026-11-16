@@ -75,6 +75,7 @@ object PlayerWindow {
         elapsedLabel.text = if (cur != null) "%02d:%02d:%02d  /  %s".format(sec / 3600, sec % 3600 / 60, sec % 60, hmFmt().format(cur.stop)) else ""
         timeLabel.text = hmFmt().format(now) + (if (weather.isNotEmpty()) "    $weather" else "")
         pauseBtn.text = if (player?.status == MediaPlayer.Status.PAUSED) "▶" else "⏸"
+        refreshSubtitle()
         if (::statsCard.isInitialized && statsCard.isVisible) refreshStats()
     }
     private fun hmFmt() = java.time.format.DateTimeFormatter.ofPattern("HH.mm").withZone(Settings.viewer.zone)
@@ -130,6 +131,65 @@ object PlayerWindow {
         )
         lastStatsSnapshot = snap
         statsText.text = tech.kousozo.tahoetv.core.PlayerStats.formatText(snap, Settings.lang)
+    }
+
+    private lateinit var subtitleLabel: Label
+    private lateinit var subBtn: Button
+    private var assDoc: tech.kousozo.tahoetv.core.AssSubtitleParser.Document? = null
+    private var subtitlesEnabled = true
+
+    fun loadAssSubtitles(raw: String) = fx {
+        assDoc = tech.kousozo.tahoetv.core.AssSubtitleParser.parseDocument(raw)
+        subtitlesEnabled = true
+        refreshSubtitle()
+    }
+
+    private fun refreshSubtitle() {
+        if (!::subtitleLabel.isInitialized) return
+        val doc = assDoc
+        val p = player
+        if (!subtitlesEnabled || doc == null || p == null) {
+            subtitleLabel.isVisible = false
+            subtitleLabel.isManaged = false
+            return
+        }
+        val posMs = p.currentTime?.toMillis()?.toLong()?.coerceAtLeast(0L) ?: 0L
+        val cues = doc.activeAt(posMs)
+        if (cues.isEmpty()) {
+            subtitleLabel.isVisible = false
+            subtitleLabel.isManaged = false
+            return
+        }
+        val first = cues.first()
+        subtitleLabel.text = cues.joinToString("\n") { it.text }
+        val r = (first.colorArgb shr 16) and 0xFF
+        val g = (first.colorArgb shr 8) and 0xFF
+        val b = first.colorArgb and 0xFF
+        val hex = "#%02x%02x%02x".format(r, g, b)
+        val weight = if (first.bold) "bold" else "600"
+        val fontStyle = if (first.italic) "italic" else "normal"
+        subtitleLabel.style = "-fx-text-fill: $hex; -fx-font-weight: $weight; -fx-font-style: $fontStyle; -fx-font-size: 20px; -fx-background-color: rgba(0,0,0,0.68); -fx-background-radius: 10; -fx-padding: 6 14;"
+        val topPos = first.alignment in listOf(7, 8, 9)
+        StackPane.setAlignment(subtitleLabel, if (topPos) Pos.TOP_CENTER else Pos.BOTTOM_CENTER)
+        StackPane.setMargin(subtitleLabel, if (topPos) Insets(60.0, 40.0, 0.0, 40.0) else Insets(0.0, 40.0, 96.0, 40.0))
+        subtitleLabel.isVisible = true
+        subtitleLabel.isManaged = true
+    }
+
+    private fun pickOrToggleSubtitle() {
+        val st = stage ?: return
+        if (assDoc != null) {
+            subtitlesEnabled = !subtitlesEnabled
+            refreshSubtitle()
+            return
+        }
+        val chooser = javafx.stage.FileChooser().apply {
+            title = tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "sub.ass_styled")
+            extensionFilters.add(javafx.stage.FileChooser.ExtensionFilter("ASS / SSA", "*.ass", "*.ssa"))
+        }
+        chooser.showOpenDialog(st)?.let { f ->
+            runCatching { loadAssSubtitles(f.readText()) }
+        }
     }
 
     private fun toggleStats(show: Boolean? = null) {
@@ -232,6 +292,7 @@ object PlayerWindow {
             if (::drawerBox.isInitialized) { drawerBox.isVisible = false; drawerBox.isManaged = false }
             if (::drawerBtn.isInitialized) { drawerBtn.isVisible = false; drawerBtn.isManaged = false }
             if (::muteBtn.isInitialized) { muteBtn.isVisible = false; muteBtn.isManaged = false }
+            if (::subBtn.isInitialized) { subBtn.isVisible = false; subBtn.isManaged = false }
             if (::elapsedLabel.isInitialized) { elapsedLabel.isVisible = false; elapsedLabel.isManaged = false }
             if (::timeLabel.isInitialized) { timeLabel.isVisible = false; timeLabel.isManaged = false }
             if (::flagBtn.isInitialized) { flagBtn.isVisible = false; flagBtn.isManaged = false }
@@ -246,6 +307,7 @@ object PlayerWindow {
             if (::miniBtn.isInitialized) miniBtn.text = "❐ Mini"
             if (::drawerBtn.isInitialized) { drawerBtn.isVisible = true; drawerBtn.isManaged = true }
             if (::muteBtn.isInitialized) { muteBtn.isVisible = true; muteBtn.isManaged = true }
+            if (::subBtn.isInitialized) { subBtn.isVisible = true; subBtn.isManaged = true }
             if (::elapsedLabel.isInitialized) { elapsedLabel.isVisible = true; elapsedLabel.isManaged = true }
             if (::timeLabel.isInitialized) { timeLabel.isVisible = true; timeLabel.isManaged = true }
             if (::flagBtn.isInitialized) { flagBtn.isVisible = true; flagBtn.isManaged = true }
@@ -626,13 +688,16 @@ object PlayerWindow {
         muteBtn = button("🔊") { toggleMute() }.apply {
             accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "desk.mute_toggle")
         }
+        subBtn = button("CC") { pickOrToggleSubtitle() }.apply {
+            accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "sub.ass_styled")
+        }
         fullBtn = button("⤢  Layar penuh") { toggleFull() }.apply { accessibleText = "Alihkan layar penuh" }
         pauseBtn = button("⏸") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }.apply { accessibleText = "Jeda atau putar" }
         val prevTopBtn = button("⏮") { onSwitch(-1) }.apply { accessibleText = "Saluran sebelumnya" }
         val nextTopBtn = button("⏭") { onSwitch(1) }.apply { accessibleText = "Saluran berikutnya" }
         val closeTopBtn = button("✕") { st.close() }.apply { accessibleText = "Tutup pemutar" }
         val left = VBox(4.0, HBox(8.0, liveBadge).apply { alignment = Pos.CENTER_LEFT }, showLabel, titleLabel, elapsedLabel).apply { alignment = Pos.BOTTOM_LEFT }
-        val mid = HBox(12.0, prevTopBtn, pauseBtn, muteBtn, nextTopBtn).apply { alignment = Pos.CENTER }
+        val mid = HBox(12.0, prevTopBtn, pauseBtn, muteBtn, subBtn, nextTopBtn).apply { alignment = Pos.CENTER }
         val right = HBox(10.0, flagBtn, infoBtn, drawerBtn, miniBtn, fullBtn, closeTopBtn).apply { alignment = Pos.BOTTOM_RIGHT }
 
         drawerList = javafx.scene.control.ListView<String>().apply {
@@ -734,7 +799,13 @@ object PlayerWindow {
             style = "-fx-background-color: radial-gradient(center 50% 45%, radius 80%, rgba(20,24,34,0.92), rgba(4,5,8,0.97));"
             isVisible = false; isMouseTransparent = true
         }
-        val root = StackPane(view, loader, bar, center, hint, statsCard, drawerBox, digitBadge).apply { style = "-fx-background-color: black;" }
+        subtitleLabel = Label().apply {
+            isWrapText = true
+            isMouseTransparent = true
+            isVisible = false
+            isManaged = false
+        }
+        val root = StackPane(view, subtitleLabel, loader, bar, center, hint, statsCard, drawerBox, digitBadge).apply { style = "-fx-background-color: black;" }
         view.fitWidthProperty().bind(root.widthProperty()); view.fitHeightProperty().bind(root.heightProperty())
 
         st.scene = Scene(root, 960.0, 540.0, javafx.scene.paint.Color.BLACK)
@@ -748,6 +819,7 @@ object PlayerWindow {
                 KeyCode.P -> toggleMiniPlayer()
                 KeyCode.L -> toggleDrawer()
                 KeyCode.M -> toggleMute()
+                KeyCode.C -> pickOrToggleSubtitle()
                 KeyCode.I -> toggleStats()
                 KeyCode.ESCAPE -> if (drawerBox.isVisible) toggleDrawer(false) else if (statsCard.isVisible) toggleStats(false) else if (miniMode) toggleMiniPlayer() else if (st.isFullScreen) st.isFullScreen = false else st.close()
                 KeyCode.UP, KeyCode.PAGE_UP, KeyCode.LEFT -> onSwitch(-1)

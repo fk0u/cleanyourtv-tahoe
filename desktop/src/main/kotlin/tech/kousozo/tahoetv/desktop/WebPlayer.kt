@@ -42,7 +42,10 @@ object WebPlayer {
         return synchronized(this) {
             if (request.get() != mine) return null // Stop (or another channel) came while the server was starting
             if (!IptvServer.isRunning.value) { stop(); return "Server pemutar tidak bisa dijalankan." }
-            val found = hls.mapNotNull { IptvServer.idFor(it.url) }.distinct()
+            val found = (hls.mapNotNull { IptvServer.idFor(it.url) }.ifEmpty {
+                IptvServer.registerAdHoc(hls)
+                hls.mapNotNull { IptvServer.idFor(it.url) }
+            }).distinct()
             if (found.isEmpty()) { stop(); return "Saluran ini tidak ada di daftar server." }
             show(found, title, onSwitch, onStatus, port)
         }

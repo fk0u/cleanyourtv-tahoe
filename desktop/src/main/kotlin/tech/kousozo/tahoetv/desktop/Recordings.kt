@@ -40,6 +40,8 @@ object Recordings {
     val jobs = mutableStateListOf<Job>()
     private val store = File(System.getProperty("user.home"), ".tahoetv/recordings.json")
     private val lock = Any()
+    @Volatile private var lastStoreModified = 0L
+    @Volatile var onFinished: ((Job) -> Unit)? = null
 
     /** Where recordings go: ~/Movies/Tahoe TV on macOS, ~/Videos/Tahoe TV on Windows/Linux. */
     val dir: File by lazy {
@@ -79,11 +81,13 @@ object Recordings {
     }
 
     /** Stops a recording (keeps what was recorded) or drops a scheduled one. */
-    fun cancel(id: String) = synchronized(lock) {
-        val j = jobs.firstOrNull { it.id == id } ?: return
-        when (j.state) {
-            "recording" -> { j.stopRequested = true; j.recorder?.cancel() }
-            "scheduled" -> { j.state = "cancelled"; save() }
+    fun cancel(id: String) {
+        synchronized(lock) {
+            val j = jobs.firstOrNull { it.id == id } ?: return
+            when (j.state) {
+                "recording" -> { j.stopRequested = true; j.recorder?.cancel() }
+                "scheduled" -> { j.state = "cancelled"; save() }
+            }
         }
     }
 
@@ -98,6 +102,7 @@ object Recordings {
     }
 
     private fun tick() = synchronized(lock) {
+        reloadExternalChanges()
         val now = System.currentTimeMillis()
         jobs.filter { it.state == "scheduled" }.forEach { j ->
             when {
@@ -140,6 +145,7 @@ object Recordings {
         }
         // fMP4 streams make an MP4 file, not MPEG-TS: give it the extension players expect.
         if (out.exists() && isMp4(out)) File(out.path.removeSuffix(".ts") + ".mp4").let { if (out.renameTo(it)) j.file = it.path }
+        var finishedJob: Job? = null
         synchronized(lock) {
             j.state = when {
                 j.bytes == 0L -> if (j.stopRequested) "cancelled" else "failed"
@@ -148,7 +154,9 @@ object Recordings {
             }
             j.error = if (j.bytes == 0L && !j.stopRequested) lastError ?: "Tidak ada sumber yang bisa direkam." else lastError
             if (j in jobs) save()
+            if (j.state == "done" || j.state == "partial") finishedJob = j
         }
+        finishedJob?.let { runCatching { onFinished?.invoke(it) } }
     }
 
     private fun isMp4(f: File) = runCatching { f.inputStream().use { s -> ByteArray(8).also { s.read(it) } }.copyOfRange(4, 8).toString(Charsets.US_ASCII) == "ftyp" }.getOrDefault(false)
@@ -167,11 +175,21 @@ object Recordings {
             }).toString(1))
             try { Files.move(tmp.toPath(), store.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE) }
             catch (_: java.nio.file.AtomicMoveNotSupportedException) { Files.move(tmp.toPath(), store.toPath(), StandardCopyOption.REPLACE_EXISTING) }
+            lastStoreModified = store.lastModified()
         }
+    }
+
+    private fun reloadExternalChanges() {
+        if (!store.exists()) return
+        val mod = store.lastModified()
+        if (mod <= lastStoreModified || jobs.any { it.state == "recording" }) return
+        jobs.clear()
+        load()
     }
 
     private fun load() = runCatching {
         if (!store.exists()) return@runCatching
+        lastStoreModified = store.lastModified()
         val a = JSONArray(store.readText())
         for (i in 0 until a.length()) {
             val o = a.getJSONObject(i)

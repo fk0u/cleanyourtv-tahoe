@@ -93,6 +93,14 @@ class IptvServerTest {
             val errJson = JSONObject(badCon.errorStream.bufferedReader().readText())
             assertEquals("error", errJson.getString("type"))
             assertEquals("bad_request", errJson.getJSONObject("body").getString("code"))
+
+            // Test registerAdHoc populates Windows WebPlayer ID lookup immediately
+            val adHocUrl = "https://example.com/adhoc/stream.m3u8"
+            val ids = IptvServer.registerAdHoc(
+                listOf(tech.kousozo.tahoetv.core.M3u.Channel("AdHoc TV", adHocUrl, null, "Test"))
+            )
+            assertEquals(1, ids.size)
+            assertEquals(ids.first(), IptvServer.idFor(adHocUrl))
         } finally {
             IptvServer.stop()
             assertTrue(!IptvServer.isRunning.value)

@@ -119,21 +119,28 @@ fun LiveScreen() {
         statusMap = emptyMap()
         checkingDone = false
 
-        // Ensure local IPTV server is running for LAN & header relay
+        // Load channels immediately without blocking behind IptvServer.start() on fresh/Windows launches.
         withContext(Dispatchers.IO) {
             runCatching { java.io.File(System.getProperty("user.home"), ".tahoetv").also { it.mkdirs() }.let { SourceHealth.init(java.io.File(it, "source-health.tsv")) } }
-            if (!IptvServer.isRunning.value) {
-                runCatching { IptvServer.start(Settings.iptvPort) }
-            }
-            if (IptvServer.isRunning.value) runCatching { IptvServer.ensureRunning() } // LAN clients get the new country too
             runCatching {
                 Sources.loadCountriesPriority(playlist, countries) { priority ->
-                    scope.launch { channels = priority }
+                    if (priority.isNotEmpty()) scope.launch { channels = priority }
                 }
             }
         }.fold(
             { loaded ->
                 channels = loaded
+                if (loaded.isEmpty()) {
+                    error = tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "live.empty_load")
+                    return@fold
+                }
+                // Seed LAN / Windows WebPlayer server in parallel so channel switches never block or see 0 channels
+                Thread({
+                    runCatching {
+                        IptvServer.seedFromApp(loaded)
+                        IptvServer.ensureRunning()
+                    }
+                }, "tahoe-iptv-seed").apply { isDaemon = true }.start()
                 // Check arranged channels & their backups first, reusing any fresh SourceHealth cache
                 withContext(Dispatchers.IO) {
                     tech.kousozo.tahoetv.core.PopularityScraper.prefetchAsync(countries, loaded.map { it.name }) {
@@ -292,6 +299,11 @@ fun LiveScreen() {
                 IconButton({ recheckTick++ }, Modifier.size(34.dp)) {
                     Icon(Icons.Rounded.Refresh, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.recheck"), tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
                 }
+                if (entries.isNotEmpty() && !WebPlayer.preferred) {
+                    IconButton({ MultiViewWindow.open(shown.ifEmpty { entries }, selected) }, Modifier.size(34.dp)) {
+                        Icon(Icons.Rounded.ViewModule, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.multiview"), tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
+                    }
+                }
             }
             Field(
                 query, { query = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"),
@@ -368,6 +380,11 @@ fun LiveScreen() {
             }
 
             if (channels == null && error == null) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
+            if (error != null && channels.isNullOrEmpty()) {
+                GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.retry_load"), Icons.Rounded.Refresh, color = Tahoe.Accent) {
+                    refreshNonce++
+                }
+            }
 
             // Categories list (Scrollable)
             val rows = listOf<Triple<String?, String, Int>>(Triple(null, tech.kousozo.tahoetv.core.I18n.get(lang, "live.all"), entries.size)) +

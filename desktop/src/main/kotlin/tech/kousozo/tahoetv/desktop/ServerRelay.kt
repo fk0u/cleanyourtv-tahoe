@@ -237,8 +237,9 @@ internal object ServerRelay {
                 JSONObject().put("recordings", JSONArray(Recordings.jobs.toList().map { Recordings.json(it, IptvServer.baseUrl(ex)) }))
             )
             "POST", "DELETE" -> {
-                if (!IptvServer.fromThisComputer(ex) || ex.requestHeaders.containsKey("Origin")) {
-                    return IptvServer.sendJson(ex, 403, JSONObject().put("error", "rekaman hanya bisa diatur dari komputer ini"))
+                val trustedCaller = IptvServer.fromThisComputer(ex) || IptvServer.isAuthorizedConnect(ex)
+                if (!trustedCaller || ex.requestHeaders.containsKey("Origin")) {
+                    return IptvServer.sendJson(ex, 403, JSONObject().put("error", "rekaman hanya bisa diatur dari komputer ini atau perangkat terpairing"))
                 }
                 if (ex.requestMethod.equals("DELETE", true)) {
                     Recordings.delete(query["id"].orEmpty())

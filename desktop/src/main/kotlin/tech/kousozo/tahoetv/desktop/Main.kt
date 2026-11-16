@@ -65,7 +65,29 @@ fun main(args: Array<String>) {
     }
     // `Tahoe TV --selftest [report]`: check the core paths without a window (CI on Windows/macOS, support)
     if (args.firstOrNull() == "--selftest") kotlin.system.exitProcess(if (SelfTest.run(args.getOrNull(1)) == 0) 0 else 1)
+    Recordings.onFinished = { j ->
+        val msg = tech.kousozo.tahoetv.core.I18n.get(
+            Settings.lang,
+            if (j.state == "partial") "rec.done_partial" else "rec.done_notif",
+            "${j.channel} — ${j.title}",
+        )
+        DesktopPush.postLocalNotification(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "rec.title"), msg, kind = "recording")
+    }
+    // `Tahoe TV --recorder`: headless scheduled DVR daemon + LAN relay without opening the GUI window (#53)
+    if (args.firstOrNull() == "--recorder") {
+        runHeadlessRecorder()
+        return
+    }
     app()
+}
+
+private fun runHeadlessRecorder() {
+    tech.kousozo.tahoetv.core.DiagLog.add("recorder", "Tahoe headless recorder dimulai")
+    Recordings.boot()
+    Thread({ runCatching { IptvServer.ensureRunning() } }, "tahoe-rec-httpd").apply { isDaemon = true }.start()
+    while (true) {
+        runCatching { Thread.sleep(60_000L) }.onFailure { break }
+    }
 }
 
 private fun app() = application {
@@ -81,6 +103,7 @@ private fun app() = application {
         onCloseRequest = {
             DesktopPush.stop()
             Session.tv?.close()
+            MultiViewWindow.close()
             PlayerWindow.close()
             IptvServer.stop()
             exitApplication()
