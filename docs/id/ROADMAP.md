@@ -22,6 +22,7 @@ Detail per rilis: [CHANGELOG.md](../../CHANGELOG.md).
 - **Keandalan Pemutaran, Profil Adaptif & Keamanan Keluarga (`3.4` di `main`):** penyaringan sumber salah label & usang saluran Indonesia ([#33](https://github.com/fk0u/cleanyourtv-tahoe/issues/33)), mitigasi stall ±2 detik jendela live rapat ([#32](https://github.com/fk0u/cleanyourtv-tahoe/issues/32)), panel Stats for Nerds lintas platform ([#61](https://github.com/fk0u/cleanyourtv-tahoe/issues/61)), penyimpanan preferensi audio/subtitle per saluran & ukuran subtitle ([#51](https://github.com/fk0u/cleanyourtv-tahoe/issues/51)), profil perangkat keras TV adaptif ([#38](https://github.com/fk0u/cleanyourtv-tahoe/issues/38)), gerbang dewasa hitungan matematika ([#47](https://github.com/fk0u/cleanyourtv-tahoe/issues/47)), dan notifikasi pengingat TV→HP ([#52](https://github.com/fk0u/cleanyourtv-tahoe/issues/52)).
 - **Pusat Kendali HP, Setup Web/QR, Profil Anak Lanjutan, Wallpaper API Gratis, Desktop Imersif & Rekap Lokal (`3.4` di `main`):** pusat pengaturan TV & timer tidur lengkap dari HP ([#35](https://github.com/fk0u/cleanyourtv-tahoe/issues/35)), onboarding TV lewat browser (`/setup`) & pemindai QR di aplikasi HP ([#36](https://github.com/fk0u/cleanyourtv-tahoe/issues/36)), batas waktu harian, jadwal, saluran khusus & laporan Anak ([#54](https://github.com/fk0u/cleanyourtv-tahoe/issues/54)), wallpaper API foto gratis Wikimedia POTD, Unsplash & Pexels ([#39](https://github.com/fk0u/cleanyourtv-tahoe/issues/39)), mini-player, nomor `0–9`, pintasan keyboard, laci saluran `[L]`, bisu `[M]`, pratinjau hover langsung, baris Sedang ramai, tampilan Grid & timeline EPG 5 jam di Desktop ([#49](https://github.com/fk0u/cleanyourtv-tahoe/issues/49)), serta rekap tontonan bulanan lokal privat dengan ekspor Story ([#62](https://github.com/fk0u/cleanyourtv-tahoe/issues/62)).
 - **Kesehatan Engineering (di `main`):** satu sumber versi di `gradle.properties`, gerbang tes sebelum rilis, lint Android di PR, Dependabot Gradle ([#57](https://github.com/fk0u/cleanyourtv-tahoe/issues/57), [#100](https://github.com/fk0u/cleanyourtv-tahoe/issues/100)).
+- **Multi-view, Subtitle ASS/SSA, Rekam Latar Tanpa GUI, APK Mandiri & Adzan Kelurahan (di `main`):** Multi-view desktop 2×2 / 1+1 ([#50](https://github.com/fk0u/cleanyourtv-tahoe/issues/50)), parser & overlay subtitle bergaya ASS/SSA ([#51](https://github.com/fk0u/cleanyourtv-tahoe/issues/51)), daemon rekam terjadwal headless `--recorder` + notifikasi selesai & rekam TV lokal ([#53](https://github.com/fk0u/cleanyourtv-tahoe/issues/53), [#52](https://github.com/fk0u/cleanyourtv-tahoe/issues/52)), build APK Android TV Mandiri non-launcher ([#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26)), pencarian adzan tingkat kecamatan/kelurahan & bangunkan layar standby TV ([#48](https://github.com/fk0u/cleanyourtv-tahoe/issues/48)).
 - **Tersisa di `3.4`:**
   - [#90](https://github.com/fk0u/cleanyourtv-tahoe/issues/90) Kontrol ala TV tradisional + Mode Sederhana (angka saluran, CH±, saluran terakhir, teks besar)
   - [#64](https://github.com/fk0u/cleanyourtv-tahoe/issues/64) Aksesibilitas (TalkBack, indikator fokus jelas, target 48 dp, skala huruf)
@@ -29,15 +30,13 @@ Detail per rilis: [CHANGELOG.md](../../CHANGELOG.md).
   - [#88](https://github.com/fk0u/cleanyourtv-tahoe/issues/88) **Tahoe Connect** — oper & kendalikan pemutaran TV/desktop dari HP
   - Pengujian perangkat fisik TV untuk onboarding ([#85](https://github.com/fk0u/cleanyourtv-tahoe/issues/85)) dan tampilan siaran tidak tersedia ([#87](https://github.com/fk0u/cleanyourtv-tahoe/issues/87))
 
-## Berikutnya (`3.5`: Pemutaran Lanjutan, Pemaketan & Pemecahan Modul)
+## Berikutnya (`3.5`: Pemutaran Lanjutan & Pemaketan)
 
 - [#34](https://github.com/fk0u/cleanyourtv-tahoe/issues/34) Kontrol pemutar auto-hide & [#37](https://github.com/fk0u/cleanyourtv-tahoe/issues/37) Verifikasi fisik banyak TV / banyak pengendali
-- [#51](https://github.com/fk0u/cleanyourtv-tahoe/issues/51) Render subtitle bergaya ASS/SSA penuh · [#53](https://github.com/fk0u/cleanyourtv-tahoe/issues/53) rekam terjadwal
-- [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26) Tahoe sebagai app Android TV mandiri (tanpa ADB/root) · [#55](https://github.com/fk0u/cleanyourtv-tahoe/issues/55) Tanda tangan & notarisasi macOS/Windows · [#95](https://github.com/fk0u/cleanyourtv-tahoe/issues/95) Modularisasi kelas besar launcher & server (selesai di `main`)
+- [#55](https://github.com/fk0u/cleanyourtv-tahoe/issues/55) Tanda tangan & notarisasi macOS/Windows
 
 ## Nanti (Diparkir)
 
-- [#50](https://github.com/fk0u/cleanyourtv-tahoe/issues/50) Multi-view · [#48](https://github.com/fk0u/cleanyourtv-tahoe/issues/48) Adzan tingkat kelurahan & nyalakan layar
 - [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) Google TV & webOS (Tizen nanti)
 
 ## Yang tidak kami lakukan
