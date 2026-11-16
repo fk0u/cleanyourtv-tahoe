@@ -34,6 +34,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -122,7 +124,7 @@ fun LiveScreen() {
             Box(Modifier.fillMaxWidth().then(if (fullOrPip) Modifier.fillMaxHeight() else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                 .clip(RoundedCornerShape(22.dp)).aspectRatio(16f / 9f)).background(Color.Black)
                 .semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "live.stream_aria", e.name) }) {
-                PlayerStage(e, fullOrPip, onFull = { full = !full }) { dir -> Playback.zap(c, shown?.map { it.entry } ?: list, dir) }
+                KeepLtr { PlayerStage(e, fullOrPip, onFull = { full = !full }) { dir -> Playback.zap(c, shown?.map { it.entry } ?: list, dir) } }
             }
         }
         if (fullOrPip) return@Column
@@ -281,19 +283,19 @@ private fun TvConnectBar(state: org.json.JSONObject, link: tech.kousozo.tahoetv.
                 Playback.play(c, match)
                 link.sessionStop()
             }
-        }, Modifier.size(34.dp)) {
+        }, Modifier.size(48.dp)) {
             Icon(Icons.Rounded.Smartphone, tech.kousozo.tahoetv.core.I18n.get(lang, "connect.continue_on_phone"), tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
         }
-        IconButton({ if (paused) link.sessionPlay() else link.sessionPause() }, Modifier.size(34.dp)) {
-            Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (paused) "Putar" else "Jeda", tint = Tahoe.Text, modifier = Modifier.size(20.dp))
+        IconButton({ if (paused) link.sessionPlay() else link.sessionPause() }, Modifier.size(48.dp)) {
+            Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, tech.kousozo.tahoetv.core.I18n.get(lang, if (paused) "player.play" else "player.pause"), tint = Tahoe.Text, modifier = Modifier.size(20.dp))
         }
-        IconButton({ link.key("ch_down") }, Modifier.size(34.dp)) {
+        IconButton({ link.key("ch_down") }, Modifier.size(48.dp)) {
             Icon(Icons.Rounded.SkipPrevious, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.prev_channel"), tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
         }
-        IconButton({ link.key("ch_up") }, Modifier.size(34.dp)) {
+        IconButton({ link.key("ch_up") }, Modifier.size(48.dp)) {
             Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.next_channel"), tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
         }
-        IconButton({ link.sessionStop() }, Modifier.size(34.dp)) {
+        IconButton({ link.sessionStop() }, Modifier.size(48.dp)) {
             Icon(Icons.Rounded.Stop, tech.kousozo.tahoetv.core.I18n.get(lang, "connect.stop_tv"), tint = Tahoe.Bad, modifier = Modifier.size(18.dp))
         }
     }
@@ -399,7 +401,46 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
             )
         }
     }
-    Box(Modifier.fillMaxSize().then(tapMod)) {
+    // swipe left/right = next/previous channel (away from the system back-gesture edges); pinch = fit ↔ zoom (#41)
+    var swipeHint by remember { mutableStateOf(0) }
+    LaunchedEffect(swipeHint) { if (swipeHint != 0) { delay(900); swipeHint = 0 } }
+    val gestureMod = if (touchExploration) Modifier else Modifier.pointerInput(busy) {
+        val edge = 32.dp.toPx(); val swipeMin = 72.dp.toPx()
+        awaitPointerEventScope { while (true) {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val fromEdge = down.position.x < edge || down.position.x > size.width - edge
+            var dx = 0f; var dy = 0f; var scale = 1f; var multi = false
+            while (true) {
+                val ev = awaitPointerEvent()
+                val pressed = ev.changes.filter { it.pressed }
+                if (pressed.isEmpty()) break
+                if (pressed.size >= 2) {
+                    multi = true
+                    val a = pressed[0]; val b = pressed[1]
+                    val now = (a.position - b.position).getDistance(); val prev = (a.previousPosition - b.previousPosition).getDistance()
+                    if (prev > 0f) scale *= now / prev
+                    ev.changes.forEach { it.consume() }
+                } else if (!multi) {
+                    val ch = pressed[0]; dx += ch.position.x - ch.previousPosition.x; dy += ch.position.y - ch.previousPosition.y
+                    if (kotlin.math.abs(dx) > swipeMin / 3 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5f) ch.consume()
+                }
+            }
+            when {
+                multi && scale > 1.15f -> { zoomFill = true; poke() }
+                multi && scale < 0.87f -> { zoomFill = false; poke() }
+                !multi && !fromEdge && kotlin.math.abs(dx) > swipeMin && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5f -> {
+                    val step = if (dx < 0) 1 else -1
+                    swipeHint = step; zap(step)
+                }
+            }
+        } }
+    }
+    Box(Modifier.fillMaxSize().then(gestureMod).then(tapMod)) {
+        if (swipeHint != 0) Text(
+            tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (swipeHint > 0) "player.next_channel" else "player.prev_channel"),
+            Modifier.align(if (swipeHint > 0) Alignment.CenterEnd else Alignment.CenterStart).padding(24.dp).zIndex(2f)
+                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
+            color = Color.White, fontSize = 14.sp)
         AndroidView({
             PlayerView(it).apply {
                 this.player = player
@@ -426,7 +467,7 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
             Box(Modifier.fillMaxSize().background(if (busy) Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Black.copy(alpha = 0.45f)))
                 else Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.6f))))) {
                 val lang = PhoneRegion.language
-                val actSize = if (full) 42.dp else 34.dp
+                val actSize = 48.dp // minimum touch target
                 val actIcon = if (full) 22.dp else 18.dp
                 // Single shared top row prevents channel title from colliding under the 6 toolbar buttons on ~360dp portrait widths.
                 Row(
@@ -462,24 +503,24 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                         IconButton({
                             poke()
                             val res = Playback.cycleTrack(c, androidx.media3.common.C.TRACK_TYPE_TEXT)
-                            android.widget.Toast.makeText(c, "Subtitle: $res", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "player.subtitle_toast", res), android.widget.Toast.LENGTH_SHORT).show()
                         }, Modifier.size(actSize)) {
                             Icon(androidx.compose.material.icons.Icons.Rounded.ClosedCaption,
-                                "Ganti teks / subtitle (${Playback.subtitleLabel ?: "Auto"})", tint = Color.White, modifier = Modifier.size(actIcon))
+                                tech.kousozo.tahoetv.core.I18n.get(lang, "player.subtitle_cycle", Playback.subtitleLabel ?: "Auto"), tint = Color.White, modifier = Modifier.size(actIcon))
                         }
                         IconButton({
                             poke()
                             val res = Playback.cycleTrack(c, androidx.media3.common.C.TRACK_TYPE_AUDIO)
-                            android.widget.Toast.makeText(c, "Audio: $res", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "player.audio_toast", res), android.widget.Toast.LENGTH_SHORT).show()
                         }, Modifier.size(actSize)) {
                             Icon(androidx.compose.material.icons.Icons.Rounded.Audiotrack,
-                                "Ganti trek audio (${Playback.audioLabel ?: "Auto"})", tint = Color.White, modifier = Modifier.size(actIcon))
+                                tech.kousozo.tahoetv.core.I18n.get(lang, "player.audio_cycle", Playback.audioLabel ?: "Auto"), tint = Color.White, modifier = Modifier.size(actIcon))
                         }
                         IconButton({ poke(); statsSheetOpen = true }, Modifier.size(actSize)) {
                             Icon(Icons.Rounded.Info, tech.kousozo.tahoetv.core.I18n.get(lang, "stats.title"), tint = Color.White, modifier = Modifier.size(actIcon))
                         }
                         IconButton({ poke(); settings = true }, Modifier.size(actSize)) {
-                            Icon(Icons.Rounded.Settings, "Setelan pemutar: kualitas dan latensi", tint = Color.White, modifier = Modifier.size(actIcon))
+                            Icon(Icons.Rounded.Settings, tech.kousozo.tahoetv.core.I18n.get(lang, "player.settings_desc"), tint = Color.White, modifier = Modifier.size(actIcon))
                         }
                         IconButton({ poke(); onFull() }, Modifier.size(actSize)) {
                             Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (full) "player.exit_fullscreen" else "player.fullscreen"), tint = Color.White, modifier = Modifier.size(actIcon))
@@ -568,8 +609,8 @@ object Channels {
             val ui = android.os.Handler(android.os.Looper.getMainLooper())
             var showedPriority = false
             val rawAll = runCatching {
-                Sources.loadCountriesPriority(null, viewer.countries) { priorityRaw ->
-                    if (mine != generation || priorityRaw.isEmpty()) return@loadCountriesPriority
+                Sources.loadChannels(null, viewer.countries, viewer.channelLanguages) { priorityRaw ->
+                    if (mine != generation || priorityRaw.isEmpty()) return@loadChannels
                     val priorityList = LocalTv.arrange(priorityRaw, province, viewer.countries, viewer.sort, viewer.city, viewer.country)
                     if (priorityList.isNotEmpty()) {
                         showedPriority = true

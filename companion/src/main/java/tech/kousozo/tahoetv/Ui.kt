@@ -52,19 +52,34 @@ import androidx.compose.ui.unit.sp
 /** Phone palette. Text, accent and status colours come from core [Brand] (shared with the TV and desktop); the
  *  background, surface, glass and hairline are phone-only overrides for the redesign (#60, inspired by Mochy Music's
  *  look, own code): a warm charcoal instead of blue-black, quieter glass, and colour coming from what's on screen. */
+/** Appearance preferences (#41). Default DARK keeps the classic look; SYSTEM follows the OS. Read in composition,
+ *  so changing them recomposes everything that uses [Tahoe]. */
+object ThemePrefs {
+    var mode by androidx.compose.runtime.mutableStateOf(tech.kousozo.tahoetv.core.Theme.Mode.DARK)
+    var highContrast by androidx.compose.runtime.mutableStateOf(false)
+    var reduceMotion by androidx.compose.runtime.mutableStateOf(false)
+    /** Resolved by [TahoeTheme] from [mode] and the system setting. */
+    internal var systemDark by androidx.compose.runtime.mutableStateOf(true)
+    val dark get() = tech.kousozo.tahoetv.core.Theme.isDark(mode, systemDark)
+    val palette get() = tech.kousozo.tahoetv.core.Theme.palette(dark, highContrast, 0xFF141216.toInt(), 0xFF1E1B21.toInt())
+}
+
 object Tahoe {
-    val Bg = Color(0xFF141216)
-    val Surface = Color(0xFF1E1B21)
-    val Text = Color(Brand.SNOW)
-    val Dim = Color(Brand.TEXT_2)
-    val Faint = Color(Brand.TEXT_3)
-    val Glass = Color(0x14FFFFFF)
-    val Stroke = Color(0x1AFFFFFF)
-    val Accent = Color(Brand.CYAN)
-    val OnAccent = Color(Brand.ON_CYAN)
+    private val p get() = ThemePrefs.palette
+    val Bg get() = Color(p.bg)
+    val Surface get() = Color(p.surface)
+    val Text get() = Color(p.text)
+    val Dim get() = Color(p.dim)
+    val Faint get() = Color(p.faint)
+    val Glass get() = Color(p.glass)
+    val Stroke get() = Color(p.stroke)
+    val Accent get() = Color(p.accent)
+    val OnAccent get() = Color(p.onAccent)
     val Lake = Color(Brand.LAKE)
     val Good = Color(Brand.PINE)
     val Bad = Color(Brand.LIVE)
+    /** Video stages stay night-dark in every theme. */
+    val Stage = Color(Brand.NIGHT)
 }
 
 /** Outfit (variable, OFL), the brand typeface: one file, real weights through the wght axis. */
@@ -105,14 +120,21 @@ fun BrandTile(size: Dp, modifier: Modifier = Modifier) = Box(
 ) { BrandMark(size * 0.62f, tint = Color.White, light = Color(Brand.CYAN_LIGHT)) }
 
 @Composable
-fun TahoeTheme(content: @Composable () -> Unit) = MaterialTheme(
-    colorScheme = darkColorScheme(
+fun TahoeTheme(content: @Composable () -> Unit) {
+    ThemePrefs.systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    TahoeThemeInner(content)
+}
+
+@Composable
+private fun TahoeThemeInner(content: @Composable () -> Unit) = MaterialTheme(
+    colorScheme = (if (ThemePrefs.dark) darkColorScheme() else androidx.compose.material3.lightColorScheme()).copy(
         primary = Tahoe.Text, onPrimary = Color(Brand.CANVAS), background = Tahoe.Bg, surface = Tahoe.Surface,
         onBackground = Tahoe.Text, onSurface = Tahoe.Text, surfaceVariant = Tahoe.Glass, onSurfaceVariant = Tahoe.Dim,
         secondary = Tahoe.Accent, onSecondary = Tahoe.OnAccent, tertiary = Tahoe.Lake, outline = Tahoe.Stroke, error = Tahoe.Bad,
     ),
     typography = Typography().withFont(Outfit),
-    content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = Outfit), content = content) }, // light text outside Surfaces too
+    content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = Outfit),
+        androidx.compose.ui.platform.LocalLayoutDirection provides layoutDirection(), content = content) }, // light text outside Surfaces too
 )
 
 /** Backdrop behind every screen: warm charcoal, lit from the top by [tint] (the playing channel's colour, like a music
@@ -344,3 +366,15 @@ object NetImages {
             (value.width * value.height * 4).coerceAtLeast(1)
     }
 }
+
+/** RTL for Arabic & co. (#71), from the app language. */
+@Composable
+fun layoutDirection(): androidx.compose.ui.unit.LayoutDirection =
+    if (tech.kousozo.tahoetv.core.Region.isRtl(appLanguage())) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr
+
+/** Video, seek bars and transport controls never mirror: time runs left→right in every language. */
+@Composable
+fun KeepLtr(content: @Composable () -> Unit) =
+    CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr, content = content)
+
+internal fun appLanguage(): String = PhoneRegion.language

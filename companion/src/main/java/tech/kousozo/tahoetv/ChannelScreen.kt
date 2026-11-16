@@ -71,7 +71,7 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
         }
         Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = TabInset)) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                RoundGlass(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali", onClick = onBack)
+                RoundGlass(Icons.AutoMirrored.Rounded.ArrowBack, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.back"), onClick = onBack)
             }
             Spacer(Modifier.height(96.dp))
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {

@@ -69,9 +69,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
         Report.install(this)
-        val dark = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-        runCatching { enableEdgeToEdge(dark, dark) }
-            .onFailure { tech.kousozo.tahoetv.core.DiagLog.error("app", "enableEdgeToEdge", it) }
+        AppearancePrefs.load(this)
+        applySystemBars(true)
         if (isTelevisionOnly()) {
             val lang = tech.kousozo.tahoetv.core.Region.suggest(java.util.Locale.getDefault()).first
             setContent {
@@ -99,13 +98,35 @@ class MainActivity : ComponentActivity() {
         PushHelper.start(applicationContext)
         setContent {
             TahoeTheme {
+                val darkBars = ThemePrefs.dark
+                LaunchedEffect(darkBars) { applySystemBars(darkBars) }
                 var showInbox by remember { mutableStateOf(false) }
                 if (PhoneRegion.needsSetup) { Box(Modifier.fillMaxSize()) { Backdrop(null); WelcomeScreen() }; return@TahoeTheme }
-                Box(Modifier.fillMaxSize()) {
+                val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+                val lang0 = PhoneRegion.language
+                val tabs = listOf(
+                    tech.kousozo.tahoetv.core.I18n.get(lang0, "nav.home") to Icons.Rounded.Home,
+                    tech.kousozo.tahoetv.core.I18n.get(lang0, "nav.live_short") to Icons.Rounded.LiveTv,
+                    tech.kousozo.tahoetv.core.I18n.get(lang0, "nav.remote") to Icons.Rounded.SettingsRemote,
+                    tech.kousozo.tahoetv.core.I18n.get(lang0, "nav.explore") to Icons.Rounded.GridView,
+                    tech.kousozo.tahoetv.core.I18n.get(lang0, "nav.install") to Icons.Rounded.Tv,
+                )
+                val rail = wide && !Nav.full && !Nav.inPip
+                Row(Modifier.fillMaxSize()) {
+                if (rail) androidx.compose.material3.NavigationRail(
+                    Modifier.fillMaxHeight().systemBarsPadding(), containerColor = Tahoe.Surface.copy(alpha = 0.85f), contentColor = Tahoe.Text,
+                ) {
+                    Spacer(Modifier.height(12.dp))
+                    tabs.forEachIndexed { i, (label, icon) ->
+                        androidx.compose.material3.NavigationRailItem(selected = Nav.tab == i, onClick = { Nav.tab = i; Nav.detail = null },
+                            icon = { Icon(icon, null) }, label = { Text(label) })
+                    }
+                }
+                Box(Modifier.weight(1f).fillMaxHeight()) {
                     // the playing channel (or the hero channel on Beranda) tints the whole app, like album art in a music app
                     val tintLogo = rememberNetImage((Playback.entry ?: Nav.hero)?.channel?.logo)
                     Backdrop(tintLogo?.let { dominantColor(it) })
-                    AnimatedContent(Nav.tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
+                    AnimatedContent(Nav.tab, transitionSpec = { if (ThemePrefs.reduceMotion) fadeIn(androidx.compose.animation.core.snap()) togetherWith fadeOut(androidx.compose.animation.core.snap()) else fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {
                             0 -> HomeScreen(resumed.intValue) { showInbox = true }
                             1 -> LiveScreen()
@@ -118,20 +139,23 @@ class MainActivity : ComponentActivity() {
                     if (!Nav.full && !Nav.inPip) Column(Modifier.align(Alignment.BottomCenter)) {
                         val lang = PhoneRegion.language
                         MiniPlayer(Nav.tab != 1 || Nav.detail != null)
-                        TabBar(listOf(
-                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.home") to Icons.Rounded.Home,
-                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live_short") to Icons.Rounded.LiveTv,
-                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote") to Icons.Rounded.SettingsRemote,
-                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.explore") to Icons.Rounded.GridView,
-                            tech.kousozo.tahoetv.core.I18n.get(lang, "nav.install") to Icons.Rounded.Tv,
-                        ), Nav.tab, { Nav.tab = it; Nav.detail = null })
+                        if (!rail) TabBar(tabs, Nav.tab, { Nav.tab = it; Nav.detail = null })
                     }
                     PushBannerBar(onOpenInbox = { showInbox = true }, modifier = Modifier.align(Alignment.TopCenter))
                     if (showInbox) NotificationInboxSheet { showInbox = false }
                     UpdateModalDialog()
                 }
+                }
             }
         }
+    }
+
+    /** Status/navigation bar icons follow the active theme (#41). */
+    private fun applySystemBars(dark: Boolean) {
+        val t = android.graphics.Color.TRANSPARENT
+        val style = if (dark) SystemBarStyle.dark(t) else SystemBarStyle.light(t, t)
+        runCatching { enableEdgeToEdge(style, style) }
+            .onFailure { tech.kousozo.tahoetv.core.DiagLog.error("app", "enableEdgeToEdge", it) }
     }
 
     override fun onResume() { super.onResume(); Nav.inPip = isInPictureInPictureMode; resumed.intValue++ }
@@ -439,6 +463,7 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                 }
             }
         }
+        Box(Modifier.padding(horizontal = 20.dp)) { AppearanceCard() }
         Box(Modifier.padding(horizontal = 20.dp)) { UpdateCard() } // version, changelog, OTA
     }
 }
@@ -649,6 +674,40 @@ fun TvDevicesSheet(onDismiss: () -> Unit, onScanQr: (() -> Unit)? = null, onPick
                     }
                 }
             }
+        }
+    }
+}
+
+/** Theme, high contrast, reduced motion; saved in the "ui" preferences (#41). */
+object AppearancePrefs {
+    fun load(c: android.content.Context) {
+        val p = c.getSharedPreferences("ui", 0)
+        ThemePrefs.mode = tech.kousozo.tahoetv.core.Theme.Mode.of(p.getString("theme", null))
+        ThemePrefs.highContrast = p.getBoolean("high_contrast", false)
+        val osNoAnim = runCatching { android.provider.Settings.Global.getFloat(c.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }.getOrDefault(false)
+        ThemePrefs.reduceMotion = p.getBoolean("reduce_motion", false) || osNoAnim
+    }
+    fun save(c: android.content.Context) = c.getSharedPreferences("ui", 0).edit()
+        .putString("theme", ThemePrefs.mode.name).putBoolean("high_contrast", ThemePrefs.highContrast).putBoolean("reduce_motion", ThemePrefs.reduceMotion).apply()
+}
+
+@Composable
+private fun AppearanceCard() {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    fun t(k: String) = tech.kousozo.tahoetv.core.I18n.get(lang, k)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(t("ui.appearance"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        GlassCard {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(tech.kousozo.tahoetv.core.Theme.Mode.SYSTEM to "ui.theme_system", tech.kousozo.tahoetv.core.Theme.Mode.DARK to "ui.theme_dark",
+                    tech.kousozo.tahoetv.core.Theme.Mode.LIGHT to "ui.theme_light").forEach { (m, k) ->
+                    androidx.compose.material3.FilterChip(ThemePrefs.mode == m, { ThemePrefs.mode = m; AppearancePrefs.save(c) }, { Text(t(k)) },
+                        Modifier.heightIn(min = 48.dp))
+                }
+            }
+            SwitchRow(t("ui.high_contrast"), ThemePrefs.highContrast) { ThemePrefs.highContrast = it; AppearancePrefs.save(c) }
+            SwitchRow(t("ui.reduce_motion"), ThemePrefs.reduceMotion) { ThemePrefs.reduceMotion = it; AppearancePrefs.save(c) }
         }
     }
 }
