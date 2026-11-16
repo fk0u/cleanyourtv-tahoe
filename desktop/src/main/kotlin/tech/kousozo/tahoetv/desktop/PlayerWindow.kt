@@ -75,12 +75,70 @@ object PlayerWindow {
         elapsedLabel.text = if (cur != null) "%02d:%02d:%02d  /  %s".format(sec / 3600, sec % 3600 / 60, sec % 60, hmFmt().format(cur.stop)) else ""
         timeLabel.text = hmFmt().format(now) + (if (weather.isNotEmpty()) "    $weather" else "")
         pauseBtn.text = if (player?.status == MediaPlayer.Status.PAUSED) "▶" else "⏸"
+        if (::statsCard.isInitialized && statsCard.isVisible) refreshStats()
     }
     private fun hmFmt() = java.time.format.DateTimeFormatter.ofPattern("HH.mm").withZone(Settings.viewer.zone)
     private val ticker = javafx.animation.Timeline(javafx.animation.KeyFrame(Duration.seconds(1.0), { refreshInfo() })).apply { cycleCount = javafx.animation.Timeline.INDEFINITE }
     private lateinit var statusLabel: Label
     private lateinit var webBtn: Button
     private lateinit var flagBtn: Button
+    private var currentStreamUrl: String = ""
+    private var currentSourceIndex: Int = 1
+    private var currentSourceTotal: Int = 1
+    private var stalledSinceMs: Long = 0L
+    private var rebufferCount: Int = 0
+    private var rebufferMs: Long = 0L
+    private lateinit var statsCard: VBox
+    private lateinit var statsText: Label
+    private lateinit var infoBtn: Button
+    private var lastStatsSnapshot: tech.kousozo.tahoetv.core.PlayerStats.Snapshot? = null
+
+    private fun refreshStats() {
+        if (!::statsText.isInitialized) return
+        val p = player
+        val media = p?.media
+        val videoTrack = media?.tracks?.firstOrNull { it is javafx.scene.media.VideoTrack } as? javafx.scene.media.VideoTrack
+        val audioTrack = media?.tracks?.firstOrNull { it is javafx.scene.media.AudioTrack } as? javafx.scene.media.AudioTrack
+        val width = (videoTrack?.width ?: media?.width ?: 0).coerceAtLeast(0)
+        val height = (videoTrack?.height ?: media?.height ?: 0).coerceAtLeast(0)
+        val fps = ((videoTrack?.metadata?.get("framerate") as? Number)?.toFloat()
+            ?: (videoTrack?.metadata?.get("fps") as? Number)?.toFloat()
+            ?: 0f)
+        val vCodec = (videoTrack?.metadata?.get("encoding") as? String)
+            ?: (media?.metadata?.get("video codec") as? String)
+            ?: ""
+        val aCodec = (audioTrack?.metadata?.get("encoding") as? String)
+            ?: (media?.metadata?.get("audio codec") as? String)
+            ?: ""
+        val curSec = p?.currentTime?.toSeconds()?.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+        val bufSec = p?.bufferProgressTime?.toSeconds()?.takeIf { it.isFinite() && it >= 0.0 }?.let { (it - curSec).coerceAtLeast(0.0) } ?: 0.0
+        val liveRebufMs = rebufferMs + (if (stalledSinceMs > 0L) (System.currentTimeMillis() - stalledSinceMs).coerceAtLeast(0L) else 0L)
+        val snap = tech.kousozo.tahoetv.core.PlayerStats.Snapshot(
+            channelName = titleLabel.text.orEmpty(),
+            sourceIndex = currentSourceIndex.coerceAtLeast(1),
+            sourceTotal = currentSourceTotal.coerceAtLeast(1),
+            streamUrl = currentStreamUrl,
+            status = p?.status?.name ?: liveBadge.text.ifBlank { "LIVE" },
+            width = width,
+            height = height,
+            fps = fps,
+            videoCodec = vCodec,
+            audioCodec = aCodec,
+            bufferSeconds = bufSec,
+            rebufferCount = rebufferCount,
+            rebufferMs = liveRebufMs,
+        )
+        lastStatsSnapshot = snap
+        statsText.text = tech.kousozo.tahoetv.core.PlayerStats.formatText(snap, Settings.lang)
+    }
+
+    private fun toggleStats(show: Boolean? = null) {
+        if (!::statsCard.isInitialized) return
+        val next = show ?: !statsCard.isVisible
+        statsCard.isVisible = next
+        statsCard.isManaged = next
+        if (next) refreshStats()
+    }
     private var currentStreams: List<M3u.Channel> = emptyList()
     /** Every stream of the channel (main + backups) incl. ones marked "not live", for the restore button. */
     private var channelStreams: List<M3u.Channel> = emptyList()
@@ -322,6 +380,11 @@ object PlayerWindow {
 
     private fun begin(streams: List<M3u.Channel>, i: Int, gen: Int, retry: Int, c: M3u.Channel, next: () -> Unit) {
         if (gen != generation) return
+        currentStreamUrl = c.url
+        currentSourceIndex = i + 1
+        currentSourceTotal = streams.size
+        stalledSinceMs = 0L
+        if (retry == 0) { rebufferCount = 0; rebufferMs = 0L }
         tech.kousozo.tahoetv.core.DiagLog.add("live", "${titleLabel.text} sumber ${i + 1}/${streams.size}" + (if (retry > 0) " (ulang $retry)" else "") + " ${c.url}")
         var lastTime = -1.0
         val isVod = LocalTv.isVod(c)
@@ -335,7 +398,23 @@ object PlayerWindow {
         // "Playing" means a picture: sound alone, or tracks that never draw, no longer end the loader (that was the black screen).
         // Events from a player that was already replaced (disposal runs in the background) must not touch the new one.
         val current = { gen == generation && player === p }
-        p.setOnPlaying { if (current() && (p.media.width > 0 || p.media.tracks.any { it is javafx.scene.media.VideoTrack })) { SourceHealth.report(c.url, true); playingNow() } }
+        p.setOnStalled {
+            if (current() && stalledSinceMs == 0L) {
+                stalledSinceMs = System.currentTimeMillis()
+                rebufferCount++
+                if (::statsCard.isInitialized && statsCard.isVisible) refreshStats()
+            }
+        }
+        p.setOnPlaying {
+            if (current()) {
+                if (stalledSinceMs > 0L) {
+                    rebufferMs += (System.currentTimeMillis() - stalledSinceMs).coerceAtLeast(0L)
+                    stalledSinceMs = 0L
+                }
+                if (p.media.width > 0 || p.media.tracks.any { it is javafx.scene.media.VideoTrack }) { SourceHealth.report(c.url, true); playingNow() }
+                if (::statsCard.isInitialized && statsCard.isVisible) refreshStats()
+            }
+        }
         p.setOnError { if (current()) { tech.kousozo.tahoetv.core.DiagLog.error("live", "JavaFX: ${p.error?.type} ${p.error?.message}"); recover() } }
         // A live channel that reaches its end is a finished recording: restarting it just plays it from the top again.
         p.setOnEndOfMedia { if (!isVod && current()) { failReason = "Siaran ini hanya tersedia sebagai rekaman, bukan siaran langsung."; failSlateReason = tech.kousozo.tahoetv.core.Slate.Reason.Recording; next() } }
@@ -410,7 +489,11 @@ object PlayerWindow {
         restoreBtn = button("Pulihkan sumber yang ditandai") {
             SourceHealth.unbanAll(channelStreams); start(SourceHealth.order(channelStreams), 0, ++generation)
         }.apply { accessibleText = "Pulihkan sumber yang ditandai"; isVisible = false; isManaged = false }
+        val lang = Settings.lang
         flagBtn = button("⚑ Bukan live") { reportRecording() }.apply { accessibleText = "Tandai bukan live"; tooltip = javafx.scene.control.Tooltip("Sumber ini memutar rekaman / siaran lama: lewati dan jangan dipakai lagi") }
+        infoBtn = button("ⓘ ${tech.kousozo.tahoetv.core.I18n.get(lang, "stats.btn_info")}") { toggleStats() }.apply {
+            accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "stats.btn_info")
+        }
         fullBtn = button("⤢  Layar penuh") { toggleFull() }.apply { accessibleText = "Alihkan layar penuh" }
         pauseBtn = button("⏸") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }.apply { accessibleText = "Jeda atau putar" }
         val prevTopBtn = button("⏮") { onSwitch(-1) }.apply { accessibleText = "Saluran sebelumnya" }
@@ -418,7 +501,52 @@ object PlayerWindow {
         val closeTopBtn = button("✕") { st.close() }.apply { accessibleText = "Tutup pemutar" }
         val left = VBox(4.0, HBox(8.0, liveBadge).apply { alignment = Pos.CENTER_LEFT }, showLabel, titleLabel, elapsedLabel).apply { alignment = Pos.BOTTOM_LEFT }
         val mid = HBox(12.0, prevTopBtn, pauseBtn, nextTopBtn).apply { alignment = Pos.CENTER }
-        val right = HBox(10.0, flagBtn, fullBtn, closeTopBtn).apply { alignment = Pos.BOTTOM_RIGHT }
+        val right = HBox(10.0, flagBtn, infoBtn, fullBtn, closeTopBtn).apply { alignment = Pos.BOTTOM_RIGHT }
+        statsText = Label().apply {
+            style = "-fx-text-fill: #e8eef7; -fx-font-family: 'Monospaced'; -fx-font-size: 12px;"
+            isWrapText = true
+        }
+        val statsFeedback = Label().apply {
+            style = "-fx-text-fill: #8de6b6; -fx-font-size: 11px;"
+            isVisible = false; isManaged = false
+        }
+        val copyStatsBtn = button(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.copy")) {
+            refreshStats()
+            lastStatsSnapshot?.let { snap ->
+                val txt = tech.kousozo.tahoetv.core.PlayerStats.formatText(snap, Settings.lang)
+                runCatching {
+                    java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(txt), null)
+                }
+                statsFeedback.text = tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "stats.copied")
+                statsFeedback.isVisible = true; statsFeedback.isManaged = true
+            }
+        }
+        val logStatsBtn = button(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.send_log")) {
+            refreshStats()
+            lastStatsSnapshot?.let { snap ->
+                tech.kousozo.tahoetv.core.DiagLog.add("stats", tech.kousozo.tahoetv.core.PlayerStats.formatText(snap, "en").replace("\n", " | "))
+                statsFeedback.text = tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "stats.log_saved")
+                statsFeedback.isVisible = true; statsFeedback.isManaged = true
+            }
+        }
+        val statsCloseBtn = button("✕") { toggleStats(false) }
+        val statsHeader = HBox(8.0,
+            Label("ⓘ ${tech.kousozo.tahoetv.core.I18n.get(lang, "stats.btn_info")}").apply {
+                style = "-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px;"
+                HBox.setHgrow(this, Priority.ALWAYS)
+                maxWidth = Double.MAX_VALUE
+            },
+            statsCloseBtn
+        ).apply { alignment = Pos.CENTER_LEFT }
+        statsCard = VBox(8.0, statsHeader, statsText, statsFeedback, HBox(8.0, copyStatsBtn, logStatsBtn)).apply {
+            style = "-fx-background-color: rgba(14, 18, 26, 0.90); -fx-background-radius: 12; -fx-padding: 12 14; -fx-border-color: rgba(255,255,255,0.16); -fx-border-radius: 12;"
+            maxWidth = 380.0
+            maxHeight = Region.USE_PREF_SIZE
+            isVisible = false
+            isManaged = false
+        }
+        StackPane.setAlignment(statsCard, Pos.TOP_RIGHT)
+        StackPane.setMargin(statsCard, Insets(24.0))
         val spacer = Region().also { HBox.setHgrow(it, Priority.ALWAYS) }
         bar = BorderPane().apply {
             top = HBox(16.0, spacer, timeLabel).apply { alignment = Pos.CENTER_RIGHT }
@@ -428,7 +556,7 @@ object PlayerWindow {
             style = "-fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent 30%, transparent 70%, rgba(0,0,0,0.7));"
             isPickOnBounds = false
         }
-        hint = Label("▲▼ ganti saluran  ·  F layar penuh  ·  M bisu  ·  Esc keluar  ·  Spasi jeda").apply {
+        hint = Label("▲▼ ganti saluran  ·  F layar penuh  ·  M bisu  ·  I stats  ·  Esc keluar  ·  Spasi jeda").apply {
             style = "-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12px;"; StackPane.setAlignment(this, Pos.BOTTOM_CENTER)
             StackPane.setMargin(this, Insets(0.0, 0.0, 70.0, 0.0))
         }
@@ -444,7 +572,7 @@ object PlayerWindow {
             style = "-fx-background-color: radial-gradient(center 50% 45%, radius 80%, rgba(20,24,34,0.92), rgba(4,5,8,0.97));"
             isVisible = false; isMouseTransparent = true
         }
-        val root = StackPane(view, loader, bar, center, hint).apply { style = "-fx-background-color: black;" }
+        val root = StackPane(view, loader, bar, center, hint, statsCard).apply { style = "-fx-background-color: black;" }
         view.fitWidthProperty().bind(root.widthProperty()); view.fitHeightProperty().bind(root.heightProperty())
 
         st.scene = Scene(root, 960.0, 540.0, javafx.scene.paint.Color.BLACK)
@@ -456,7 +584,8 @@ object PlayerWindow {
             when (k.code) {
                 KeyCode.F -> toggleFull()
                 KeyCode.M -> player?.let { p -> p.isMute = !p.isMute }
-                KeyCode.ESCAPE -> if (st.isFullScreen) st.isFullScreen = false else st.close()
+                KeyCode.I -> toggleStats()
+                KeyCode.ESCAPE -> if (statsCard.isVisible) toggleStats(false) else if (st.isFullScreen) st.isFullScreen = false else st.close()
                 KeyCode.UP, KeyCode.PAGE_UP, KeyCode.LEFT -> onSwitch(-1)
                 KeyCode.DOWN, KeyCode.PAGE_DOWN, KeyCode.RIGHT -> onSwitch(1)
                 KeyCode.SPACE -> player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }
