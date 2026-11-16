@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import tech.kousozo.tahoetv.core.LocalTv;
+import tech.kousozo.tahoetv.core.MathGate;
 
 /** The "Anak" profile: Live TV limited to kids' and documentary channels, only apps the owner allowed, no settings.
  *  Leaving it (to "Saya" or "Tamu") takes a 4-digit PIN, created the first time the profile is chosen. The PIN is kept
@@ -90,6 +91,24 @@ final class Kids {
 
     static void clearPinBackoff(Context c) {
         prefs(c).edit().remove("kids_pin_fails").remove("kids_pin_until").apply();
+    }
+
+    // ------------------------------------------------------------------ parental gate mode & math (#47)
+
+    static MathGate.Mode gateMode(Context c) {
+        return MathGate.Mode.of(prefs(c).getString("kids_gate_mode", null));
+    }
+
+    static void setGateMode(Context c, MathGate.Mode mode) {
+        prefs(c).edit().putString("kids_gate_mode", mode.getKey()).apply();
+    }
+
+    static MathGate.Difficulty mathDifficulty(Context c) {
+        return MathGate.Difficulty.of(prefs(c).getString("kids_math_diff", null));
+    }
+
+    static void setMathDifficulty(Context c, MathGate.Difficulty diff) {
+        prefs(c).edit().putString("kids_math_diff", diff.getKey()).apply();
     }
 
     static String hash(String salt, String pin) {

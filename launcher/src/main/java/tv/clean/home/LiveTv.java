@@ -31,7 +31,9 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManager;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider;
 import androidx.media3.exoplayer.drm.FrameworkMediaDrm;
@@ -82,9 +84,16 @@ public class LiveTv extends Activity {
     List<LocalTv.Entry> list = new ArrayList<>();
     Epg epg;
     int index = -1, source = 0;
-    boolean sawRecording = false, pendingCenterKey = false;
+    boolean sawRecording = false, pendingCenterKey = false, techVisible = false;
     long sourceStarted;
     SharedPreferences prefs;
+    FrameLayout techPanel;
+    LinearLayout techRows;
+    TextView techCopyBtn, techLogBtn;
+    int techFocusBtn = 0;
+    String statsVideoDecoder = "", statsAudioDecoder = "";
+    int rebufferCount = 0, bandwidthKbps = 0;
+    long rebufferMs = 0L, bufferingSince = -1L, droppedFramesCount = 0L;
 
     float dp(float v) { return Ui.dp(this, v); }
 
@@ -129,7 +138,7 @@ public class LiveTv extends Activity {
         });
         root.addView(surface, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
 
-        subtitleOverlay = Ui.text(this, 20, 600, Color.WHITE);
+        subtitleOverlay = Ui.text(this, tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize.of(prefs.getString("sub_size", null)).getSpTv(), 600, Color.WHITE);
         subtitleOverlay.setSingleLine(false);
         subtitleOverlay.setGravity(Gravity.CENTER);
         subtitleOverlay.setBackgroundColor(0xA6000000);
@@ -138,6 +147,10 @@ public class LiveTv extends Activity {
         FrameLayout.LayoutParams subLp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         subLp.bottomMargin = (int) dp(72);
         root.addView(subtitleOverlay, subLp);
+
+        techPanel = buildTechPanel();
+        techPanel.setVisibility(View.GONE);
+        root.addView(techPanel);
 
         loading = new Loader(this); // Apple TV / Netflix style: logo, name, spinner. No "loading source" text.
         root.addView(loading, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
@@ -179,13 +192,33 @@ public class LiveTv extends Activity {
         root.addView(guide, new FrameLayout.LayoutParams(guideW, -1, Gravity.START));
         setContentView(root);
 
-        // Decoder fallback: if the TV's hardware decoder refuses a stream, try the next decoder instead of failing the source.
-        // FFmpeg (audio: AC-3, E-AC-3, DTS, MP2…) after the TV's own decoders, for channels whose sound the TV can't decode.
+        tech.kousozo.tahoetv.core.PlayPrefs.PlaybackTuning initTuning = tech.kousozo.tahoetv.core.PlayPrefs.tuningFor(
+                tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(prefs.getString("latency", null)),
+                false,
+                DeviceProfiler.current(this).getActiveTier() == tech.kousozo.tahoetv.core.DeviceProfile.Tier.LIGHT);
+        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
+                .setBufferDurationsMs(initTuning.getMinBufferMs(), initTuning.getMaxBufferMs(),
+                        initTuning.getBufferForPlaybackMs(), initTuning.getBufferForPlaybackAfterRebufferMs())
+                .build();
         player = new ExoPlayer.Builder(this, new DefaultRenderersFactory(this).setEnableDecoderFallback(true)
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)).build();
-        player.addAnalyticsListener(new androidx.media3.exoplayer.analytics.AnalyticsListener() {
-            @Override public void onAudioDecoderInitialized(EventTime t, String name, long a, long b) { tech.kousozo.tahoetv.core.DiagLog.add("live", "audio decoder " + name); }
-            @Override public void onVideoDecoderInitialized(EventTime t, String name, long a, long b) { tech.kousozo.tahoetv.core.DiagLog.add("live", "video decoder " + name); }
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON))
+                .setLoadControl(loadControl)
+                .build();
+        player.addAnalyticsListener(new AnalyticsListener() {
+            @Override public void onAudioDecoderInitialized(EventTime t, String name, long a, long b) {
+                statsAudioDecoder = name != null ? name : "";
+                tech.kousozo.tahoetv.core.DiagLog.add("live", "audio decoder " + name);
+            }
+            @Override public void onVideoDecoderInitialized(EventTime t, String name, long a, long b) {
+                statsVideoDecoder = name != null ? name : "";
+                tech.kousozo.tahoetv.core.DiagLog.add("live", "video decoder " + name);
+            }
+            @Override public void onDroppedVideoFrames(EventTime t, int count, long elapsedMs) {
+                droppedFramesCount += Math.max(0, count);
+            }
+            @Override public void onBandwidthEstimate(EventTime t, int totalLoadTimeMs, long totalBytesLoaded, long bitrateEstimate) {
+                if (bitrateEstimate > 0) bandwidthKbps = (int) (bitrateEstimate / 1000L);
+            }
         });
         // Handle audio focus: pause for the adzan (and other transient sounds), resume after.
         player.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder()
@@ -207,12 +240,24 @@ public class LiveTv extends Activity {
                 recover();
             }
             @Override public void onPlaybackStateChanged(int s) {
-                if (s == Player.STATE_READY) {
+                if (s == Player.STATE_BUFFERING && everReady && bufferingSince < 0) {
+                    bufferingSince = System.currentTimeMillis();
+                } else if (s == Player.STATE_READY) {
+                    if (bufferingSince > 0) {
+                        rebufferCount++;
+                        rebufferMs += Math.max(0L, System.currentTimeMillis() - bufferingSince);
+                        bufferingSince = -1L;
+                    }
                     if (!everReady && isRecording()) { tech.kousozo.tahoetv.core.DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); sawRecording = true; nextSource(); return; } // a finished/old playlist: not live TV, try the backup
-                    if (!everReady) tech.kousozo.tahoetv.core.DiagLog.add("live", "siap dalam " + (System.currentTimeMillis() - sourceStarted) + " ms");
+                    if (!everReady) {
+                        long readyMs = System.currentTimeMillis() - sourceStarted;
+                        tech.kousozo.tahoetv.core.DiagLog.add("live", "siap dalam " + readyMs + " ms");
+                        if (index >= 0 && index < list.size()) tech.kousozo.tahoetv.core.DeviceProfile.recordFirstFrameMs(list.get(index).getName(), readyMs);
+                    }
                     if (source < order.size()) SourceHealth.report(order.get(source).getUrl(), true);
                     everReady = true; retries = 0; loading.setVisibility(View.GONE); bStatus.setVisibility(View.GONE);
                     hideSlate(); slateRetries = 0;
+                    if (techVisible) refreshTechPanel();
                 }
             }
             @Override public void onIsPlayingChanged(boolean isPlaying) {
@@ -347,22 +392,49 @@ public class LiveTv extends Activity {
             return;
         }
         M3u.Channel c = s.get(source);
+        LocalTv.Entry curEntry = list.get(index);
+        String chKey = tech.kousozo.tahoetv.core.PlayPrefs.channelTrackKey(curEntry.getChannel().getChannelId(), curEntry.getName());
+        if (subtitleOverlay != null) {
+            subtitleOverlay.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP,
+                    tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize.of(prefs.getString("sub_size", null)).getSpTv());
+        }
         // viewer choices from Control Center (read on every start, so a change applies from the next channel/source)
         tech.kousozo.tahoetv.core.PlayPrefs.Quality q = tech.kousozo.tahoetv.core.PlayPrefs.Quality.of(prefs.getString("quality", null));
         tech.kousozo.tahoetv.core.PlayPrefs.Latency lat = tech.kousozo.tahoetv.core.PlayPrefs.Latency.of(prefs.getString("latency", null));
+        boolean lightDevice = DeviceProfiler.current(this).getActiveTier() == tech.kousozo.tahoetv.core.DeviceProfile.Tier.LIGHT;
+        boolean tightWindow = SourceHealth.isTightWindow(c.getUrl());
+        tech.kousozo.tahoetv.core.PlayPrefs.PlaybackTuning tuning = tech.kousozo.tahoetv.core.PlayPrefs.tuningFor(lat, tightWindow, lightDevice);
+
         androidx.media3.common.TrackSelectionParameters.Builder tsp = player.getTrackSelectionParameters().buildUpon();
+        tsp.clearOverridesOfType(C.TRACK_TYPE_AUDIO).clearOverridesOfType(C.TRACK_TYPE_TEXT);
         if (q.getMaxHeight() > 0) tsp.setMaxVideoSize(Integer.MAX_VALUE, q.getMaxHeight()); else tsp.clearVideoSizeConstraints();
+        String remAudio = prefs.getString("tr_a_" + chKey, null);
+        if (remAudio != null && !remAudio.isEmpty()) tsp.setPreferredAudioLanguage(remAudio);
+        else tsp.setPreferredAudioLanguages();
+        String remSub = prefs.getString("tr_s_" + chKey, null);
+        if ("off".equals(remSub)) {
+            tsp.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true);
+        } else if (remSub != null && !remSub.isEmpty()) {
+            tsp.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setPreferredTextLanguage(remSub);
+        } else {
+            tsp.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setPreferredTextLanguages();
+        }
         player.setTrackSelectionParameters(tsp.build());
-        tech.kousozo.tahoetv.core.DiagLog.add("live", list.get(index).getName() + " sumber " + (source + 1) + "/" + s.size() + " " + c.getUrl());
+        tech.kousozo.tahoetv.core.DiagLog.add("live", curEntry.getName() + " sumber " + (source + 1) + "/" + s.size() + " " + c.getUrl());
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(8000).setReadTimeoutMs(15000)
                 .setUserAgent(c.getHeaders().containsKey("User-Agent") ? c.getHeaders().get("User-Agent") : tech.kousozo.tahoetv.core.Web.STREAM_UA);
         java.util.HashMap<String, String> h = new java.util.HashMap<>(c.getHeaders()); h.remove("User-Agent");
         http.setDefaultRequestProperties(h);
         MediaItem.Builder item = new MediaItem.Builder().setUri(Uri.parse(c.getUrl()))
-                // Play behind live by the chosen latency (default ~20 s; ExoPlayer's own is ~12 s) so a slow piece from
-                // the server doesn't empty the buffer. ExoPlayer clamps this to what the stream keeps available.
-                .setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(lat.getOffsetMs()).build());
+                // Play behind live with explicit min/max/speed bounds so short-segment HLS feeds (e.g. 2s Wowza) stay steady (#32).
+                .setLiveConfiguration(new MediaItem.LiveConfiguration.Builder()
+                        .setTargetOffsetMs(tuning.getTargetOffsetMs())
+                        .setMinOffsetMs(tuning.getMinOffsetMs())
+                        .setMaxOffsetMs(tuning.getMaxOffsetMs())
+                        .setMinPlaybackSpeed(tuning.getMinPlaybackSpeed())
+                        .setMaxPlaybackSpeed(tuning.getMaxPlaybackSpeed())
+                        .build());
         if (Drm.isDash(c.getUrl(), c.getDrmType(), c.getManifestType())) {
             item.setMimeType(MimeTypes.APPLICATION_MPD);
         } else if (c.getUrl().toLowerCase(Locale.ROOT).contains(".m3u8")) {
@@ -391,7 +463,9 @@ public class LiveTv extends Activity {
             factory.setDrmSessionManagerProvider(drmProv);
         }
         player.setMediaSource(factory.createMediaSource(item.build()));
-        targetOffsetMs = lat.getOffsetMs();
+        targetOffsetMs = tuning.getTargetOffsetMs();
+        rebufferCount = 0; rebufferMs = 0L; bufferingSince = -1L; droppedFramesCount = 0L;
+        statsVideoDecoder = ""; statsAudioDecoder = "";
         player.prepare(); player.play();
         sourceStarted = System.currentTimeMillis(); everReady = false; retries = 0; lastPos = -1; stuckSince = System.currentTimeMillis();
         loading.channel(list.get(index).getChannel().getLogo(), list.get(index).getName());
@@ -684,11 +758,12 @@ public class LiveTv extends Activity {
                 {"OK", I18n.get(lang, "tv.live_key_guide")},
                 {"C", I18n.get(lang, "tv.live_sub_lbl")},
                 {"A", I18n.get(lang, "tv.live_audio_lbl")},
+                {"ⓘ", I18n.get(lang, "stats.btn_info")},
                 {"⏪⏩", I18n.get(lang, "tv.live_key_seek")},
                 {"▶", I18n.get(lang, "tv.live_key_info")},
                 {"↩", I18n.get(lang, "tv.live_key_exit")}
         };
-        int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.ACCENT, Ui.TEXT_2, Ui.SUN, Ui.TEXT_3, Ui.TEXT_2};
+        int[] colors = {Ui.ACCENT, Ui.GOOD, Ui.ACCENT, Ui.TEXT_2, Ui.GOOD, Ui.SUN, Ui.TEXT_3, Ui.TEXT_2};
         for (int k = 0; k < keys.length; k++) {
             final int keyIdx = k;
             LinearLayout pillBtn = new LinearLayout(this); pillBtn.setGravity(Gravity.CENTER_VERTICAL);
@@ -701,9 +776,10 @@ public class LiveTv extends Activity {
                     case 1: openGuide(); break;
                     case 2: cycleTrack(C.TRACK_TYPE_TEXT); break;
                     case 3: cycleTrack(C.TRACK_TYPE_AUDIO); break;
-                    case 4: seekRel(-30_000); break;
-                    case 5: showBanner(); break;
-                    case 6: finish(); break;
+                    case 4: toggleTechPanel(); break;
+                    case 5: seekRel(-30_000); break;
+                    case 6: showBanner(); break;
+                    case 7: finish(); break;
                 }
             });
             View dot = new View(this); android.graphics.drawable.GradientDrawable dg = new android.graphics.drawable.GradientDrawable();
@@ -901,6 +977,19 @@ public class LiveTv extends Activity {
 
     @Override public boolean onKeyDown(int code, KeyEvent e) {
         boolean open = guide.getVisibility() == View.VISIBLE;
+        if (techVisible) {
+            if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_INFO || code == KeyEvent.KEYCODE_I) { toggleTechPanel(); return true; }
+            if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                techFocusBtn = techFocusBtn == 0 ? 1 : 0;
+                updateTechButtons();
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
+                if (e.getRepeatCount() == 0) { if (techFocusBtn == 0) copyTechStats(); else logTechStats(); }
+                return true;
+            }
+            return true;
+        }
         if (code == KeyEvent.KEYCODE_BACK) {
             if (typed > 0) {
                 ui.removeCallbacks(tuneTyped);
@@ -949,7 +1038,8 @@ public class LiveTv extends Activity {
             case KeyEvent.KEYCODE_PROG_RED: flagRecording(); return true;
             case KeyEvent.KEYCODE_CAPTIONS: case KeyEvent.KEYCODE_C: cycleTrack(C.TRACK_TYPE_TEXT); return true;
             case KeyEvent.KEYCODE_MEDIA_AUDIO_TRACK: case KeyEvent.KEYCODE_A: cycleTrack(C.TRACK_TYPE_AUDIO); return true;
-            case KeyEvent.KEYCODE_DPAD_RIGHT: case KeyEvent.KEYCODE_INFO: showBanner(); return true;
+            case KeyEvent.KEYCODE_INFO: case KeyEvent.KEYCODE_I: toggleTechPanel(); return true;
+            case KeyEvent.KEYCODE_DPAD_RIGHT: showBanner(); return true;
         }
         return super.onKeyDown(code, e);
     }
@@ -984,9 +1074,13 @@ public class LiveTv extends Activity {
         }
         androidx.media3.common.TrackSelectionParameters.Builder b = player.getTrackSelectionParameters().buildUpon();
         b.clearOverridesOfType(trackType);
+        String chKey = (index >= 0 && index < list.size())
+                ? tech.kousozo.tahoetv.core.PlayPrefs.channelTrackKey(list.get(index).getChannel().getChannelId(), list.get(index).getName())
+                : null;
         if (trackType == C.TRACK_TYPE_TEXT && selectedIdx == groups.size() - 1) {
             b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true);
             player.setTrackSelectionParameters(b.build());
+            if (chKey != null) prefs.edit().putString("tr_s_" + chKey, "off").apply();
             Toast.makeText(this, I18n.get(langTag, "tv.live_sub_off"), Toast.LENGTH_SHORT).show();
             return;
         }
@@ -994,9 +1088,166 @@ public class LiveTv extends Activity {
         b.setTrackTypeDisabled(trackType, false);
         b.addOverride(new TrackSelectionOverride(groups.get(nextIdx), trackIndices.get(nextIdx)));
         player.setTrackSelectionParameters(b.build());
+        Format chosenFmt = groups.get(nextIdx).getFormat(trackIndices.get(nextIdx));
+        if (chKey != null && chosenFmt.language != null && !chosenFmt.language.isEmpty()) {
+            prefs.edit().putString((trackType == C.TRACK_TYPE_TEXT ? "tr_s_" : "tr_a_") + chKey, chosenFmt.language).apply();
+        }
         String msg = kindName + ": " + labels.get(nextIdx);
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
         if (osd != null) osd.announceForAccessibility(msg);
+    }
+
+    // ------------------------------------------------------------------ technical info overlay (#61)
+
+    final Runnable techRefreshTick = new Runnable() {
+        @Override public void run() {
+            if (!techVisible) return;
+            refreshTechPanel();
+            ui.postDelayed(this, 1000);
+        }
+    };
+
+    FrameLayout buildTechPanel() {
+        FrameLayout wrap = new FrameLayout(this);
+        wrap.setBackgroundColor(0x66000000);
+        wrap.setClickable(true);
+        wrap.setOnClickListener(v -> toggleTechPanel());
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding((int) dp(20), (int) dp(18), (int) dp(20), (int) dp(18));
+        card.setBackground(new GlassDrawable(dp(22), Ui.GLASS_STRONG, dp(1)));
+        card.setClickable(true);
+
+        String lang = TvViewer.get(this).getLanguage();
+        TextView title = Ui.text(this, Ui.HEADLINE, 700, Ui.TEXT);
+        title.setText(I18n.get(lang, "stats.title"));
+        card.addView(title);
+
+        techRows = new LinearLayout(this);
+        techRows.setOrientation(LinearLayout.VERTICAL);
+        techRows.setPadding(0, (int) dp(10), 0, (int) dp(12));
+        ScrollView sv = new ScrollView(this);
+        sv.setVerticalScrollBarEnabled(false);
+        sv.addView(techRows);
+        card.addView(sv, new LinearLayout.LayoutParams(-1, (int) dp(260)));
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        techCopyBtn = Ui.text(this, Ui.CAPTION, 700, 0xFF111114);
+        techCopyBtn.setText(I18n.get(lang, "stats.copy"));
+        techCopyBtn.setGravity(Gravity.CENTER);
+        techCopyBtn.setPadding((int) dp(14), (int) dp(9), (int) dp(14), (int) dp(9));
+        techCopyBtn.setClickable(true);
+        techCopyBtn.setOnClickListener(v -> copyTechStats());
+
+        techLogBtn = Ui.text(this, Ui.CAPTION, 700, Ui.TEXT);
+        techLogBtn.setText(I18n.get(lang, "stats.send_log"));
+        techLogBtn.setGravity(Gravity.CENTER);
+        techLogBtn.setPadding((int) dp(14), (int) dp(9), (int) dp(14), (int) dp(9));
+        techLogBtn.setClickable(true);
+        techLogBtn.setOnClickListener(v -> logTechStats());
+
+        LinearLayout.LayoutParams bp1 = new LinearLayout.LayoutParams(0, -2, 1);
+        bp1.rightMargin = (int) dp(8);
+        LinearLayout.LayoutParams bp2 = new LinearLayout.LayoutParams(0, -2, 1);
+        actions.addView(techCopyBtn, bp1);
+        actions.addView(techLogBtn, bp2);
+        card.addView(actions);
+
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams((int) Math.min(dp(440), getResources().getDisplayMetrics().widthPixels * 0.9f), -2, Gravity.TOP | Gravity.END);
+        lp.setMargins((int) dp(20), (int) dp(24), (int) dp(24), (int) dp(24));
+        wrap.addView(card, lp);
+        updateTechButtons();
+        return wrap;
+    }
+
+    void updateTechButtons() {
+        if (techCopyBtn == null || techLogBtn == null) return;
+        techCopyBtn.setBackground(new GlassDrawable(dp(12), techFocusBtn == 0 ? 0xF2F5F5F7 : 0x26FFFFFF, dp(1)));
+        techCopyBtn.setTextColor(techFocusBtn == 0 ? 0xFF111114 : Ui.TEXT);
+        techLogBtn.setBackground(new GlassDrawable(dp(12), techFocusBtn == 1 ? 0xF2F5F5F7 : 0x26FFFFFF, dp(1)));
+        techLogBtn.setTextColor(techFocusBtn == 1 ? 0xFF111114 : Ui.TEXT);
+    }
+
+    void toggleTechPanel() {
+        techVisible = !techVisible;
+        techPanel.setVisibility(techVisible ? View.VISIBLE : View.GONE);
+        ui.removeCallbacks(techRefreshTick);
+        if (techVisible) {
+            techFocusBtn = 0;
+            updateTechButtons();
+            refreshTechPanel();
+            ui.postDelayed(techRefreshTick, 1000);
+        }
+    }
+
+    tech.kousozo.tahoetv.core.PlayerStats.Snapshot buildStatsSnapshot() {
+        LocalTv.Entry e = (index >= 0 && index < list.size()) ? list.get(index) : null;
+        M3u.Channel cur = (source >= 0 && source < order.size()) ? order.get(source) : (e != null ? e.getChannel() : null);
+        Format vf = player != null ? player.getVideoFormat() : null;
+        Format af = player != null ? player.getAudioFormat() : null;
+        double bufSec = player != null ? Math.max(0.0, player.getBufferedPosition() - player.getCurrentPosition()) / 1000.0 : 0.0;
+        long offMs = player != null ? player.getCurrentLiveOffset() : C.TIME_UNSET;
+        double offSec = offMs == C.TIME_UNSET ? Double.NaN : Math.max(0.0, offMs) / 1000.0;
+        long liveRebuf = bufferingSince > 0 ? rebufferMs + (System.currentTimeMillis() - bufferingSince) : rebufferMs;
+        int br = vf != null && vf.bitrate > 0 ? vf.bitrate / 1000 : 0;
+        float fps = vf != null && vf.frameRate > 0 ? vf.frameRate : 0f;
+        String dec = !statsVideoDecoder.isEmpty() ? statsVideoDecoder : statsAudioDecoder;
+        return new tech.kousozo.tahoetv.core.PlayerStats.Snapshot(
+                e != null ? e.getName() : "Live TV",
+                source + 1,
+                Math.max(1, order.size()),
+                cur != null ? cur.getUrl() : "",
+                liveLabel(),
+                videoW > 0 ? videoW : (vf != null ? Math.max(0, vf.width) : 0),
+                videoH > 0 ? videoH : (vf != null ? Math.max(0, vf.height) : 0),
+                fps,
+                vf != null && vf.sampleMimeType != null ? vf.sampleMimeType : "",
+                af != null && af.sampleMimeType != null ? af.sampleMimeType : "",
+                dec,
+                br,
+                bufSec,
+                offSec,
+                rebufferCount,
+                liveRebuf,
+                droppedFramesCount,
+                bandwidthKbps
+        );
+    }
+
+    void refreshTechPanel() {
+        if (techRows == null) return;
+        String lang = TvViewer.get(this).getLanguage();
+        techRows.removeAllViews();
+        for (kotlin.Pair<String, String> row : tech.kousozo.tahoetv.core.PlayerStats.rows(buildStatsSnapshot(), lang)) {
+            LinearLayout r = new LinearLayout(this);
+            r.setPadding(0, (int) dp(3), 0, (int) dp(3));
+            TextView k = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3);
+            k.setText(row.getFirst());
+            TextView v = Ui.text(this, Ui.CAPTION, 600, Ui.TEXT);
+            v.setText(row.getSecond());
+            v.setGravity(Gravity.END);
+            v.setSingleLine(false);
+            r.addView(k, new LinearLayout.LayoutParams(0, -2, 0.42f));
+            r.addView(v, new LinearLayout.LayoutParams(0, -2, 0.58f));
+            techRows.addView(r);
+        }
+    }
+
+    void copyTechStats() {
+        String lang = TvViewer.get(this).getLanguage();
+        String text = tech.kousozo.tahoetv.core.PlayerStats.formatText(buildStatsSnapshot(), lang);
+        android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("Tahoe TV Stats", text));
+        Toast.makeText(this, I18n.get(lang, "stats.copied"), Toast.LENGTH_SHORT).show();
+    }
+
+    void logTechStats() {
+        String lang = TvViewer.get(this).getLanguage();
+        String text = tech.kousozo.tahoetv.core.PlayerStats.formatText(buildStatsSnapshot(), lang);
+        tech.kousozo.tahoetv.core.DiagLog.add("stats", text.replace("\n", " | "));
+        Toast.makeText(this, I18n.get(lang, "stats.log_saved"), Toast.LENGTH_SHORT).show();
     }
 
     // ------------------------------------------------------------------ slate (#76)

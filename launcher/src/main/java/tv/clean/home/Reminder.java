@@ -47,5 +47,12 @@ public final class Reminder extends BroadcastReceiver {
                 : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.reminder_open_tv", channel);
         Notif.banner(c, null, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.reminder_title"),
                 tech.kousozo.tahoetv.core.I18n.get(lang, "tv.reminder_starts", title), sub);
+        if (Home.live != null && Home.live.companion != null) {
+            Home.live.companion.pushTvNotification(
+                    "reminder",
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "notif.tv_reminder_title", channel == null ? "Live TV" : channel),
+                    tech.kousozo.tahoetv.core.I18n.get(lang, "notif.tv_reminder_body", title == null ? "" : title),
+                    channel);
+        }
     }
 }

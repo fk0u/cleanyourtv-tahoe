@@ -264,6 +264,15 @@ final class Sheets {
                     .adjust(dir -> lp.edit().putString("quality", tech.kousozo.tahoetv.core.PlayPrefs.next(q, dir).getKey()).apply()),
                 new Item(R.drawable.ic_clock, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_stream_latency"), lat.label(lang) + "  ·  ◀ ▶", null)
                     .adjust(dir -> lp.edit().putString("latency", tech.kousozo.tahoetv.core.PlayPrefs.next(lat, dir).getKey()).apply()));
+            tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize subSz = tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize.of(lp.getString("sub_size", null));
+            tech.kousozo.tahoetv.core.DeviceProfile.Profile devProf = DeviceProfiler.current(h);
+            add(new Item(R.drawable.ic_tv, tech.kousozo.tahoetv.core.I18n.get(lang, "sub.size_label"), subSz.label(lang) + "  ·  ◀ ▶", null)
+                    .adjust(dir -> lp.edit().putString("sub_size", tech.kousozo.tahoetv.core.PlayPrefs.SubtitleSize.next(subSz, dir).getKey()).apply()),
+                new Item(R.drawable.ic_info, tech.kousozo.tahoetv.core.I18n.get(lang, "device.title"),
+                    (devProf.getManualOverride() == null
+                            ? tech.kousozo.tahoetv.core.I18n.get(lang, "device.tier_auto", devProf.getActiveTier().label(lang))
+                            : devProf.getActiveTier().label(lang)) + " · " + devProf.getSpecs().getRamMb() + " MB",
+                    () -> { h.closeSheet(); h.openSheet(new DeviceInfo(h)); }));
             int left = h.sleepLeft();
             add(new Item(R.drawable.ic_moon, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_sleep_timer"),
                     (left == 0 ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_off") : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_min_left", String.valueOf(left))) + "  ·  ◀ ▶",
@@ -356,6 +365,14 @@ final class Sheets {
             add(new Item(R.drawable.ic_lock, tech.kousozo.tahoetv.core.I18n.get(lang, Kids.hasPin(h) ? "tv.kids_pin_change" : "tv.kids_pin_create"),
                     tech.kousozo.tahoetv.core.I18n.get(lang, "tv.kids_pin_sub"),
                     () -> h.createPin(() -> { h.openSheet(new KidsSetup(h)); h.toast(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.kids_pin_saved")); }, () -> h.openSheet(new KidsSetup(h)))).wide());
+            tech.kousozo.tahoetv.core.MathGate.Mode gm = Kids.gateMode(h);
+            tech.kousozo.tahoetv.core.MathGate.Difficulty gd = Kids.mathDifficulty(h);
+            add(new Item(R.drawable.ic_lock, tech.kousozo.tahoetv.core.I18n.get(lang, "kids.gate_mode"),
+                    gm.label(lang) + "  ·  ◀ ▶", null)
+                    .adjust(dir -> Kids.setGateMode(h, tech.kousozo.tahoetv.core.MathGate.Mode.next(gm, dir))),
+                new Item(R.drawable.ic_sparkles, tech.kousozo.tahoetv.core.I18n.get(lang, "kids.gate_diff"),
+                    gd.label(lang) + "  ·  ◀ ▶", null)
+                    .adjust(dir -> Kids.setMathDifficulty(h, tech.kousozo.tahoetv.core.MathGate.Difficulty.next(gd, dir))));
             List<Item> row = new ArrayList<>();
             for (Home.App a : h.all) {
                 boolean on = Kids.appAllowed(h, a.pkg);
@@ -386,6 +403,14 @@ final class Sheets {
         }
 
         boolean error;
+        String backupLabel;
+        Runnable backupAction;
+
+        void withBackup(String label, Runnable action) {
+            this.backupLabel = label;
+            this.backupAction = action;
+            rebuild();
+        }
 
         @Override void fill() {
             TextView ti = Ui.text(getContext(), Ui.HEADLINE, 600, Ui.TEXT); ti.setText(title);
@@ -402,6 +427,9 @@ final class Sheets {
             add(digit("7"), digit("8"), digit("9"));
             String cancelText = tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(getContext()).getLanguage(), "common.cancel");
             add(new Item(0, "⌫", null, this::erase), digit("0"), new Item(0, cancelText, null, cancel));
+            if (backupLabel != null && backupAction != null) {
+                add(new Item(0, backupLabel, null, backupAction).wide());
+            }
         }
 
         Item digit(String n) { return new Item(0, n, null, () -> type(n)); }
@@ -575,6 +603,168 @@ final class Sheets {
             return new Item(g, dv.name, dv.on ? "Nyala" : "Mati", () -> Net.bg.execute(() -> {
                 try { HomeControl.toggle(dv); post(this::rebuild); } catch (Exception e) { post(() -> home.toast("Gagal: " + e.getMessage())); }
             })).on(dv.on);
+        }
+    }
+
+    // ---------------------------------------------------------------- Device hardware info & profile (#38)
+
+    static final class DeviceInfo extends Grid {
+        DeviceInfo(Home h) { super(h, 520, Gravity.CENTER); rebuild(); }
+
+        @Override void fill() {
+            Home h = home;
+            String lang = TvViewer.get(h).getLanguage();
+            tech.kousozo.tahoetv.core.DeviceProfile.Profile prof = DeviceProfiler.current(h);
+            tech.kousozo.tahoetv.core.DeviceProfile.Specs sp = prof.getSpecs();
+            header(tech.kousozo.tahoetv.core.I18n.get(lang, "device.title"), tech.kousozo.tahoetv.core.I18n.get(lang, "device.sub"));
+            String tierVal = (prof.getManualOverride() == null
+                    ? tech.kousozo.tahoetv.core.I18n.get(lang, "device.tier_auto", prof.getDetectedTier().label(lang))
+                    : prof.getActiveTier().label(lang)) + "  ·  ◀ ▶";
+            add(new Item(R.drawable.ic_settings, tech.kousozo.tahoetv.core.I18n.get(lang, "device.tier_label"), tierVal, null)
+                    .wide()
+                    .adjust(dir -> {
+                        tech.kousozo.tahoetv.core.DeviceProfile.Tier next = dir > 0
+                                ? tech.kousozo.tahoetv.core.DeviceProfile.cycleOverride(prof.getManualOverride())
+                                : tech.kousozo.tahoetv.core.DeviceProfile.cycleOverride(
+                                    tech.kousozo.tahoetv.core.DeviceProfile.cycleOverride(
+                                        tech.kousozo.tahoetv.core.DeviceProfile.cycleOverride(prof.getManualOverride())));
+                        DeviceProfiler.setOverrideTier(h, next);
+                    }));
+            add(new Item(R.drawable.ic_info, tech.kousozo.tahoetv.core.I18n.get(lang, "device.ram"),
+                    sp.getRamMb() + " MB" + (sp.isLowRam() ? " (Low-RAM)" : ""), null),
+                new Item(R.drawable.ic_info, tech.kousozo.tahoetv.core.I18n.get(lang, "device.cpu"),
+                    sp.getCpuCores() + " cores · " + sp.getAbi() + " · API " + sp.getApiLevel(), null));
+            add(new Item(R.drawable.ic_tv, tech.kousozo.tahoetv.core.I18n.get(lang, "device.display"),
+                    sp.getWidthPx() + "×" + sp.getHeightPx() + " @ " + sp.getRefreshHz() + " Hz" + (sp.getHdrSupported() ? " · HDR" : ""), null),
+                new Item(R.drawable.ic_play, tech.kousozo.tahoetv.core.I18n.get(lang, "device.codecs"),
+                    "HEVC:" + (sp.getHwHevc() ? "✓" : "–") + "  AV1:" + (sp.getHwAv1() ? "✓" : "–") + "  AC3:" + (sp.getHwAc3() ? "✓" : "–"), null));
+            long bootMs = tech.kousozo.tahoetv.core.DeviceProfile.INSTANCE.getStartupMs();
+            add(new Item(R.drawable.ic_clock, tech.kousozo.tahoetv.core.I18n.get(lang, "device.startup_latency"),
+                    bootMs >= 0 ? (bootMs + " ms") : "—", null).wide());
+        }
+    }
+
+    // ---------------------------------------------------------------- Adult Math Gate (#47)
+
+    static final class MathPad extends Grid {
+        final String title;
+        final tech.kousozo.tahoetv.core.MathGate.Difficulty diff;
+        final Runnable onSuccess, cancel;
+        tech.kousozo.tahoetv.core.MathGate.Problem problem;
+        String input = "";
+        String statusMsg;
+        boolean error;
+
+        MathPad(Home h, String title, tech.kousozo.tahoetv.core.MathGate.Difficulty diff, Runnable onSuccess, Runnable cancel) {
+            super(h, 420, Gravity.CENTER);
+            this.title = title;
+            this.diff = diff;
+            this.onSuccess = onSuccess;
+            this.cancel = cancel;
+            this.problem = tech.kousozo.tahoetv.core.MathGate.generate(diff, null);
+            setBackgroundColor(0xB3000000);
+            rebuild();
+            if (Kids.pinLockLeftMs(h) > 0) tickLock();
+        }
+
+        @Override void fill() {
+            String lang = TvViewer.get(getContext()).getLanguage();
+            TextView ti = Ui.text(getContext(), Ui.HEADLINE, 600, Ui.TEXT);
+            ti.setText(title == null || title.isEmpty() ? tech.kousozo.tahoetv.core.I18n.get(lang, "kids.math_title") : title);
+            String hint = statusMsg != null ? statusMsg : tech.kousozo.tahoetv.core.I18n.get(lang, "kids.math_hint", problem.getQuestion());
+            TextView hi = Ui.text(getContext(), 15, 600, error ? 0xFFFF6B6B : Ui.TEXT_2);
+            hi.setSingleLine(false);
+            hi.setText(hint);
+            ti.setPadding((int) (6 * d), 0, 0, 0);
+            hi.setPadding((int) (6 * d), (int) (4 * d), 0, (int) (10 * d));
+            panel.addView(ti);
+            panel.addView(hi);
+
+            TextView qv = Ui.text(getContext(), 28, 700, Ui.TEXT);
+            qv.setText(problem.getQuestion().replace("?", input.isEmpty() ? "_" : input));
+            qv.setGravity(Gravity.CENTER);
+            qv.setPadding(0, (int) (4 * d), 0, (int) (12 * d));
+            panel.addView(qv, new LinearLayout.LayoutParams(-1, -2));
+
+            add(digit("1"), digit("2"), digit("3"));
+            add(digit("4"), digit("5"), digit("6"));
+            add(digit("7"), digit("8"), digit("9"));
+            String cancelText = tech.kousozo.tahoetv.core.I18n.get(lang, "common.cancel");
+            add(new Item(0, "⌫", null, this::erase), digit("0"), new Item(0, tech.kousozo.tahoetv.core.I18n.get(lang, "kids.math_submit"), null, this::submit));
+            add(new Item(0, cancelText, null, cancel).wide());
+        }
+
+        private Item digit(String n) { return new Item(0, n, null, () -> type(n)); }
+
+        private void type(String n) {
+            if (Kids.pinLockLeftMs(home) > 0 || input.length() >= 4) return;
+            input += n;
+            error = false;
+            statusMsg = null;
+            rebuild();
+        }
+
+        private void erase() {
+            if (input.isEmpty()) return;
+            input = input.substring(0, input.length() - 1);
+            rebuild();
+        }
+
+        private void submit() {
+            String lang = TvViewer.get(getContext()).getLanguage();
+            if (Kids.pinLockLeftMs(home) > 0) { tickLock(); return; }
+            if (tech.kousozo.tahoetv.core.MathGate.verify(problem, input)) {
+                Kids.clearPinBackoff(home);
+                home.closeSheet();
+                onSuccess.run();
+                return;
+            }
+            int sec = Kids.recordWrongPin(home);
+            input = "";
+            error = true;
+            problem = tech.kousozo.tahoetv.core.MathGate.generate(diff, problem.getQuestion());
+            statusMsg = tech.kousozo.tahoetv.core.I18n.get(lang, "kids.math_wrong") + " (" + sec + "s)";
+            rebuild();
+            scroll.animate().translationX(d * 14).setDuration(50).withEndAction(() -> scroll.animate().translationX(-d * 10).setDuration(60)
+                    .withEndAction(() -> scroll.animate().translationX(0).setDuration(60).start()).start()).start();
+            tickLock();
+        }
+
+        private void tickLock() {
+            long left = Kids.pinLockLeftMs(home);
+            String lang = TvViewer.get(getContext()).getLanguage();
+            if (left <= 0) {
+                setEnabled(true); setAlpha(1f);
+                error = false; statusMsg = null; rebuild();
+                return;
+            }
+            setEnabled(false); setAlpha(0.65f);
+            long sec = (left + 999) / 1000;
+            error = true;
+            statusMsg = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_pin_locked", String.valueOf(sec));
+            rebuild();
+            postDelayed(() -> { if (isAttachedToWindow()) tickLock(); }, Math.min(left, 1000L));
+        }
+
+        @Override View tile(Item it) {
+            if (it.icon != 0) return super.tile(it);
+            TextView t = Ui.text(getContext(), it.title.length() <= 2 ? 22 : 15, 600, Ui.TEXT);
+            t.setText(it.title); t.setTag("t"); t.setGravity(Gravity.CENTER);
+            t.setMinHeight((int) (48 * d));
+            t.setPadding(0, (int) (8 * d), 0, (int) (8 * d));
+            t.setBackground(new GlassDrawable(Ui.dp(getContext(), 20), 0x1FFFFFFF, d));
+            return t;
+        }
+
+        @Override public boolean key(KeyEvent e) {
+            int k = e.getKeyCode();
+            if (e.getAction() == KeyEvent.ACTION_DOWN) {
+                if (k == KeyEvent.KEYCODE_BACK) { cancel.run(); return true; }
+                if (!isEnabled()) return true;
+                if (k >= KeyEvent.KEYCODE_0 && k <= KeyEvent.KEYCODE_9) { type(String.valueOf(k - KeyEvent.KEYCODE_0)); return true; }
+                if (k == KeyEvent.KEYCODE_DEL) { erase(); return true; }
+            } else if (!isEnabled()) return true;
+            return super.key(e);
         }
     }
 }

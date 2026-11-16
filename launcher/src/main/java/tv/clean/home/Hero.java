@@ -134,13 +134,19 @@ final class Hero extends FrameLayout {
         String k = "app:" + key;
         contextual = k;
         decoder.execute(() -> {
-            // Blur without RenderScript: draw small, shrink further, then grow back in 2x bilinear steps.
-            // Each step smooths a little, so even on a 4K panel the result is soft instead of blocky.
-            int sw = 160, sh = 90;
-            Bitmap b = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888);
+            tech.kousozo.tahoetv.core.DeviceProfile.Profile prof = DeviceProfiler.current(getContext());
+            int sw = prof.getEnableHeroBlur() ? 160 : 240;
+            int sh = prof.getEnableHeroBlur() ? 90 : 135;
+            Bitmap b = Bitmap.createBitmap(sw, sh, prof.getEnableHeroBlur() ? Bitmap.Config.ARGB_8888 : Bitmap.Config.RGB_565);
             android.graphics.Canvas c = new android.graphics.Canvas(b);
             art.mutate(); android.graphics.Rect old = art.copyBounds();
             art.setBounds(0, 0, sw, sh); art.draw(c); art.setBounds(old);
+            if (!prof.getEnableHeroBlur()) {
+                c.drawColor(0x40000000);
+                final Bitmap flat = b;
+                ui.post(() -> { if (k.equals(contextual)) crossfade(flat, k, prof.getHeroAnimMs() > 0); });
+                return;
+            }
             for (int w = sw / 2; w >= 20; w /= 2) b = Bitmap.createScaledBitmap(b, w, w * 9 / 16, true);
             int H = getResources().getDisplayMetrics().heightPixels, target = Math.min(W / 2, 1280);
             for (int w = b.getWidth() * 2; w <= target; w *= 2) b = Bitmap.createScaledBitmap(b, w, w * 9 / 16, true);
@@ -166,12 +172,14 @@ final class Hero extends FrameLayout {
     void crossfade(Bitmap bm, String key, boolean fade) {
         if (key.equals(showing)) return;
         showing = key;
-        boolean motion = contextual != null && Ui.motion(getContext()) > 0;
-        if (!fade || back.getDrawable() == null) { back.setImageBitmap(bm); kenBurns(back, motion); return; }
+        tech.kousozo.tahoetv.core.DeviceProfile.Profile prof = DeviceProfiler.current(getContext());
+        long animMs = prof.getHeroAnimMs();
+        boolean motion = contextual != null && animMs > 0 && Ui.motion(getContext()) > 0;
+        if (!fade || animMs <= 0 || back.getDrawable() == null) { back.setImageBitmap(bm); kenBurns(back, motion); return; }
         front.animate().cancel();
         front.setImageBitmap(bm); front.setAlpha(0f);
         kenBurns(front, motion);
-        front.animate().alpha(1).setDuration(Ui.SLOW + 300).withEndAction(() -> {
+        front.animate().alpha(1).setDuration(animMs + 240).withEndAction(() -> {
             back.animate().cancel();
             back.setImageBitmap(bm); back.setScaleX(front.getScaleX()); back.setScaleY(front.getScaleY());
             kenBurns(back, motion);

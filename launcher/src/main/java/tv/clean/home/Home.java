@@ -68,13 +68,16 @@ public class Home extends Activity {
     Companion companion;
     boolean gamepad, pendingCenterKey;
     AutoCloseable pushStream;
+    long bootStartMs;
 
     // ---------------------------------------------------------------- lifecycle
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        bootStartMs = android.os.SystemClock.elapsedRealtime();
         if (TvGuard.blockIfNotTv(this)) return;
         Diag.install(this);
+        DeviceProfiler.refresh(this);
         live = this;
         Cfg.p(this); // runtime settings from the phone setup app
         prefs = getSharedPreferences("home", MODE_PRIVATE);
@@ -116,6 +119,7 @@ public class Home extends Activity {
         root.post(() -> {
             W = root.getWidth(); H = root.getHeight();
             build();
+            tech.kousozo.tahoetv.core.DeviceProfile.recordStartupMs(android.os.SystemClock.elapsedRealtime() - bootStartMs);
             loadApps();
             hero.showWall(false);
             refreshData(false);
@@ -282,8 +286,9 @@ public class Home extends Activity {
         profiles = new Lock.Profiles(this, last == null || kids() ? null : last[1], lastIcon, current, p -> {
             Runnable go = () -> enterProfile(p);
             String lang = TvViewer.get(this).getLanguage();
-            if (kids() && !p.equals(Kids.PROFILE) && Kids.hasPin(this)) verifyPin(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_exit_kids"), go);
-            else if (p.equals(Kids.PROFILE) && !Kids.hasPin(this)) createPin(go, this::closeSheet);
+            tech.kousozo.tahoetv.core.MathGate.Mode mode = Kids.gateMode(this);
+            if (kids() && !p.equals(Kids.PROFILE)) verifyAdult(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_exit_kids"), go);
+            else if (p.equals(Kids.PROFILE) && mode != tech.kousozo.tahoetv.core.MathGate.Mode.MATH && !Kids.hasPin(this)) createPin(go, this::closeSheet);
             else go.run();
         });
         root.addView(profiles, new FrameLayout.LayoutParams(-1, -1));
@@ -315,8 +320,31 @@ public class Home extends Activity {
                 }, () -> { closeSheet(); cancel.run(); })), () -> { closeSheet(); cancel.run(); }));
     }
 
+    /** Verifies adult identity using configured Kids gate mode: PIN, Math challenge, or PIN + Math (#47). */
+    void verifyAdult(String title, Runnable ok) {
+        tech.kousozo.tahoetv.core.MathGate.Mode mode = Kids.gateMode(this);
+        if (mode == tech.kousozo.tahoetv.core.MathGate.Mode.MATH) {
+            verifyMath(title, ok);
+            return;
+        }
+        if (!Kids.hasPin(this)) {
+            if (mode == tech.kousozo.tahoetv.core.MathGate.Mode.PIN_AND_MATH) verifyMath(title, ok);
+            else ok.run();
+            return;
+        }
+        Runnable nextStep = mode == tech.kousozo.tahoetv.core.MathGate.Mode.PIN_AND_MATH ? () -> verifyMath(title, ok) : ok;
+        verifyPin(title, nextStep, mode == tech.kousozo.tahoetv.core.MathGate.Mode.PIN);
+    }
+
+    /** Adult math challenge sheet with difficulty selection and lockout protection (#47). */
+    void verifyMath(String title, Runnable ok) {
+        openSheet(new Sheets.MathPad(this, title, Kids.mathDifficulty(this), ok, this::closeSheet));
+    }
+
     /** Asks for the kids PIN; [ok] runs only when it's right. Progressive delays slow brute-force guessing. */
-    void verifyPin(String title, Runnable ok) {
+    void verifyPin(String title, Runnable ok) { verifyPin(title, ok, true); }
+
+    void verifyPin(String title, Runnable ok, boolean allowMathBackup) {
         String lang = TvViewer.get(this).getLanguage();
         Runnable[] lock = new Runnable[1];
         boolean[] refreshMsg = {true};
@@ -328,6 +356,9 @@ public class Home extends Activity {
             refreshMsg[0] = false;
             lock[0].run();
         }, this::closeSheet);
+        if (allowMathBackup) {
+            sheet.withBackup(tech.kousozo.tahoetv.core.I18n.get(lang, "kids.math_backup"), () -> verifyMath(title, ok));
+        }
         lock[0] = () -> {
             long left = Kids.pinLockLeftMs(this);
             if (left <= 0) {

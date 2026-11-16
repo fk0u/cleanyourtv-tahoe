@@ -181,9 +181,30 @@ final class Companion extends NanoWSD {
     /** Socket writes off the main thread (Android throws NetworkOnMainThreadException there). */
     final java.util.concurrent.ExecutorService out = java.util.concurrent.Executors.newSingleThreadExecutor();
 
+    private final List<String> recentAlerts = Collections.synchronizedList(new ArrayList<>());
+
     void broadcast(JSONObject msg) {
         String m = msg.toString();
         out.execute(() -> { synchronized (sockets) { for (Socket s : sockets) try { s.send(m); } catch (Exception ignored) {} } });
+    }
+
+    /** Sends an event notification (e.g. TV show reminder / playback alert) to every paired phone (#52). */
+    void pushTvNotification(String kind, String title, String body, String channelName) {
+        try {
+            JSONObject o = new JSONObject()
+                    .put("t", "tv_notif")
+                    .put("kind", kind)
+                    .put("title", title == null ? "" : title)
+                    .put("body", body == null ? "" : body)
+                    .put("channel", channelName == null ? "" : channelName)
+                    .put("at", System.currentTimeMillis());
+            String payload = o.toString();
+            synchronized (recentAlerts) {
+                recentAlerts.add(payload);
+                while (recentAlerts.size() > 5) recentAlerts.remove(0);
+            }
+            broadcast(o);
+        } catch (Exception ignored) {}
     }
 
     @Override protected Response serveHttp(IHTTPSession s) {
@@ -383,6 +404,14 @@ final class Companion extends NanoWSD {
             sockets.add(this);
             sendAsync(welcomePayload());
             ui.post(() -> { String m = l.state().toString(); sendAsync(m); });
+            long cutoff = System.currentTimeMillis() - 10 * 60_000L;
+            synchronized (recentAlerts) {
+                for (String a : recentAlerts) {
+                    try {
+                        if (new JSONObject(a).optLong("at", 0L) >= cutoff) sendAsync(a);
+                    } catch (Exception ignored) {}
+                }
+            }
         }
         @Override protected void onClose(WebSocketFrame.CloseCode c, String r, boolean byRemote) { sockets.remove(this); }
         @Override protected void onPong(WebSocketFrame f) { lastSeenMs = System.currentTimeMillis(); }
