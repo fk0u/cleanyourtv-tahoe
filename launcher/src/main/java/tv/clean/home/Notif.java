@@ -16,22 +16,6 @@ import java.util.*;
  *  where Android refuses notification-listener access to non-system apps, so app notifications
  *  and Now Playing (same permission) are unavailable here. */
 final class Notif {
-    /** Epoch ms of the first prayer after `after` today (0 if none); its name goes into out[0]. */
-    static long nextPrayer(SharedPreferences sp, long after, String[] out) {
-        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
-        if (!today.equals(sp.getString("prayer_date", ""))) return 0;
-        for (String part : sp.getString("prayer", "").split(";")) {
-            String[] kv = part.split("=");
-            if (kv.length != 2) continue;
-            Calendar c = Calendar.getInstance();
-            c.set(Calendar.HOUR_OF_DAY, Integer.parseInt(kv[1].substring(0, 2)));
-            c.set(Calendar.MINUTE, Integer.parseInt(kv[1].substring(3, 5)));
-            c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0);
-            if (c.getTimeInMillis() > after) { if (out != null) out[0] = kv[0]; return c.getTimeInMillis(); }
-        }
-        return 0;
-    }
-
     // ---- banner overlay ----
 
     static Drawable appIcon(Context c, String pkg) {

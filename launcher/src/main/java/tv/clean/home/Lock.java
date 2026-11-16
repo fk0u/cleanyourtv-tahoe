@@ -67,16 +67,21 @@ public class Lock extends DreamService {
 
         long interval = 30_000; int fadeMs = 1500;
 
-        final Runnable slide = new Runnable() { public void run() {
-            if (walls.isEmpty()) { back.setImageBitmap(Hero.defaultWall(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels)); return; }
-            show(walls.get(index++ % walls.size()), back.getDrawable() != null);
-            ui.postDelayed(this, interval);
-        } };
+        final Runnable slide = () -> advanceSlide();
 
-        void start() { ui.removeCallbacksAndMessages(null); slide.run(); }
+        void advanceSlide() {
+            if (walls.isEmpty()) {
+                back.setImageBitmap(Hero.defaultWall(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels));
+                return;
+            }
+            displayPhoto(walls.get(index++ % walls.size()), back.getDrawable() != null);
+            ui.postDelayed(slide, interval);
+        }
+
+        void start() { ui.removeCallbacksAndMessages(null); advanceSlide(); }
         void stop() { ui.removeCallbacksAndMessages(null); }
 
-        void show(String path, boolean fade) {
+        void displayPhoto(String path, boolean fade) {
             Hero.decoder.execute(() -> {
                 BitmapFactory.Options o = new BitmapFactory.Options();
                 o.inPreferredConfig = Bitmap.Config.RGB_565;

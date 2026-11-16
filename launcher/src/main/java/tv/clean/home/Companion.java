@@ -76,7 +76,7 @@ final class Companion extends NanoWSD {
         return id;
     }
 
-    private String appVersion() {
+    String appVersion() {
         try {
             return String.valueOf(ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName);
         } catch (Exception ignored) {
@@ -146,7 +146,7 @@ final class Companion extends NanoWSD {
     String setupUrl() { return "http://" + ip() + ":" + PORT + "/setup?code=" + code(); }
 
     Set<String> tokens() { return new HashSet<>(prefs.getStringSet("tokens", new HashSet<>())); }
-    private JSONObject tokenMeta() {
+    JSONObject tokenMeta() {
         try { return new JSONObject(prefs.getString("token_meta", "{}")); }
         catch (Exception ignored) { return new JSONObject(); }
     }
@@ -211,126 +211,7 @@ final class Companion extends NanoWSD {
     }
 
     @Override protected Response serveHttp(IHTTPSession s) {
-        String uri = s.getUri();
-        try {
-            if (uri.equals("/") || uri.equals("/index.html")) return asset("web/index.html", "text/html; charset=utf-8");
-            if (uri.equals("/setup") || uri.equals("/setup.html")) return asset("web/setup.html", "text/html; charset=utf-8");
-            if (uri.equals("/manifest.webmanifest")) return asset("web/manifest.webmanifest", "application/manifest+json");
-            if (uri.equals("/pair") && s.getMethod() == Method.POST) return pair(s);
-            if (uri.equals("/info")) // public: lets the phone's scanner tell a Tahoe TV from any open port
-                return json(Response.Status.OK, new JSONObject().put("app", "tahoe").put("model", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
-                        .put("version", appVersion()).put("id", deviceId()).put("proto", Protocol.VERSION).put("roles", "receiver"));
-            if (!authed(s)) return json(Response.Status.UNAUTHORIZED, new JSONObject().put("error", "pair first"));
-            if (uri.equals("/settings") && s.getMethod() == Method.GET) {
-                JSONObject[] out = new JSONObject[1];
-                java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
-                ui.post(() -> { out[0] = l.settings(); done.countDown(); });
-                if (!done.await(2, java.util.concurrent.TimeUnit.SECONDS) || out[0] == null)
-                    return json(Response.Status.SERVICE_UNAVAILABLE, new JSONObject().put("error", "TV busy"));
-                return json(Response.Status.OK, out[0]);
-            }
-            if (uri.equals("/settings") && s.getMethod() == Method.POST) {
-                String raw;
-                try { raw = body(s, 16384); }
-                catch (TooLarge e) {
-                    Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
-                    r.closeConnection(true);
-                    return r;
-                }
-                final JSONObject patch;
-                try { patch = raw.isEmpty() ? new JSONObject() : new JSONObject(raw); }
-                catch (Exception e) { return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "format JSON tidak valid")); }
-                JSONObject[] out = new JSONObject[1];
-                java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
-                ui.post(() -> { out[0] = l.applySettings(patch); done.countDown(); });
-                if (!done.await(3, java.util.concurrent.TimeUnit.SECONDS) || out[0] == null)
-                    return json(Response.Status.SERVICE_UNAVAILABLE, new JSONObject().put("error", "TV busy"));
-                return json(Response.Status.OK, new JSONObject().put("ok", true).put("settings", out[0]));
-            }
-            if (uri.equals("/viewer") && s.getMethod() == Method.POST) {
-                String raw;
-                try { raw = body(s, 16384); }
-                catch (TooLarge e) {
-                    Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
-                    r.closeConnection(true);
-                    return r;
-                }
-                if (raw.isEmpty()) return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "data kosong"));
-                java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
-                ui.post(() -> { Onboarding.fromPhone(ctx, raw); done.countDown(); });
-                done.await(2, java.util.concurrent.TimeUnit.SECONDS);
-                return json(Response.Status.OK, new JSONObject().put("ok", true));
-            }
-            if (uri.equals("/kids/report") && s.getMethod() == Method.GET) {
-                return json(Response.Status.OK, Kids.reportJson(ctx));
-            }
-            if (uri.equals("/apps")) {
-                JSONArray[] out = new JSONArray[1];
-                java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
-                ui.post(() -> { out[0] = l.apps(); done.countDown(); });
-                if (!done.await(2, java.util.concurrent.TimeUnit.SECONDS) || out[0] == null)
-                    return json(Response.Status.SERVICE_UNAVAILABLE, new JSONObject().put("error", "TV busy"));
-                return json(Response.Status.OK, new JSONObject().put("apps", out[0]));
-            }
-            if (uri.equals("/upload") && s.getMethod() == Method.POST) return upload(s);
-            // "Kirim log" on the phone: the TV's diagnostic report (no tokens or keys, see DiagLog)
-            if (uri.equals("/log")) {
-                Response r = newFixedLengthResponse(Response.Status.OK, "text/plain; charset=utf-8", Diag.report(ctx));
-                r.addHeader("Cache-Control", "no-store"); // device details and stream paths: never cached
-                return r;
-            }
-            // Forgotten kids PIN: a paired phone (it holds this TV's token) sets a new one. The owner's phone is the proof.
-            if (uri.equals("/kids_pin") && s.getMethod() == Method.POST) {
-                // in the body, not the URL: URLs end up in logs. A missing, oversized or broken body is a bad request.
-                String pin;
-                try { pin = new JSONObject(body(s, 1024)).optString("pin"); }
-                catch (TooLarge e) {
-                    Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
-                    r.closeConnection(true); // its unread bytes must not be taken for the next request
-                    return r;
-                }
-                catch (Exception e) { pin = ""; }
-                if (!pin.matches("\\d{4}")) return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "PIN harus 4 angka"));
-                Kids.setPin(ctx, pin);
-                tech.kousozo.tahoetv.core.DiagLog.add("kids", "PIN Anak diatur ulang dari HP");
-                ui.post(l::onKidsPin);
-                return json(Response.Status.OK, new JSONObject().put("ok", true));
-            }
-            if (uri.equals("/devices") && s.getMethod() == Method.GET) {
-                JSONArray list = new JSONArray();
-                JSONObject meta = tokenMeta();
-                for (String tk : tokens()) {
-                    JSONObject m = meta.optJSONObject(tk);
-                    list.put(new JSONObject()
-                            .put("prefix", tk.substring(0, Math.min(6, tk.length())))
-                            .put("name", m != null ? m.optString("name", "HP") : "HP")
-                            .put("role", m != null ? m.optString("role", "owner") : "owner")
-                            .put("ip", m != null ? m.optString("ip", "") : "")
-                            .put("pairedAt", m != null ? m.optLong("pairedAt", 0L) : 0L));
-                }
-                return json(Response.Status.OK, new JSONObject().put("devices", list));
-            }
-            if (uri.equals("/devices/revoke") && s.getMethod() == Method.POST) {
-                String prefix;
-                try { prefix = new JSONObject(body(s, 1024)).optString("prefix", "").trim(); }
-                catch (TooLarge e) {
-                    Response r = json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "permintaan terlalu besar"));
-                    r.closeConnection(true);
-                    return r;
-                }
-                catch (Exception e) { prefix = ""; }
-                if (prefix.isEmpty()) return json(Response.Status.BAD_REQUEST, new JSONObject().put("error", "prefix wajib"));
-                String target = null;
-                for (String tk : tokens()) {
-                    if (tk.startsWith(prefix)) { target = tk; break; }
-                }
-                if (target != null) revoke(target);
-                return json(Response.Status.OK, new JSONObject().put("ok", target != null));
-            }
-        } catch (Exception e) {
-            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", String.valueOf(e.getMessage()));
-        }
-        return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "not found");
+        return CompanionHttp.serve(this, s);
     }
 
     Response asset(String path, String mime) throws IOException {

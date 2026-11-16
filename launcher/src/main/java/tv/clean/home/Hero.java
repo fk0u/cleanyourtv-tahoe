@@ -1,6 +1,7 @@
 package tv.clean.home;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.*;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
@@ -10,19 +11,23 @@ import android.view.View;
 import android.widget.*;
 import java.io.File;
 import java.util.*;
+import tech.kousozo.tahoetv.core.WallpaperProvider;
 
 /** Full-bleed backdrop with an editorial text block (eyebrow, title, meta) on the left.
- *  The backdrop is the rotating wallpaper/photo, or a contextual image (e.g. a trending video). */
+ *  The backdrop is the rotating wallpaper/photo (personal uploads or free API photos), or a contextual image. */
 final class Hero extends FrameLayout {
     final ImageView back, front;
-    final TextView eyebrow, title, meta;
+    final TextView eyebrow, title, meta, attribution;
     final LinearLayout block;
     final Handler ui = new Handler(Looper.getMainLooper());
     final List<String> walls = new ArrayList<>();
+    final Map<String, String> attributions = new HashMap<>();
     int wallIndex, rotateMinutes;
     Bitmap wallBitmap;
     String showing; // path of what is on screen, to skip redundant crossfades
+    String currentAttr = "";
     int W;
+    private long lastApiFetchMs = 0L;
 
     Hero(Context c, int width, int rotateMinutes) {
         super(c);
@@ -54,14 +59,25 @@ final class Hero extends FrameLayout {
         block.addView(meta, ml);
         LayoutParams bl = new LayoutParams((int) (width * 0.5f), -2, Gravity.TOP); bl.leftMargin = (int) Ui.dp(c, 56); bl.topMargin = (int) Ui.dp(c, 118);
         addView(block, bl);
+
+        attribution = Ui.text(c, 11, 500, Ui.TEXT_3);
+        attribution.setPadding((int) Ui.dp(c, 10), (int) Ui.dp(c, 4), (int) Ui.dp(c, 10), (int) Ui.dp(c, 4));
+        attribution.setBackground(new GlassDrawable(Ui.dp(c, 12), 0x44000000, Ui.dp(c, 1)));
+        attribution.setVisibility(GONE);
+        LayoutParams al = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.END);
+        al.rightMargin = (int) Ui.dp(c, 56);
+        al.bottomMargin = (int) Ui.dp(c, 18);
+        addView(attribution, al);
+
         loadWalls();
+        maybeRefreshApiWallpaper(false);
     }
 
     static ImageView img(Context c) { ImageView v = new ImageView(c); v.setScaleType(ImageView.ScaleType.CENTER_CROP); return v; }
 
-    /** "personal" = wallpapers + phone photos; "default" = the built-in gradient. Guests always get the default. */
+    /** "personal" = wallpapers + phone photos + free photo API; "default" = the built-in gradient (unless API source is chosen). */
     static String wallMode(Context c) {
-        android.content.SharedPreferences p = c.getSharedPreferences("home", Context.MODE_PRIVATE);
+        SharedPreferences p = c.getSharedPreferences("home", Context.MODE_PRIVATE);
         return "guest".equals(p.getString("profile", "main")) ? "default" : p.getString("wall_mode", "personal");
     }
 
@@ -84,18 +100,76 @@ final class Hero extends FrameLayout {
         return defaultWall = bm;
     }
 
-    /** Wallpapers + photos sent from the phone (companion), sorted, rotated every N minutes. */
+    private File apiWallpaperDir() {
+        return new File(getContext().getFilesDir(), "api_wallpapers");
+    }
+
+    /** Wallpapers + phone uploads + free photo API cache (#39), rotated every N minutes. */
     void loadWalls() {
         walls.clear();
-        if (wallMode(getContext()).equals("default")) return;
-        for (String sub : new String[]{"wallpapers", "photos"}) {
-            File dir = getContext().getExternalFilesDir(sub);
-            String[] names = dir == null ? null : dir.list();
-            if (names == null) continue;
-            Arrays.sort(names);
-            for (String n : names) if (n.matches("(?i).*\\.(jpe?g|png|webp)")) walls.add(new File(dir, n).getPath());
+        attributions.clear();
+        Context ctx = getContext();
+        SharedPreferences p = ctx.getSharedPreferences("home", Context.MODE_PRIVATE);
+        WallpaperProvider.Source src = WallpaperProvider.Source.fromKey(p.getString("wall_source", "auto"));
+        String mode = wallMode(ctx);
+        if ("default".equals(mode) && src == WallpaperProvider.Source.GRADIENT) return;
+        if ("personal".equals(mode)) {
+            for (String sub : new String[]{"wallpapers", "photos"}) {
+                File dir = ctx.getExternalFilesDir(sub);
+                String[] names = dir == null ? null : dir.list();
+                if (names == null) continue;
+                Arrays.sort(names);
+                for (String n : names) if (n.matches("(?i).*\\.(jpe?g|png|webp)")) walls.add(new File(dir, n).getPath());
+            }
         }
-        wallIndex = getContext().getSharedPreferences("home", Context.MODE_PRIVATE).getInt("wp", 0);
+        if (src != WallpaperProvider.Source.GRADIENT) {
+            File apiDir = apiWallpaperDir();
+            Map<String, String> metaMap = WallpaperProvider.loadAttributionMap(apiDir);
+            String[] names = apiDir.list();
+            if (names != null) {
+                Arrays.sort(names);
+                for (String n : names) {
+                    if (n.matches("(?i).*\\.(jpe?g|png|webp)")) {
+                        String full = new File(apiDir, n).getPath();
+                        walls.add(full);
+                        String attr = metaMap.get(n);
+                        if (attr != null && !attr.isEmpty()) attributions.put(full, attr);
+                    }
+                }
+            }
+        }
+        wallIndex = p.getInt("wp", 0);
+    }
+
+    void maybeRefreshApiWallpaper(boolean force) {
+        Context ctx = getContext();
+        SharedPreferences p = ctx.getSharedPreferences("home", Context.MODE_PRIVATE);
+        WallpaperProvider.Source src = WallpaperProvider.Source.fromKey(p.getString("wall_source", "auto"));
+        if (src == WallpaperProvider.Source.GRADIENT) return;
+        long now = System.currentTimeMillis();
+        if (!force && now - lastApiFetchMs < 6 * 3600_000L) return;
+        lastApiFetchMs = now;
+        WallpaperProvider.Theme theme = WallpaperProvider.Theme.fromKey(p.getString("wall_theme", "nature"));
+        boolean kidsProfile = Kids.PROFILE.equals(p.getString("profile", "main"));
+        String lang = TvViewer.get(ctx).getLanguage();
+        String unsplashKey = Cfg.key("unsplash_key", "");
+        String pexelsKey = Cfg.key("pexels_key", "");
+        tech.kousozo.tahoetv.core.DeviceProfile.Tier tier = DeviceProfiler.current(ctx).getActiveTier();
+        File apiDir = apiWallpaperDir();
+        Net.bg.execute(() -> {
+            WallpaperProvider.PhotoMeta meta = WallpaperProvider.fetchDailyPhoto(
+                    src, theme, unsplashKey, pexelsKey, tier, lang, kidsProfile);
+            if (meta == null) return;
+            File saved = WallpaperProvider.cachePhoto(apiDir, meta);
+            if (saved != null) {
+                ui.post(() -> {
+                    loadWalls();
+                    if (contextual == null && (showing == null || "default".equals(showing) || force)) {
+                        showWall(true);
+                    }
+                });
+            }
+        });
     }
 
     void refreshWallpaperSettings() {
@@ -103,6 +177,7 @@ final class Hero extends FrameLayout {
         if (customMin > 0) rotateMinutes = Math.max(1, customMin);
         loadWalls();
         showWall(false);
+        maybeRefreshApiWallpaper(true);
     }
 
     final Runnable rotate = () -> nextWall();
@@ -115,16 +190,38 @@ final class Hero extends FrameLayout {
         showWall(true);
     }
 
+    private void updateAttributionView() {
+        boolean show = contextual == null && currentAttr != null && !currentAttr.isEmpty();
+        if (show) {
+            attribution.setText(currentAttr);
+            attribution.setVisibility(VISIBLE);
+        } else {
+            attribution.setVisibility(GONE);
+        }
+    }
+
     void showWall(boolean fade) {
         ui.removeCallbacks(rotate);
         if (walls.isEmpty()) {
+            currentAttr = "";
             wallBitmap = defaultWall(W, getResources().getDisplayMetrics().heightPixels);
-            if (contextual == null) crossfade(wallBitmap, "default", fade);
+            if (contextual == null) {
+                crossfade(wallBitmap, "default", fade);
+                updateAttributionView();
+            }
             return;
         }
         ui.postDelayed(rotate, rotateMinutes * 60_000L);
         String path = walls.get(wallIndex % walls.size());
-        decode(path, bm -> { wallBitmap = bm; if (contextual == null) crossfade(bm, path, fade); });
+        String attr = attributions.getOrDefault(path, "");
+        decode(path, bm -> {
+            wallBitmap = bm;
+            currentAttr = attr;
+            if (contextual == null) {
+                crossfade(bm, path, fade);
+                updateAttributionView();
+            }
+        });
     }
 
     String contextual;
@@ -132,6 +229,7 @@ final class Hero extends FrameLayout {
     /** Show a contextual image (null = back to the wallpaper). */
     void context(File f) {
         contextual = f == null ? null : f.getPath();
+        updateAttributionView();
         if (f == null) { if (wallBitmap != null) crossfade(wallBitmap, "wall", true); return; }
         String path = f.getPath();
         decode(path, bm -> { if (path.equals(contextual)) crossfade(bm, path, true); });
@@ -142,6 +240,7 @@ final class Hero extends FrameLayout {
         if (art == null) { context(null); return; }
         String k = "app:" + key;
         contextual = k;
+        updateAttributionView();
         decoder.execute(() -> {
             tech.kousozo.tahoetv.core.DeviceProfile.Profile prof = DeviceProfiler.current(getContext());
             int sw = prof.getEnableHeroBlur() ? 160 : 240;

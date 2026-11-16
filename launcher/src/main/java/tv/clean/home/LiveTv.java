@@ -659,7 +659,7 @@ public class LiveTv extends Activity {
                 + (e.getNear() ? "  ·  " + I18n.get(lang, "ch.near_badge") : ""));
         bCat.setText(catLbl);
         bLive.setText(liveLabel());
-        Logos.into(e.getChannel().getLogo(), logo, logoText, e.getName());
+        Ui.bindLogo(e.getChannel().getLogo(), logo, logoText, e.getName());
         Instant now = Instant.now();
         List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         Epg.Programme p = !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
@@ -908,22 +908,24 @@ public class LiveTv extends Activity {
         }
     }
 
-    void refreshRow(int k) {
+    void refreshRow(int k, Epg.Programme next) {
         guideDirty = true;
         if (guide.getVisibility() != View.VISIBLE || k < 0 || k >= allRows.length) return;
-        ensureRowsThrough(k + 1);
-        View old = allRows[k];
-        int pos = old == null ? -1 : rows.indexOfChild(old);
-        if (pos >= 0) {
-            View fresh = row(k, Instant.now(), favs());
-            allRows[k] = fresh;
-            rows.removeViewAt(pos);
-            rows.addView(fresh, pos);
-            fresh.requestFocus();
-            return;
+        View rowView = allRows[k];
+        if (rowView == null) return;
+        LocalTv.Entry e = list.get(k);
+        TextView star = rowView.findViewWithTag("star");
+        if (star != null) star.setVisibility(favs().contains(e.getChannel().getUrl()) ? View.VISIBLE : View.GONE);
+        TextView sub = rowView.findViewWithTag("sub");
+        if (sub != null) {
+            Instant now = Instant.now();
+            List<Epg.Programme> s = epg == null ? null : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
+            Epg.Programme p = s != null && !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
+            boolean reminded = next != null && Reminder.isSet(this, e.getChannel().getUrl(), next.getStart().toEpochMilli());
+            sub.setTextColor(reminded ? Ui.ACCENT : Ui.TEXT_3);
+            sub.setText(reminded ? "🔔 " + hm().format(next.getStart()) + "  " + next.getTitle()
+                    : p != null ? p.getTitle() : OnboardingText.INSTANCE.category(TvViewer.get(this).getLanguage(), e.getCategory()));
         }
-        buildRows();
-        if (k < allRows.length && allRows[k] != null) allRows[k].requestFocus();
     }
 
     void section(String title) {
@@ -955,7 +957,7 @@ public class LiveTv extends Activity {
         iv.setPadding((int) dp(4), (int) dp(4), (int) dp(4), (int) dp(4));
         TextView it = Ui.text(this, Ui.CAPTION, 800, 0xFF111114); it.setShadowLayer(0, 0, 0, 0); it.setGravity(Gravity.CENTER);
         tile.addView(it, new FrameLayout.LayoutParams(-1, -1)); tile.addView(iv, new FrameLayout.LayoutParams(-1, -1));
-        Logos.into(e.getChannel().getLogo(), iv, it, e.getName());
+        Ui.bindLogo(e.getChannel().getLogo(), iv, it, e.getName());
         r.addView(tile, new LinearLayout.LayoutParams((int) dp(54), (int) dp(36)));
         LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
         TextView name = Ui.text(this, TvViewer.simpleMode(this) ? 20 : Ui.BODY, 600, Ui.TEXT); name.setText(e.getName()); name.setShadowLayer(0, 0, 0, 0);
@@ -965,12 +967,17 @@ public class LiveTv extends Activity {
         if (s != null) for (Epg.Programme q : s) if (q.getStart().isAfter(now)) { nx = q; break; }
         boolean reminded = nx != null && Reminder.isSet(this, e.getChannel().getUrl(), nx.getStart().toEpochMilli());
         TextView sub = Ui.text(this, TvViewer.simpleMode(this) ? 16 : Ui.CAPTION, 500, reminded ? Ui.ACCENT : Ui.TEXT_3); sub.setShadowLayer(0, 0, 0, 0);
+        sub.setTag("sub");
         sub.setText(reminded ? "🔔 " + hm().format(nx.getStart()) + "  " + nx.getTitle()
                 : p != null ? p.getTitle() : OnboardingText.INSTANCE.category(lang, e.getCategory()));
         col.addView(name); col.addView(sub);
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -2, 1); cp.leftMargin = (int) dp(12);
         r.addView(col, cp);
-        if (fav.contains(e.getChannel().getUrl())) { TextView star = Ui.text(this, Ui.BODY, 700, Ui.SUN); star.setText("★"); r.addView(star); }
+        TextView star = Ui.text(this, Ui.BODY, 700, Ui.SUN);
+        star.setText("★");
+        star.setTag("star");
+        star.setVisibility(fav.contains(e.getChannel().getUrl()) ? View.VISIBLE : View.GONE);
+        r.addView(star);
         r.setContentDescription((k + 1) + ". " + e.getName() + ", " + sub.getText());
         r.setOnFocusChangeListener((v, f) -> {
             if (f && k + 20 >= renderedEnd && renderedEnd < list.size()) ensureRowsThrough(renderedEnd + ROW_STEP);
@@ -981,8 +988,16 @@ public class LiveTv extends Activity {
         Epg.Programme next = nx;
         r.setOnKeyListener((v, code, ev) -> {
             if (ev.getAction() != KeyEvent.ACTION_DOWN) return false;
-            if (code == KeyEvent.KEYCODE_DPAD_RIGHT) { toggleFav(k); return true; }
-            if (code == KeyEvent.KEYCODE_MENU) { remind(k, next); return true; }
+            if (code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                toggleFav(k);
+                refreshRow(k, next);
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_MENU) {
+                remind(k, next);
+                refreshRow(k, next);
+                return true;
+            }
             return false;
         });
         return r;
@@ -994,7 +1009,6 @@ public class LiveTv extends Activity {
         if (next == null) { Toast.makeText(this, I18n.get(lang, "tv.live_no_next", e.getName()), Toast.LENGTH_SHORT).show(); return; }
         boolean on = Reminder.toggle(this, e.getChannel().getUrl(), e.getName(), next.getTitle(), next.getStart().toEpochMilli());
         Toast.makeText(this, I18n.get(lang, on ? "tv.live_reminded" : "tv.live_remind_removed", next.getTitle()), Toast.LENGTH_SHORT).show();
-        refreshRow(k);
     }
 
     void toggleFav(int k) {
@@ -1005,7 +1019,6 @@ public class LiveTv extends Activity {
         prefs.edit().putStringSet("fav", f).apply();
         TvViewer.favoritesChanged(this, f);
         Toast.makeText(this, I18n.get(lang, add ? "tv.live_fav_added" : "tv.live_fav_removed", list.get(k).getName()), Toast.LENGTH_SHORT).show();
-        refreshRow(k);
     }
 
     void openGuide() {

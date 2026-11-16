@@ -106,6 +106,28 @@
       </div>
       <div class="row">
         <div>
+          <label for="wallSource">Sumber foto gratis</label>
+          <select id="wallSource">
+            <option value="auto">Otomatis</option>
+            <option value="wikimedia">Wikimedia POTD (tanpa key)</option>
+            <option value="unsplash">Unsplash</option>
+            <option value="pexels">Pexels</option>
+            <option value="gradient">Gradien saja</option>
+          </select>
+        </div>
+        <div>
+          <label for="wallTheme">Tema wallpaper</label>
+          <select id="wallTheme">
+            <option value="nature">Alam</option>
+            <option value="city">Kota &amp; Malam</option>
+            <option value="indonesia">Indonesia</option>
+            <option value="night">Minimalis Gelap</option>
+            <option value="kids_safe">Aman Anak</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
           <label for="subSize">Ukuran subtitle</label>
           <select id="subSize">
             <option value="normal">Normal</option>
@@ -178,6 +200,10 @@
       <input id="geminiKey" type="password" placeholder="Tulis untuk mengubah / menambah">
       <label for="ytKey">YouTube Data API Key <span id="bYt" class="badge hidden">Terpasang</span></label>
       <input id="ytKey" type="password" placeholder="Tulis untuk mengubah / menambah">
+      <label for="unsplashKey">Unsplash Access Key <span id="bUnsplash" class="badge hidden">Terpasang</span></label>
+      <input id="unsplashKey" type="password" placeholder="Tulis untuk mengubah / menambah">
+      <label for="pexelsKey">Pexels API Key <span id="bPexels" class="badge hidden">Terpasang</span></label>
+      <input id="pexelsKey" type="password" placeholder="Tulis untuk mengubah / menambah">
     </section>
 
     <button id="saveBtn" type="submit" class="primary">Terapkan Setelan ke TV</button>
@@ -241,6 +267,8 @@
     $('tvName').value = s.tvName || 'Tahoe TV';
     $('simpleMode').checked = !!s.simpleMode;
     $('wallMode').value = s.wallMode || 'personal';
+    $('wallSource').value = s.wallSource || 'auto';
+    $('wallTheme').value = s.wallTheme || 'nature';
     $('dockSlots').value = s.dockSlots || 6;
     $('subSize').value = s.subtitleSize || 'normal';
     $('perfTier').value = s.performanceTier || 'auto';
@@ -256,6 +284,8 @@
     $('epgUrl').value = s.epgUrl || '';
     if (s.hasGeminiKey) $('bGemini').classList.remove('hidden');
     if (s.hasYoutubeKey) $('bYt').classList.remove('hidden');
+    if (s.hasUnsplashKey) $('bUnsplash').classList.remove('hidden');
+    if (s.hasPexelsKey) $('bPexels').classList.remove('hidden');
     appsState = (s.allApps || []).map(a => ({ ...a }));
     renderApps();
     return true;
@@ -306,6 +336,8 @@
         language: $('lang').value,
         simpleMode: $('simpleMode').checked,
         wallMode: $('wallMode').value,
+        wallSource: $('wallSource').value,
+        wallTheme: $('wallTheme').value,
         dockSlots: Number($('dockSlots').value) || 6,
         dockPackages: appsState.filter(a => a.dock).map(a => a.pkg),
         subtitleSize: $('subSize').value,
@@ -318,6 +350,8 @@
       };
       if ($('geminiKey').value.trim()) patch.geminiKey = $('geminiKey').value.trim();
       if ($('ytKey').value.trim()) patch.youtubeKey = $('ytKey').value.trim();
+      if ($('unsplashKey').value.trim()) patch.unsplashKey = $('unsplashKey').value.trim();
+      if ($('pexelsKey').value.trim()) patch.pexelsKey = $('pexelsKey').value.trim();
 
       const country = $('country').value;
       const viewerPatch = {

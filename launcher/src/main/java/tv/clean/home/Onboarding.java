@@ -125,7 +125,7 @@ public class Onboarding extends Activity {
         if (c == null) return;
         String url = c.setupUrl();
         String code = c.code();
-        android.graphics.Bitmap bm = Sheets.Pair.qr(url, dp(260));
+        android.graphics.Bitmap bm = ConnectSheets.Pair.qr(url, dp(260));
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -155,6 +155,9 @@ public class Onboarding extends Activity {
         render();
     }
 
+    final Runnable pendingRender = this::render;
+    void postRender() { ui.removeCallbacks(pendingRender); ui.post(pendingRender); }
+
     // ------------------------------------------------------------------ rendering
 
     void render() {
@@ -165,7 +168,7 @@ public class Onboarding extends Activity {
         title.setText(t(ts[0])); sub.setText(t(ts[1]));
         switch (step) {
             case LANGUAGE:
-                for (String l : Region.INSTANCE.getLANGUAGES()) row(OnboardingText.INSTANCE.getLANGUAGE_NAMES().get(l), null, l.equals(language), () -> { language = l; render(); });
+                for (String l : Region.INSTANCE.getLANGUAGES()) row(OnboardingText.INSTANCE.getLANGUAGE_NAMES().get(l), null, l.equals(language), () -> { language = l; postRender(); });
                 row(tech.kousozo.tahoetv.core.I18n.get(language, "qr.setup_web_btn"), "📱", false, this::showSetupQr);
                 if (!TvViewer.done(this)) note("📱 " + phoneHint());
                 break;
@@ -173,12 +176,12 @@ public class Onboarding extends Activity {
             case CITY: cityStep(); break;
             case TIMEZONE: zoneStep(); break;
             case PRAYER:
-                row(t("prayer.on") + (prayer ? "  ●" : "  ○"), null, prayer, () -> { prayer = !prayer; render(); });
+                row(t("prayer.on") + (prayer ? "  ●" : "  ○"), null, prayer, () -> { prayer = !prayer; postRender(); });
                 if (prayer && lat == null) note(t("prayer.needcity"));
                 if (prayer) {
                     note(t("prayer.method"));
                     for (tech.kousozo.tahoetv.core.Prayer.Method m : tech.kousozo.tahoetv.core.Prayer.INSTANCE.getMETHODS())
-                        row(m.getName(), null, m.getId() == method, () -> { method = m.getId(); render(); });
+                        row(m.getName(), null, m.getId() == method, () -> { method = m.getId(); postRender(); });
                 }
                 break;
             case COUNTRIES: countryList(true); break;
@@ -187,7 +190,7 @@ public class Onboarding extends Activity {
                     if (cat == LocalTv.Category.Other) continue;
                     if ((cat == LocalTv.Category.Tvri || cat == LocalTv.Category.Near) && !countries.contains(Region.HOME)) continue;
                     boolean on = categories.contains(cat.name());
-                    row(OnboardingText.INSTANCE.category(language, cat), null, on, () -> { if (!categories.remove(cat.name())) categories.add(cat.name()); render(); });
+                    row(OnboardingText.INSTANCE.category(language, cat), null, on, () -> { if (!categories.remove(cat.name())) categories.add(cat.name()); postRender(); });
                 }
                 break;
             case FAVORITES: favoritesStep(); break;
@@ -273,7 +276,7 @@ public class Onboarding extends Activity {
 
     void cityStep() {
         if (lat != null) row("📍  " + city + ", " + Region.name(country, language) + "   ✕", null, true, () -> {
-            city = ""; lat = null; lon = null; region = ""; timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(country); render(); // OK again clears it
+            city = ""; lat = null; lon = null; region = ""; timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(country); postRender(); // OK again clears it
         });
         else {
             note(t("city.none"));
@@ -281,7 +284,7 @@ public class Onboarding extends Activity {
                 row("📍  " + s.label(), null, false, () -> {
                     city = s.getCity(); lat = s.getLat(); lon = s.getLon(); region = s.getRegion();
                     timeZone = s.getZoneId();
-                    render();
+                    postRender();
                 });
             }
         }
@@ -299,7 +302,7 @@ public class Onboarding extends Activity {
                     for (Web.City c : found) row("📍  " + c.getLabel(), null, false, () -> {
                         city = c.getName(); lat = c.getLat(); lon = c.getLon(); region = c.getRegion();
                         if (!c.getTimeZone().isEmpty()) timeZone = c.getTimeZone();
-                        render();
+                        postRender();
                     });
                 });
             });
@@ -311,9 +314,9 @@ public class Onboarding extends Activity {
         String defZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(country);
         String device = java.util.TimeZone.getDefault().getID();
         String picked = timeZone.isEmpty() ? defZone : timeZone;
-        row("📺  " + defZone.replace('_', ' ') + "  " + offset(defZone), null, picked.equals(defZone), () -> { timeZone = defZone; render(); });
+        row("📺  " + defZone.replace('_', ' ') + "  " + offset(defZone), null, picked.equals(defZone), () -> { timeZone = defZone; postRender(); });
         if (!device.equals(defZone)) {
-            row("📺  " + t("tz.device").replace("%s", device), null, timeZone.equals(device), () -> { timeZone = device; render(); });
+            row("📺  " + t("tz.device").replace("%s", device), null, timeZone.equals(device), () -> { timeZone = device; postRender(); });
         }
         if (!timeZone.isEmpty() && !timeZone.equals(defZone) && !timeZone.equals(device)) {
             row(timeZone.replace('_', ' ') + "  " + offset(timeZone), null, true, () -> {});
@@ -328,7 +331,7 @@ public class Onboarding extends Activity {
             zones.add(0, "UTC");
             for (String z : zones) {
                 if ((!z.contains("/") && !z.equals("UTC")) || z.startsWith("Etc/") || z.startsWith("SystemV/") || !z.toLowerCase(Locale.ROOT).contains(qq)) continue;
-                row(z.replace('_', ' ') + "  " + offset(z), null, z.equals(picked), () -> { timeZone = z; render(); });
+                row(z.replace('_', ' ') + "  " + offset(z), null, z.equals(picked), () -> { timeZone = z; postRender(); });
                 if (++n >= 40) break;
             }
         }, false);
@@ -357,7 +360,7 @@ public class Onboarding extends Activity {
                     l = LocalTv.INSTANCE.arrange(loaded, v.getNearRegion(), v.getCountries(), v.getSort(), v.getCity(), v.getCountry());
                 } catch (Exception e) { l = null; }
                 List<LocalTv.Entry> got = l;
-                ui.post(() -> { catalog = got; catalogFor = key; if (step == Step.FAVORITES) render(); });
+                ui.post(() -> { catalog = got; catalogFor = key; if (step == Step.FAVORITES) postRender(); });
             });
             return;
         }
@@ -394,12 +397,12 @@ public class Onboarding extends Activity {
             final int at = i;
             String url = favorites.get(i);
             String name = names.containsKey(url) ? names.get(url) : url.substring(url.lastIndexOf('/') + 1);
-            TextView r = row((i + 1) + ".  " + name + (moving == i ? "   ▲▼" : ""), null, moving == i, () -> { moving = moving == at ? -1 : at; render(); });
+            TextView r = row((i + 1) + ".  " + name + (moving == i ? "   ▲▼" : ""), null, moving == i, () -> { moving = moving == at ? -1 : at; postRender(); });
             r.setOnKeyListener((v, code, ev) -> {
                 if (moving != at || ev.getAction() != KeyEvent.ACTION_DOWN) return false;
                 int to = code == KeyEvent.KEYCODE_DPAD_UP ? at - 1 : code == KeyEvent.KEYCODE_DPAD_DOWN ? at + 1 : -2;
                 if (to == -2 || to < 0 || to >= favorites.size()) return to != -2; // swallow moves past the ends
-                favorites.add(to, favorites.remove(at)); moving = to; render();
+                favorites.add(to, favorites.remove(at)); moving = to; postRender();
                 return true;
             });
         }

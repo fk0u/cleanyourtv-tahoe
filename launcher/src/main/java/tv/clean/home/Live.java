@@ -17,8 +17,10 @@ import android.widget.Toast;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import tech.kousozo.tahoetv.core.Epg;
 import tech.kousozo.tahoetv.core.I18n;
 import tech.kousozo.tahoetv.core.OnboardingText;
@@ -228,6 +230,11 @@ public class Live extends Activity {
         if (!subLoaded) { subLoaded = true; sub.setText(subtitle(Cfg.p(this).getString("province", ""))); }
     }
 
+    void selectCategory(LocalTv.Category next) {
+        cat = next;
+        filterCat();
+    }
+
     void filterCat() {
         list = new ArrayList<>();
         for (LocalTv.Entry e : all) if (cat == null || LocalTv.INSTANCE.inCategory(e, cat)) list.add(e);
@@ -249,20 +256,24 @@ public class Live extends Activity {
     void buildCats() {
         cats.removeAllViews();
         String lang = TvViewer.get(this).getLanguage();
-        addCat(null, I18n.get(lang, "tv.guide_all"));
-        for (LocalTv.Category c : LocalTv.Category.values())
-            for (LocalTv.Entry e : all) if (LocalTv.INSTANCE.inCategory(e, c)) { addCat(c, OnboardingText.INSTANCE.category(lang, c)); break; }
-    }
-
-    void addCat(LocalTv.Category c, String label) {
-        TextView t = row(label, Ui.BODY, 500);
-        t.setTextColor(c == cat ? Ui.ACCENT : Ui.TEXT);
-        t.setOnFocusChangeListener((v, f) -> v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null));
-        t.setOnClickListener(v -> {
-            cat = c;
-            filterCat();
-        });
-        cats.addView(t);
+        List<Map.Entry<LocalTv.Category, String>> items = new ArrayList<>();
+        items.add(new AbstractMap.SimpleEntry<>(null, I18n.get(lang, "tv.guide_all")));
+        for (LocalTv.Category c : LocalTv.Category.values()) {
+            for (LocalTv.Entry e : all) {
+                if (LocalTv.INSTANCE.inCategory(e, c)) {
+                    items.add(new AbstractMap.SimpleEntry<>(c, OnboardingText.INSTANCE.category(lang, c)));
+                    break;
+                }
+            }
+        }
+        for (Map.Entry<LocalTv.Category, String> item : items) {
+            final LocalTv.Category target = item.getKey();
+            TextView t = row(item.getValue(), Ui.BODY, 500);
+            t.setTextColor(target == cat ? Ui.ACCENT : Ui.TEXT);
+            t.setOnFocusChangeListener((v, f) -> v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null));
+            t.setOnClickListener(v -> selectCategory(target));
+            cats.addView(t);
+        }
     }
 
     void buildRows() {

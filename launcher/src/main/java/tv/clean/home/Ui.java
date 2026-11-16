@@ -132,4 +132,21 @@ final class Ui {
         bm.recycle();
         return n == 0 ? 0xFF2C2C2E : Color.rgb((int) (r / n), (int) (g / n), (int) (b / n));
     }
+
+    /** Binds a channel logo (cached via [Logos]) onto an ImageView with fallback initials. */
+    static void bindLogo(String url, android.widget.ImageView iv, TextView fallback, String name) {
+        String init = name == null ? "" : (name.length() > 3 ? name.substring(0, 3) : name).toUpperCase(java.util.Locale.ROOT);
+        fallback.setText(init);
+        iv.setTag(url);
+        Bitmap hit = Logos.cached(url);
+        iv.setImageBitmap(hit);
+        fallback.setVisibility(hit == null ? View.VISIBLE : View.INVISIBLE);
+        if (url == null || hit != null) return;
+        Logos.fetchAsync(url, b -> {
+            if (url.equals(iv.getTag())) {
+                iv.setImageBitmap(b);
+                fallback.setVisibility(View.INVISIBLE);
+            }
+        });
+    }
 }

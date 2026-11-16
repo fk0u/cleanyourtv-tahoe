@@ -53,7 +53,7 @@ final class Loader extends LinearLayout {
 
     /** Logo + name of the channel being loaded. */
     void channel(String logoUrl, String channelName) {
-        Logos.into(logoUrl, logo, logoText, channelName);
+        Ui.bindLogo(logoUrl, logo, logoText, channelName);
         name.setText(channelName);
     }
 
