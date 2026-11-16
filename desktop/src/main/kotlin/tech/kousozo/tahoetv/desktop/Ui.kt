@@ -30,22 +30,38 @@ import kotlinx.coroutines.withContext
 
 /** Same palette as the TV launcher and the phone app. */
 /** Colours come from core [Brand] (the one source shared with the TV launcher and desktop); see docs/brand/BRAND.md. */
+/** Appearance preferences (#41). Default DARK keeps the classic look; SYSTEM follows the OS. Read in composition,
+ *  so changing them recomposes everything that uses [Tahoe]. */
+object ThemePrefs {
+    var mode by androidx.compose.runtime.mutableStateOf(tech.kousozo.tahoetv.core.Theme.Mode.DARK)
+    var highContrast by androidx.compose.runtime.mutableStateOf(false)
+    var reduceMotion by androidx.compose.runtime.mutableStateOf(false)
+    /** Resolved by [TahoeTheme] from [mode] and the system setting. */
+    internal var systemDark by androidx.compose.runtime.mutableStateOf(true)
+    val dark get() = tech.kousozo.tahoetv.core.Theme.isDark(mode, systemDark)
+    val palette get() = tech.kousozo.tahoetv.core.Theme.palette(dark, highContrast, Brand.CANVAS, Brand.SURFACE)
+}
+
 object Tahoe {
-    val Bg = Color(Brand.CANVAS)
-    val Surface = Color(Brand.SURFACE)
-    val Text = Color(Brand.SNOW)
-    val Dim = Color(Brand.TEXT_2)
-    val Faint = Color(Brand.TEXT_3)
-    val Glass = Color(Brand.GLASS)
-    val Stroke = Color(Brand.STROKE)
-    val Accent = Color(Brand.CYAN)
-    val OnAccent = Color(Brand.ON_CYAN)
+    private val p get() = ThemePrefs.palette
+    val Bg get() = Color(p.bg)
+    val Surface get() = Color(p.surface)
+    val Text get() = Color(p.text)
+    val Dim get() = Color(p.dim)
+    val Faint get() = Color(p.faint)
+    val Glass get() = Color(p.glass)
+    val Stroke get() = Color(p.stroke)
+    val Accent get() = Color(p.accent)
+    val OnAccent get() = Color(p.onAccent)
     val Lake = Color(Brand.LAKE)
     val Good = Color(Brand.PINE)
     val Bad = Color(Brand.LIVE)
-    val Card = Color(Brand.SURFACE)
-    val CardHi = Color(Brand.SURFACE_HI)
-    val GlassBorder = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.26f), Color.White.copy(alpha = 0.05f)))
+    val Card get() = Color(p.surface)
+    val CardHi get() = Color(p.surfaceHi)
+    val GlassBorder get() = if (ThemePrefs.dark) Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.26f), Color.White.copy(alpha = 0.05f)))
+        else Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.16f), Color.Black.copy(alpha = 0.04f)))
+    /** Video stages stay night-dark in every theme. */
+    val Stage = Color(Brand.NIGHT)
 }
 
 /** Outfit (variable, OFL), the brand typeface, from resources/font. */
@@ -85,14 +101,21 @@ fun BrandTile(size: Dp, modifier: Modifier = Modifier) = Box(
 ) { BrandMark(size * 0.62f, tint = Color.White, light = Color(Brand.CYAN_LIGHT)) }
 
 @Composable
-fun TahoeTheme(content: @Composable () -> Unit) = MaterialTheme(
-    colorScheme = darkColorScheme(
+fun TahoeTheme(content: @Composable () -> Unit) {
+    ThemePrefs.systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    TahoeThemeInner(content)
+}
+
+@Composable
+private fun TahoeThemeInner(content: @Composable () -> Unit) = MaterialTheme(
+    colorScheme = (if (ThemePrefs.dark) darkColorScheme() else androidx.compose.material3.lightColorScheme()).copy(
         primary = Tahoe.Text, onPrimary = Color(Brand.CANVAS), background = Tahoe.Bg, surface = Tahoe.Surface,
         onBackground = Tahoe.Text, onSurface = Tahoe.Text, surfaceVariant = Tahoe.Glass, onSurfaceVariant = Tahoe.Dim,
         secondary = Tahoe.Accent, onSecondary = Tahoe.OnAccent, tertiary = Tahoe.Lake, outline = Tahoe.Stroke, error = Tahoe.Bad,
     ),
     typography = Typography().withFont(Outfit),
-    content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = Outfit), content = content) }, // text is light everywhere, not only inside Surfaces
+    content = { CompositionLocalProvider(LocalContentColor provides Tahoe.Text, LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = Outfit),
+        androidx.compose.ui.platform.LocalLayoutDirection provides layoutDirection(), content = content) }, // text is light everywhere, not only inside Surfaces
 )
 
 /** Charcoal canvas with a soft brand-accent light from the top-left corner (no moving blobs: calmer for a dashboard). */
@@ -207,3 +230,15 @@ fun rememberImage(url: String?): ImageBitmap? {
     LaunchedEffect(url) { if (url != null) img = Images.load(url) }
     return img
 }
+
+/** RTL for Arabic & co. (#71), from the app language. */
+@Composable
+fun layoutDirection(): androidx.compose.ui.unit.LayoutDirection =
+    if (tech.kousozo.tahoetv.core.Region.isRtl(appLanguage())) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr
+
+/** Video, seek bars and transport controls never mirror: time runs left→right in every language. */
+@Composable
+fun KeepLtr(content: @Composable () -> Unit) =
+    CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr, content = content)
+
+internal fun appLanguage(): String = Settings.viewer.language

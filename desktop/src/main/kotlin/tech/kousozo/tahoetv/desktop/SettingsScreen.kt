@@ -88,6 +88,30 @@ fun SettingsScreen() {
             GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.change"), Icons.Rounded.Public) { PlayerWindow.stop(); DeskNav.regionSetup = true } // the old country's channel stops
         }
 
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.channel_languages"), color = Tahoe.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.channel_languages_sub"), color = Tahoe.Faint, fontSize = 12.sp)
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            tech.kousozo.tahoetv.core.Region.channelLanguages().forEach { l ->
+                val on = l in Settings.viewer.channelLanguages
+                Choice(java.util.Locale.forLanguageTag(l).getDisplayLanguage(java.util.Locale.forLanguageTag(l)).ifBlank { l }, on) {
+                    val v = Settings.viewer
+                    Settings.viewer = v.copy(channelLanguages = if (on) v.channelLanguages - l else v.channelLanguages + l)
+                }
+            }
+        }
+
+        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.appearance"))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(tech.kousozo.tahoetv.core.Theme.Mode.SYSTEM to "ui.theme_system", tech.kousozo.tahoetv.core.Theme.Mode.DARK to "ui.theme_dark",
+                tech.kousozo.tahoetv.core.Theme.Mode.LIGHT to "ui.theme_light").forEach { (m, k) ->
+                Choice(tech.kousozo.tahoetv.core.I18n.get(lang, k), Settings.themeMode == m) { Settings.themeMode = m }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Choice(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.high_contrast"), Settings.highContrast) { Settings.highContrast = !Settings.highContrast }
+            Choice(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.reduce_motion"), Settings.reduceMotion) { Settings.reduceMotion = !Settings.reduceMotion }
+        }
+
         Section(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.updates_section"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.check_updates"), Icons.Rounded.SystemUpdate) {
@@ -153,6 +177,30 @@ fun SettingsScreen() {
                 }
             }
         }
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.channel_languages"), color = Tahoe.Text, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.channel_languages_sub"), color = Tahoe.Faint, fontSize = 12.sp)
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            tech.kousozo.tahoetv.core.Region.channelLanguages().forEach { l ->
+                val on = l in Settings.viewer.channelLanguages
+                Choice(java.util.Locale.forLanguageTag(l).getDisplayLanguage(java.util.Locale.forLanguageTag(l)).ifBlank { l }, on) {
+                    val v = Settings.viewer
+                    Settings.viewer = v.copy(channelLanguages = if (on) v.channelLanguages - l else v.channelLanguages + l)
+                }
+            }
+        }
+
+        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.appearance"))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(tech.kousozo.tahoetv.core.Theme.Mode.SYSTEM to "ui.theme_system", tech.kousozo.tahoetv.core.Theme.Mode.DARK to "ui.theme_dark",
+                tech.kousozo.tahoetv.core.Theme.Mode.LIGHT to "ui.theme_light").forEach { (m, k) ->
+                Choice(tech.kousozo.tahoetv.core.I18n.get(lang, k), Settings.themeMode == m) { Settings.themeMode = m }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Choice(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.high_contrast"), Settings.highContrast) { Settings.highContrast = !Settings.highContrast }
+            Choice(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.reduce_motion"), Settings.reduceMotion) { Settings.reduceMotion = !Settings.reduceMotion }
+        }
+
         Section(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.updates_section"))
         AboutUpdates()
         Section("Bantuan")

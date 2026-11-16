@@ -91,6 +91,7 @@ private fun runHeadlessRecorder() {
 }
 
 private fun app() = application {
+    remember { Settings.applyAppearance() }
     LaunchedEffect(Unit) {
         Recordings.boot() // scheduled recordings start on time while the app is open
         DesktopPush.start()

@@ -123,7 +123,7 @@ fun LiveScreen() {
         withContext(Dispatchers.IO) {
             runCatching { java.io.File(System.getProperty("user.home"), ".tahoetv").also { it.mkdirs() }.let { SourceHealth.init(java.io.File(it, "source-health.tsv")) } }
             runCatching {
-                Sources.loadCountriesPriority(playlist, countries) { priority ->
+                Sources.loadChannels(playlist, countries, Settings.viewer.channelLanguages) { priority ->
                     if (priority.isNotEmpty()) scope.launch { channels = priority }
                 }
             }

@@ -18,6 +18,18 @@ object Settings {
     private fun pref(key: String, default: String = "") = prefs.getOrPut(key) { Pref(key, default) }
     private var demoViewer = mutableStateOf<tech.kousozo.tahoetv.core.Viewer?>(null)
 
+    /** Appearance (#41): stored here, mirrored into [ThemePrefs]. */
+    var themeMode: tech.kousozo.tahoetv.core.Theme.Mode
+        get() = tech.kousozo.tahoetv.core.Theme.Mode.of(pref("theme", "DARK").state.value)
+        set(v) { pref("theme", "DARK").set(v.name); ThemePrefs.mode = v }
+    var highContrast: Boolean
+        get() = pref("high_contrast", "false").state.value == "true"
+        set(v) { pref("high_contrast", "false").set(v.toString()); ThemePrefs.highContrast = v }
+    var reduceMotion: Boolean
+        get() = pref("reduce_motion", "false").state.value == "true"
+        set(v) { pref("reduce_motion", "false").set(v.toString()); ThemePrefs.reduceMotion = v }
+    fun applyAppearance() { ThemePrefs.mode = themeMode; ThemePrefs.highContrast = highContrast; ThemePrefs.reduceMotion = reduceMotion }
+
     var name
         get() = if (tech.kousozo.tahoetv.core.Demo.isActive()) tech.kousozo.tahoetv.core.Demo.profileName(viewer.language) else pref("name").state.value
         set(v) { if (!tech.kousozo.tahoetv.core.Demo.isActive()) pref("name").set(v) }
