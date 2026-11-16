@@ -114,7 +114,27 @@ fun HomeScreen(onLive: () -> Unit) {
             }
         }
 
-        // row 3: continue watching + recap + featured channels | assistant
+        // row 3: trending strip ("Sedang ramai", #49) + continue watching + recap + featured channels | assistant
+        if (heroes.isNotEmpty()) {
+            Glass(Modifier.fillMaxWidth(), radius = 22, padding = 16) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.trending_now"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    heroes.take(8).forEach { hItem ->
+                        Column(
+                            Modifier.width(210.dp).clip(RoundedCornerShape(14.dp)).background(Tahoe.CardHi)
+                                .clickable { browse(hItem.url) }.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(hItem.source, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Tahoe.Accent)
+                            Text(hItem.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(hItem.sub, fontSize = 11.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        }
+
         val recent = Settings.recentChannels
         if (recent.isNotEmpty()) {
             Glass(Modifier.fillMaxWidth(), radius = 22, padding = 16) {

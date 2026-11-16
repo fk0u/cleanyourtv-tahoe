@@ -9,7 +9,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -197,11 +200,20 @@ fun LiveScreen() {
     }
 
     var selected by remember { mutableStateOf<LocalTv.Entry?>(null) }   // focused card → detail panel
+    var hoveredLive by remember { mutableStateOf<LocalTv.Entry?>(null) } // hover preview on verified LIVE channels (#49)
     var status by remember { mutableStateOf<String?>(null) }
     var viewMode by remember { mutableStateOf(0) } // 0 = List, 1 = Grid, 2 = EPG Timeline
     val searchFocus = remember { FocusRequester() }
     var searchFocused by remember { mutableStateOf(false) }
     val list by rememberUpdatedState(shown)   // channel up/down follows what's on screen
+    LaunchedEffect(shown, epg) {
+        if (playing != null) {
+            PlayerWindow.setChannelCatalog(shown.map { en ->
+                val curShow = epg?.schedule(en.name, tick)?.firstOrNull { p -> p.start <= tick }?.title.orEmpty()
+                en.name to curShow
+            })
+        }
+    }
     LaunchedEffect(playing) {
         playing?.let { ch ->
             val e = byUrl[ch.url]
@@ -402,8 +414,15 @@ fun LiveScreen() {
                     val on = ch == playing
                     val prog = epg?.schedule(e.name, tick)?.firstOrNull()?.takeIf { it.start <= tick }
                     val live = isChannelLive(e)
+                    val hoverSrc = remember(ch.url) { MutableInteractionSource() }
+                    val hovered by hoverSrc.collectIsHoveredAsState()
+                    LaunchedEffect(hovered, live) {
+                        if (hovered && live == true) hoveredLive = e
+                        else if (!hovered && hoveredLive == e) hoveredLive = null
+                    }
                     Column(
                         Modifier.clip(RoundedCornerShape(18.dp))
+                            .hoverable(hoverSrc)
                             .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
                             .border(1.dp, if (focused) Color.White.copy(alpha = 0.35f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
                             .clickable { watch(e) }.padding(12.dp),
@@ -451,9 +470,16 @@ fun LiveScreen() {
                 val scale by animateFloatAsState(if (focused) 1.02f else 1f, label = "card")
                 val prog = epg?.schedule(e.name, tick)?.firstOrNull()?.takeIf { it.start <= tick }
                 val live = isChannelLive(e)
+                val hoverSrc = remember(ch.url) { MutableInteractionSource() }
+                val hovered by hoverSrc.collectIsHoveredAsState()
+                LaunchedEffect(hovered, live) {
+                    if (hovered && live == true) hoveredLive = e
+                    else if (!hovered && hoveredLive == e) hoveredLive = null
+                }
 
                 Row(
                     Modifier.fillMaxWidth().scale(scale).alpha(if (on || live != false) 1f else 0.5f).clip(RoundedCornerShape(18.dp))
+                        .hoverable(hoverSrc)
                         .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
                         .border(1.dp, if (focused) Color.White.copy(alpha = 0.35f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
                         .clickable { if (focused || playing != null) watch(e) else selected = e }.padding(12.dp), // with a player open, one click switches channel
@@ -499,8 +525,8 @@ fun LiveScreen() {
         }
         }
 
-        // ---------------------------------------------------------------- detail panel (now playing on the focused channel)
-        val curSelected = selected ?: shown.firstOrNull()
+        // ---------------------------------------------------------------- detail panel (now playing on hovered live card or focused channel)
+        val curSelected = hoveredLive ?: selected ?: shown.firstOrNull()
         Detail(
             curSelected,
             epg,
@@ -508,6 +534,7 @@ fun LiveScreen() {
             playingUrl = playing?.url,
             status = status,
             isLive = curSelected?.let { isChannelLive(it) },
+            isHoverPreview = hoveredLive != null,
             onWatch = ::watch,
             onStop = { PlayerWindow.stop(); playing = null },
             onRecord = { e, title, start, stop -> Recordings.schedule(e.name, title, listOf(e.channel) + e.alternates, start, stop) }
@@ -524,6 +551,7 @@ private fun Detail(
     playingUrl: String?,
     status: String?,
     isLive: Boolean?,
+    isHoverPreview: Boolean = false,
     onWatch: (LocalTv.Entry) -> Unit,
     onStop: () -> Unit,
     onRecord: (LocalTv.Entry, String, Long, Long) -> Unit,
@@ -543,9 +571,10 @@ private fun Detail(
         val logo = rememberImage(logoUrl)
         val thumb = rememberImage(thumbUrl)
         val backdrop = thumb ?: logo
-        if (backdrop != null) Image(backdrop, null, Modifier.fillMaxWidth().height(260.dp).blur(if (thumb != null) 14.dp else 28.dp).alpha(0.55f), contentScale = ContentScale.Crop)
+        if (backdrop != null) Image(backdrop, null, Modifier.fillMaxWidth().height(260.dp).blur(if (thumb != null && !isHoverPreview) 14.dp else if (thumb != null) 4.dp else 28.dp).alpha(if (thumb != null && isHoverPreview) 0.72f else 0.55f), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.25f to Color(0x66111118), 0.45f to Color(0xFF111118))))
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (isHoverPreview) Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.live_preview"), Tahoe.Accent, filled = true)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(120.dp, 76.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.94f)), contentAlignment = Alignment.Center) {
                     if (logo != null) Image(logo, null, Modifier.padding(10.dp).fillMaxSize(), contentScale = ContentScale.Fit)

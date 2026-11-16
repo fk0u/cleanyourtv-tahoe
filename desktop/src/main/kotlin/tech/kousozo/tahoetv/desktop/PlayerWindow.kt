@@ -184,10 +184,15 @@ object PlayerWindow {
 
     private lateinit var fullBtn: Button
     private lateinit var miniBtn: Button
+    private lateinit var muteBtn: Button
+    private lateinit var drawerBtn: Button
+    private lateinit var drawerBox: VBox
+    private lateinit var drawerList: javafx.scene.control.ListView<String>
     private lateinit var digitBadge: Label
     private lateinit var bar: BorderPane
     private lateinit var hint: Label
     private lateinit var nextBtn: Button
+    private var catalogEntries: List<Pair<String, String>> = emptyList() // (channelName, showTitle)
     private var onSwitch: (Int) -> Unit = {}
     private var onJump: (Int) -> Unit = {}
     private var onStatus: (String?) -> Unit = {}
@@ -224,6 +229,9 @@ object PlayerWindow {
             st.x = vb.maxX - 424.0
             st.y = vb.maxY - 272.0
             if (::miniBtn.isInitialized) miniBtn.text = "❐"
+            if (::drawerBox.isInitialized) { drawerBox.isVisible = false; drawerBox.isManaged = false }
+            if (::drawerBtn.isInitialized) { drawerBtn.isVisible = false; drawerBtn.isManaged = false }
+            if (::muteBtn.isInitialized) { muteBtn.isVisible = false; muteBtn.isManaged = false }
             if (::elapsedLabel.isInitialized) { elapsedLabel.isVisible = false; elapsedLabel.isManaged = false }
             if (::timeLabel.isInitialized) { timeLabel.isVisible = false; timeLabel.isManaged = false }
             if (::flagBtn.isInitialized) { flagBtn.isVisible = false; flagBtn.isManaged = false }
@@ -236,6 +244,8 @@ object PlayerWindow {
             if (!savedBounds[2].isNaN()) st.x = savedBounds[2]
             if (!savedBounds[3].isNaN()) st.y = savedBounds[3]
             if (::miniBtn.isInitialized) miniBtn.text = "❐ Mini"
+            if (::drawerBtn.isInitialized) { drawerBtn.isVisible = true; drawerBtn.isManaged = true }
+            if (::muteBtn.isInitialized) { muteBtn.isVisible = true; muteBtn.isManaged = true }
             if (::elapsedLabel.isInitialized) { elapsedLabel.isVisible = true; elapsedLabel.isManaged = true }
             if (::timeLabel.isInitialized) { timeLabel.isVisible = true; timeLabel.isManaged = true }
             if (::flagBtn.isInitialized) { flagBtn.isVisible = true; flagBtn.isManaged = true }
@@ -243,6 +253,41 @@ object PlayerWindow {
             if (::hint.isInitialized) { hint.isVisible = true; hint.isManaged = true }
         }
         reveal()
+    }
+
+    fun setChannelCatalog(items: List<Pair<String, String>>) = fx {
+        catalogEntries = items
+        if (::drawerList.isInitialized) {
+            drawerList.items.setAll(items.mapIndexed { idx, (chName, show) ->
+                val num = "%03d".format(idx + 1)
+                if (show.isNotBlank()) "$num · $chName — $show" else "$num · $chName"
+            })
+        }
+    }
+
+    private fun toggleDrawer(force: Boolean? = null) {
+        if (!::drawerBox.isInitialized || miniMode) return
+        val show = force ?: !drawerBox.isVisible
+        drawerBox.isVisible = show
+        drawerBox.isManaged = show
+        if (show) {
+            if (::statsCard.isInitialized && statsCard.isVisible) {
+                statsCard.isVisible = false; statsCard.isManaged = false
+            }
+            if (::drawerList.isInitialized && catalogEntries.isNotEmpty()) {
+                drawerList.items.setAll(catalogEntries.mapIndexed { idx, (chName, showTitle) ->
+                    val num = "%03d".format(idx + 1)
+                    if (showTitle.isNotBlank()) "$num · $chName — $showTitle" else "$num · $chName"
+                })
+            }
+        }
+    }
+
+    private fun toggleMute() {
+        player?.let { p ->
+            p.isMute = !p.isMute
+            if (::muteBtn.isInitialized) muteBtn.text = if (p.isMute) "🔇" else "🔊"
+        }
     }
 
     private fun pushDigit(d: Int) {
@@ -575,14 +620,44 @@ object PlayerWindow {
         miniBtn = button("❐ Mini") { toggleMiniPlayer() }.apply {
             accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "desk.mini_player")
         }
+        drawerBtn = button("☰") { toggleDrawer() }.apply {
+            accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "desk.channel_drawer")
+        }
+        muteBtn = button("🔊") { toggleMute() }.apply {
+            accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "desk.mute_toggle")
+        }
         fullBtn = button("⤢  Layar penuh") { toggleFull() }.apply { accessibleText = "Alihkan layar penuh" }
         pauseBtn = button("⏸") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }.apply { accessibleText = "Jeda atau putar" }
         val prevTopBtn = button("⏮") { onSwitch(-1) }.apply { accessibleText = "Saluran sebelumnya" }
         val nextTopBtn = button("⏭") { onSwitch(1) }.apply { accessibleText = "Saluran berikutnya" }
         val closeTopBtn = button("✕") { st.close() }.apply { accessibleText = "Tutup pemutar" }
         val left = VBox(4.0, HBox(8.0, liveBadge).apply { alignment = Pos.CENTER_LEFT }, showLabel, titleLabel, elapsedLabel).apply { alignment = Pos.BOTTOM_LEFT }
-        val mid = HBox(12.0, prevTopBtn, pauseBtn, nextTopBtn).apply { alignment = Pos.CENTER }
-        val right = HBox(10.0, flagBtn, infoBtn, miniBtn, fullBtn, closeTopBtn).apply { alignment = Pos.BOTTOM_RIGHT }
+        val mid = HBox(12.0, prevTopBtn, pauseBtn, muteBtn, nextTopBtn).apply { alignment = Pos.CENTER }
+        val right = HBox(10.0, flagBtn, infoBtn, drawerBtn, miniBtn, fullBtn, closeTopBtn).apply { alignment = Pos.BOTTOM_RIGHT }
+
+        drawerList = javafx.scene.control.ListView<String>().apply {
+            style = "-fx-control-inner-background: rgba(14,18,26,0.92); -fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 13px;"
+            prefWidth = 310.0
+            prefHeight = 360.0
+            setOnMouseClicked { ev ->
+                val idx = selectionModel.selectedIndex
+                if (idx >= 0) { onJump(idx); if (ev.clickCount >= 1) toggleDrawer(false) }
+            }
+        }
+        val drawerHeader = HBox(8.0,
+            Label("☰ ${tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live")}").apply {
+                style = "-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;"
+                HBox.setHgrow(this, Priority.ALWAYS); maxWidth = Double.MAX_VALUE
+            },
+            button("✕") { toggleDrawer(false) }
+        ).apply { alignment = Pos.CENTER_LEFT }
+        drawerBox = VBox(8.0, drawerHeader, drawerList).apply {
+            style = "-fx-background-color: rgba(14, 18, 26, 0.94); -fx-background-radius: 14; -fx-padding: 12 14; -fx-border-color: rgba(255,255,255,0.16); -fx-border-radius: 14;"
+            maxWidth = 340.0; maxHeight = 420.0
+            isVisible = false; isManaged = false
+        }
+        StackPane.setAlignment(drawerBox, Pos.CENTER_RIGHT)
+        StackPane.setMargin(drawerBox, Insets(24.0))
         statsText = Label().apply {
             style = "-fx-text-fill: #e8eef7; -fx-font-family: 'Monospaced'; -fx-font-size: 12px;"
             isWrapText = true
@@ -637,7 +712,7 @@ object PlayerWindow {
             style = "-fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent 30%, transparent 70%, rgba(0,0,0,0.7));"
             isPickOnBounds = false
         }
-        hint = Label("▲▼ ganti saluran  ·  0-9 nomor  ·  P mini-player  ·  F layar penuh  ·  M bisu  ·  I stats  ·  Spasi jeda").apply {
+        hint = Label("▲▼ ganti saluran  ·  0-9 nomor  ·  L saluran  ·  P mini-player  ·  F layar penuh  ·  M bisu  ·  I stats  ·  Spasi jeda").apply {
             style = "-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12px;"; StackPane.setAlignment(this, Pos.BOTTOM_CENTER)
             StackPane.setMargin(this, Insets(0.0, 0.0, 70.0, 0.0))
         }
@@ -659,7 +734,7 @@ object PlayerWindow {
             style = "-fx-background-color: radial-gradient(center 50% 45%, radius 80%, rgba(20,24,34,0.92), rgba(4,5,8,0.97));"
             isVisible = false; isMouseTransparent = true
         }
-        val root = StackPane(view, loader, bar, center, hint, statsCard, digitBadge).apply { style = "-fx-background-color: black;" }
+        val root = StackPane(view, loader, bar, center, hint, statsCard, drawerBox, digitBadge).apply { style = "-fx-background-color: black;" }
         view.fitWidthProperty().bind(root.widthProperty()); view.fitHeightProperty().bind(root.heightProperty())
 
         st.scene = Scene(root, 960.0, 540.0, javafx.scene.paint.Color.BLACK)
@@ -671,9 +746,10 @@ object PlayerWindow {
             when (k.code) {
                 KeyCode.F -> toggleFull()
                 KeyCode.P -> toggleMiniPlayer()
-                KeyCode.M -> player?.let { p -> p.isMute = !p.isMute }
+                KeyCode.L -> toggleDrawer()
+                KeyCode.M -> toggleMute()
                 KeyCode.I -> toggleStats()
-                KeyCode.ESCAPE -> if (statsCard.isVisible) toggleStats(false) else if (miniMode) toggleMiniPlayer() else if (st.isFullScreen) st.isFullScreen = false else st.close()
+                KeyCode.ESCAPE -> if (drawerBox.isVisible) toggleDrawer(false) else if (statsCard.isVisible) toggleStats(false) else if (miniMode) toggleMiniPlayer() else if (st.isFullScreen) st.isFullScreen = false else st.close()
                 KeyCode.UP, KeyCode.PAGE_UP, KeyCode.LEFT -> onSwitch(-1)
                 KeyCode.DOWN, KeyCode.PAGE_DOWN, KeyCode.RIGHT -> onSwitch(1)
                 KeyCode.SPACE -> player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }
