@@ -16,5 +16,22 @@ class Snapshots {
             File(out, "${s.name}.png").writeBytes(scene.render(t).encodeToData()!!.bytes)
             scene.close()
         }
+        // #41 / #71: the home and settings screens in the light theme and mirrored right-to-left
+        val variants = listOf("light" to false, "rtl" to true)
+        for ((tag, rtl) in variants) for (s in listOf(Screen.Home, Screen.Prefs)) {
+            ThemePrefs.mode = if (rtl) tech.kousozo.tahoetv.core.Theme.Mode.DARK else tech.kousozo.tahoetv.core.Theme.Mode.LIGHT
+            val scene = ImageComposeScene(1280, 820, Density(1f)) {
+                TahoeTheme {
+                    if (rtl) androidx.compose.runtime.CompositionLocalProvider(
+                        androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl) { App(s, askRegion = false) }
+                    else App(s, askRegion = false)
+                }
+            }
+            var t = 0L
+            repeat(100) { scene.render(t); Thread.sleep(100); t += 100_000_000 }
+            File(out, "${s.name}-$tag.png").writeBytes(scene.render(t).encodeToData()!!.bytes)
+            scene.close()
+        }
+        ThemePrefs.mode = tech.kousozo.tahoetv.core.Theme.Mode.DARK
     }
 }
