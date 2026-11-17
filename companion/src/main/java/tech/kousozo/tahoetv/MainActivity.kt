@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
                     }
                     PushBannerBar(onOpenInbox = { Nav.page = "notifications" }, modifier = Modifier.align(Alignment.TopCenter))
                     UpdateModalDialog()
+                    NoCodePairDialog()
                 }
                 if (twoPane) Nav.detail?.let { e ->
                     Box(Modifier.width(420.dp).fillMaxHeight().background(Tahoe.Bg)) { ChannelScreen(e) { Nav.detail = null } }
@@ -651,7 +652,7 @@ fun TvDevicesSheet(onDismiss: () -> Unit, onScanQr: (() -> Unit)? = null, onPick
             if (extra.isNotEmpty()) {
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.discovered"), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Tahoe.Dim, modifier = Modifier.padding(top = 6.dp))
                 extra.forEach { f ->
-                    GlassCard(onClick = { onPickUnpaired(f.ip); onDismiss() }) {
+                    GlassCard(onClick = { NoCodePair.start(c, f.ip, f.name ?: "Tahoe TV") { ip -> onPickUnpaired(ip) }; onDismiss() }) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(Icons.Rounded.WifiFind, null, tint = Tahoe.Accent, modifier = Modifier.size(20.dp))
                             Column(Modifier.weight(1f)) {

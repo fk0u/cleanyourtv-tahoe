@@ -40,6 +40,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.heightIn
 import kotlin.math.abs
 import tech.kousozo.tahoetv.core.TvLink
 
@@ -111,6 +113,33 @@ fun RemoteScreen() {
             RoundKey(Icons.Rounded.Settings, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.tv_settings"), 44.dp) { key("settings") }
             Spacer(Modifier.width(8.dp))
             RoundKey(Icons.Rounded.PowerSettingsNew, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.standby"), 44.dp, tint = Color(0xFFFF6B6B)) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); link?.power() }
+        }
+
+        // TV switcher (#180): saved TVs switch with one tap; TVs found on this Wi-Fi connect without a code (OK on the TV)
+        LaunchedEffect(Unit) { TvDiscovery.start(c) }
+        val known = devState.devices.mapTo(HashSet()) { it.host }
+        val found = TvDiscovery.discovered.filter { it.ip !in known }
+        if (devState.devices.size > 1 || found.isNotEmpty()) Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            devState.devices.forEach { d ->
+                val on = d.id == activeDev?.id
+                Row(Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(50)).background(if (on) Tahoe.Text else Tahoe.Glass)
+                    .border(1.dp, if (on) Color.Transparent else Tahoe.Stroke, RoundedCornerShape(50))
+                    .clickable { if (!on) { Sync.saveDevices(c, devState.select(d.id)); Pairing.tick++ } }
+                    .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Rounded.Tv, null, tint = if (on) Tahoe.Bg else Tahoe.Dim, modifier = Modifier.size(16.dp))
+                    Text(d.name.ifBlank { "Tahoe TV" }, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (on) Tahoe.Bg else Tahoe.Text, maxLines = 1)
+                }
+            }
+            found.forEach { f ->
+                Row(Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(50)).background(Tahoe.Accent.copy(alpha = 0.14f))
+                    .clickable { NoCodePair.start(c, f.ip, f.name ?: "Tahoe TV") { showDevices = true } }
+                    .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Rounded.Add, null, tint = Tahoe.Accent, modifier = Modifier.size(16.dp))
+                    Text(f.name ?: "Tahoe TV", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Tahoe.Accent, maxLines = 1)
+                }
+            }
         }
 
         if (link == null) Note(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.not_paired_note"), Icons.Rounded.Info)

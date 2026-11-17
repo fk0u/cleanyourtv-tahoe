@@ -374,6 +374,67 @@ fun OfflineState(modifier: Modifier = Modifier) {
     }
 }
 
+/** Code-free pairing on the same Wi-Fi (#180): ask the TV, the viewer presses OK there, the phone gets its token.
+ *  Falls back to the 6-digit code when the TV declines, does not answer in 60 s, or is unreachable. */
+object NoCodePair {
+    /** TV being asked (address and name), or null. */
+    var waiting by mutableStateOf<Pair<String, String>?>(null); private set
+    private var job: kotlinx.coroutines.Job? = null
+
+    fun start(c: android.content.Context, host: String, tvName: String, fallback: (String) -> Unit) {
+        val lang = PhoneRegion.language
+        cancel()
+        waiting = host to tvName
+        job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            val outcome: Any = runCatching {
+                val id = tech.kousozo.tahoetv.core.TvLink.requestPair(host, android.os.Build.MODEL.orEmpty().ifBlank { "HP" }, lang)
+                var st: Any = "pending"
+                val until = System.currentTimeMillis() + 62_000
+                while (st == "pending" && System.currentTimeMillis() < until && waiting != null) {
+                    kotlinx.coroutines.delay(1200)
+                    st = runCatching { tech.kousozo.tahoetv.core.TvLink.pairStatus(host, id) }.getOrDefault("pending")
+                }
+                st
+            }.getOrElse { it }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                if (waiting == null) return@withContext // cancelled by the user
+                waiting = null
+                when (outcome) {
+                    is tech.kousozo.tahoetv.core.TvLink.PairResult -> {
+                        Sync.recordPaired(c, host, outcome)
+                        Sync.saveDevices(c, Sync.devices(c).select(outcome.id.ifBlank { host }))
+                        Pairing.tick++
+                        Toast.makeText(c, I18n.get(lang, "pair.connected"), Toast.LENGTH_SHORT).show()
+                        Nav.tab = 2
+                    }
+                    "denied" -> Toast.makeText(c, I18n.get(lang, "pair.denied"), Toast.LENGTH_LONG).show()
+                    else -> { Toast.makeText(c, I18n.get(lang, "pair.timeout"), Toast.LENGTH_LONG).show(); fallback(host) }
+                }
+            }
+        }
+    }
+
+    fun cancel() { waiting = null; job?.cancel(); job = null }
+}
+
+/** "Konfirmasi di TV" while [NoCodePair] waits. */
+@Composable
+fun NoCodePairDialog() {
+    val (host, name) = NoCodePair.waiting ?: return
+    val lang = PhoneRegion.language
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { NoCodePair.cancel() },
+        icon = { Icon(Icons.Rounded.Tv, null, tint = Tahoe.Accent) },
+        title = { Text(I18n.get(lang, "pair.waiting")) },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(I18n.get(lang, "pair.waiting_sub", name.ifBlank { host }), color = Tahoe.Dim)
+            androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
+        } },
+        confirmButton = { androidx.compose.material3.TextButton({ NoCodePair.cancel() }) { Text(I18n.get(lang, "common.cancel"), color = Tahoe.Dim) } },
+        containerColor = Tahoe.Surface,
+    )
+}
+
 /** The area under the tabs that hosts [Nav.page]. */
 @Composable
 fun NavPage(page: String) {
