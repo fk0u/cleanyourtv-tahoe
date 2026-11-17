@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -117,6 +118,12 @@ object PhoneRegion {
 
 private enum class Step { Language, Country, City, TimeZone, Prayer, Countries, Categories, Favorites, Order, Summary }
 
+/** Redesign 4.0 (#179): three visible steps (Bahasa → Wilayah [negara + kota] → Siap). The rest keeps its defaults
+ *  and stays one tap away behind "Atur lebih lanjut" on the last step. */
+private val QUICK = listOf(Step.Language, Step.Country, Step.City, Step.Summary)
+private val ADVANCED = listOf(Step.Language, Step.Country, Step.City, Step.TimeZone, Step.Prayer, Step.Countries, Step.Categories, Step.Favorites, Step.Order, Step.Summary)
+private fun Step.visible() = when (this) { Step.Language -> 1; Step.Summary -> 3; else -> 2 }
+
 /** Onboarding: language always first, then the rest; every step has a sensible default and can be changed later. */
 @Composable
 fun WelcomeScreen() {
@@ -126,10 +133,12 @@ fun WelcomeScreen() {
         mutableStateOf(PhoneRegion.viewer.takeIf { it.done } ?: Viewer.suggested(suggestedCountry, suggestedLang).copy(favorites = Channels.favs.toList()))
     }
     var step by remember { mutableStateOf(Step.Language) }
+    var advanced by remember { mutableStateOf(false) }
+    val flow = if (advanced) ADVANCED else QUICK
     /** Channels of the chosen countries, loaded on the favourites step (names for the order step too). */
     var catalog by remember { mutableStateOf<List<LocalTv.Entry>?>(null) }
     val t = { k: String -> OnboardingText.get(v.language, k) }
-    fun go(d: Int) { step = Step.entries[(step.ordinal + d).coerceIn(0, Step.entries.size - 1)] }
+    fun go(d: Int) { step = flow[(flow.indexOf(step) + d).coerceIn(0, flow.size - 1)] }
     androidx.activity.compose.BackHandler(enabled = step != Step.Language || PhoneRegion.viewer.done) {
         if (step == Step.Language) PhoneRegion.cancel() else go(-1)
     }
@@ -137,18 +146,27 @@ fun WelcomeScreen() {
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 20.dp, vertical = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BrandTile(36.dp)
-            Text(t("step").replace("%s", "${step.ordinal + 1}/${Step.entries.size}"), color = Tahoe.Dim, fontSize = 13.sp)
+            Text(if (advanced) t("step").replace("%s", "${flow.indexOf(step) + 1}/${flow.size}") else t("step3").replace("%s", "${step.visible()}"),
+                color = Tahoe.Dim, fontSize = 13.sp)
         }
-        LinearProgressIndicator(progress = { (step.ordinal + 1f) / Step.entries.size }, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-            color = Tahoe.Text, trackColor = Tahoe.Glass)
+        // segmented progress: three pills (quick) or one bar (advanced)
+        if (advanced) LinearProgressIndicator(progress = { (flow.indexOf(step) + 1f) / flow.size }, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            color = Tahoe.Accent, trackColor = Tahoe.Glass)
+        else Row(Modifier.padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            (1..3).forEach { i ->
+                val w by androidx.compose.animation.core.animateDpAsState(if (i == step.visible()) 28.dp else 8.dp,
+                    androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe), label = "step")
+                Box(Modifier.height(8.dp).width(w).clip(RoundedCornerShape(4.dp)).background(if (i <= step.visible()) Tahoe.Accent else Tahoe.Glass))
+            }
+        }
         val (title, sub) = when (step) {
             Step.Language -> "lang.title" to "lang.sub"; Step.Country -> "country.title" to "country.sub"
             Step.City -> "city.title" to "city.sub"; Step.TimeZone -> "tz.title" to "tz.sub"; Step.Prayer -> "prayer.title" to "prayer.sub"
             Step.Countries -> "countries.title" to "countries.sub"; Step.Categories -> "cats.title" to "cats.sub"
             Step.Favorites -> "favs.title" to "favs.sub"; Step.Order -> "order.title" to "order.sub"; Step.Summary -> "summary.title" to "summary.sub"
         }
-        Text(t(title), color = Tahoe.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        Text(t(sub), color = Tahoe.Dim, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+        Text(t(title), color = Tahoe.Text, fontSize = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp, lineHeight = 36.sp)
+        Text(t(sub), color = Tahoe.Dim, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (step) {
@@ -193,7 +211,7 @@ fun WelcomeScreen() {
                 }
                 Step.Favorites -> FavoritesStep(v, t, { catalog = it }) { v = v.copy(favorites = it) }
                 Step.Order -> OrderStep(v, t, catalog) { v = v.copy(favorites = it) }
-                Step.Summary -> Summary(v, t)
+                Step.Summary -> Summary(v, t, showMore = !advanced, onPrayer = { v = v.copy(prayer = it) }) { advanced = true; step = Step.TimeZone }
             }
         }
 
@@ -392,7 +410,16 @@ private fun OrderStep(v: Viewer, t: (String) -> String, catalog: List<LocalTv.En
 }
 
 @Composable
-private fun Summary(v: Viewer, t: (String) -> String) = Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun Summary(v: Viewer, t: (String) -> String, showMore: Boolean = false, onPrayer: (Boolean) -> Unit = {}, onMore: () -> Unit = {}) = Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // what is ready, in plain words, plus the one choice most people care about here (prayer times)
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Tahoe.Good.copy(alpha = 0.12f)).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(Icons.Rounded.Check, null, tint = Tahoe.Good)
+        Text(t("ready.channels").replace("%s", v.countries.joinToString(", ") { Region.name(it, v.language) }), color = Tahoe.Text, fontSize = 15.sp)
+    }
+    SwitchRow(t("prayer.on"), v.prayer) { onPrayer(it) }
+    if (v.prayer && v.lat == null) Text(t("prayer.needcity"), color = Tahoe.Faint, fontSize = 12.sp)
+    if (showMore) SecondaryButton(t("more"), Icons.Rounded.Tune) { onMore() }
     fun row(k: String, value: String) = k to value
     listOf(
         row("sum.language", OnboardingText.LANGUAGE_NAMES.getValue(v.language)),

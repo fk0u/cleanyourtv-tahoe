@@ -68,13 +68,13 @@ fun RecapSheet(onDismiss: () -> Unit) {
             // Story preview card
             Column(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF1A2557), Color(0xFF1E1338), Color(0xFF0E1826))))
-                    .border(1.dp, Tahoe.Accent.copy(alpha = 0.45f), RoundedCornerShape(24.dp))
-                    .padding(20.dp),
+                    .background(Brush.linearGradient(listOf(Color(tech.kousozo.tahoetv.core.Brand.LAKE), Color(tech.kousozo.tahoetv.core.Brand.CYAN_DEEP), Color(tech.kousozo.tahoetv.core.Brand.WARM))))
+                    .padding(22.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("TAHOE TV · ${summary.month}", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = Tahoe.Accent)
-                Text(summary.tagline, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 27.sp)
+                Text("TAHOE TV · ${summary.month}", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = Color.White.copy(alpha = 0.8f))
+                Text(summary.totalHoursDecimal, fontSize = 52.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1.2).sp, color = Color.White)
+                Text(summary.tagline, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, lineHeight = 24.sp, color = Color.White)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.08f)).padding(12.dp)) {
                         Text(I18n.get(lang, "recap.total_time"), fontSize = 11.sp, color = Tahoe.Dim)
@@ -87,17 +87,17 @@ fun RecapSheet(onDismiss: () -> Unit) {
                     }
                 }
                 if (summary.topChannels.isNotEmpty()) {
-                    Text(I18n.get(lang, "recap.top_channels"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Tahoe.Accent)
+                    Text(I18n.get(lang, "recap.top_channels").uppercase(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, color = Color.White.copy(alpha = 0.8f))
                     summary.topChannels.forEachIndexed { idx, item ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("#${idx + 1}", fontWeight = FontWeight.Bold, color = Tahoe.Accent, modifier = Modifier.width(30.dp))
+                            Text("#${idx + 1}", fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.width(30.dp))
                             Text(item.name, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                             Text("${item.minutes} min", fontSize = 12.sp, color = Tahoe.Dim)
                         }
                     }
                 }
                 if (summary.topShows.isNotEmpty()) {
-                    Text(I18n.get(lang, "recap.top_shows"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Tahoe.Accent)
+                    Text(I18n.get(lang, "recap.top_shows").uppercase(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, color = Color.White.copy(alpha = 0.8f))
                     summary.topShows.forEach { item ->
                         Text("• ${item.name} (${item.sessions}×)", fontSize = 13.sp, color = Tahoe.Text.copy(alpha = 0.9f))
                     }
@@ -130,7 +130,7 @@ private fun shareRecapStoryImage(ctx: Context, s: WatchRecap.Summary, lang: Stri
     val bg = Paint().apply {
         shader = LinearGradient(
             0f, 0f, w.toFloat(), h.toFloat(),
-            intArrayOf(0xFF0A1228.toInt(), 0xFF1E1338.toInt(), 0xFF0B1F2E.toInt()),
+            intArrayOf(tech.kousozo.tahoetv.core.Brand.LAKE, tech.kousozo.tahoetv.core.Brand.CYAN_DEEP, tech.kousozo.tahoetv.core.Brand.WARM),
             null, Shader.TileMode.CLAMP,
         )
     }
