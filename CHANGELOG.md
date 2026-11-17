@@ -8,6 +8,8 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 ### Baru
 - **Redesign 4.0 · token brand & gerak (#178).** Teks sekunder 80% dan tersier 62% (lebih terbaca untuk lansia), garis tepi lebih tegas, cyan diperbarui, aksen hangat jingga (`Brand.WARM`) dan cincin fokus TV, serta konstanta gerak (`MOTION_*`, kurva `EASE_OUT`/`EASE_IN_OUT`/`EASE_DRAWER`, skala tekan 0,97). `tokens.json` dan CSS situs ikut disinkronkan.
 - **Redesign 4.0 · HP (#179, bagian 1).** Dock mengambang baru: Beranda · Live TV · **Remote bulat menonjol** · Watchlist · Profil. Tab **Watchlist** (saluran tersimpan + acara yang sedang tayang) dan **Profil** (kartu profil, total tonton bulan ini → rekap, Riwayat tontonan, Hubungkan ke TV, Pasang Tahoe ke TV, Jelajahi kategori, Laporkan masalah, Pusat bantuan, GitHub, Kontributor, Pengaturan). **Pengaturan** pindah dari Beranda ke halaman sendiri. Hero Beranda bergeser otomatis tiap 6 detik (mati saat "Kurangi gerakan"), dan halaman masuk dengan transisi geser.
+- **Redesign 4.0 · HP (#179, bagian 2).** **Notifikasi** kini halaman sendiri (dikelompokkan Hari ini / Sebelumnya, ikon per jenis, tombol Periksa pembaruan). Saat saluran gagal dimuat, Beranda dan Live TV menampilkan **keadaan offline** dengan tombol Coba lagi, bukan sekadar catatan satu baris.
+- **Redesign 4.0 · Desktop (#182).** Di Live TV (Daftar & Grid), **klik sekali** memilih saluran dan menampilkannya di panel detail sebagai pratinjau; **klik lagi atau klik dua kali** membuka siaran. Pratinjau tidak lagi berganti hanya karena kursor lewat (hover).
 
 ## 3.4.1
 
