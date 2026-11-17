@@ -118,12 +118,12 @@ final class Sheets {
             t.setContentDescription(it.title + (it.sub != null && !it.sub.isEmpty() ? ", " + it.sub : ""));
             LinearLayout top = new LinearLayout(ctx); top.setGravity(Gravity.CENTER_VERTICAL);
             ImageView g = Ui.icon(ctx, it.icon, simple ? 24 : 20, Ui.TEXT); g.setTag("g");
-            TextView ti = Ui.text(ctx, simple ? 18 : 15, 600, Ui.TEXT); ti.setText(it.title); ti.setTag("t");
+            TextView ti = Ui.text(ctx, simple ? 19 : 17, 600, Ui.TEXT); ti.setText(it.title); ti.setTag("t");
             LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1); tl.setMarginStart((int) (12 * d));
             top.addView(g); top.addView(ti, tl);
             t.addView(top);
             if (it.sub != null && !it.sub.isEmpty()) {
-                TextView s = Ui.text(ctx, simple ? 14.5f : 12.5f, 400, Ui.TEXT_2); s.setText(it.sub); s.setTag("s");
+                TextView s = Ui.text(ctx, simple ? 15.5f : 13.5f, 400, Ui.TEXT_2); s.setText(it.sub); s.setTag("s");
                 s.setPaddingRelative((int) (32 * d), (int) (2 * d), 0, 0);
                 t.addView(s);
             }

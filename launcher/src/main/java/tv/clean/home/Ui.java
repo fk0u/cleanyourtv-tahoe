@@ -145,7 +145,10 @@ final class Ui {
     }
 
     static android.view.animation.Interpolator spring() { return new OvershootInterpolator(1.05f); }
-    static android.view.animation.Interpolator out() { return new DecelerateInterpolator(2.2f); }
+    /** Enter/exit ease-out, cubic-bezier(0.23, 1, 0.32, 1) (#178). */
+    static android.view.animation.Interpolator out() { float[] e = tech.kousozo.tahoetv.core.Brand.EASE_OUT; return new android.view.animation.PathInterpolator(e[0], e[1], e[2], e[3]); }
+    /** Sheets and page pushes, cubic-bezier(0.32, 0.72, 0, 1). */
+    static android.view.animation.Interpolator drawer() { float[] e = tech.kousozo.tahoetv.core.Brand.EASE_DRAWER; return new android.view.animation.PathInterpolator(e[0], e[1], e[2], e[3]); }
 
     /** Text colour that reads on top of `bg`. */
     static int onColor(int bg) { return Color.luminance(bg) > 0.55f ? 0xFF111114 : TEXT; }

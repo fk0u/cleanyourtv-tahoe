@@ -42,6 +42,11 @@ public class Live extends Activity {
     DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault());
     TextView title, sub, sortBtn, dName, dCat, dNow, dDesc, dNext, dHint;
     LivePreview preview;
+    FrameLayout root;
+    /** Channel detail sheet over the guide (#181), or null. */
+    View sheet;
+    /** Text typed in the guide's search field (#181). */
+    String query = "";
     LinearLayout cats, rows;
     List<LocalTv.Entry> all = new ArrayList<>(), list = new ArrayList<>();
     LocalTv.Category cat;   // null = all
@@ -57,7 +62,7 @@ public class Live extends Activity {
         Viewer vw = TvViewer.get(this);
         String lang = vw.getLanguage();
         hm = DateTimeFormatter.ofPattern("HH.mm").withZone(vw.getZone());
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         root.setBackgroundColor(Ui.NIGHT);
         LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding((int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP), (int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP));
@@ -67,6 +72,22 @@ public class Live extends Activity {
         sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); sub.setText(I18n.get(lang, "tv.guide_loading"));
         titles.addView(title); titles.addView(sub);
         head.addView(titles, new LinearLayout.LayoutParams(0, -2, 1));
+        // search (#181): the TV's own keyboard opens on OK; the list filters as you type
+        android.widget.EditText search = new android.widget.EditText(this);
+        search.setSingleLine(); search.setHint(I18n.get(lang, "home.search_hint"));
+        search.setTextColor(Ui.TEXT); search.setHintTextColor(Ui.TEXT_3);
+        search.setTextSize(Ui.CAPTION * Ui.textScale(this)); search.setTypeface(Ui.font(this, 500));
+        search.setPadding((int) dp(16), (int) dp(8), (int) dp(16), (int) dp(8));
+        search.setBackground(new GlassDrawable(dp(16), Ui.GLASS, dp(1)));
+        search.setOnFocusChangeListener((v, f) -> v.setBackground(f ? Ui.focusRing(this, dp(16)) : new GlassDrawable(dp(16), Ui.GLASS, dp(1))));
+        search.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+        search.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence a, int b, int c2, int d2) {}
+            @Override public void onTextChanged(CharSequence a, int b, int c2, int d2) {}
+            @Override public void afterTextChanged(android.text.Editable ed) { query = ed.toString().trim(); filterCat(false); }
+        });
+        LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams((int) dp(240), -2); sl.setMarginEnd((int) dp(12));
+        head.addView(search, sl);
         sortBtn = Ui.text(this, Ui.CAPTION, 600, Ui.TEXT);
         sortBtn.setPadding((int) dp(14), (int) dp(8), (int) dp(14), (int) dp(8));
         sortBtn.setBackground(new GlassDrawable(dp(16), Ui.GLASS, dp(1)));
@@ -251,10 +272,14 @@ public class Live extends Activity {
         filterCat();
     }
 
-    void filterCat() {
+    void filterCat() { filterCat(true); }
+
+    void filterCat(boolean moveFocus) {
         list = new ArrayList<>();
-        for (LocalTv.Entry e : all) if (cat == null || LocalTv.INSTANCE.inCategory(e, cat)) list.add(e);
+        String q = query.toLowerCase(java.util.Locale.ROOT);
+        for (LocalTv.Entry e : all) if ((cat == null || LocalTv.INSTANCE.inCategory(e, cat)) && (q.isEmpty() || e.getName().toLowerCase(java.util.Locale.ROOT).contains(q))) list.add(e);
         buildCats(); buildRows();
+        if (!moveFocus) return; // typing in the search field keeps focus there
         if (rows.getChildCount() > 0) rows.getChildAt(0).requestFocus();
         else if (cats.getChildCount() > 0) cats.getChildAt(0).requestFocus();
     }
@@ -341,22 +366,88 @@ public class Live extends Activity {
     void channelDetail(LocalTv.Entry e) {
         String lang = TvViewer.get(this).getLanguage();
         detail(e);
+        closeSheet();
+        if (preview != null) preview.stop();
         SharedPreferences live = getSharedPreferences("live", MODE_PRIVATE);
         java.util.Set<String> fav = new java.util.HashSet<>(live.getStringSet("fav", new java.util.HashSet<>()));
         String url = e.getChannel().getUrl();
         boolean isFav = fav.contains(url);
-        String body = dNow.getText() + (dNext.getText().length() > 0 ? "\n\n" + dNext.getText() : "");
-        new android.app.AlertDialog.Builder(this)
-                .setTitle(I18n.get(lang, "tv.channel_detail") + " · " + e.getName())
-                .setMessage(body)
-                .setPositiveButton(I18n.get(lang, "home.watch"), (dlg, w) -> watch(e))
-                .setNegativeButton(I18n.get(lang, "tv.live_record_btn"),
-                        (dlg, w) -> startActivity(new Intent(this, LiveTv.class).putExtra("url", e.getChannel().getUrl()).putExtra("record", true)))
-                .setNeutralButton(I18n.get(lang, isFav ? "tv.fav_remove" : "tv.fav_add"), (dlg, w) -> {
-                    if (isFav) fav.remove(url); else fav.add(url);
-                    live.edit().putStringSet("fav", fav).apply();
-                })
-                .show();
+
+        FrameLayout scrim = new FrameLayout(this);
+        scrim.setBackgroundColor(0xB3050508);
+        scrim.setClickable(true); scrim.setOnClickListener(v -> closeSheet());
+        LinearLayout p = new LinearLayout(this); p.setOrientation(LinearLayout.VERTICAL);
+        p.setPadding((int) dp(28), (int) dp(28), (int) dp(28), (int) dp(28));
+        p.setBackground(new GlassDrawable(dp(Ui.R_LARGE), Ui.GLASS_STRONG, dp(1)));
+        p.setClickable(true);
+        // big logo on white, like the phone's channel page
+        FrameLayout logoBox = new FrameLayout(this);
+        logoBox.setBackground(new GlassDrawable(dp(Ui.R_MED), 0xFFFFFFFF, dp(1)));
+        android.widget.ImageView logo = new android.widget.ImageView(this); logo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        TextView fb = Ui.text(this, Ui.HEADLINE, 700, 0xFF111114); fb.setShadowLayer(0, 0, 0, 0); fb.setGravity(Gravity.CENTER);
+        logoBox.addView(fb, new FrameLayout.LayoutParams(-1, -1));
+        FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams(-1, -1); ll.setMargins((int) dp(12), (int) dp(10), (int) dp(12), (int) dp(10));
+        logoBox.addView(logo, ll);
+        Ui.bindLogo(e.getChannel().getLogo(), logo, fb, e.getName());
+        p.addView(logoBox, new LinearLayout.LayoutParams((int) dp(132), (int) dp(84)));
+        TextView cat = Ui.eyebrow(this, Ui.TEXT_2); cat.setText(dCat.getText()); p.addView(cat, lp(18));
+        TextView name = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); name.setText(e.getName()); p.addView(name, lp(4));
+        TextView now = Ui.text(this, Ui.HEADLINE, 600, Ui.ACCENT); now.setSingleLine(false); now.setMaxLines(2); now.setText(dNow.getText()); p.addView(now, lp(16));
+        if (dDesc.getText().length() > 0) { TextView ds = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); ds.setSingleLine(false); ds.setMaxLines(3); ds.setText(dDesc.getText()); p.addView(ds, lp(6)); }
+        if (dNext.getText().length() > 0) { TextView nx = Ui.text(this, Ui.BODY, 400, Ui.TEXT); nx.setSingleLine(false); nx.setMaxLines(5); nx.setLineSpacing(dp(4), 1); nx.setText(dNext.getText()); p.addView(nx, lp(18)); }
+        View grow = new View(this); p.addView(grow, new LinearLayout.LayoutParams(0, 0, 1));
+        // large buttons, one row, each with a clear focus ring
+        LinearLayout acts = new LinearLayout(this); acts.setGravity(Gravity.CENTER_VERTICAL);
+        TextView watchB = sheetButton(I18n.get(lang, "home.watch"), true, () -> { closeSheet(); watch(e); });
+        acts.addView(watchB);
+        acts.addView(sheetButton(I18n.get(lang, "tv.live_record_btn"), false, () -> {
+            closeSheet(); if (preview != null) preview.stop();
+            startActivity(new Intent(this, LiveTv.class).putExtra("url", url).putExtra("record", true)); }));
+        acts.addView(sheetButton(I18n.get(lang, isFav ? "tv.fav_remove" : "tv.fav_add"), false, () -> {
+            if (isFav) fav.remove(url); else fav.add(url);
+            live.edit().putStringSet("fav", fav).apply();
+            closeSheet(); }));
+        p.addView(acts, lp(20));
+        FrameLayout.LayoutParams pl = new FrameLayout.LayoutParams((int) dp(500), -1, Gravity.END);
+        pl.setMargins((int) dp(24), (int) dp(24), (int) dp(24), (int) dp(24));
+        scrim.addView(p, pl);
+        root.addView(scrim, new FrameLayout.LayoutParams(-1, -1));
+        sheet = scrim;
+        // slide in from the end edge like a sheet (drawer curve), or just appear with reduced motion
+        float m = Math.min(1f, Ui.motion(this));
+        scrim.setAlpha(0f); p.setTranslationX(dp(40));
+        scrim.animate().alpha(1f).setDuration((long) (tech.kousozo.tahoetv.core.Brand.MOTION_MED * m)).start();
+        p.animate().translationX(0).setDuration((long) (tech.kousozo.tahoetv.core.Brand.MOTION_SHEET * m)).setInterpolator(Ui.drawer()).start();
+        watchB.requestFocus();
+    }
+
+    /** A big rounded button for the detail sheet: white when it is the main action, glass otherwise. */
+    TextView sheetButton(String label, boolean primary, Runnable onClick) {
+        TextView b = Ui.text(this, Ui.BODY, 600, primary ? 0xFF111114 : Ui.TEXT);
+        b.setShadowLayer(0, 0, 0, 0); b.setText(label); b.setGravity(Gravity.CENTER);
+        b.setPadding((int) dp(22), (int) dp(14), (int) dp(22), (int) dp(14));
+        b.setFocusable(true); b.setFocusableInTouchMode(true);
+        android.graphics.drawable.GradientDrawable base = new android.graphics.drawable.GradientDrawable();
+        base.setCornerRadius(dp(26)); base.setColor(primary ? 0xFFF7F8FA : 0x24FFFFFF);
+        b.setBackground(base);
+        b.setOnFocusChangeListener((v, f) -> {
+            android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+            g.setCornerRadius(dp(26)); g.setColor(primary ? 0xFFF7F8FA : (f ? 0x47FFFFFF : 0x24FFFFFF));
+            if (f) g.setStroke((int) dp(tech.kousozo.tahoetv.core.Brand.FOCUS_RING_DP), Ui.highContrast(this) ? tech.kousozo.tahoetv.core.Brand.HC_FOCUS : tech.kousozo.tahoetv.core.Brand.CYAN);
+            v.setBackground(g);
+            v.animate().scaleX(f ? 1.04f : 1f).scaleY(f ? 1.04f : 1f).setDuration(Ui.dur(this, Ui.FAST)).start();
+        });
+        b.setOnClickListener(v -> onClick.run());
+        LinearLayout.LayoutParams l = new LinearLayout.LayoutParams(-2, -2); l.setMarginEnd((int) dp(12));
+        b.setLayoutParams(l);
+        return b;
+    }
+
+    void closeSheet() {
+        if (sheet == null) return;
+        View s = sheet; sheet = null;
+        s.animate().alpha(0f).setDuration(Ui.dur(this, 200)).withEndAction(() -> root.removeView(s)).start();
+        View f = rows.getFocusedChild(); if (f != null) f.requestFocus();
     }
 
     // ------------------------------------------------------------------ watch in BitTV
@@ -382,7 +473,7 @@ public class Live extends Activity {
             View f = getCurrentFocus();
             if (f != null && f.getTag() instanceof LocalTv.Entry) { channelDetail((LocalTv.Entry) f.getTag()); return true; }
         }
-        if (code == KeyEvent.KEYCODE_BACK) { finish(); return true; }
+        if (code == KeyEvent.KEYCODE_BACK) { if (sheet != null) closeSheet(); else finish(); return true; }
         return super.onKeyDown(code, e);
     }
 }
