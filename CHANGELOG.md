@@ -9,7 +9,9 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 - **Bahasa saluran tambahan di HP (#71):** pilih bahasa di Beranda → kartu *Bahasa saluran tambahan*; saluran dimuat ulang dan pilihan ikut tersinkron ke TV.
 - **Tata letak 2 panel di tablet (#41):** pada layar ≥ 840 dp, detail saluran terbuka sebagai panel samping di sebelah daftar.
 - **Rekam dari Detail saluran TV (#41):** tombol *Rekam* di dialog detail panduan membuka Live TV dan mulai merekam lokal (maks. 1 jam).
-- **Terjemahan Arab diperluas:** 277 string aplikasi (pemutar, beranda, setelan, sambungan TV, kata umum); sisanya tetap memakai bahasa Inggris.
+- **Bahasa saluran tambahan di TV (#71):** Pusat Kontrol → *Bahasa saluran tambahan* (pilih dengan remote; tersimpan di `Viewer`, sama seperti HP/Desktop).
+- **Terjemahan Arab diperluas:** 667 string aplikasi (pemutar, beranda, setelan, setup TV, remote, desktop, rekaman, anak, pembaruan, rekap); menu khusus TV (`tv.*`) masih memakai bahasa Inggris.
+- **Snapshot Desktop:** `:desktop:snapshots` kini juga merender Beranda & Setelan dalam tema Terang dan tata letak RTL (`*-light.png`, `*-rtl.png`).
 
 ### Perbaikan
 - Pesan "DRM/DASH tidak mendukung rekam" di TV kini mengikuti bahasa aplikasi.
