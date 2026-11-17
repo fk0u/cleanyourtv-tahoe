@@ -12,11 +12,11 @@ package tech.kousozo.tahoetv.core
 object Brand {
     // ----------------------------------------------------------------- core palette
     /** Primary accent: focus, links, progress, the "light" of the brand. */
-    const val CYAN = 0xFF64D2FF.toInt()
+    const val CYAN = 0xFF5CD0FF.toInt()
     const val CYAN_LIGHT = 0xFF9BE3FF.toInt()
     const val CYAN_DEEP = 0xFF2EA8E0.toInt()
     /** Text/icons placed ON cyan (never white on cyan: contrast). */
-    const val ON_CYAN = 0xFF06222F.toInt()
+    const val ON_CYAN = 0xFF04202D.toInt()
 
     /** Secondary: deep lake blue, for gradients and depth. */
     const val LAKE = 0xFF1F3BD1.toInt()
@@ -24,31 +24,31 @@ object Brand {
 
     /** Surfaces, darkest → lightest. */
     const val NIGHT = 0xFF07080D.toInt()        // TV / full-bleed video backgrounds
-    const val CANVAS = 0xFF0E0F13.toInt()       // app background
-    const val SURFACE = 0xFF1A1C22.toInt()      // cards
-    const val SURFACE_HI = 0xFF23262E.toInt()   // raised / hovered cards
-    const val SNOW = 0xFFF5F5F7.toInt()         // primary text & icons
+    const val CANVAS = 0xFF0D0F14.toInt()       // app background
+    const val SURFACE = 0xFF191C23.toInt()      // cards
+    const val SURFACE_HI = 0xFF242833.toInt()   // raised / hovered cards
+    const val SNOW = 0xFFF7F8FA.toInt()         // primary text & icons
 
     // ----------------------------------------------------------------- semantic
     const val LIVE = 0xFFFF453A.toInt()         // LIVE badge, errors, destructive
     const val PINE = 0xFF30D158.toInt()         // connected, success, switches on
     const val SUN = 0xFFFFD60A.toInt()          // favourites, warnings
-    const val TEXT_2 = 0xB3F5F5F7.toInt()       // secondary text (70 %)
-    const val TEXT_3 = 0x73F5F5F7.toInt()       // tertiary text / captions (45 %)
-    const val STROKE = 0x24FFFFFF.toInt()       // hairlines and card borders (14 %)
+    const val TEXT_2 = 0xCCF7F8FA.toInt()       // secondary text (80 %: readable for older viewers, #184)
+    const val TEXT_3 = 0x9EF7F8FA.toInt()       // tertiary text / captions (62 %)
+    const val STROKE = 0x33FFFFFF.toInt()       // hairlines and card borders (20 %)
     const val GLASS = 0x17FFFFFF.toInt()        // translucent fill over images (9 %)
 
     // ----------------------------------------------------------------- light & high-contrast palettes (#41)
     /** Light mode: "lake by day". Video stages stay [NIGHT] in every theme. */
-    const val LIGHT_CANVAS = 0xFFF5F6F8.toInt()
+    const val LIGHT_CANVAS = 0xFFF6F7F9.toInt()
     const val LIGHT_SURFACE = 0xFFFFFFFF.toInt()
-    const val LIGHT_SURFACE_HI = 0xFFE9ECF1.toInt()
-    const val LIGHT_TEXT = 0xFF0E0F13.toInt()
-    const val LIGHT_TEXT_2 = 0xB30E0F13.toInt()
-    const val LIGHT_TEXT_3 = 0x800E0F13.toInt()
-    const val LIGHT_STROKE = 0x1F0E0F13.toInt()
+    const val LIGHT_SURFACE_HI = 0xFFECEFF4.toInt()
+    const val LIGHT_TEXT = 0xFF0B0C10.toInt()
+    const val LIGHT_TEXT_2 = 0xCC0B0C10.toInt()
+    const val LIGHT_TEXT_3 = 0x9E0B0C10.toInt()
+    const val LIGHT_STROKE = 0x290B0C10.toInt()
     /** Accent on light surfaces (cyan is too pale on white). */
-    const val LIGHT_ACCENT = 0xFF0A6FA8.toInt()
+    const val LIGHT_ACCENT = 0xFF0062A3.toInt()
 
     /** High contrast: pure black/white surfaces, solid borders, yellow focus ring. */
     const val HC_CANVAS = 0xFF000000.toInt()
@@ -56,6 +56,16 @@ object Brand {
     const val HC_TEXT = 0xFFFFFFFF.toInt()
     const val HC_STROKE = 0xFFFFFFFF.toInt()
     const val HC_FOCUS = 0xFFFFD60A.toInt()
+
+    // ----------------------------------------------------------------- redesign 4.0 (#184)
+    /** Warm accent (sunset coral): highlights, notifications, recap. Pairs with cyan for a fresher, younger feel. */
+    const val WARM = 0xFFFF8A5C.toInt()
+    const val ON_WARM = 0xFF2A0E03.toInt()
+    const val LIGHT_WARM = 0xFFC2410C.toInt()
+    const val HC_WARM = 0xFFFFB000.toInt()
+    /** TV focus ring: 6 dp white outline plus a soft cyan glow (yellow in high contrast). */
+    const val FOCUS_RING = 0xFFFFFFFF.toInt()
+    const val FOCUS_RING_DP = 3f
 
     /** Category tints: all shades around cyan/lake so grids stay one family. */
     val CATEGORY_TINTS = intArrayOf(CYAN, 0xFF5E8BFF.toInt(), 0xFF4FE3C1.toInt(), 0xFF9FB4FF.toInt())
@@ -90,9 +100,18 @@ object Brand {
     const val SPACE_5 = 20f
     const val SPACE_6 = 24f
     const val SPACE_8 = 32f
-    const val MOTION_FAST = 180
-    const val MOTION_MED = 260
-    const val MOTION_SLOW = 420
+    /** Durations in ms (emilkowalski/skills): press 120, focus/hover 220, enter/exit 300, page/sheet 340, auto hero 700. */
+    const val MOTION_PRESS = 120
+    const val MOTION_FAST = 220
+    const val MOTION_MED = 300
+    const val MOTION_SHEET = 340
+    const val MOTION_SLOW = 700
+    /** Cubic-bezier control points (x1, y1, x2, y2). Never ease-in for UI. */
+    @JvmField val EASE_OUT = floatArrayOf(0.23f, 1f, 0.32f, 1f)        // enter / exit
+    @JvmField val EASE_IN_OUT = floatArrayOf(0.77f, 0f, 0.175f, 1f)    // movement on screen
+    @JvmField val EASE_DRAWER = floatArrayOf(0.32f, 0.72f, 0f, 1f)     // sheets, page pushes
+    /** Press feedback scale. */
+    const val PRESS_SCALE = 0.97f
     /** TV safe area (dp). */
     const val TV_SAFE_TOP = 30f
     const val TV_SAFE_SIDE = 56f
@@ -138,7 +157,10 @@ object Brand {
         "type.eyebrowTracking" to EYEBROW_TRACKING,
         "radius.s" to RADIUS_S, "radius.m" to RADIUS_M, "radius.l" to RADIUS_L, "radius.xl" to RADIUS_XL,
         "space.1" to SPACE_1, "space.2" to SPACE_2, "space.3" to SPACE_3, "space.4" to SPACE_4, "space.5" to SPACE_5, "space.6" to SPACE_6, "space.8" to SPACE_8,
-        "motion.fast" to MOTION_FAST, "motion.med" to MOTION_MED, "motion.slow" to MOTION_SLOW,
+        "color.warm" to hex(WARM), "color.onWarm" to hex(ON_WARM), "color.light.warm" to hex(LIGHT_WARM), "color.hc.warm" to hex(HC_WARM), "color.focusRing" to hex(FOCUS_RING),
+        "motion.press" to MOTION_PRESS, "motion.fast" to MOTION_FAST, "motion.med" to MOTION_MED, "motion.sheet" to MOTION_SHEET, "motion.slow" to MOTION_SLOW,
+        "motion.easeOut" to EASE_OUT.joinToString(","), "motion.easeInOut" to EASE_IN_OUT.joinToString(","), "motion.easeDrawer" to EASE_DRAWER.joinToString(","),
+        "motion.pressScale" to PRESS_SCALE,
         "tv.safeTop" to TV_SAFE_TOP, "tv.safeSide" to TV_SAFE_SIDE,
     )
 
