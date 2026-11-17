@@ -998,6 +998,7 @@ object I18n {
         "common.on" to "On",
         "common.off" to "Off",
         "tv.reduce_motion_sub" to "Turns off zoom and slide animations",
+        "rec.drm_unsupported" to "DRM/DASH channels can't be recorded directly",
     )
 
     private val ID = mapOf(
@@ -1992,6 +1993,7 @@ object I18n {
         "common.on" to "Aktif",
         "common.off" to "Mati",
         "tv.reduce_motion_sub" to "Matikan animasi zoom dan geser",
+        "rec.drm_unsupported" to "DRM/DASH tidak mendukung rekam langsung",
     )
 
     private val ZH = mapOf(
@@ -2986,6 +2988,7 @@ object I18n {
         "common.on" to "开启",
         "common.off" to "关闭",
         "tv.reduce_motion_sub" to "关闭缩放与滑动动画",
+        "rec.drm_unsupported" to "DRM/DASH 频道无法直接录制",
     )
 
     /** Built-in, always-complete tables. */
