@@ -3,7 +3,7 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
-## Belum dirilis
+## 3.4.1
 
 ### Baru
 - **Bahasa saluran tambahan di HP (#71):** pilih bahasa di Beranda → kartu *Bahasa saluran tambahan*; saluran dimuat ulang dan pilihan ikut tersinkron ke TV.
