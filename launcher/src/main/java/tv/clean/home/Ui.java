@@ -29,7 +29,7 @@ final class Ui {
 
     // Radii (dp) and motion (ms).
     static final float R_SMALL = 12, R_MED = 18, R_LARGE = 28;
-    static final int FAST = 180, MED = 260, SLOW = 420;
+    static final int FAST = Brand.MOTION_FAST, MED = Brand.MOTION_MED, SLOW = Brand.MOTION_SHEET;
 
     static final SparseArray<Typeface> fonts = new SparseArray<>();
 
