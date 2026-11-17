@@ -70,7 +70,8 @@ object PhoneRegion {
         val before = viewer
         val next = v.copy(revision = maxOf(before.revision, v.revision) + 1L)
         val reload = next.countries != before.countries || next.region != before.region ||
-            next.city != before.city || next.country != before.country || !before.done
+            next.city != before.city || next.country != before.country || !before.done ||
+            next.channelLanguages != before.channelLanguages
         p(c).edit().putString("viewer", next.toJson()).apply()
         viewer = next; editing = false
         Channels.setFavs(c, next.favorites)

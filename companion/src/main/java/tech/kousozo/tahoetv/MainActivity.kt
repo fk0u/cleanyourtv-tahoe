@@ -122,6 +122,7 @@ class MainActivity : ComponentActivity() {
                             icon = { Icon(icon, null) }, label = { Text(label) })
                     }
                 }
+                val twoPane = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 840 && !Nav.full && !Nav.inPip
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     // the playing channel (or the hero channel on Beranda) tints the whole app, like album art in a music app
                     val tintLogo = rememberNetImage((Playback.entry ?: Nav.hero)?.channel?.logo)
@@ -135,7 +136,8 @@ class MainActivity : ComponentActivity() {
                             else -> SetupScreen(onExit = { Nav.tab = 0 })
                         }
                     }
-                    Nav.detail?.let { e -> ChannelScreen(e) { Nav.detail = null } }
+                    // ≥ 840 dp: the details open as a side pane next to the list instead of covering it (#41)
+                    if (!twoPane) Nav.detail?.let { e -> ChannelScreen(e) { Nav.detail = null } }
                     if (!Nav.full && !Nav.inPip) Column(Modifier.align(Alignment.BottomCenter)) {
                         val lang = PhoneRegion.language
                         MiniPlayer(Nav.tab != 1 || Nav.detail != null)
@@ -144,6 +146,9 @@ class MainActivity : ComponentActivity() {
                     PushBannerBar(onOpenInbox = { showInbox = true }, modifier = Modifier.align(Alignment.TopCenter))
                     if (showInbox) NotificationInboxSheet { showInbox = false }
                     UpdateModalDialog()
+                }
+                if (twoPane) Nav.detail?.let { e ->
+                    Box(Modifier.width(420.dp).fillMaxHeight().background(Tahoe.Bg)) { ChannelScreen(e) { Nav.detail = null } }
                 }
                 }
             }
@@ -708,6 +713,22 @@ private fun AppearanceCard() {
             }
             SwitchRow(t("ui.high_contrast"), ThemePrefs.highContrast) { ThemePrefs.highContrast = it; AppearancePrefs.save(c) }
             SwitchRow(t("ui.reduce_motion"), ThemePrefs.reduceMotion) { ThemePrefs.reduceMotion = it; AppearancePrefs.save(c) }
+        }
+        // extra channel languages (#71): iptv-org per-language playlists on top of the chosen countries
+        Text(t("ui.channel_languages"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        GlassCard {
+            Text(t("ui.channel_languages_sub"), color = Tahoe.Dim, fontSize = 13.sp)
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val v = PhoneRegion.viewer
+                tech.kousozo.tahoetv.core.Region.channelLanguages().forEach { l ->
+                    val on = l in v.channelLanguages
+                    val name = java.util.Locale.forLanguageTag(l).let { it.getDisplayLanguage(it) }.ifBlank { l }
+                    androidx.compose.material3.FilterChip(on, {
+                        PhoneRegion.save(c, v.copy(channelLanguages = if (on) v.channelLanguages - l else v.channelLanguages + l))
+                    }, { Text(name) }, Modifier.heightIn(min = 48.dp))
+                }
+            }
         }
     }
 }
