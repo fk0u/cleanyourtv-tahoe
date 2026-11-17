@@ -960,5 +960,11 @@
   "profile.explore": "تصفح الفئات",
   "offline.title": "تعذّر تحميل القنوات الآن",
   "push.today": "اليوم",
-  "push.earlier": "سابقًا"
+  "push.earlier": "سابقًا",
+  "tv.live_preview": "معاينة مباشرة",
+  "tv.live_preview_sub": "تشغيل القناة المحددة بصوت خافت في الدليل",
+  "tv.text_size": "حجم النص",
+  "tv.text_normal": "عادي",
+  "tv.text_large": "كبير",
+  "tv.text_xlarge": "كبير جدًا"
 }

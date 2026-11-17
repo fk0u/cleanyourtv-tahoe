@@ -1025,6 +1025,12 @@ object I18n {
         "offline.title" to "Channels can't load right now",
         "push.today" to "Today",
         "push.earlier" to "Earlier",
+        "tv.live_preview" to "Live preview",
+        "tv.live_preview_sub" to "Plays the focused channel quietly in the guide",
+        "tv.text_size" to "Text size",
+        "tv.text_normal" to "Normal",
+        "tv.text_large" to "Large",
+        "tv.text_xlarge" to "Extra large",
     )
 
     private val ID = mapOf(
@@ -2046,6 +2052,12 @@ object I18n {
         "offline.title" to "Saluran belum bisa dimuat",
         "push.today" to "Hari ini",
         "push.earlier" to "Sebelumnya",
+        "tv.live_preview" to "Pratinjau langsung",
+        "tv.live_preview_sub" to "Saluran yang difokus diputar pelan di jadwal",
+        "tv.text_size" to "Ukuran teks",
+        "tv.text_normal" to "Normal",
+        "tv.text_large" to "Besar",
+        "tv.text_xlarge" to "Sangat besar",
     )
 
     private val ZH = mapOf(
@@ -3067,6 +3079,12 @@ object I18n {
         "offline.title" to "暂时无法加载频道",
         "push.today" to "今天",
         "push.earlier" to "更早",
+        "tv.live_preview" to "实时预览",
+        "tv.live_preview_sub" to "在节目表中低音量播放所选频道",
+        "tv.text_size" to "文字大小",
+        "tv.text_normal" to "标准",
+        "tv.text_large" to "大",
+        "tv.text_xlarge" to "特大",
     )
 
     /** Built-in, always-complete tables. */
