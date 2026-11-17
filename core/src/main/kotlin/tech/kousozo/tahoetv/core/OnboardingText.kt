@@ -10,6 +10,7 @@ object OnboardingText {
     fun category(lang: String, c: LocalTv.Category): String = get(lang, "cat." + c.name)
 
     private val EN = mapOf(
+        "more" to "Fine-tune channels & prayer times", "step3" to "Step %s of 3", "ready.channels" to "Channels from %s are ready to watch",
         "step" to "Step %s",
         "next" to "Continue", "back" to "Back", "skip" to "Skip", "done" to "Start watching", "search" to "Search",
         "lang.title" to "Welcome to Tahoe TV", "lang.sub" to "Choose your language",
@@ -41,6 +42,7 @@ object OnboardingText {
     )
 
     private val ID = mapOf(
+        "more" to "Atur saluran & jadwal shalat", "step3" to "Langkah %s dari 3", "ready.channels" to "Saluran dari %s siap ditonton",
         "step" to "Langkah %s",
         "next" to "Lanjut", "back" to "Kembali", "skip" to "Lewati", "done" to "Mulai menonton", "search" to "Cari",
         "lang.title" to "Selamat datang di Tahoe TV", "lang.sub" to "Pilih bahasa",
@@ -72,6 +74,7 @@ object OnboardingText {
     )
 
     private val ZH = mapOf(
+        "more" to "调整频道与礼拜时间", "step3" to "第 %s 步，共 3 步", "ready.channels" to "%s 的频道已可观看",
         "step" to "第 %s 步",
         "next" to "继续", "back" to "返回", "skip" to "跳过", "done" to "开始观看", "search" to "搜索",
         "lang.title" to "欢迎使用 Tahoe TV", "lang.sub" to "选择语言",
@@ -103,6 +106,7 @@ object OnboardingText {
     )
 
     private val AR = mapOf(
+        "more" to "اضبط القنوات ومواقيت الصلاة", "step3" to "الخطوة %s من 3", "ready.channels" to "قنوات %s جاهزة للمشاهدة",
         "step" to "الخطوة %s",
         "next" to "متابعة", "back" to "رجوع", "skip" to "تخطٍّ", "done" to "ابدأ المشاهدة", "search" to "بحث",
         "lang.title" to "مرحبًا بك في Tahoe TV", "lang.sub" to "اختر لغتك",
