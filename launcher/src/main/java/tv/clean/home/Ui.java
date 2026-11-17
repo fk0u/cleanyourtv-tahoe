@@ -45,9 +45,14 @@ final class Ui {
 
     static float dp(Context c, float v) { return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, c.getResources().getDisplayMetrics()); }
 
+    /** Text size from Control Center (#181): normal 1.0, large 1.15, extra large 1.3. */
+    static float textScale(Context c) {
+        switch (Cfg.p(c).getString("text_size", "normal")) { case "large": return 1.15f; case "xlarge": return 1.3f; default: return 1f; }
+    }
+
     static TextView text(Context c, float sp, int wght, int color) {
         TextView t = new TextView(c);
-        t.setTextSize(sp); t.setTypeface(font(c, wght)); t.setTextColor(color);
+        t.setTextSize(sp * textScale(c)); t.setTypeface(font(c, wght)); t.setTextColor(color);
         t.setSingleLine(); t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         t.setIncludeFontPadding(false);
         t.setShadowLayer(dp(c, 10), 0, dp(c, 1), 0x66000000);
@@ -117,6 +122,16 @@ final class Ui {
     static int cardFill(Context c, int normal) { return highContrast(c) ? 0xF2000000 : normal; }
     /** Focus fill: high contrast uses the brand's yellow focus colour. */
     static int focusFill(Context c, int normal) { return highContrast(c) ? tech.kousozo.tahoetv.core.Brand.HC_FOCUS : normal; }
+
+    /** Focus background (#181): translucent fill plus a solid 3 dp ring (white, or yellow in high contrast) so the
+     *  focused item is obvious from the sofa, including for older viewers. */
+    static android.graphics.drawable.Drawable focusRing(Context c, float radius) {
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+        g.setCornerRadius(radius);
+        g.setColor(highContrast(c) ? 0x33FFD60A : GLASS_FOCUS);
+        g.setStroke((int) dp(c, tech.kousozo.tahoetv.core.Brand.FOCUS_RING_DP), highContrast(c) ? tech.kousozo.tahoetv.core.Brand.HC_FOCUS : tech.kousozo.tahoetv.core.Brand.FOCUS_RING);
+        return g;
+    }
 
     /** Remote navigation click sound, when enabled in Control Center. */
     static void click(View v) {

@@ -41,6 +41,7 @@ public class Live extends Activity {
     final Handler ui = new Handler(Looper.getMainLooper());
     DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH.mm").withZone(ZoneId.systemDefault());
     TextView title, sub, sortBtn, dName, dCat, dNow, dDesc, dNext, dHint;
+    LivePreview preview;
     LinearLayout cats, rows;
     List<LocalTv.Entry> all = new ArrayList<>(), list = new ArrayList<>();
     LocalTv.Category cat;   // null = all
@@ -93,6 +94,20 @@ public class Live extends Activity {
         dDesc = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); dDesc.setSingleLine(false); dDesc.setMaxLines(4);
         dNext = Ui.text(this, Ui.BODY, 400, Ui.TEXT); dNext.setSingleLine(false); dNext.setMaxLines(6); dNext.setLineSpacing(dp(4), 1);
         dHint = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); dHint.setText(I18n.get(lang, "tv.guide_ok_hint"));
+        // live preview (#181): the focused channel plays quietly here once focus rests
+        FrameLayout pv = new FrameLayout(this);
+        pv.setBackground(new GlassDrawable(dp(Ui.R_MED), 0x33000000, dp(1)));
+        Ui.clip(pv, dp(Ui.R_MED));
+        android.view.TextureView tex = new android.view.TextureView(this);
+        pv.addView(tex, new FrameLayout.LayoutParams(-1, -1));
+        TextView badge = Ui.eyebrow(this, Ui.TEXT);
+        badge.setText(I18n.get(lang, "tv.live_preview"));
+        badge.setPadding((int) dp(10), (int) dp(5), (int) dp(10), (int) dp(5));
+        badge.setBackground(new GlassDrawable(dp(12), 0xCC000000, dp(1)));
+        FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START); bl.setMarginStart((int) dp(10)); bl.topMargin = (int) dp(10);
+        pv.addView(badge, bl);
+        preview = new LivePreview(this, tex, badge);
+        if (LivePreview.enabled(this)) { LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(-1, (int) dp(186)); pl.bottomMargin = (int) dp(14); d.addView(pv, pl); }
         d.addView(dCat); d.addView(dName, lp(4)); d.addView(dNow, lp(18)); d.addView(dDesc, lp(6)); d.addView(dNext, lp(18));
         View spacer = new View(this); d.addView(spacer, new LinearLayout.LayoutParams(0, 0, 1)); d.addView(dHint);
         LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams((int) dp(380), -1); dl.setMarginStart((int) dp(20));
@@ -271,7 +286,7 @@ public class Live extends Activity {
             final LocalTv.Category target = item.getKey();
             TextView t = row(item.getValue(), Ui.BODY, 500);
             t.setTextColor(target == cat ? Ui.ACCENT : Ui.TEXT);
-            t.setOnFocusChangeListener((v, f) -> v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null));
+            t.setOnFocusChangeListener((v, f) -> v.setBackground(f ? Ui.focusRing(this, dp(Ui.R_SMALL)) : null));
             t.setOnClickListener(v -> selectCategory(target));
             cats.addView(t);
         }
@@ -285,8 +300,8 @@ public class Live extends Activity {
             TextView t = row(e.getName() + (e.getNear() ? "  •" : "") + (p != null ? "\n" + p.getTitle() : ""), Ui.BODY, 500);
             t.setSingleLine(false); t.setMaxLines(2); t.setTag(e);
             t.setOnFocusChangeListener((v, f) -> {
-                v.setBackground(f ? new GlassDrawable(dp(Ui.R_SMALL), Ui.GLASS_FOCUS, dp(1)) : null);
-                if (f) detail(e);
+                v.setBackground(f ? Ui.focusRing(this, dp(Ui.R_SMALL)) : null);
+                if (f) { detail(e); preview.focus(e.getChannel()); }
             });
             t.setOnClickListener(v -> watch(e));
             t.setOnLongClickListener(v -> { channelDetail(e); return true; });
@@ -348,8 +363,12 @@ public class Live extends Activity {
 
     /** Watch in Tahoe's own Live TV player, starting at this channel. */
     void watch(LocalTv.Entry e) {
+        if (preview != null) preview.stop(); // one player at a time on small TV sticks
         startActivity(new Intent(this, LiveTv.class).putExtra("url", e.getChannel().getUrl()));
     }
+
+    @Override protected void onPause() { super.onPause(); if (preview != null) preview.stop(); }
+    @Override protected void onDestroy() { if (preview != null) preview.release(); super.onDestroy(); }
 
     @Override public boolean dispatchKeyEvent(KeyEvent e) {
         int k = Home.gamepadToRemote(e.getKeyCode());

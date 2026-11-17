@@ -338,7 +338,16 @@ final class Sheets {
                 new Item(R.drawable.ic_layout_grid, I18n.get(lang, "ui.reduce_motion"), I18n.get(lang, "tv.reduce_motion_sub"),
                     () -> { cfg.edit().putBoolean("reduce_motion", !rm).apply(); rebuild(); }).on(rm));
             add(new Item(R.drawable.ic_layout_grid, I18n.get(lang, "tv.click_sound"), I18n.get(lang, cs ? "common.on" : "common.off"),
-                    () -> { cfg.edit().putBoolean("click_sound", !cs).apply(); rebuild(); }).wide().on(cs));
+                    () -> { cfg.edit().putBoolean("click_sound", !cs).apply(); rebuild(); }).on(cs),
+                new Item(R.drawable.ic_tv, I18n.get(lang, "tv.live_preview"), I18n.get(lang, "tv.live_preview_sub"),
+                    () -> { cfg.edit().putBoolean("live_preview", !cfg.getBoolean("live_preview", true)).apply(); rebuild(); }).on(cfg.getBoolean("live_preview", true)));
+            // text size (#181): Normal → Besar → Sangat besar; applies as screens are rebuilt
+            String ts = cfg.getString("text_size", "normal");
+            String tsLabel = I18n.get(lang, "large".equals(ts) ? "tv.text_large" : "xlarge".equals(ts) ? "tv.text_xlarge" : "tv.text_normal");
+            add(new Item(R.drawable.ic_layout_grid, I18n.get(lang, "tv.text_size"), tsLabel + "  ·  ◀ ▶",
+                    () -> { cfg.edit().putString("text_size", "normal".equals(ts) ? "large" : "large".equals(ts) ? "xlarge" : "normal").apply(); h.recreate(); })
+                    .adjust(dir -> { String[] o = {"normal", "large", "xlarge"}; int i = java.util.Arrays.asList(o).indexOf(ts);
+                        cfg.edit().putString("text_size", o[Math.max(0, Math.min(2, i + dir))]).apply(); h.recreate(); }).wide());
             if (BuildConfig.STANDALONE_MODE) {
                 add(new Item(R.drawable.ic_tv, I18n.get(lang, "tv.standalone_title"),
                         I18n.get(lang, "tv.standalone_guide"), null).wide());
