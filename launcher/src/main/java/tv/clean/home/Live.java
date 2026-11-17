@@ -335,6 +335,8 @@ public class Live extends Activity {
                 .setTitle(I18n.get(lang, "tv.channel_detail") + " · " + e.getName())
                 .setMessage(body)
                 .setPositiveButton(I18n.get(lang, "home.watch"), (dlg, w) -> watch(e))
+                .setNegativeButton(I18n.get(lang, "tv.live_record_btn"),
+                        (dlg, w) -> startActivity(new Intent(this, LiveTv.class).putExtra("url", e.getChannel().getUrl()).putExtra("record", true)))
                 .setNeutralButton(I18n.get(lang, isFav ? "tv.fav_remove" : "tv.fav_add"), (dlg, w) -> {
                     if (isFav) fav.remove(url); else fav.add(url);
                     live.edit().putStringSet("fav", fav).apply();

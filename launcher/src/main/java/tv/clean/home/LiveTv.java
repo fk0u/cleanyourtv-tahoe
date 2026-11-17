@@ -292,6 +292,7 @@ public class LiveTv extends Activity {
             guideDirty = true;
             if (guide.getVisibility() == View.VISIBLE) buildRows();
             tune(i);
+            recordWhenReady(getIntent());
         }, e -> { epg = e; if (guide.getVisibility() == View.VISIBLE) buildRows(); else guideDirty = true; if (index >= 0) showBanner(); }, () -> loading.setText(I18n.get(TvViewer.get(this).getLanguage(), "tv.live_load_failed")));
         ui.post(watchdog);
         if (Kids.on(this)) ui.postDelayed(kidsQuotaTick, 30_000L);
@@ -302,6 +303,14 @@ public class LiveTv extends Activity {
         setIntent(intent);
         String cid = intent.getStringExtra("channelId"), u = intent.getStringExtra("url");
         if ((cid != null && !cid.isEmpty()) || (u != null && !u.isEmpty())) tuneByChannel(cid, u);
+        recordWhenReady(intent);
+    }
+
+    /** "Record" from the guide's channel details (#41): starts a local recording once the stream has settled. */
+    void recordWhenReady(android.content.Intent intent) {
+        if (intent == null || !intent.getBooleanExtra("record", false)) return;
+        intent.removeExtra("record");
+        ui.postDelayed(() -> { if (activeRecorder == null && index >= 0) toggleLocalRecord(); }, 4000L);
     }
 
     int findChannelIndex(String channelId, String url) {
@@ -1529,7 +1538,7 @@ public class LiveTv extends Activity {
         LocalTv.Entry e = list.get(index);
         M3u.Channel ch = order.get(source);
         if (ch.getDrm() || ch.isDash()) {
-            Toast.makeText(this, "DRM/DASH tidak mendukung rekam langsung", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, I18n.get(lang, "rec.drm_unsupported"), Toast.LENGTH_SHORT).show();
             return;
         }
         java.io.File recDir = getExternalFilesDir("recordings");
