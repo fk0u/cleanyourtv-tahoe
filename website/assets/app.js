@@ -133,6 +133,8 @@
     caption();
     if (user) { userStopped = true; clearInterval(timer); timer = null; }
   }
+  $("#slide-prev")?.addEventListener("click", () => show(at - 1, true));
+  $("#slide-next")?.addEventListener("click", () => show(at + 1, true));
   const still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!still && slides.length) timer = setInterval(() => { if (!userStopped) show(at + 1); }, 4500);
   show(0);

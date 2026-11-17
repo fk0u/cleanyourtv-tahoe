@@ -60,10 +60,11 @@
     <h1 data-i18n="hero.title">Your TV, beautifully simple.</h1>
     <p class="lead" data-i18n="hero.lead">Tahoe TV: calm, simple TV for the whole family. A free, open-source glass TV home & smart live TV player for Android TV, Android phones, Mac, Windows PC and Debian/Ubuntu Linux. Light enough for a 1 GB TV stick.</p>
     <div class="cta">
-      <a class="btn primary" id="cta-download" href="#start"><span data-i18n="hero.download">Download</span> <small id="cta-os"></small></a>
+      <a class="btn cyan" id="cta-download" href="#start"><span data-i18n="hero.download">Download</span> <small id="cta-os"></small></a>
       <a class="btn ghost" href="#explore"><span data-i18n="hero.explore">Browse channels</span></a>
       <a class="btn ghost" href="https://github.com/fk0u/cleanyourtv-tahoe"><span data-i18n="hero.source">View source</span></a>
     </div>
+    <p class="works"><span data-i18n="hero.works">Works on</span> <b>Android TV</b><b>Android</b><b>macOS</b><b>Windows</b><b>Linux</b></p>
     <ul class="stats">
       <li><b>1,000+</b><span data-i18n="stats.channels">channels indexed</span></li>
       <li><b>5</b><span data-i18n="stats.platforms">platforms</span></li>
@@ -71,8 +72,10 @@
       <li><b>0</b><span data-i18n="stats.ads">ads, no root</span></li>
     </ul>
   </div>
-  <div class="hero-art reveal">
-    <img src="assets/hero.svg" alt="Tahoe TV on a TV and a phone" width="1280" height="720">
+  <div class="hero-art reveal" aria-hidden="true">
+    <div class="glow"></div>
+    <div class="stage-tv"><img src="assets/shots/v2/02-beranda.jpg" alt="" width="1280" height="720"></div>
+    <div class="stage-phone"><img src="assets/shots/mobile-v4/01-beranda.jpg" alt="" width="540" height="1200"></div>
   </div>
 </section>
 
@@ -83,6 +86,78 @@
     <div class="metric-item"><small data-i18n="pulse.online">Online Now (Push)</small><strong id="stat-online">—</strong><span data-i18n="pulse.online_sub">Real-time SSE stream</span></div>
     <div class="metric-item"><small data-i18n="pulse.release">Latest Build</small><strong id="stat-rel">—</strong><span id="stat-rel-date" data-i18n="pulse.release_sub">Auto-checked via SHA-256</span></div>
   </div>
+</section>
+
+<section id="screens" class="section">
+  <h2 class="reveal" data-i18n="screens.title">See it in action</h2>
+  <p class="sub reveal" data-i18n="screens.sub">Real screenshots from a Mi TV Stick and an Android phone.</p>
+  <div class="tv-frame reveal">
+    <div class="tv-screen">
+      <img class="slide on" src="assets/shots/v2/02-beranda.jpg" alt="" data-cap="cap.home">
+      <img class="slide" src="assets/shots/v2/03-hero-aksi.jpg" alt="" data-cap="cap.hero" loading="lazy">
+      <img class="slide" src="assets/shots/v2/04-launchpad.jpg" alt="" data-cap="cap.launchpad" loading="lazy">
+      <img class="slide" src="assets/shots/v2/06-pusat-kontrol.jpg" alt="" data-cap="cap.cc" loading="lazy">
+      <img class="slide" src="assets/shots/v2/07-asisten.jpg" alt="" data-cap="cap.assistant" loading="lazy">
+      <img class="slide" src="assets/shots/v2/05-jadwal-shalat.jpg" alt="" data-cap="cap.prayer" loading="lazy">
+      <img class="slide" src="assets/shots/v2/09-hubungkan-hp.jpg" alt="" data-cap="cap.pair" loading="lazy">
+    </div>
+    <div class="tv-stand"></div>
+  </div>
+  <div class="carousel-nav reveal">
+    <button class="round" id="slide-prev" type="button" aria-label="Previous"><span aria-hidden="true">‹</span></button>
+    <div class="dots" id="dots"></div>
+    <button class="round" id="slide-next" type="button" aria-label="Next"><span aria-hidden="true">›</span></button>
+  </div>
+  <p class="caption reveal" id="caption"></p>
+  <div class="phones" tabindex="0" aria-label="Phone screenshots">
+    <figure class="phone reveal"><img src="assets/shots/mobile-v4/01-beranda.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.phome">Home</figcaption></figure>
+    <figure class="phone reveal"><img src="assets/shots/mobile-v4/04-tv-live.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.plive">Live TV</figcaption></figure>
+    <figure class="phone reveal"><img src="assets/shots/mobile-v4/03-halaman-saluran.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.pchannel">Channel page</figcaption></figure>
+    <figure class="phone reveal"><img src="assets/shots/mobile-v4/02-mini-player.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.pmini">Mini player</figcaption></figure>
+  </div>
+</section>
+
+<section id="features" class="section">
+  <h2 class="reveal" data-i18n="features.title">One home for everything you watch</h2>
+  <p class="sub reveal" data-i18n="features.sub">Multi-stage fuzzy server selection, DASH/DRM support, and live push updates on every screen.</p>
+  <div class="tabs reveal" role="tablist">
+    <button role="tab" id="tab-tv" class="on" aria-selected="true" aria-controls="panel-tv" tabindex="0" data-tab="tv">📺 <span data-i18n="tab.tv">TV Launcher</span></button>
+    <button role="tab" id="tab-phone" aria-selected="false" aria-controls="panel-phone" tabindex="-1" data-tab="phone">📱 <span data-i18n="tab.phone">Phone & Tablet</span></button>
+    <button role="tab" id="tab-desktop" aria-selected="false" aria-controls="panel-desktop" tabindex="-1" data-tab="desktop">💻 <span data-i18n="tab.desktop">Desktop & Web</span></button>
+  </div>
+  <div class="grid features" role="tabpanel" id="panel-tv" aria-labelledby="tab-tv" tabindex="0" data-panel="tv">
+    <article class="card reveal"><i>✨</i><h3 data-i18n="f.tv1.t">Built for Android TV</h3><p data-i18n="f.tv1.d">Full glass landscape launcher tailored for D-pad TV remotes, Mi TV Stick (1 GB RAM), and 4K displays.</p></article>
+    <article class="card reveal"><i>📡</i><h3 data-i18n="f.tv2.t">Fuzzy Multi-Stage Live Engine</h3><p data-i18n="f.tv2.d">Tests all servers per channel, scores latency, bitrate & EWMA reliability, and switches smoothly.</p></article>
+    <article class="card reveal"><i>🔔</i><h3 data-i18n="f.tv3.t">Pop-up Update & Push Alerts</h3><p data-i18n="f.tv3.d">Interactive modal pop-ups with SHA-256 verification and real-time push notifications even without Google Play.</p></article>
+    <article class="card reveal"><i>👨‍👩‍👧</i><h3 data-i18n="f.tv4.t">Family profiles & CC/Audio</h3><p data-i18n="f.tv4.d">Me, Guest, and PIN-locked Kids profiles plus closed captions and multi-audio track switching.</p></article>
+    <article class="card reveal"><i>🎛️</i><h3 data-i18n="f.tv5.t">Control Center</h3><p data-i18n="f.tv5.d">Volume, Wi-Fi, Bluetooth, wallpaper, weather, sleep timer, assistant and updates in one place.</p></article>
+    <article class="card reveal"><i>🕌</i><h3 data-i18n="f.tv6.t">Prayer times & more</h3><p data-i18n="f.tv6.d">Prayer times with adhan, weather, a Gemini assistant, Home Assistant and gamepad support.</p></article>
+  </div>
+  <div class="grid features" role="tabpanel" id="panel-phone" aria-labelledby="tab-phone" tabindex="0" data-panel="phone" hidden>
+    <article class="card reveal"><i>🪄</i><h3 data-i18n="f.ph1.t">Push Tahoe TV over Wi-Fi</h3><p data-i18n="f.ph1.d">Install the main TV app onto your TV Stick over Wi-Fi without needing a laptop.</p></article>
+    <article class="card reveal"><i>🕹️</i><h3 data-i18n="f.ph2.t">Smart Touch Remote</h3><p data-i18n="f.ph2.d">Swipe pad, volume slider, numbers, media keys, power, sleep timer, and typing straight onto the TV.</p></article>
+    <article class="card reveal"><i>📺</i><h3 data-i18n="f.ph3.t">Live TV & PiP in your pocket</h3><p data-i18n="f.ph3.d">Mini player, DASH ClearKey/Widevine support, channel pages, and typo-tolerant fuzzy search.</p></article>
+    <article class="card reveal"><i>🔔</i><h3 data-i18n="f.ph4.t">Instant Update Modals</h3><p data-i18n="f.ph4.d">Get notified immediately when updates or channel notices arrive, with one-tap APK install.</p></article>
+    <article class="card reveal"><i>🔐</i><h3 data-i18n="f.ph5.t">Connect without codes</h3><p data-i18n="f.ph5.d">On the same Wi-Fi, tap your TV and press OK on it. On another network, use the QR code or PIN.</p></article>
+    <article class="card reveal"><i>🧾</i><h3 data-i18n="f.ph6.t">Send log</h3><p data-i18n="f.ph6.d">One tap collects phone + TV diagnostic logs without tokens or passwords.</p></article>
+  </div>
+  <div class="grid features" role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop" tabindex="0" data-panel="desktop" hidden>
+    <article class="card reveal"><i>🖥️</i><h3 data-i18n="f.pc1.t">macOS, Windows & Linux Player</h3><p data-i18n="f.pc1.d">HLS + DASH ClearKey + seamless WebPlayer EME handoff for Widevine/PlayReady streams.</p></article>
+    <article class="card reveal"><i>🔔</i><h3 data-i18n="f.pc2.t">Instant Update & Push Alerts</h3><p data-i18n="f.pc2.d">Receive macOS/Windows system notifications and interactive SHA-256 verified update modals.</p></article>
+    <article class="card reveal"><i>🏠</i><h3 data-i18n="f.pc3.t">IPTV server for the home</h3><p data-i18n="f.pc3.d">Authenticated playlist & EPG relay for TVs, phones, VLC, Kodi and TiviMate.</p></article>
+    <article class="card reveal"><i>⏺️</i><h3 data-i18n="f.pc4.t">DVR Recording & Mirroring</h3><p data-i18n="f.pc4.d">Record shows from the EPG and mirror/control your Android TV from your computer.</p></article>
+  </div>
+</section>
+
+<section id="explore" class="section">
+  <h2 class="reveal" data-i18n="exp.title">Live Channel Directory</h2>
+  <p class="sub reveal" data-i18n="exp.sub">Explore indexed public & regional streams directly from Tahoe's directory (no video streams hosted here).</p>
+  <div class="toolbar reveal">
+    <input class="input grow" id="ch-search" type="search" placeholder="Search channel or category (e.g. TVRI, News, Sports)..." aria-label="Search channels">
+    <button class="btn ghost small" id="ch-refresh" type="button" data-i18n="exp.refresh">Refresh</button>
+  </div>
+  <div class="pills-row reveal" id="ch-groups"></div>
+  <div class="channel-grid reveal" id="ch-grid"><p class="dl-sub" data-i18n="exp.loading">Loading public directory…</p></div>
 </section>
 
 <section id="start" class="section">
@@ -171,49 +246,6 @@
   </div>
 </section>
 
-<section id="features" class="section">
-  <h2 class="reveal" data-i18n="features.title">One home for everything you watch</h2>
-  <p class="sub reveal" data-i18n="features.sub">Multi-stage fuzzy server selection, DASH/DRM support, and live push updates on every screen.</p>
-  <div class="tabs reveal" role="tablist">
-    <button role="tab" id="tab-tv" class="on" aria-selected="true" aria-controls="panel-tv" tabindex="0" data-tab="tv">📺 <span data-i18n="tab.tv">TV Launcher</span></button>
-    <button role="tab" id="tab-phone" aria-selected="false" aria-controls="panel-phone" tabindex="-1" data-tab="phone">📱 <span data-i18n="tab.phone">Phone & Tablet</span></button>
-    <button role="tab" id="tab-desktop" aria-selected="false" aria-controls="panel-desktop" tabindex="-1" data-tab="desktop">💻 <span data-i18n="tab.desktop">Desktop & Web</span></button>
-  </div>
-  <div class="grid features" role="tabpanel" id="panel-tv" aria-labelledby="tab-tv" tabindex="0" data-panel="tv">
-    <article class="card reveal"><i>✨</i><h3 data-i18n="f.tv1.t">Built for Android TV</h3><p data-i18n="f.tv1.d">Full glass landscape launcher tailored for D-pad TV remotes, Mi TV Stick (1 GB RAM), and 4K displays.</p></article>
-    <article class="card reveal"><i>📡</i><h3 data-i18n="f.tv2.t">Fuzzy Multi-Stage Live Engine</h3><p data-i18n="f.tv2.d">Tests all servers per channel, scores latency, bitrate & EWMA reliability, and switches smoothly.</p></article>
-    <article class="card reveal"><i>🔔</i><h3 data-i18n="f.tv3.t">Pop-up Update & Push Alerts</h3><p data-i18n="f.tv3.d">Interactive modal pop-ups with SHA-256 verification and real-time push notifications even without Google Play.</p></article>
-    <article class="card reveal"><i>👨‍👩‍👧</i><h3 data-i18n="f.tv4.t">Family profiles & CC/Audio</h3><p data-i18n="f.tv4.d">Me, Guest, and PIN-locked Kids profiles plus closed captions and multi-audio track switching.</p></article>
-    <article class="card reveal"><i>🎛️</i><h3 data-i18n="f.tv5.t">Control Center</h3><p data-i18n="f.tv5.d">Volume, Wi-Fi, Bluetooth, wallpaper, weather, sleep timer, assistant and updates in one place.</p></article>
-    <article class="card reveal"><i>🕌</i><h3 data-i18n="f.tv6.t">Prayer times & more</h3><p data-i18n="f.tv6.d">Prayer times with adhan, weather, a Gemini assistant, Home Assistant and gamepad support.</p></article>
-  </div>
-  <div class="grid features" role="tabpanel" id="panel-phone" aria-labelledby="tab-phone" tabindex="0" data-panel="phone" hidden>
-    <article class="card reveal"><i>🪄</i><h3 data-i18n="f.ph1.t">Push Tahoe TV over Wi-Fi</h3><p data-i18n="f.ph1.d">Install the main TV app onto your TV Stick over Wi-Fi without needing a laptop.</p></article>
-    <article class="card reveal"><i>🕹️</i><h3 data-i18n="f.ph2.t">Smart Touch Remote</h3><p data-i18n="f.ph2.d">Swipe pad, volume slider, numbers, media keys, power, sleep timer, and typing straight onto the TV.</p></article>
-    <article class="card reveal"><i>📺</i><h3 data-i18n="f.ph3.t">Live TV & PiP in your pocket</h3><p data-i18n="f.ph3.d">Mini player, DASH ClearKey/Widevine support, channel pages, and typo-tolerant fuzzy search.</p></article>
-    <article class="card reveal"><i>🔔</i><h3 data-i18n="f.ph4.t">Instant Update Modals</h3><p data-i18n="f.ph4.d">Get notified immediately when updates or channel notices arrive, with one-tap APK install.</p></article>
-    <article class="card reveal"><i>🔐</i><h3 data-i18n="f.ph5.t">QR pairing</h3><p data-i18n="f.ph5.d">Scan the code on the TV and pair securely with per-device bearer tokens.</p></article>
-    <article class="card reveal"><i>🧾</i><h3 data-i18n="f.ph6.t">Send log</h3><p data-i18n="f.ph6.d">One tap collects phone + TV diagnostic logs without tokens or passwords.</p></article>
-  </div>
-  <div class="grid features" role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop" tabindex="0" data-panel="desktop" hidden>
-    <article class="card reveal"><i>🖥️</i><h3 data-i18n="f.pc1.t">macOS, Windows & Linux Player</h3><p data-i18n="f.pc1.d">HLS + DASH ClearKey + seamless WebPlayer EME handoff for Widevine/PlayReady streams.</p></article>
-    <article class="card reveal"><i>🔔</i><h3 data-i18n="f.pc2.t">Instant Update & Push Alerts</h3><p data-i18n="f.pc2.d">Receive macOS/Windows system notifications and interactive SHA-256 verified update modals.</p></article>
-    <article class="card reveal"><i>🏠</i><h3 data-i18n="f.pc3.t">IPTV server for the home</h3><p data-i18n="f.pc3.d">Authenticated playlist & EPG relay for TVs, phones, VLC, Kodi and TiviMate.</p></article>
-    <article class="card reveal"><i>⏺️</i><h3 data-i18n="f.pc4.t">DVR Recording & Mirroring</h3><p data-i18n="f.pc4.d">Record shows from the EPG and mirror/control your Android TV from your computer.</p></article>
-  </div>
-</section>
-
-<section id="explore" class="section">
-  <h2 class="reveal" data-i18n="exp.title">Live Channel Directory</h2>
-  <p class="sub reveal" data-i18n="exp.sub">Explore indexed public & regional streams directly from Tahoe's directory (no video streams hosted here).</p>
-  <div class="toolbar reveal">
-    <input class="input grow" id="ch-search" type="search" placeholder="Search channel or category (e.g. TVRI, News, Sports)..." aria-label="Search channels">
-    <button class="btn ghost small" id="ch-refresh" type="button" data-i18n="exp.refresh">Refresh</button>
-  </div>
-  <div class="pills-row reveal" id="ch-groups"></div>
-  <div class="channel-grid reveal" id="ch-grid"><p class="dl-sub" data-i18n="exp.loading">Loading public directory…</p></div>
-</section>
-
 <section id="tools" class="section">
   <h2 class="reveal" data-i18n="tools.title">Release Inspector & Playlist Helper</h2>
   <p class="sub reveal" data-i18n="tools.sub">Verify official SHA-256 download checksums and test your custom M3U snippets locally in your browser.</p>
@@ -242,31 +274,6 @@
       <button class="btn cyan small" id="m3u-check-btn" type="button" data-i18n="m3u.btn">Inspect Playlist</button>
       <span id="m3u-result" class="dl-sub"></span>
     </div>
-  </div>
-</section>
-
-<section id="screens" class="section">
-  <h2 class="reveal" data-i18n="screens.title">See it in action</h2>
-  <p class="sub reveal" data-i18n="screens.sub">Real screenshots from a Mi TV Stick and an Android phone.</p>
-  <div class="tv-frame reveal">
-    <div class="tv-screen">
-      <img class="slide on" src="assets/shots/v2/02-beranda.jpg" alt="" data-cap="cap.home">
-      <img class="slide" src="assets/shots/v2/03-hero-aksi.jpg" alt="" data-cap="cap.hero" loading="lazy">
-      <img class="slide" src="assets/shots/v2/04-launchpad.jpg" alt="" data-cap="cap.launchpad" loading="lazy">
-      <img class="slide" src="assets/shots/v2/06-pusat-kontrol.jpg" alt="" data-cap="cap.cc" loading="lazy">
-      <img class="slide" src="assets/shots/v2/07-asisten.jpg" alt="" data-cap="cap.assistant" loading="lazy">
-      <img class="slide" src="assets/shots/v2/05-jadwal-shalat.jpg" alt="" data-cap="cap.prayer" loading="lazy">
-      <img class="slide" src="assets/shots/v2/09-hubungkan-hp.jpg" alt="" data-cap="cap.pair" loading="lazy">
-    </div>
-    <div class="tv-stand"></div>
-  </div>
-  <div class="dots reveal" id="dots"></div>
-  <p class="caption reveal" id="caption"></p>
-  <div class="phones">
-    <figure class="phone reveal"><img src="assets/shots/mobile-v4/01-beranda.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.phome">Home</figcaption></figure>
-    <figure class="phone reveal"><img src="assets/shots/mobile-v4/04-tv-live.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.plive">Live TV</figcaption></figure>
-    <figure class="phone reveal"><img src="assets/shots/mobile-v4/03-halaman-saluran.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.pchannel">Channel page</figcaption></figure>
-    <figure class="phone reveal"><img src="assets/shots/mobile-v4/02-mini-player.jpg" alt="" loading="lazy"><figcaption data-i18n="cap.pmini">Mini player</figcaption></figure>
   </div>
 </section>
 
@@ -314,15 +321,34 @@
 </div>
 
 <footer class="footer">
-  <div class="brand"><img src="assets/logo-mark.svg" alt="" width="22" height="22"><span>Tahoe TV</span></div>
-  <p data-i18n="foot.made">Made in Indonesia, for everyone. MIT license.</p>
-  <p class="links">
-    <a href="https://github.com/fk0u/cleanyourtv-tahoe">GitHub</a> ·
-    <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases">Releases</a> ·
-    <a id="install-link" href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/docs/INSTALL.md">INSTALL.md</a> ·
-    <a href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/docs/SOURCES.md" data-i18n="foot.sources">Sources</a> ·
-    <a href="https://github.com/fk0u/cleanyourtv-tahoe/security/advisories/new" data-i18n="foot.security">Report a security issue</a>
-  </p>
+  <div class="foot-grid">
+    <div class="foot-brand">
+      <div class="brand"><img src="assets/logo-mark.svg" alt="" width="26" height="26"><span>Tahoe TV</span></div>
+      <p data-i18n="foot.tag">Calm, simple TV for the whole family.</p>
+      <p data-i18n="foot.made">Made in Indonesia, for everyone. MIT license.</p>
+    </div>
+    <nav aria-labelledby="foot-get">
+      <h4 id="foot-get" data-i18n="foot.get">Get Tahoe</h4>
+      <a href="#start" data-i18n="dl.filter.tv">📺 Smart TV / Box</a>
+      <a href="#start" data-i18n="dl.filter.phone">📱 Android Phone</a>
+      <a href="#start" data-i18n="dl.filter.desktop">💻 Mac / Windows / Linux</a>
+      <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases">Releases</a>
+    </nav>
+    <nav aria-labelledby="foot-com">
+      <h4 id="foot-com" data-i18n="foot.community">Community</h4>
+      <a href="https://github.com/fk0u/cleanyourtv-tahoe">GitHub</a>
+      <a href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/docs/TRANSLATING.md" data-i18n="com.tr.t">Translate & add countries</a>
+      <a href="https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose" data-i18n="com.bug.t">Report a bug</a>
+      <a href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/CONTRIBUTING.md" data-i18n="com.guide">Contributing guide</a>
+    </nav>
+    <nav aria-labelledby="foot-help">
+      <h4 id="foot-help" data-i18n="foot.help">Help</h4>
+      <a id="install-link" href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/docs/INSTALL.md">INSTALL.md</a>
+      <a href="#faq" data-i18n="nav.faq">FAQ</a>
+      <a href="https://github.com/fk0u/cleanyourtv-tahoe/blob/main/docs/SOURCES.md" data-i18n="foot.sources">Sources</a>
+      <a href="https://github.com/fk0u/cleanyourtv-tahoe/security/advisories/new" data-i18n="foot.security">Report a security issue</a>
+    </nav>
+  </div>
   <p class="fine" data-i18n="foot.fine">Independent open-source project; not an Apple product or affiliated with Apple Inc. Tahoe hosts no streams.</p>
 </footer>
 
