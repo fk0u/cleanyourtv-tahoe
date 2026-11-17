@@ -21,6 +21,8 @@ final class CompanionHttp {
             if (uri.equals("/setup") || uri.equals("/setup.html")) return c.asset("web/setup.html", "text/html; charset=utf-8");
             if (uri.equals("/manifest.webmanifest")) return c.asset("web/manifest.webmanifest", "application/manifest+json");
             if (uri.equals("/pair") && s.getMethod() == NanoHTTPD.Method.POST) return c.pair(s);
+            if (uri.equals("/pair/request") && s.getMethod() == NanoHTTPD.Method.POST) return c.pairRequest(s);
+            if (uri.equals("/pair/status") && s.getMethod() == NanoHTTPD.Method.GET) return c.pairStatus(s);
             if (uri.equals("/info")) {
                 return Companion.json(NanoHTTPD.Response.Status.OK, new JSONObject()
                         .put("app", "tahoe")

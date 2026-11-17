@@ -57,6 +57,8 @@ final class Companion extends NanoWSD {
     final SecureRandom rnd = new SecureRandom();
     /** Pairing code: expires, locks after repeated wrong guesses (see PairGuard). */
     final tech.kousozo.tahoetv.core.PairGuard guard = new tech.kousozo.tahoetv.core.PairGuard();
+    /** Code-free pairing requests from phones on this Wi-Fi, approved on screen (#180). */
+    final tech.kousozo.tahoetv.core.PairRequests requests = new tech.kousozo.tahoetv.core.PairRequests();
     NsdManager.RegistrationListener nsdReg;
     private java.util.concurrent.ScheduledExecutorService pingExec;
     private final java.util.concurrent.atomic.AtomicLong serverSeq = new java.util.concurrent.atomic.AtomicLong(0);
@@ -251,6 +253,18 @@ final class Companion extends NanoWSD {
         }
         if (!(r instanceof tech.kousozo.tahoetv.core.PairGuard.Result.Ok)) return json(Response.Status.FORBIDDEN, new JSONObject().put("error", "kode salah"));
         tech.kousozo.tahoetv.core.DiagLog.add("pair", "HP baru dipasangkan dari " + s.getRemoteIpAddress());
+        String token = issueToken(deviceName, String.valueOf(s.getRemoteIpAddress()));
+        Response resp = json(Response.Status.OK, new JSONObject()
+                .put("token", token)
+                .put("id", deviceId())
+                .put("name", "Tahoe TV")
+                .put("role", "owner"));
+        resp.addHeader("Set-Cookie", "tahoe_session=" + token + "; Path=/; HttpOnly; SameSite=Strict");
+        return resp;
+    }
+
+    /** A new phone token, remembered with its name and address. */
+    String issueToken(String deviceName, String ip) {
         byte[] b = new byte[24]; rnd.nextBytes(b);
         String token = android.util.Base64.encodeToString(b, android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING);
         Set<String> t = tokens(); t.add(token);
@@ -259,17 +273,51 @@ final class Companion extends NanoWSD {
             meta.put(token, new JSONObject()
                     .put("name", deviceName)
                     .put("role", "owner")
-                    .put("ip", String.valueOf(s.getRemoteIpAddress()))
+                    .put("ip", ip)
                     .put("pairedAt", System.currentTimeMillis()));
         } catch (Exception ignored) {}
         prefs.edit().putStringSet("tokens", t).putString("token_meta", meta.toString()).apply();
-        Response resp = json(Response.Status.OK, new JSONObject()
-                .put("token", token)
-                .put("id", deviceId())
-                .put("name", "Tahoe TV")
-                .put("role", "owner"));
-        resp.addHeader("Set-Cookie", "tahoe_session=" + token + "; Path=/; HttpOnly; SameSite=Strict");
-        return resp;
+        return token;
+    }
+
+    /** POST /pair/request {deviceName}: a phone on this Wi-Fi asks to connect without a code (#180). The TV shows an
+     *  approval sheet; nothing is granted until the viewer presses OK. Local addresses only. */
+    Response pairRequest(IHTTPSession s) throws Exception {
+        String ip = String.valueOf(s.getRemoteIpAddress());
+        if (!tech.kousozo.tahoetv.core.PairRequests.isLocal(ip)) return json(Response.Status.FORBIDDEN, new JSONObject().put("error", "hanya dari Wi-Fi yang sama"));
+        String name = "HP";
+        try { String b = body(s, 1024); if (!b.isEmpty()) name = new JSONObject(b).optString("deviceName", "HP"); } catch (Exception ignored) {}
+        tech.kousozo.tahoetv.core.PairRequests.Request req = requests.request(ip, name, System.currentTimeMillis());
+        if (req == null) return json(Response.Status.TOO_MANY_REQUESTS, new JSONObject().put("error", "permintaan lain masih menunggu"));
+        tech.kousozo.tahoetv.core.DiagLog.add("pair", "permintaan tanpa kode dari " + ip + " (" + req.getDeviceName() + ")");
+        if (ctx instanceof Home) {
+            Home h = (Home) ctx;
+            h.runOnUiThread(() -> h.openSheet(new Sheets.PairApprove(h, this, req.getId(), req.getDeviceName())));
+        }
+        return json(Response.Status.OK, new JSONObject().put("id", req.getId()).put("expiresIn", 60));
+    }
+
+    /** GET /pair/status?id=…: what the viewer decided (the token is delivered once). */
+    Response pairStatus(IHTTPSession s) throws Exception {
+        java.util.List<String> ids = s.getParameters().get("id");
+        String id = ids == null || ids.isEmpty() ? "" : ids.get(0);
+        tech.kousozo.tahoetv.core.PairRequests.Status st = requests.status(id, System.currentTimeMillis());
+        JSONObject o = new JSONObject();
+        if (st instanceof tech.kousozo.tahoetv.core.PairRequests.Status.Approved) {
+            o.put("state", "approved").put("token", ((tech.kousozo.tahoetv.core.PairRequests.Status.Approved) st).getToken())
+                    .put("id", deviceId()).put("name", "Tahoe TV").put("role", "owner");
+        } else if (st == tech.kousozo.tahoetv.core.PairRequests.Status.Pending.INSTANCE) o.put("state", "pending");
+        else if (st == tech.kousozo.tahoetv.core.PairRequests.Status.Denied.INSTANCE) o.put("state", "denied");
+        else o.put("state", "expired");
+        return json(Response.Status.OK, o);
+    }
+
+    /** The viewer pressed OK on the approval sheet. */
+    void approvePair(String id) {
+        tech.kousozo.tahoetv.core.PairRequests.Request req = requests.pending(id);
+        if (req == null) return;
+        requests.approve(id, issueToken(req.getDeviceName(), req.getIp()), System.currentTimeMillis());
+        tech.kousozo.tahoetv.core.DiagLog.add("pair", "HP disetujui di layar: " + req.getDeviceName());
     }
 
     static final class TooLarge extends IOException {}

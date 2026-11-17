@@ -395,6 +395,29 @@ final class Sheets {
         }
     }
 
+    /** A phone on this Wi-Fi asks to connect without a code (#180): approve once with OK, or decline. */
+    static final class PairApprove extends Grid {
+        final Companion companion; final String id, device; boolean decided;
+
+        PairApprove(Home h, Companion c, String id, String device) {
+            super(h, 560, Gravity.CENTER);
+            this.companion = c; this.id = id; this.device = device;
+            rebuild();
+        }
+
+        @Override void fill() {
+            Home h = home;
+            String lang = TvViewer.get(h).getLanguage();
+            header(I18n.get(lang, "tv.pair_request_eb"), I18n.get(lang, "tv.pair_request_title", device));
+            add(new Item(R.drawable.ic_smartphone, I18n.get(lang, "tv.pair_allow"), I18n.get(lang, "tv.pair_allow_sub"),
+                    () -> { decided = true; companion.approvePair(id); h.closeSheet(); }).wide().on(true));
+            add(new Item(R.drawable.ic_lock, I18n.get(lang, "tv.pair_deny"), null,
+                    () -> { decided = true; companion.requests.deny(id); h.closeSheet(); }).wide());
+        }
+
+        @Override public void onClose() { if (!decided) companion.requests.deny(id); super.onClose(); }
+    }
+
     static final class AppMenu extends Grid {
         final Home.App app;
 
