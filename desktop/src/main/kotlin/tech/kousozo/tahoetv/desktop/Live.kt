@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package tech.kousozo.tahoetv.desktop
 
 import androidx.compose.foundation.Image
@@ -9,6 +11,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -207,7 +210,6 @@ fun LiveScreen() {
     }
 
     var selected by remember { mutableStateOf<LocalTv.Entry?>(null) }   // focused card → detail panel
-    var hoveredLive by remember { mutableStateOf<LocalTv.Entry?>(null) } // hover preview on verified LIVE channels (#49)
     var status by remember { mutableStateOf<String?>(null) }
     var viewMode by remember { mutableStateOf(0) } // 0 = List, 1 = Grid, 2 = EPG Timeline
     val searchFocus = remember { FocusRequester() }
@@ -433,16 +435,12 @@ fun LiveScreen() {
                     val live = isChannelLive(e)
                     val hoverSrc = remember(ch.url) { MutableInteractionSource() }
                     val hovered by hoverSrc.collectIsHoveredAsState()
-                    LaunchedEffect(hovered, live) {
-                        if (hovered && live == true) hoveredLive = e
-                        else if (!hovered && hoveredLive == e) hoveredLive = null
-                    }
                     Column(
                         Modifier.clip(RoundedCornerShape(18.dp))
                             .hoverable(hoverSrc)
                             .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
                             .border(1.dp, if (focused) Color.White.copy(alpha = 0.35f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
-                            .clickable { watch(e) }.padding(12.dp),
+                            .combinedClickable(onDoubleClick = { watch(e) }) { if (focused) watch(e) else selected = e }.padding(12.dp), // click = preview, again / double-click = watch (#182)
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box(Modifier.fillMaxWidth().height(76.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center) {
@@ -489,17 +487,13 @@ fun LiveScreen() {
                 val live = isChannelLive(e)
                 val hoverSrc = remember(ch.url) { MutableInteractionSource() }
                 val hovered by hoverSrc.collectIsHoveredAsState()
-                LaunchedEffect(hovered, live) {
-                    if (hovered && live == true) hoveredLive = e
-                    else if (!hovered && hoveredLive == e) hoveredLive = null
-                }
 
                 Row(
                     Modifier.fillMaxWidth().scale(scale).alpha(if (on || live != false) 1f else 0.5f).clip(RoundedCornerShape(18.dp))
                         .hoverable(hoverSrc)
                         .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
                         .border(1.dp, if (focused) Color.White.copy(alpha = 0.35f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
-                        .clickable { if (focused || playing != null) watch(e) else selected = e }.padding(12.dp), // with a player open, one click switches channel
+                        .combinedClickable(onDoubleClick = { watch(e) }) { if (focused) watch(e) else selected = e }.padding(12.dp), // click = preview, again / double-click = watch (#182)
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.size(110.dp, 72.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center) {
@@ -542,8 +536,8 @@ fun LiveScreen() {
         }
         }
 
-        // ---------------------------------------------------------------- detail panel (now playing on hovered live card or focused channel)
-        val curSelected = hoveredLive ?: selected ?: shown.firstOrNull()
+        // ---------------------------------------------------------------- detail panel: the clicked (selected) channel, previewed when live
+        val curSelected = selected ?: shown.firstOrNull()
         Detail(
             curSelected,
             epg,
@@ -551,7 +545,7 @@ fun LiveScreen() {
             playingUrl = playing?.url,
             status = status,
             isLive = curSelected?.let { isChannelLive(it) },
-            isHoverPreview = hoveredLive != null,
+            isHoverPreview = selected != null && selected?.channel != playing && isChannelLive(selected!!) == true, // selected live channel = preview (#182)
             onWatch = ::watch,
             onStop = { PlayerWindow.stop(); playing = null },
             onRecord = { e, title, start, stop -> Recordings.schedule(e.name, title, listOf(e.channel) + e.alternates, start, stop) }

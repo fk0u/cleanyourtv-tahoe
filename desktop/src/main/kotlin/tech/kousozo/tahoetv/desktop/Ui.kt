@@ -54,6 +54,7 @@ object Tahoe {
     val Accent get() = Color(p.accent)
     val OnAccent get() = Color(p.onAccent)
     val Lake = Color(Brand.LAKE)
+    val Warm get() = Color(p.warm)
     val Good = Color(Brand.PINE)
     val Bad = Color(Brand.LIVE)
     val Card get() = Color(p.surface)
