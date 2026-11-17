@@ -695,8 +695,10 @@ object Nav {
     var hero by mutableStateOf<LocalTv.Entry?>(null)
     /** TV Live list shows favourites only. */
     var favOnly by mutableStateOf(false)
-    fun play(e: LocalTv.Entry) { playUrl = e.channel.url; tab = 1; detail = null }
-    fun category(k: LocalTv.Category?, favourites: Boolean = false) { liveCategory = k; favOnly = favourites; tab = 1; detail = null }
+    /** A page pushed over the tabs (#179): "settings", "history", "explore", "setup", or null. */
+    var page by mutableStateOf<String?>(null)
+    fun play(e: LocalTv.Entry) { playUrl = e.channel.url; tab = 1; detail = null; page = null }
+    fun category(k: LocalTv.Category?, favourites: Boolean = false) { liveCategory = k; favOnly = favourites; tab = 1; detail = null; page = null }
 }
 
 /** The TV launcher's built-in Live TV (its pseudo package in the app list). */
