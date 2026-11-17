@@ -1,7 +1,7 @@
 # Translating Tahoe TV
 
-Tahoe TV speaks English, Indonesian and Chinese in full, and Arabic (right-to-left) as a growing community
-translation. Adding or improving a language never requires editing the 3 000-line `I18n.kt`.
+Tahoe TV speaks English, Indonesian, Chinese and Arabic (right-to-left) in full; Arabic is the first language kept
+as a community JSON file. Adding or improving a language never requires editing the 3 000-line `I18n.kt`.
 
 ## Improve an existing community language (e.g. Arabic)
 

@@ -10,7 +10,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 - **Tata letak 2 panel di tablet (#41):** pada layar ≥ 840 dp, detail saluran terbuka sebagai panel samping di sebelah daftar.
 - **Rekam dari Detail saluran TV (#41):** tombol *Rekam* di dialog detail panduan membuka Live TV dan mulai merekam lokal (maks. 1 jam).
 - **Bahasa saluran tambahan di TV (#71):** Pusat Kontrol → *Bahasa saluran tambahan* (pilih dengan remote; tersimpan di `Viewer`, sama seperti HP/Desktop).
-- **Terjemahan Arab diperluas:** 667 string aplikasi (pemutar, beranda, setelan, setup TV, remote, desktop, rekaman, anak, pembaruan, rekap); menu khusus TV (`tv.*`) masih memakai bahasa Inggris.
+- **Terjemahan Arab lengkap:** seluruh 936 string aplikasi (HP, TV, desktop) kini tersedia dalam bahasa Arab, termasuk menu TV, cuaca, jadwal shalat, asisten, dan pembaruan.
 - **Snapshot Desktop:** `:desktop:snapshots` kini juga merender Beranda & Setelan dalam tema Terang dan tata letak RTL (`*-light.png`, `*-rtl.png`).
 
 ### Perbaikan
