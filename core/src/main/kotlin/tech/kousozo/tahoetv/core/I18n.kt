@@ -1022,6 +1022,9 @@ object I18n {
         "profile.contributors" to "Our contributors",
         "profile.version" to "Version & about",
         "profile.explore" to "Browse categories",
+        "offline.title" to "Channels can't load right now",
+        "push.today" to "Today",
+        "push.earlier" to "Earlier",
     )
 
     private val ID = mapOf(
@@ -2040,6 +2043,9 @@ object I18n {
         "profile.contributors" to "Kontributor kami",
         "profile.version" to "Versi & tentang aplikasi",
         "profile.explore" to "Jelajahi kategori",
+        "offline.title" to "Saluran belum bisa dimuat",
+        "push.today" to "Hari ini",
+        "push.earlier" to "Sebelumnya",
     )
 
     private val ZH = mapOf(
@@ -3058,6 +3064,9 @@ object I18n {
         "profile.contributors" to "贡献者",
         "profile.version" to "版本与关于",
         "profile.explore" to "浏览分类",
+        "offline.title" to "暂时无法加载频道",
+        "push.today" to "今天",
+        "push.earlier" to "更早",
     )
 
     /** Built-in, always-complete tables. */

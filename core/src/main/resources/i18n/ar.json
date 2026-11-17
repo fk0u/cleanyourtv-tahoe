@@ -957,5 +957,8 @@
   "profile.star": "امنحنا نجمة على GitHub",
   "profile.contributors": "المساهمون",
   "profile.version": "الإصدار وحول التطبيق",
-  "profile.explore": "تصفح الفئات"
+  "profile.explore": "تصفح الفئات",
+  "offline.title": "تعذّر تحميل القنوات الآن",
+  "push.today": "اليوم",
+  "push.earlier": "سابقًا"
 }
