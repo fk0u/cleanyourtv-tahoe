@@ -1031,6 +1031,15 @@ object I18n {
         "tv.text_normal" to "Normal",
         "tv.text_large" to "Large",
         "tv.text_xlarge" to "Extra large",
+        "tv.pair_request_eb" to "NEW PHONE",
+        "tv.pair_request_title" to "Allow %s to control this TV?",
+        "tv.pair_allow" to "Allow",
+        "tv.pair_allow_sub" to "Only phones on this Wi-Fi can ask",
+        "tv.pair_deny" to "Decline",
+        "pair.waiting" to "Confirm on the TV: press OK",
+        "pair.waiting_sub" to "%s shows a request from this phone.",
+        "pair.denied" to "The TV declined the request",
+        "pair.timeout" to "No answer from the TV. Use the code instead.",
     )
 
     private val ID = mapOf(
@@ -2058,6 +2067,15 @@ object I18n {
         "tv.text_normal" to "Normal",
         "tv.text_large" to "Besar",
         "tv.text_xlarge" to "Sangat besar",
+        "tv.pair_request_eb" to "HP BARU",
+        "tv.pair_request_title" to "Izinkan %s mengontrol TV ini?",
+        "tv.pair_allow" to "Izinkan",
+        "tv.pair_allow_sub" to "Hanya HP di Wi-Fi ini yang bisa meminta",
+        "tv.pair_deny" to "Tolak",
+        "pair.waiting" to "Konfirmasi di TV: tekan OK",
+        "pair.waiting_sub" to "%s menampilkan permintaan dari HP ini.",
+        "pair.denied" to "TV menolak permintaan",
+        "pair.timeout" to "TV tidak menjawab. Pakai kode saja.",
     )
 
     private val ZH = mapOf(
@@ -3085,6 +3103,15 @@ object I18n {
         "tv.text_normal" to "标准",
         "tv.text_large" to "大",
         "tv.text_xlarge" to "特大",
+        "tv.pair_request_eb" to "新手机",
+        "tv.pair_request_title" to "允许 %s 控制这台电视吗？",
+        "tv.pair_allow" to "允许",
+        "tv.pair_allow_sub" to "只有同一 Wi-Fi 下的手机可以请求",
+        "tv.pair_deny" to "拒绝",
+        "pair.waiting" to "请在电视上按 OK 确认",
+        "pair.waiting_sub" to "%s 正在显示来自这台手机的请求。",
+        "pair.denied" to "电视拒绝了请求",
+        "pair.timeout" to "电视未响应，请改用配对码。",
     )
 
     /** Built-in, always-complete tables. */

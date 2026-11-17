@@ -221,6 +221,26 @@ class TvLink(val host: String, private val token: String, private val onState: (
             )
         }
 
+        /** Code-free pairing on the same Wi-Fi (#180), step 1: asks the TV to show an approval prompt. Returns the
+         *  request id to poll with [pairStatus], or throws (TV unreachable, too many requests, or not on its network). Blocks. */
+        @JvmStatic @JvmOverloads
+        fun requestPair(host: String, deviceName: String, lang: String = "id"): String {
+            val body = JSONObject().put("deviceName", deviceName.trim()).toString()
+            val res = JSONObject(runCatching { Web.request("POST", "${httpBase(host)}/pair/request", body, 5000) }
+                .getOrElse { throw java.io.IOException(if ("HTTP 4" in "${it.message}") I18n.get(lang, "pair.too_many") else I18n.get(lang, "pair.unreachable")) })
+            return res.optString("id").ifEmpty { throw java.io.IOException(res.optString("error", I18n.get(lang, "pair.failed"))) }
+        }
+
+        /** Step 2: "pending", "denied", "expired", or a [PairResult] once the viewer pressed OK on the TV. Blocks. */
+        @JvmStatic
+        fun pairStatus(host: String, id: String): Any {
+            val res = JSONObject(Web.request("GET", "${httpBase(host)}/pair/status?id=" + java.net.URLEncoder.encode(id, "UTF-8"), null, 5000))
+            return when (val st = res.optString("state")) {
+                "approved" -> PairResult(res.optString("token"), res.optString("id").ifBlank { host.trim() }, res.optString("name").ifBlank { "Tahoe TV" }, res.optString("role").ifBlank { "owner" })
+                else -> st.ifBlank { "expired" }
+            }
+        }
+
         /** POST /pair with the 6-digit code shown on the TV. Returns the token, or throws with the TV's error. Blocks. */
         @JvmOverloads
         fun pair(host: String, code: String, lang: String = "id"): String = pairWithInfo(host, code, lang).token

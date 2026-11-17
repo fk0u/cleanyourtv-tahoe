@@ -966,5 +966,14 @@
   "tv.text_size": "حجم النص",
   "tv.text_normal": "عادي",
   "tv.text_large": "كبير",
-  "tv.text_xlarge": "كبير جدًا"
+  "tv.text_xlarge": "كبير جدًا",
+  "tv.pair_request_eb": "هاتف جديد",
+  "tv.pair_request_title": "السماح لـ %s بالتحكم في هذا التلفاز؟",
+  "tv.pair_allow": "سماح",
+  "tv.pair_allow_sub": "يمكن فقط للهواتف على شبكة Wi-Fi هذه الطلب",
+  "tv.pair_deny": "رفض",
+  "pair.waiting": "أكّد على التلفاز: اضغط OK",
+  "pair.waiting_sub": "يعرض %s طلبًا من هذا الهاتف.",
+  "pair.denied": "رفض التلفاز الطلب",
+  "pair.timeout": "لم يستجب التلفاز. استخدم الرمز بدلًا من ذلك."
 }
