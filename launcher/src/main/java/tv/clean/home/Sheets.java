@@ -314,6 +314,9 @@ final class Sheets {
                     : I18n.get(lang, "tv.cc_region_sub"), () -> { h.closeSheet(); h.startActivity(new Intent(h, Onboarding.class)); }),
                 new Item(R.drawable.ic_smartphone, I18n.get(lang, "tv.cc_send_log"),
                         I18n.get(lang, "tv.cc_send_log_sub"), () -> { h.closeSheet(); h.sendLog(); }));
+            add(new Item(R.drawable.ic_tv, I18n.get(lang, "ui.channel_languages"),
+                    vw.getChannelLanguages().isEmpty() ? I18n.get(lang, "common.off") : String.join(", ", vw.getChannelLanguages()),
+                    () -> { h.closeSheet(); h.openSheet(new ChannelLanguages(h)); }).wide());
             WatchRecap.Summary recap = WatchRecap.summarize(new File(h.getFilesDir(), "recap"), h.prefs.getString("profile", "main"), WatchRecap.currentMonth(), lang);
             add(new Item(R.drawable.ic_tv, I18n.get(lang, "recap.title"),
                     recap.getTotalHoursDecimal(), () -> { h.closeSheet(); h.openSheet(new ParentalSheets.Recap(h)); }).wide());
@@ -351,6 +354,37 @@ final class Sheets {
     }
 
     // ---------------------------------------------------------------- App menu (hold OK)
+
+    /** Extra channel languages (#71): iptv-org per-language playlists loaded on top of the chosen countries. */
+    static final class ChannelLanguages extends Grid {
+        ChannelLanguages(Home h) { super(h, 560, Gravity.CENTER); rebuild(); }
+
+        @Override void fill() {
+            Home h = home;
+            String lang = TvViewer.get(h).getLanguage();
+            header(I18n.get(lang, "ui.channel_languages_sub"), I18n.get(lang, "ui.channel_languages"));
+            List<String> codes = tech.kousozo.tahoetv.core.Region.channelLanguages();
+            for (int i = 0; i < codes.size(); i += 2) {
+                Item a = item(h, codes.get(i));
+                if (i + 1 < codes.size()) add(a, item(h, codes.get(i + 1))); else add(a.wide());
+            }
+        }
+
+        private Item item(Home h, String code) {
+            Viewer v = TvViewer.get(h);
+            boolean on = v.getChannelLanguages().contains(code);
+            java.util.Locale loc = java.util.Locale.forLanguageTag(code);
+            String name = loc.getDisplayLanguage(loc);
+            return new Item(R.drawable.ic_tv, name.isEmpty() ? code : name, null, () -> {
+                Viewer cur = TvViewer.get(h);
+                List<String> next = new ArrayList<>(cur.getChannelLanguages());
+                if (!next.remove(code)) next.add(code);
+                TvViewer.save(h, cur.withChannelLanguages(next));
+                Live.cached = null;
+                rebuild();
+            }).on(on);
+        }
+    }
 
     static final class AppMenu extends Grid {
         final Home.App app;
