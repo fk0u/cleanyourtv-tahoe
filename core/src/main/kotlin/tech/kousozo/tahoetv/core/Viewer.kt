@@ -39,6 +39,10 @@ data class Viewer @JvmOverloads constructor(
     /** Extra channel languages (ISO 639-1) loaded on top of [countries]; empty = countries only (#71). */
     val channelLanguages: List<String> = emptyList(),
 ) {
+    /** A copy with other extra channel languages (unknown codes dropped), revision bumped for phone↔TV sync. */
+    fun withChannelLanguages(langs: List<String>): Viewer =
+        copy(channelLanguages = langs.filter { Region.languagePlaylist(it) != null }.distinct(), revision = revision + 1)
+
     /** True when the app language reads right-to-left (Arabic, …). */
     val rtl: Boolean get() = Region.isRtl(language)
 

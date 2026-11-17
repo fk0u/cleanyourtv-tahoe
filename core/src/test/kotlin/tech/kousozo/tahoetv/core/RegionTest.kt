@@ -65,6 +65,9 @@ class RegionTest {
         val back = Viewer.fromJson(v.toJson())
         assertEquals(listOf("ar", "en"), back.channelLanguages)
         assertTrue(back.rtl)
+        val w = back.withChannelLanguages(listOf("ja", "ja", "zz"))
+        assertEquals(listOf("ja"), w.channelLanguages)
+        assertEquals(back.revision + 1, w.revision)
         assertEquals(emptyList(), Viewer.fromJson("{\"country\":\"ID\"}").channelLanguages)
     }
 }
