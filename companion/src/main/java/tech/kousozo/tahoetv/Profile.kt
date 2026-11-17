@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.Instant
+import kotlinx.coroutines.launch
 import tech.kousozo.tahoetv.core.Brand
 import tech.kousozo.tahoetv.core.I18n
 import tech.kousozo.tahoetv.core.LocalTv
@@ -316,11 +317,69 @@ fun SettingsPage() {
     }
 }
 
+/** Notifikasi (#179): announcements, reminders and updates as a page, grouped Hari ini / Sebelumnya. */
+@Composable
+fun NotificationsPage() {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    LaunchedEffect(Unit) { PushHelper.markAllRead(c) }
+    val fmt = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+    val day = remember { java.text.SimpleDateFormat("d MMM", java.util.Locale.getDefault()) }
+    val startOfDay = remember { java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() }
+    PageScaffold(I18n.get(lang, "push.inbox_title")) {
+        PillButton(I18n.get(lang, "update.check_btn"), Icons.Rounded.SystemUpdate) { PushHelper.checkUpdateModal(c) }
+        if (PushHelper.inbox.isEmpty()) Note(I18n.get(lang, "push.inbox_empty"), Icons.Rounded.NotificationsNone)
+        val (today, earlier) = PushHelper.inbox.partition { it.createdAt >= startOfDay }
+        for ((label, list) in listOf(I18n.get(lang, "push.today") to today, I18n.get(lang, "push.earlier") to earlier)) {
+            if (list.isEmpty()) continue
+            Text(label.uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, modifier = Modifier.padding(start = 4.dp))
+            list.forEach { n ->
+                val (icon, tint) = when (n.kind) { "update" -> Icons.Rounded.Download to Tahoe.Accent; "reminder" -> Icons.Rounded.NotificationsActive to Tahoe.Warm; else -> Icons.Rounded.Campaign to Tahoe.Accent }
+                val src = remember { MutableInteractionSource() }
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Tahoe.Surface)
+                        .clickable(src, null) { if (n.kind == "update") PushHelper.openUpdateModal(c) else if (n.actionUrl.isNotBlank()) PushHelper.openSafeUrl(c, n.actionUrl) }
+                        .pressScale(src).padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Box(Modifier.size(40.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp)) }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(n.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            if (n.createdAt > 0L) Text((if (n.createdAt >= startOfDay) fmt else day).format(java.util.Date(n.createdAt)), fontSize = 12.sp, color = Tahoe.Faint)
+                        }
+                        Text(n.body, fontSize = 14.sp, color = Tahoe.Dim)
+                        if (n.actionLabel.isNotBlank()) Text(n.actionLabel, fontSize = 13.sp, color = Tahoe.Accent, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Channels failed to load (offline or no playlist): a calm empty state with a retry, instead of a one-line note (#179). */
+@Composable
+fun OfflineState(modifier: Modifier = Modifier) {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    val scope = rememberCoroutineScope()
+    Column(modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(Modifier.size(140.dp), contentAlignment = Alignment.Center) {
+            listOf(140.dp to 0.06f, 100.dp to 0.11f, 62.dp to 0.16f).forEach { (d, a) -> Box(Modifier.size(d).clip(CircleShape).background(Tahoe.Warm.copy(alpha = a))) }
+            Icon(Icons.Rounded.WifiOff, null, tint = Tahoe.Warm, modifier = Modifier.size(40.dp))
+        }
+        Text(I18n.get(lang, "offline.title"), fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(I18n.get(lang, "home.channels_failed"), fontSize = 15.sp, color = Tahoe.Dim, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        PillButton(I18n.get(lang, "common.retry"), Icons.Rounded.Refresh) { Channels.reload(c); scope.launch { Channels.load(c) } }
+    }
+}
+
 /** The area under the tabs that hosts [Nav.page]. */
 @Composable
 fun NavPage(page: String) {
     when (page) {
         "history" -> HistoryPage()
+        "notifications" -> NotificationsPage()
         "settings" -> SettingsPage()
         "explore" -> { BackHandler { Nav.page = null }; Box(Modifier.fillMaxSize().background(Tahoe.Bg)) { CategoriesScreen() } }
         "setup" -> { BackHandler { Nav.page = null }; Box(Modifier.fillMaxSize().background(Tahoe.Bg)) { SetupScreen(onExit = { Nav.page = null }) } }

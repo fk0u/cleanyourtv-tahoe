@@ -153,7 +153,7 @@ fun LiveScreen() {
                 TvConnectBar(tvState!!, tvLink, lang)
             }
             if (list == null) {
-                if (failed) Note(tech.kousozo.tahoetv.core.I18n.get(lang, "live.load_failed_retry"), Icons.Rounded.ErrorOutline)
+                if (failed) OfflineState()
                 else LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
                 return@Column
             }

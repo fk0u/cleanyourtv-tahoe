@@ -100,7 +100,6 @@ class MainActivity : ComponentActivity() {
             TahoeTheme {
                 val darkBars = ThemePrefs.dark
                 LaunchedEffect(darkBars) { applySystemBars(darkBars) }
-                var showInbox by remember { mutableStateOf(false) }
                 if (PhoneRegion.needsSetup) { Box(Modifier.fillMaxSize()) { Backdrop(null); WelcomeScreen() }; return@TahoeTheme }
                 val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
                 val lang0 = PhoneRegion.language
@@ -130,7 +129,7 @@ class MainActivity : ComponentActivity() {
                     AnimatedContent(Nav.tab, transitionSpec = { if (ThemePrefs.reduceMotion) fadeIn(androidx.compose.animation.core.snap()) togetherWith fadeOut(androidx.compose.animation.core.snap())
                         else fadeIn(androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe)) togetherWith fadeOut(androidx.compose.animation.core.tween(160, easing = EaseOutTahoe)) }, label = "tab") { t ->
                         when (t) {
-                            0 -> HomeScreen(resumed.intValue) { showInbox = true }
+                            0 -> HomeScreen(resumed.intValue) { Nav.page = "notifications" }
                             1 -> LiveScreen()
                             2 -> RemoteScreen()
                             3 -> WatchlistScreen()
@@ -150,8 +149,7 @@ class MainActivity : ComponentActivity() {
                         MiniPlayer(Nav.tab != 1 || Nav.detail != null)
                         if (!rail) Dock(tabs, Nav.tab, { Nav.tab = it; Nav.detail = null })
                     }
-                    PushBannerBar(onOpenInbox = { showInbox = true }, modifier = Modifier.align(Alignment.TopCenter))
-                    if (showInbox) NotificationInboxSheet { showInbox = false }
+                    PushBannerBar(onOpenInbox = { Nav.page = "notifications" }, modifier = Modifier.align(Alignment.TopCenter))
                     UpdateModalDialog()
                 }
                 if (twoPane) Nav.detail?.let { e ->
@@ -435,7 +433,7 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                     }
                 }
             }
-        } ?: if (Channels.failed) Box(Modifier.padding(horizontal = 20.dp)) { Note(tech.kousozo.tahoetv.core.I18n.get(lang, "home.channels_failed"), Icons.Rounded.ErrorOutline) }
+        } ?: if (Channels.failed) OfflineState()
             else LinearProgressIndicator(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
 
         if (paired && !showPair) Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
