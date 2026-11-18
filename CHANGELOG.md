@@ -3,7 +3,9 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
-## Belum dirilis
+## 3.5.0-alpha.12
+
+**v3.500.12 Alpha Dev** · rilis uji (prerelease) redesign 4.0. Belum untuk pemakaian sehari-hari; laporkan masalah lewat Profil → Laporkan masalah.
 
 ### Baru
 - **Redesign 4.0 · HP mengikuti Figma (#179).** Beranda, Live TV, Remote, Watchlist, dan Profil kini sama dengan layar Figma: latar `#0D0F14` tanpa rona, chip/tombol/ikon sesuai komponen Figma, hero 520 dp dengan "Mau nonton apa?" dan label LIVE, kartu saluran 280 × 158 dengan progres acara, poster "Pilihan untukmu" dan grid Kategori di Live TV, kartu unggulan dan daftar ber-thumbnail di Watchlist, serta panel Remote baru (kartu TV, OK cyan, tombol berlabel, pil VOL/CH, mikrofon, dan kartu "TV di jaringan lain?" dengan Scan QR / Masukkan PIN).
