@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -27,13 +28,107 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
+import tech.kousozo.tahoetv.core.Demo
 import tech.kousozo.tahoetv.core.I18n
 import tech.kousozo.tahoetv.core.WatchRecap
+
+internal fun loadRecapSummary(dir: File, lang: String): WatchRecap.Summary {
+    val real = WatchRecap.summarize(dir, "main", WatchRecap.currentMonth(), lang)
+    if (real.totalMinutes > 0 || !Demo.isActive()) return real
+    val demoNames = Demo.channels().take(3).map { it.name }
+    return WatchRecap.Summary(
+        month = real.month,
+        totalMinutes = 760,
+        sessionCount = 18,
+        topChannels = listOf(
+            WatchRecap.RankedItem(demoNames.getOrElse(0) { "Tahoe News" }, 252, 7),
+            WatchRecap.RankedItem(demoNames.getOrElse(1) { "Alpine Earth" }, 185, 5),
+            WatchRecap.RankedItem(demoNames.getOrElse(2) { "Arena Sport" }, 108, 4),
+        ),
+        topShows = emptyList(),
+        peakHour = 19,
+        tagline = I18n.get(lang, "recap.tag_channel", demoNames.firstOrNull() ?: "Tahoe News"),
+    )
+}
+
+/** Full-screen Monthly Recap page matching Figma Mobile / Rekap bulanan (30:761). */
+@Composable
+fun RecapPage() {
+    BackHandler { Nav.page = null }
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    val dir = remember { File(c.filesDir, "recap") }
+    val summary = remember(lang) { loadRecapSummary(dir, lang) }
+    val hrs = summary.totalMinutes / 60
+    val mins = summary.totalMinutes % 60
+    val peakStart = if (summary.peakHour in 0..23) summary.peakHour else 19
+    val barHeights = listOf(10, 14, 8, 20, 34, 56, 72, 48, 30, 16)
+
+    Column(
+        Modifier.fillMaxSize().background(Tahoe.Bg).statusBarsPadding().navigationBarsPadding()
+            .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        BackCircle(I18n.get(lang, "common.back")) { Nav.page = null }
+        Column(
+            Modifier.fillMaxWidth().heightIn(min = 420.dp).clip(RoundedCornerShape(32.dp))
+                .background(Brush.linearGradient(listOf(
+                    Color(tech.kousozo.tahoetv.core.Brand.LAKE),
+                    Color(0xFF5CD1FF),
+                    Color(tech.kousozo.tahoetv.core.Brand.WARM),
+                )))
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(I18n.get(lang, "recap.month_fmt", summary.month).uppercase(),
+                fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, color = Color.White.copy(alpha = 0.8f))
+            Text(I18n.get(lang, "recap.hours_mins", hrs, mins),
+                fontSize = 52.sp, lineHeight = 56.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1.1).sp, color = Color.White)
+            Text(I18n.get(lang, "recap.watching_this_month"), fontSize = 16.sp, color = Color.White.copy(alpha = 0.85f))
+            Spacer(Modifier.weight(1f, fill = true))
+            if (summary.topChannels.isNotEmpty()) {
+                Text(I18n.get(lang, "recap.top_channels").uppercase(),
+                    fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, color = Color.White.copy(alpha = 0.8f))
+                summary.topChannels.take(3).forEachIndexed { idx, item ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("${idx + 1}", fontSize = 26.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.6f))
+                        Text(item.name, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.weight(1f))
+                        Text(I18n.get(lang, "recap.hours_mins", item.minutes / 60, item.minutes % 60),
+                            fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f), fontFamily = Mono)
+                    }
+                }
+            }
+            Text(summary.tagline, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.White, modifier = Modifier.padding(top = 6.dp))
+        }
+
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.Surface)
+                .border(1.dp, Tahoe.Stroke, RoundedCornerShape(26.dp)).padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(I18n.get(lang, "recap.peak_hour"), fontSize = 14.sp, color = Tahoe.Dim)
+            Text("%02d.00 – %02d.00".format(peakStart, (peakStart + 2) % 24),
+                fontSize = 32.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.64).sp, fontFamily = Mono)
+            Row(Modifier.fillMaxWidth().height(76.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+                barHeights.forEachIndexed { idx, h ->
+                    Box(Modifier.weight(1f).height(h.dp).clip(RoundedCornerShape(6.dp))
+                        .background(if (idx == 6) Tahoe.Accent else if (ThemePrefs.dark) Color.White.copy(alpha = 0.15f) else Tahoe.Glass))
+                }
+            }
+        }
+
+        AccentPillButton(I18n.get(lang, "recap.share"), Icons.Rounded.Share, fullWidth = true) {
+            shareRecapStoryImage(c, summary, lang)
+        }
+        Text(I18n.get(lang, "recap.privacy_foot"), color = Tahoe.Faint, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    }
+}
 
 /**
  * Local privacy-first Monthly Recap ("Rekap Tahoe ala Wrapped", #62) with vertical Story image export.
@@ -46,9 +141,7 @@ fun RecapSheet(onDismiss: () -> Unit) {
     val dir = remember { File(c.filesDir, "recap") }
     var rev by remember { mutableIntStateOf(0) }
     var enabled by remember(rev) { mutableStateOf(WatchRecap.isEnabled(dir)) }
-    val summary = remember(rev, lang) {
-        WatchRecap.summarize(dir, "main", WatchRecap.currentMonth(), lang)
-    }
+    val summary = remember(rev, lang) { loadRecapSummary(dir, lang) }
 
     ModalBottomSheet(onDismiss, containerColor = Tahoe.Surface) {
         Column(

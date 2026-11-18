@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -273,35 +274,59 @@ fun shareChannel(c: android.content.Context, e: LocalTv.Entry) {
     }
 }
 
-/** Under the player: name, show on now, format badge, ♥ and the channel page. */
+/** Under the player (Figma 23:400): name, show on now, action pills, and quick swipe-able other channels strip. */
 @Composable
 private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
     val c = LocalContext.current
+    val lang = PhoneRegion.language
     val show = nowOn(epg, e, now)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(e.name, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(show?.let { "${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}" } ?: e.category.label(PhoneRegion.language),
-                    Modifier.weight(1f, fill = false), color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Playback.format?.let { Spacer(Modifier.width(8.dp)); FormatBadge(it, onClick = { statsSheetOpen = true }) }
+    val fav = e.channel.url in Channels.favs
+    val activeDev = remember(Pairing.tick) { Sync.devices(c).active() }
+    val others = remember(Channels.entries, e.channel.url) {
+        Channels.entries.orEmpty().filter { it.channel.url != e.channel.url }.take(8)
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(e.name, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(show?.let { "${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}" } ?: e.category.label(lang),
+                        Modifier.weight(1f, fill = false), color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Playback.format?.let { Spacer(Modifier.width(8.dp)); FormatBadge(it, onClick = { statsSheetOpen = true }) }
+                }
+            }
+            if (activeDev != null) {
+                Spacer(Modifier.width(8.dp))
+                RoundGlass(Icons.Rounded.Cast, tech.kousozo.tahoetv.core.I18n.get(lang, "connect.play_on_tv")) {
+                    tech.kousozo.tahoetv.core.TvLink.shared(activeDev.host, activeDev.token)
+                        .sessionLoad(e.channel.channelId, e.channel.url, e.name)
+                }
             }
         }
-        Spacer(Modifier.width(10.dp))
-        val fav = e.channel.url in Channels.favs
-        RoundGlass(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-            tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (fav) "ch.fav_remove" else "ch.fav_add"),
-            tint = if (fav) Tahoe.Bad else Tahoe.Text) { Channels.toggleFav(c, e) }
-        Spacer(Modifier.width(8.dp))
-        RoundGlass(Icons.Rounded.Share, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.share")) { shareChannel(c, e) }
-        Spacer(Modifier.width(8.dp))
-        RoundGlass(Icons.Rounded.Info, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "live.channel_page_generic")) { Nav.detail = e }
-        val activeDev = remember(Pairing.tick) { Sync.devices(c).active() }
-        if (activeDev != null) {
-            Spacer(Modifier.width(8.dp))
-            RoundGlass(Icons.Rounded.Cast, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "connect.play_on_tv")) {
-                tech.kousozo.tahoetv.core.TvLink.shared(activeDev.host, activeDev.token)
-                    .sessionLoad(e.channel.channelId, e.channel.url, e.name)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GlassPill(
+                tech.kousozo.tahoetv.core.I18n.get(lang, if (fav) "ch.fav_remove" else "ch.fav_add"),
+                if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            ) { Channels.toggleFav(c, e) }
+            GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "live.channel_page_generic"), Icons.Rounded.Info) { Nav.detail = e }
+            GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "player.share"), Icons.Rounded.Share) { shareChannel(c, e) }
+        }
+        if (others.isNotEmpty()) {
+            Text(
+                tech.kousozo.tahoetv.core.I18n.get(lang, "player.other_channels_swipe").uppercase(),
+                fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(others, key = { it.channel.url }) { ch ->
+                    Column(
+                        Modifier.width(110.dp).clickable { Playback.play(c, ch) },
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        ChannelArt(ch, Modifier.size(110.dp, 62.dp).clip(RoundedCornerShape(14.dp)), logoScale = 0.85f)
+                        Text(ch.name, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
         }
     }
@@ -489,11 +514,28 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
         } }
     }
     Box(Modifier.fillMaxSize().then(gestureMod).then(tapMod)) {
-        if (swipeHint != 0) Text(
-            tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (swipeHint > 0) "player.next_channel" else "player.prev_channel"),
-            Modifier.align(if (swipeHint > 0) Alignment.CenterEnd else Alignment.CenterStart).padding(24.dp).zIndex(2f)
-                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
-            color = Color.White, fontSize = 14.sp)
+        if (swipeHint != 0) {
+            val allCh = Channels.entries.orEmpty()
+            val idx = allCh.indexOfFirst { it.channel.url == e.channel.url }
+            val nextEntry = if (idx >= 0 && allCh.isNotEmpty()) allCh[(idx + swipeHint + allCh.size) % allCh.size] else null
+            Row(
+                Modifier.align(if (swipeHint > 0) Alignment.CenterEnd else Alignment.CenterStart).padding(20.dp).zIndex(2f)
+                    .clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.72f))
+                    .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                nextEntry?.let { ChannelArt(it, Modifier.size(48.dp, 28.dp).clip(RoundedCornerShape(8.dp)), logoScale = 0.8f) }
+                Column {
+                    Text(
+                        tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (swipeHint > 0) "player.next_channel" else "player.prev_channel"),
+                        color = Color.White.copy(alpha = 0.72f), fontSize = 10.sp,
+                    )
+                    if (nextEntry != null) Text(nextEntry.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
         AndroidView({
             PlayerView(it).apply {
                 this.player = player
@@ -518,20 +560,25 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
         androidx.compose.animation.AnimatedVisibility(visible && slate == null && !Nav.inPip, Modifier.fillMaxSize(),
             enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
             Box(Modifier.fillMaxSize().background(if (busy) Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Black.copy(alpha = 0.45f)))
-                else Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.6f))))) {
+                else Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.65f))))) {
                 val lang = PhoneRegion.language
                 val actSize = 48.dp // minimum touch target
                 val actIcon = if (full) 22.dp else 18.dp
-                // Single shared top row prevents channel title from colliding under the 6 toolbar buttons on ~360dp portrait widths.
+                // Single shared top row prevents channel title from colliding under toolbar buttons on narrow widths.
                 Row(
                     Modifier.align(Alignment.TopCenter).fillMaxWidth()
                         .let { if (full) it.statusBarsPadding().displayCutoutPadding() else it }
                         .padding(start = 10.dp, end = 4.dp, top = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (full) {
+                        IconButton({ poke(); onFull() }, Modifier.size(actSize)) {
+                            Icon(Icons.Rounded.KeyboardArrowDown, tech.kousozo.tahoetv.core.I18n.get(lang, "player.exit_fullscreen"), tint = Color.White, modifier = Modifier.size(26.dp))
+                        }
+                    }
                     Row(Modifier.weight(1f).padding(end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Pill("LIVE", Tahoe.Bad, filled = true); Spacer(Modifier.width(6.dp))
-                        Text(e.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        LiveBadge(); Spacer(Modifier.width(8.dp))
+                        Text(e.name, color = Color.White, fontSize = if (full) 15.sp else 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton({ poke(); zoomFill = !zoomFill }, Modifier.size(actSize)) {
@@ -576,25 +623,60 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                             Icon(Icons.Rounded.Settings, tech.kousozo.tahoetv.core.I18n.get(lang, "player.settings_desc"), tint = Color.White, modifier = Modifier.size(actIcon))
                         }
                         IconButton({ poke(); onFull() }, Modifier.size(actSize)) {
-                            Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (full) "player.exit_fullscreen" else "player.fullscreen"), tint = Color.White, modifier = Modifier.size(actIcon))
+                            Icon(if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, tech.kousozo.tahoetv.core.I18n.get(lang, if (full) "player.exit_fullscreen" else "player.fullscreen"), tint = Color.White, modifier = Modifier.size(actIcon))
                         }
                     }
                 }
-                // big transport only once it plays: while loading or on an error the middle belongs to the loader / message
-                if (!busy) Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (full) 48.dp else 28.dp)) {
-                    IconButton({ poke(); player.seekTo(maxOf(0L, player.currentPosition - 30_000)); player.play() }, Modifier.size(52.dp)) {
-                        Icon(Icons.Rounded.Replay30, "Mundur 30 detik", tint = Color.White, modifier = Modifier.size(34.dp)) }
-                    IconButton({ poke(); Playback.toggle() }, Modifier.size(68.dp)) {
-                        Icon(if (Playback.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (Playback.paused) "Putar" else "Jeda", tint = Color.White, modifier = Modifier.size(52.dp)) }
-                    IconButton({ poke(); seekForward(player, 30_000) }, Modifier.size(52.dp)) {
-                        Icon(Icons.Rounded.Forward30, "Maju 30 detik, atau kembali ke siaran langsung", tint = Color.White, modifier = Modifier.size(34.dp)) }
+                // Figma 11:66 5-button center transport with 72 dp glass play/pause disc
+                if (!busy) Row(
+                    Modifier.align(Alignment.Center),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(if (full) 28.dp else 14.dp),
+                ) {
+                    IconButton({ poke(); zap(-1) }, Modifier.size(48.dp)) {
+                        Icon(Icons.Rounded.SkipPrevious, tech.kousozo.tahoetv.core.I18n.get(lang, "player.prev_channel"), tint = Color.White, modifier = Modifier.size(28.dp))
+                    }
+                    IconButton({ poke(); player.seekTo(maxOf(0L, player.currentPosition - 10_000)); player.play() }, Modifier.size(48.dp)) {
+                        Icon(Icons.Rounded.Replay10, tech.kousozo.tahoetv.core.I18n.get(lang, "player.rewind10"), tint = Color.White, modifier = Modifier.size(30.dp))
+                    }
+                    Box(
+                        Modifier.size(72.dp).clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.16f))
+                            .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
+                            .clickable { poke(); Playback.toggle() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            if (Playback.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                            tech.kousozo.tahoetv.core.I18n.get(lang, if (Playback.paused) "player.play" else "player.pause"),
+                            tint = Color.White, modifier = Modifier.size(38.dp),
+                        )
+                    }
+                    IconButton({ poke(); seekForward(player, 10_000) }, Modifier.size(48.dp)) {
+                        Icon(Icons.Rounded.Forward10, tech.kousozo.tahoetv.core.I18n.get(lang, "player.forward10"), tint = Color.White, modifier = Modifier.size(30.dp))
+                    }
+                    IconButton({ poke(); zap(1) }, Modifier.size(48.dp)) {
+                        Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(lang, "player.next_channel"), tint = Color.White, modifier = Modifier.size(28.dp))
+                    }
                 }
-                Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton({ poke(); zap(-1) }) { Icon(Icons.Rounded.SkipPrevious, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.prev_channel"), tint = Color.White) }
-                    Spacer(Modifier.weight(1f))
-                    Playback.format?.let { Text(it, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, fontFamily = Mono) }
-                    Spacer(Modifier.weight(1f))
-                    IconButton({ poke(); zap(1) }) { Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.next_channel"), tint = Color.White) }
+                val showNow = remember(Channels.epg, e) { nowOn(Channels.epg, e, Instant.now()) }
+                val progFrac = showNow?.let { progress(it, Instant.now()) } ?: 1f
+                Column(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        .let { if (full) it.navigationBarsPadding().displayCutoutPadding() else it }
+                        .padding(horizontal = 16.dp, vertical = if (full) 14.dp else 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ProgressBar(progFrac, Modifier.weight(1f))
+                        Playback.format?.let { Text(it, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontFamily = Mono) }
+                    }
+                    if (full) {
+                        Text(
+                            tech.kousozo.tahoetv.core.I18n.get(lang, "player.hold_slide_rewind"),
+                            color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }

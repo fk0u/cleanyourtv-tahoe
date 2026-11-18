@@ -383,7 +383,7 @@ private fun PillRocker(label: String, downIcon: ImageVector, upIcon: ImageVector
 
 /** Pair with a 6-digit code from the TV (Pusat Kontrol → HP), for a TV on another network or without discovery. */
 @Composable
-private fun PinPairDialog(host0: String, close: () -> Unit) {
+internal fun PinPairDialog(host0: String, close: () -> Unit) {
     val c = LocalContext.current
     val lang = PhoneRegion.language
     val scope = rememberCoroutineScope()

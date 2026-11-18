@@ -366,7 +366,7 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                         fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(L("home.what_to_watch"), color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
-                RoundGlass(Icons.Rounded.Search, L("home.search_hint"), tint = Color.White) { Nav.category(null) }
+                RoundGlass(Icons.Rounded.Search, L("home.search_hint"), tint = Color.White) { Nav.page = "search" }
                 Box {
                     RoundGlass(Icons.Rounded.Notifications, tech.kousozo.tahoetv.core.I18n.get(lang, "home.notif_desc", PushHelper.unreadCount), tint = Color.White) { onOpenInbox() }
                     if (PushHelper.unreadCount > 0) Box(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 12.dp).size(9.dp).clip(CircleShape).background(Tahoe.Warm))
@@ -376,7 +376,7 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                 heroPool.indices.forEach { i ->
                     val on = i == heroIdx % heroPool.size
                     val w by androidx.compose.animation.core.animateDpAsState(if (on) 24.dp else 6.dp, androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe), label = "dot")
-                    Box(Modifier.height(6.dp).width(w).clip(RoundedCornerShape(3.dp)).background(if (on) Color.White else Color.White.copy(alpha = 0.62f)))
+                    Box(Modifier.height(6.dp).width(w).clip(RoundedCornerShape(3.dp)).background(if (on) Tahoe.Text else Tahoe.Faint))
                 }
             }
         }
@@ -473,8 +473,9 @@ private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, cod
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect_desc"), color = Tahoe.Dim, fontSize = 14.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), Icons.Rounded.QrCodeScanner) { onScanQr() }
-                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), Icons.Rounded.Link) { setOpen(true) }
+                    GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), Icons.Rounded.Link) { Nav.page = "connect" }
                 }
+                TextButton({ setOpen(true) }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.pin_short"), color = Tahoe.Dim) }
                 TextButton({ Nav.page = "setup" }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.install_on_tv"), color = Tahoe.Text) }
                 return@GlassCard
             }

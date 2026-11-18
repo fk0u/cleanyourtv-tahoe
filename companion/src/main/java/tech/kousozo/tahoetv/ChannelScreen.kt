@@ -73,30 +73,33 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                 RoundGlass(Icons.AutoMirrored.Rounded.ArrowBack, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.back"), onClick = onBack)
             }
-            Spacer(Modifier.height(96.dp))
+            Spacer(Modifier.height(76.dp))
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Box(Modifier.size(92.dp).clip(CircleShape).background(Color.White).border(3.dp, Color.White.copy(alpha = 0.35f), CircleShape),
+                Box(Modifier.size(84.dp).clip(RoundedCornerShape(24.dp)).background(Color.White).border(2.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(24.dp)),
                     contentAlignment = Alignment.Center) {
-                    if (scrapedBmp != null) Image(scrapedBmp, null, Modifier.padding(14.dp).fillMaxSize(), contentScale = ContentScale.Fit)
-                    else Text(e.name.take(3).uppercase(), color = Color(0xFF141216), fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+                    if (scrapedBmp != null) Image(scrapedBmp, null, Modifier.padding(12.dp).fillMaxSize(), contentScale = ContentScale.Fit)
+                    else Text(e.name.take(4).uppercase(), color = Color(0xFF0D0D12), fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 }
-                Text(e.name.uppercase(), fontSize = 40.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp,
+                Text(e.name, fontSize = 32.sp, lineHeight = 37.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.64).sp,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val lang = PhoneRegion.language
-                Text(listOfNotNull(e.category.label(lang), if (e.near) tech.kousozo.tahoetv.core.I18n.get(lang, "ch.near_badge") else null,
-                    if (live > 0) tech.kousozo.tahoetv.core.I18n.get(lang, "ch.active_badge") else null).joinToString(" · "), color = Tahoe.Dim, fontSize = 13.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "ch.watch"), Icons.Rounded.PlayArrow) { Nav.play(e) }
-                    Spacer(Modifier.width(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (live > 0 || checked.not()) LiveBadge()
+                    Text(listOfNotNull(
+                        e.category.label(lang),
+                        tech.kousozo.tahoetv.core.I18n.get(lang, "live.sources", sources.size),
+                        if (e.near) tech.kousozo.tahoetv.core.I18n.get(lang, "ch.near_badge") else null,
+                    ).joinToString(" · "), color = Tahoe.Dim, fontSize = 14.sp)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AccentPillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "ch.watch_now"), Icons.Rounded.PlayArrow) { Nav.play(e) }
                     val fav = e.channel.url in Channels.favs
                     RoundGlass(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         tech.kousozo.tahoetv.core.I18n.get(lang, if (fav) "ch.fav_remove" else "ch.fav_add"),
                         tint = if (fav) Tahoe.Bad else Tahoe.Text) { Channels.toggleFav(c, e) }
-                    Spacer(Modifier.width(8.dp))
                     RoundGlass(Icons.Rounded.Share, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.share")) { shareChannel(c, e) }
                     val activeDev = remember(Pairing.tick) { Sync.devices(c).active() }
                     if (activeDev != null) {
-                        Spacer(Modifier.width(8.dp))
                         RoundGlass(Icons.Rounded.Cast, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "connect.play_on_tv")) {
                             tech.kousozo.tahoetv.core.TvLink.shared(activeDev.host, activeDev.token)
                                 .sessionLoad(e.channel.channelId, e.channel.url, e.name)
@@ -104,33 +107,33 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
                     }
                 }
 
-                // on now
-                GlassCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (cur != null) "ch.now_playing" else "player.status_live"), Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        cur?.let { Text("${HM.format(it.start)}–${HM.format(it.stop)}", fontSize = 12.sp, color = Tahoe.Dim, fontFamily = Mono) }
+                // combined now & next card (Figma Mobile / Detail saluran 11:121)
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Tahoe.Surface)
+                        .border(1.dp, Tahoe.Stroke, RoundedCornerShape(22.dp)).padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, if (cur != null) "ch.now_playing" else "player.status_live").uppercase(),
+                        color = Tahoe.Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+                    Text(cur?.title ?: tech.kousozo.tahoetv.core.I18n.get(lang, "ch.no_schedule_now"),
+                        fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    cur?.desc?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 13.sp, color = Tahoe.Dim, maxLines = 3, overflow = TextOverflow.Ellipsis) }
+                    cur?.let { pr ->
+                        ProgressBar(progress(pr, now), Modifier.fillMaxWidth())
+                        val left = java.time.Duration.between(now, pr.stop).toMinutes().coerceAtLeast(0)
+                        Text("${HM.format(pr.start)} – ${HM.format(pr.stop)} · " + tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_min_left", left.toString()),
+                            fontSize = 14.sp, color = Tahoe.Dim, fontFamily = Mono)
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(cur?.title ?: tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "ch.no_schedule_now"), fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            cur?.desc?.let { Text(it, fontSize = 13.sp, color = Tahoe.Dim, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        RoundGlass(Icons.Rounded.PlayArrow, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "ch.watch_aria", e.name), size = 44.dp) { Nav.play(e) }
-                    }
-                    cur?.let { LinearProgressIndicator({ progress(it, now) }, Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
-                        color = Tahoe.Text, trackColor = Tahoe.Stroke) }
-                }
-
-                // later today
-                if (later.isNotEmpty()) {
-                    Text("Berikutnya hari ini", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
-                    later.forEach { p ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(HM.format(p.start), Modifier.width(56.dp), color = Tahoe.Dim, fontSize = 13.sp, fontFamily = Mono)
-                            Text(p.title, Modifier.weight(1f), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+                    if (later.isNotEmpty()) {
                         HorizontalDivider(color = Tahoe.Stroke)
+                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "ch.up_next").uppercase(),
+                            color = Tahoe.Faint, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+                        later.forEach { p ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(HM.format(p.start), color = Tahoe.Dim, fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = Mono)
+                                Text(p.title, Modifier.weight(1f), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
                     }
                 }
 

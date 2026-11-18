@@ -488,38 +488,48 @@ object Playback {
 @Composable
 fun MiniPlayer(visible: Boolean, modifier: Modifier = Modifier) {
     val c = LocalContext.current
+    val lang = PhoneRegion.language
     val e = Playback.entry
     AnimatedVisibility(visible && e != null, modifier, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
         val ch = e ?: return@AnimatedVisibility
-        val logo = rememberNetImage(ch.channel.logo)
-        val tint = logo?.let { dominantColor(it) } ?: Tahoe.Accent
         val show = nowOn(Channels.epg, ch, Instant.now())?.title
         Surface(
-            Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(64.dp).clickable { Nav.tab = 1; Nav.detail = null },
-            shape = RoundedCornerShape(20.dp), color = Color(0xFF1C1A1F).copy(alpha = 0.96f),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), shadowElevation = 14.dp,
+            Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(68.dp).clickable { Nav.tab = 1; Nav.detail = null; Nav.page = null },
+            shape = RoundedCornerShape(22.dp),
+            color = Tahoe.SurfaceHi,
+            border = BorderStroke(1.dp, Tahoe.Stroke),
+            shadowElevation = 14.dp,
         ) {
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(tint.copy(alpha = 0.22f), Color.Transparent)))) {
-                Row(Modifier.fillMaxSize().padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-                        if (logo != null) Image(logo, null, Modifier.padding(6.dp).fillMaxSize(), contentScale = ContentScale.Fit)
-                        else Text(ch.name.take(3).uppercase(), color = Color(0xFF111114), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(ch.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(when (Playback.message) {
-                            "" -> tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.loading")
-                            null -> show ?: tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.status_live")
-                            else -> tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.status_unplayable")
+            Row(Modifier.fillMaxSize().padding(start = 10.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                ChannelArt(ch, Modifier.size(88.dp, 50.dp).clip(RoundedCornerShape(14.dp)), logoScale = 0.85f)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        show ?: ch.name,
+                        fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Tahoe.Text,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        when (Playback.message) {
+                            "" -> tech.kousozo.tahoetv.core.I18n.get(lang, "player.loading")
+                            null -> "${ch.name} · LIVE"
+                            else -> tech.kousozo.tahoetv.core.I18n.get(lang, "player.status_unplayable")
                         },
-                            fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    IconButton({ Playback.toggle() }) {
-                        Icon(if (Playback.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (Playback.paused) "Putar" else "Jeda", Modifier.size(28.dp))
-                    }
-                    IconButton({ Playback.zap(c, Channels.entries, 1) }) { Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.next_channel")) }
-                    IconButton({ Playback.stop() }) { Icon(Icons.Rounded.Close, "Hentikan siaran", tint = Tahoe.Dim, modifier = Modifier.size(20.dp)) }
+                        fontSize = 14.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                IconButton({ Playback.toggle() }) {
+                    Icon(
+                        if (Playback.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                        tech.kousozo.tahoetv.core.I18n.get(lang, if (Playback.paused) "player.play" else "player.pause"),
+                        Modifier.size(28.dp),
+                    )
+                }
+                IconButton({ Playback.zap(c, Channels.entries, 1) }) {
+                    Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(lang, "player.next_channel"))
+                }
+                IconButton({ Playback.stop() }) {
+                    Icon(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(lang, "player.stop"), tint = Tahoe.Dim, modifier = Modifier.size(20.dp))
                 }
             }
         }

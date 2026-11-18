@@ -27,6 +27,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -34,7 +35,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -217,6 +224,103 @@ fun GlassPill(text: String, icon: ImageVector? = null, modifier: Modifier = Modi
     }
 }
 
+/** Figma "Button / Accent": Tahoe Cyan pill, dark label, optional 18 dp icon. */
+@Composable
+fun AccentPillButton(text: String, icon: ImageVector? = null, fullWidth: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Row(
+        modifier
+            .then(if (fullWidth) Modifier.fillMaxWidth() else Modifier)
+            .heightIn(min = 48.dp)
+            .pressScale(press)
+            .clip(RoundedCornerShape(50))
+            .background(Tahoe.Accent)
+            .clickable(press, androidx.compose.material3.ripple(), onClick = onClick)
+            .padding(start = if (icon != null && !fullWidth) 20.dp else 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (fullWidth) Arrangement.Center else Arrangement.Start,
+    ) {
+        icon?.let { Icon(it, null, tint = Tahoe.OnAccent, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)) }
+        Text(text, color = Tahoe.OnAccent, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Figma ".back": 44 dp circular back button inside a 48 dp touch target. */
+@Composable
+fun BackCircle(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) = Box(
+    modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onClick),
+    contentAlignment = Alignment.Center,
+) {
+    Box(
+        Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape)
+            .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.10f) else Tahoe.Glass),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.AutoMirrored.Rounded.ArrowBack, label, tint = Tahoe.Text, modifier = Modifier.size(20.dp))
+    }
+}
+
+/** Figma ".switch": 52 × 32 pill track with 26 dp animated knob. */
+@Composable
+fun FigmaSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    val thumbX by androidx.compose.animation.core.animateDpAsState(
+        if (checked) 23.dp else 3.dp,
+        androidx.compose.animation.core.tween(if (ThemePrefs.reduceMotion) 0 else tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe),
+        label = "switch",
+    )
+    Box(
+        modifier.heightIn(min = 48.dp).widthIn(min = 52.dp)
+            .toggleable(checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onCheckedChange),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(52.dp, 32.dp).clip(RoundedCornerShape(50))
+                .background(if (checked) Tahoe.Accent else if (ThemePrefs.dark) Color.White.copy(alpha = 0.16f) else Tahoe.Glass),
+        ) {
+            Box(
+                Modifier.offset(x = thumbX, y = 3.dp).size(26.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(if (checked) Tahoe.OnAccent else Tahoe.Dim),
+            )
+        }
+    }
+}
+
+/** Figma ".search.pill": borderless (or active cyan border) 53–56 dp rounded pill search input. */
+@Composable
+fun SearchPill(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    active: Boolean = false,
+    modifier: Modifier = Modifier,
+) = Row(
+    modifier.fillMaxWidth().heightIn(min = 53.dp)
+        .clip(RoundedCornerShape(50))
+        .background(Tahoe.Surface)
+        .then(if (active) Modifier.border(1.5.dp, Tahoe.Accent, RoundedCornerShape(50)) else Modifier)
+        .padding(horizontal = 18.dp, vertical = 14.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Icon(Icons.Rounded.Search, null, tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
+    Spacer(Modifier.width(10.dp))
+    Box(Modifier.weight(1f)) {
+        if (value.isEmpty()) Text(placeholder, color = Tahoe.Faint, fontSize = 16.sp, lineHeight = 23.sp)
+        androidx.compose.foundation.text.BasicTextField(
+            value, onValueChange, singleLine = true,
+            modifier = Modifier.fillMaxWidth().semantics {
+                contentDescription = placeholder
+            },
+            textStyle = androidx.compose.ui.text.TextStyle(color = Tahoe.Text, fontSize = 16.sp, fontFamily = Outfit),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(Tahoe.Accent),
+        )
+    }
+    if (value.isNotEmpty()) {
+        IconButton({ onValueChange("") }, Modifier.size(32.dp)) {
+            Icon(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(appLanguage(), "live.clear_search"), tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
 /** Figma "Icon Button": 48 dp glass circle with a hairline and a 22 dp icon. */
 @Composable
 fun RoundGlass(icon: ImageVector, label: String, size: Dp = 48.dp, tint: Color = Tahoe.Text, onClick: () -> Unit) = Box(
@@ -334,10 +438,10 @@ fun CheckRow(title: String, sub: String?, checked: Boolean, badge: String? = nul
 
 @Composable
 fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) = Row(
-    Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+    Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onChange(!checked) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
 ) {
     Text(title, color = Tahoe.Text, fontSize = 15.sp, modifier = Modifier.weight(1f))
-    Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Tahoe.Good, checkedThumbColor = Color.White))
+    FigmaSwitch(checked, onChange)
 }
 
 /** Floating pill tab bar (Mochy-style): icons only, the selected tab grows into a pill with its label. */
