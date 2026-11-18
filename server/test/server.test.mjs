@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { openDb } from "../src/db.mjs";
 import { ensureBootstrapAdmin } from "../src/auth.mjs";
-import { createTahoeServer } from "../src/app.mjs";
+import { createTahoeServer, parseM3uSummary, withPlayableStream } from "../src/app.mjs";
 
 async function startTestServer() {
   const db = openDb(":memory:");
@@ -27,7 +27,7 @@ async function startTestServer() {
       ],
     }),
     fetchChannelPreview: async () => [
-      { name: "TVRI Nasional", group: "Nasional", logo: "", format: "HLS", drm: false, source: "test" },
+      { name: "TVRI Nasional", group: "Nasional", logo: "", format: "HLS", drm: false, source: "test", stream: "https://tvri.example/live.m3u8" },
       { name: "RCTI", group: "Entertainment", logo: "", format: "DASH", drm: true, source: "test" },
     ],
   });
@@ -186,7 +186,36 @@ test("heartbeat registers device, counts fleet, and admin broadcasts live push o
     assert.equal(cfgRes.status, 200);
     const chPreview = await (await fetch(`${srv.base}/api/public/channels/preview?q=rcti`)).json();
     assert.equal(chPreview.filtered, 1);
+    assert.equal(chPreview.items[0].stream, "");
+    const tvri = await (await fetch(`${srv.base}/api/public/channels/preview?q=tvri`)).json();
+    assert.equal(tvri.items[0].stream, "https://tvri.example/live.m3u8");
   } finally {
     await srv.close();
   }
+});
+
+test("web player only gets plain https HLS streams, never DRM, DASH, http or blocked hosts", () => {
+  const items = parseM3uSummary(
+    [
+      "#EXTM3U",
+      '#EXTINF:-1 group-title="News",Open HLS',
+      "https://cdn.example/open/index.m3u8",
+      '#EXTINF:-1 group-title="News",Plain HTTP',
+      "http://cdn.example/plain/index.m3u8",
+      '#EXTINF:-1 group-title="Movies",Dash',
+      "https://cdn.example/dash/manifest.mpd",
+      '#EXTINF:-1 group-title="Sports",Locked',
+      "#KODIPROP:inputstream.adaptive.license_type=clearkey",
+      "https://cdn.example/locked/index.m3u8",
+    ].join("\n"),
+    "test"
+  );
+  const byName = Object.fromEntries(items.map((c) => [c.name, c.stream]));
+  assert.equal(byName["Open HLS"], "https://cdn.example/open/index.m3u8");
+  assert.equal(byName["Plain HTTP"], "");
+  assert.equal(byName["Dash"], "");
+  assert.equal(byName["Locked"], "");
+  assert.equal(withPlayableStream(items[0], ["example"]).stream, "");
+  assert.equal(withPlayableStream(items[0], ["other.org"]).stream, "https://cdn.example/open/index.m3u8");
+  assert.equal(withPlayableStream({ name: "x", drm: true, stream: "https://a.example/x.m3u8" }).stream, "");
 });

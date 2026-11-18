@@ -54,6 +54,19 @@ function safeActionUrl(v) {
   }
 }
 
+/** Keeps `stream` only when it is a plain https URL whose host the admin has not blocked. */
+export function withPlayableStream(c, blockedHosts = []) {
+  const stream = typeof c.stream === "string" ? c.stream : "";
+  let host = "";
+  try {
+    host = stream ? new URL(stream).hostname.toLowerCase() : "";
+  } catch {
+    host = "";
+  }
+  const blocked = (blockedHosts || []).some((b) => host === b || host.endsWith("." + b));
+  return { ...c, stream: host && stream.startsWith("https://") && !c.drm && !blocked ? stream : "" };
+}
+
 function parseChecksums(text) {
   const map = {};
   for (const raw of String(text || "").split(/\r?\n/)) {
@@ -65,7 +78,7 @@ function parseChecksums(text) {
   return map;
 }
 
-function parseM3uSummary(text, sourceName, maxItems = 250) {
+export function parseM3uSummary(text, sourceName, maxItems = 250) {
   const out = [];
   let pendingName = "";
   let pendingGroup = "Lainnya";
@@ -88,13 +101,16 @@ function parseM3uSummary(text, sourceName, maxItems = 250) {
     } else if (!line.startsWith("#")) {
       const url = safeActionUrl(line);
       if (url && pendingName) {
+        const format = /\.mpd(\?|$)/i.test(url) ? "DASH" : "HLS";
         out.push({
           name: pendingName,
           group: pendingGroup,
           logo: pendingLogo,
-          format: /\.mpd(\?|$)/i.test(url) ? "DASH" : "HLS",
+          format,
           drm: pendingDrm,
           source: sourceName,
+          // the web player (/watch) can only play plain HLS over https (no DRM, no mixed content)
+          stream: format === "HLS" && !pendingDrm && url.startsWith("https://") ? url : "",
         });
         if (out.length >= maxItems) break;
       }
@@ -393,7 +409,7 @@ export function createTahoeServer({
             total: channels.length,
             filtered: filtered.length,
             groups: [...new Set(channels.map((c) => c.group))].sort(),
-            items: filtered.slice(0, 120),
+            items: filtered.slice(0, 120).map((c) => withPlayableStream(c, cfg.channel_overrides.blocked_hosts)),
             featured_notice: cfg.channel_overrides.featured_notice || "",
           },
           cors
