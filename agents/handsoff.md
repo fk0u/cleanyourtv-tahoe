@@ -1,5 +1,7 @@
 # handsoff.md — pick up from here
 
+> **Latest (2026-11-18):** the active handoff for the Redesign 4.0 work (v3.5.0-alpha.12, Figma parity) is [`docs/HANDOFF-GEMINI.md`](../docs/HANDOFF-GEMINI.md). Start there; the notes below are older history.
+
 > `[HANDOFF] from=main-agent · to=next human/agent · date=2026-11-15`
 
 ## State of the repo
