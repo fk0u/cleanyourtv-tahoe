@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -42,6 +43,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -175,17 +177,34 @@ private fun MenuGroup(label: String?, content: @Composable ColumnScope.() -> Uni
 @Composable
 private fun MenuRow(icon: ImageVector, title: String, value: String? = null, tint: Color? = null, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
+    val discBg = if (tint != null) tint.copy(alpha = 0.16f)
+        else if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(src, null, onClick = onClick).pressScale(src).padding(horizontal = 14.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable(src, null, onClick = onClick).pressScale(src).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Figma Settings Row: bare 22 dp icon (tinted ones get a soft disc), Body/Strong title
-        Box(Modifier.size(36.dp).clip(CircleShape).background(if (tint != null) tint.copy(alpha = 0.16f) else Color.Transparent), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = tint ?: Tahoe.Text, modifier = Modifier.size(22.dp))
+        Box(Modifier.size(40.dp).clip(CircleShape).background(discBg), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = tint ?: Tahoe.Text, modifier = Modifier.size(20.dp))
         }
         Text(title, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-        if (value != null) Text(value, fontSize = 14.sp, color = Tahoe.Dim)
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Faint)
+        if (value != null) Text(value, fontSize = 14.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Faint, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun SwitchMenuRow(icon: ImageVector, title: String, checked: Boolean, tint: Color? = null, onCheckedChange: (Boolean) -> Unit) {
+    val discBg = if (tint != null) tint.copy(alpha = 0.16f)
+        else if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 14.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(discBg), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = tint ?: Tahoe.Text, modifier = Modifier.size(20.dp))
+        }
+        Text(title, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+        FigmaSwitch(checked, onCheckedChange)
     }
 }
 
@@ -334,53 +353,60 @@ fun ProfileScreen() {
             Text(
                 "TAHOE",
                 color = Tahoe.Text.copy(alpha = 0.04f),
-                fontSize = 82.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 6.sp,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 18.dp, end = 12.dp),
+                fontSize = 112.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-2).sp,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 80.dp).rotate(90f),
             )
             Column(
                 Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                Text(I18n.get(lang, "profile.hello") + " 👋", fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp)
+                Text(I18n.get(lang, "profile.hello") + " 👋", fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.Surface.copy(alpha = 0.72f))
-                        .border(1.dp, Tahoe.Stroke, RoundedCornerShape(26.dp))
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
+                        .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Surface.copy(alpha = 0.92f))
+                        .border(1.dp, Tahoe.Stroke.copy(alpha = 0.5f), RoundedCornerShape(26.dp))
                         .clickable { draftName = name; editNameOpen = true }
                         .padding(18.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Box(Modifier.size(72.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Tahoe.Accent, Tahoe.Lake))), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(84.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Tahoe.Accent, Tahoe.Lake))), contentAlignment = Alignment.Center) {
                         Text(
                             name.trim().split(' ').filter { it.isNotEmpty() }.take(2).joinToString("") { it.take(1).uppercase() }.ifEmpty { "T" },
-                            fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                            fontSize = 30.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
                         )
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(I18n.get(lang, "profile.id_eyebrow"), fontSize = 10.sp, fontFamily = Mono, letterSpacing = 1.sp, color = Tahoe.Dim)
-                        Text(name.ifBlank { I18n.get(lang, "profile.main") }, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(name.ifBlank { I18n.get(lang, "profile.main") }, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            Icon(Icons.Rounded.Edit, I18n.get(lang, "profile.edit_name"), tint = Tahoe.Faint, modifier = Modifier.size(14.dp))
+                        }
                         Text(I18n.get(lang, "profile.devices", tvCount), fontSize = 12.sp, color = Tahoe.Dim)
-                    }
-                    RoundGlass(Icons.Rounded.Edit, I18n.get(lang, "profile.edit_name"), size = 40.dp) {
-                        draftName = name; editNameOpen = true
                     }
                 }
             }
         }
-        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             GlassCard(onClick = { Nav.page = "recap" }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${recap.totalMinutes / 60}", fontSize = 40.sp, fontWeight = FontWeight.Bold, fontFamily = Mono)
-                    Text(I18n.get(lang, "profile.unit_hour"), fontSize = 18.sp, color = Tahoe.Dim, modifier = Modifier.padding(start = 3.dp, end = 12.dp))
-                    Text("${recap.totalMinutes % 60}", fontSize = 40.sp, fontWeight = FontWeight.Bold, fontFamily = Mono)
-                    Text(I18n.get(lang, "profile.unit_min"), fontSize = 18.sp, color = Tahoe.Dim, modifier = Modifier.padding(start = 3.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text("${recap.totalMinutes / 60}", fontSize = 40.sp, fontWeight = FontWeight.Bold, fontFamily = Mono)
+                        Text(I18n.get(lang, "profile.unit_hour"), fontSize = 20.sp, color = Tahoe.Dim, modifier = Modifier.padding(start = 2.dp, bottom = 5.dp))
+                    }
+                    Box(Modifier.width(1.dp).height(40.dp).background(Tahoe.Stroke.copy(alpha = 0.5f)))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text("${recap.totalMinutes % 60}", fontSize = 40.sp, fontWeight = FontWeight.Bold, fontFamily = Mono)
+                        Text(I18n.get(lang, "profile.unit_min"), fontSize = 20.sp, color = Tahoe.Dim, modifier = Modifier.padding(start = 2.dp, bottom = 5.dp))
+                    }
                     Spacer(Modifier.weight(1f))
                     Text(I18n.get(lang, "profile.watch_month"), fontSize = 13.sp, color = Tahoe.Dim)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(I18n.get(lang, "profile.see_recap"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Tahoe.Accent)
-                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Accent)
+                HorizontalDivider(color = Tahoe.Stroke.copy(alpha = 0.25f), modifier = Modifier.padding(vertical = 4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(I18n.get(lang, "profile.see_recap"), fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Tahoe.Accent)
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Accent, modifier = Modifier.size(16.dp))
                 }
             }
             MenuGroup(I18n.get(lang, "profile.activity")) {
@@ -393,17 +419,21 @@ fun ProfileScreen() {
                 MenuRow(Icons.AutoMirrored.Rounded.HelpOutline, I18n.get(lang, "profile.help_center")) { Nav.page = "help" }
             }
             MenuGroup(I18n.get(lang, "profile.community")) {
-                MenuRow(Icons.Rounded.Star, I18n.get(lang, "profile.star"), tint = Color(Brand.SUN)) { open(c, REPO) }
+                MenuRow(Icons.Rounded.Star, I18n.get(lang, "profile.star"), value = "★ 1,2k", tint = Color(Brand.SUN)) { open(c, REPO) }
                 MenuRow(Icons.Rounded.Groups, I18n.get(lang, "profile.contributors")) { Nav.page = "contributors" }
             }
             MenuGroup(null) { MenuRow(Icons.Rounded.Settings, I18n.get(lang, "nav.prefs")) { Nav.page = "settings" } }
-            GlassCard(onClick = { aboutOpen = true }) {
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Tahoe.Surface)
+                    .border(1.dp, Tahoe.Stroke.copy(alpha = 0.25f), RoundedCornerShape(28.dp))
+                    .clickable { aboutOpen = true }.padding(18.dp),
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(I18n.get(lang, "profile.version_label"), fontSize = 13.sp, color = Tahoe.Dim)
-                        Text("Tahoe TV $versionName", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(I18n.get(lang, "profile.version_label"), fontSize = 14.sp, color = Tahoe.Dim)
+                        Text(versionName, fontSize = 32.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.64).sp)
                     }
-                    GlassPill(I18n.get(lang, "profile.about_btn"), Icons.Rounded.Info) { aboutOpen = true }
+                    GlassPill(I18n.get(lang, "profile.about_btn")) { aboutOpen = true }
                 }
             }
             Box(Modifier.fillMaxWidth()) { UpdateCard() }
@@ -465,18 +495,7 @@ fun HistoryPage() {
     val todayItems = shown.filter { it.third }
     val yesterdayItems = shown.filter { !it.third }
 
-    PageScaffold(
-        I18n.get(lang, "profile.history"),
-        trailing = if (shown.isNotEmpty()) {
-            {
-                RoundGlass(Icons.Rounded.DeleteOutline, I18n.get(lang, "history.clear"), size = 44.dp) {
-                    c.getSharedPreferences("live", 0).edit().remove("recent").apply()
-                    cleared = true
-                    Toast.makeText(c, I18n.get(lang, "history.cleared"), Toast.LENGTH_SHORT).show()
-                }
-            }
-        } else null,
-    ) {
+    PageScaffold(I18n.get(lang, "profile.history")) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip(I18n.get(lang, "live.all"), filter == HistoryFilter.All) { filter = HistoryFilter.All }
             Chip(I18n.get(lang, "history.filter_phone"), filter == HistoryFilter.Phone) { filter = HistoryFilter.Phone }
@@ -490,21 +509,39 @@ fun HistoryPage() {
                 I18n.get(lang, "history.yesterday") to yesterdayItems,
             ).forEach { (label, group) ->
                 if (group.isEmpty()) return@forEach
-                Text(label.uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, modifier = Modifier.padding(start = 4.dp))
+                Text(label.uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, modifier = Modifier.padding(start = 4.dp))
                 group.forEachIndexed { idx, (e, srcType, _) ->
-                    val frac = 0.78f - (idx * 0.17f).coerceAtMost(0.55f)
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ChannelListRow(e, now) {
-                            Pill(if (srcType == HistoryFilter.Tv) I18n.get(lang, "history.filter_tv") else I18n.get(lang, "history.filter_phone"), Tahoe.Accent)
+                    val frac = (0.78f - idx * 0.17f).coerceIn(0.2f, 0.92f)
+                    val prog = nowOn(Channels.epg, e, now)?.title
+                    val deviceLabel = I18n.get(lang, if (srcType == HistoryFilter.Tv) "history.filter_tv" else "history.filter_phone")
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).clickable { Nav.play(e) }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(Modifier.size(112.dp, 64.dp).clip(RoundedCornerShape(14.dp))) {
+                            ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.8f)
+                            ProgressBar(frac, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp))
                         }
-                        ProgressBar(frac, Modifier.fillMaxWidth().padding(start = 110.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(prog ?: e.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${e.name} · ${25 + idx * 14} ${I18n.get(lang, "profile.unit_min")} · $deviceLabel",
+                                fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }
-            GlassPill(I18n.get(lang, "history.clear"), Icons.Rounded.DeleteOutline) {
-                c.getSharedPreferences("live", 0).edit().remove("recent").apply()
-                cleared = true
-                Toast.makeText(c, I18n.get(lang, "history.cleared"), Toast.LENGTH_SHORT).show()
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(14.dp)).clickable {
+                    c.getSharedPreferences("live", 0).edit().remove("recent").apply()
+                    cleared = true
+                    Toast.makeText(c, I18n.get(lang, "history.cleared"), Toast.LENGTH_SHORT).show()
+                }.padding(horizontal = 4.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(Icons.Rounded.DeleteOutline, null, tint = Tahoe.Bad, modifier = Modifier.size(18.dp))
+                Text(I18n.get(lang, "history.clear"), color = Tahoe.Bad, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -634,26 +671,32 @@ fun SettingsPage() {
         SearchPill(query, { query = it }, I18n.get(lang, "settings.search_hint"), active = query.isNotBlank())
         if (query.isBlank()) {
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.SurfaceHi)
-                    .border(1.5.dp, Tahoe.Accent.copy(alpha = 0.55f), RoundedCornerShape(26.dp))
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Tahoe.Surface)
+                    .border(1.dp, Tahoe.Stroke.copy(alpha = 0.25f), RoundedCornerShape(28.dp))
                     .clickable { dialog = SettingsDialog.ChannelLanguages }.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(I18n.get(lang, "settings.recommended").uppercase(), fontSize = 11.sp, color = Tahoe.Accent, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-                Text(I18n.get(lang, "settings.add_ch_lang"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                Text(I18n.get(lang, "settings.add_ch_lang_sub"), fontSize = 14.sp, color = Tahoe.Dim)
+                Text(I18n.get(lang, "settings.recommended"), fontSize = 14.sp, color = Tahoe.Faint, fontWeight = FontWeight.Medium)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(Tahoe.Accent.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Language, null, tint = Tahoe.Accent, modifier = Modifier.size(20.dp))
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(I18n.get(lang, "settings.add_ch_lang"), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        Text(I18n.get(lang, "settings.add_ch_lang_sub"), fontSize = 12.sp, color = Tahoe.Dim)
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Faint, modifier = Modifier.size(18.dp))
+                }
             }
         }
         val showLook = matches(I18n.get(lang, "ui.appearance"), I18n.get(lang, "ui.high_contrast"), I18n.get(lang, "ui.reduce_motion"))
         if (showLook) MenuGroup(I18n.get(lang, "ui.appearance")) {
             MenuRow(Icons.Rounded.Palette, I18n.get(lang, "ui.appearance"), themeLabel(ThemePrefs.mode)) { dialog = SettingsDialog.Theme }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(I18n.get(lang, "ui.high_contrast"), fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                FigmaSwitch(ThemePrefs.highContrast, { ThemePrefs.highContrast = it; AppearancePrefs.save(c) })
+            SwitchMenuRow(Icons.Rounded.Contrast, I18n.get(lang, "ui.high_contrast"), ThemePrefs.highContrast) {
+                ThemePrefs.highContrast = it; AppearancePrefs.save(c)
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(I18n.get(lang, "ui.reduce_motion"), fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                FigmaSwitch(ThemePrefs.reduceMotion, { ThemePrefs.reduceMotion = it; AppearancePrefs.save(c) })
+            SwitchMenuRow(Icons.Rounded.MotionPhotosOff, I18n.get(lang, "ui.reduce_motion"), ThemePrefs.reduceMotion) {
+                ThemePrefs.reduceMotion = it; AppearancePrefs.save(c)
             }
         }
         val showPlayback = matches(I18n.get(lang, "settings.group_playback"), I18n.get(lang, "player.quality"), I18n.get(lang, "player.latency"), I18n.get(lang, "sub.size_label"))
@@ -665,23 +708,26 @@ fun SettingsPage() {
         val showChannels = matches(I18n.get(lang, "settings.group_channels"), I18n.get(lang, "settings.app_language"), I18n.get(lang, "settings.region_city"), I18n.get(lang, "settings.prayer_adhan"), I18n.get(lang, "ui.channel_languages"))
         if (showChannels) MenuGroup(I18n.get(lang, "settings.group_channels")) {
             MenuRow(Icons.Rounded.Translate, I18n.get(lang, "settings.app_language"), OnboardingText.LANGUAGE_NAMES[lang] ?: lang) { dialog = SettingsDialog.Language }
-            val citySuffix = PhoneRegion.viewer.city.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty()
-            MenuRow(Icons.Rounded.Public, I18n.get(lang, "settings.region_city"), Region.name(PhoneRegion.code, lang) + citySuffix) {
+            val citySuffix = PhoneRegion.viewer.city.takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty()
+            MenuRow(Icons.Rounded.Public, I18n.get(lang, "settings.region_city"), Region.flag(PhoneRegion.code) + citySuffix.ifEmpty { " " + Region.name(PhoneRegion.code, lang) }) {
                 Playback.stop(); PhoneRegion.reset()
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(I18n.get(lang, "settings.prayer_adhan"), fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                FigmaSwitch(PhoneRegion.viewer.prayer, { PhoneRegion.save(c, PhoneRegion.viewer.copy(prayer = it)) })
+            val chLangSummary = PhoneRegion.viewer.channelLanguages.map { l ->
+                java.util.Locale.forLanguageTag(l).getDisplayLanguage(java.util.Locale.forLanguageTag(lang)).ifBlank { l }
+            }.let { list ->
+                if (list.isEmpty()) null else if (list.size <= 2) list.joinToString(", ") else "${list.take(2).joinToString(", ")} +${list.size - 2}"
             }
-            MenuRow(Icons.Rounded.Language, I18n.get(lang, "ui.channel_languages"), PhoneRegion.viewer.channelLanguages.size.takeIf { it > 0 }?.toString()) {
+            MenuRow(Icons.Rounded.Language, I18n.get(lang, "ui.channel_languages"), chLangSummary) {
                 dialog = SettingsDialog.ChannelLanguages
+            }
+            SwitchMenuRow(Icons.Rounded.Schedule, I18n.get(lang, "settings.prayer_adhan"), PhoneRegion.viewer.prayer) {
+                PhoneRegion.save(c, PhoneRegion.viewer.copy(prayer = it))
             }
         }
         val showOther = matches(I18n.get(lang, "settings.group_other"), I18n.get(lang, "settings.broadcast_notifs"), I18n.get(lang, "settings.clear_cache"))
         if (showOther) MenuGroup(I18n.get(lang, "settings.group_other")) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(I18n.get(lang, "settings.broadcast_notifs"), fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                FigmaSwitch(broadcastNotifs, { broadcastNotifs = it; uiPrefs.edit().putBoolean("broadcast_notifs", it).apply() })
+            SwitchMenuRow(Icons.Rounded.NotificationsActive, I18n.get(lang, "settings.broadcast_notifs"), broadcastNotifs) {
+                broadcastNotifs = it; uiPrefs.edit().putBoolean("broadcast_notifs", it).apply()
             }
             MenuRow(Icons.Rounded.CleaningServices, I18n.get(lang, "settings.clear_cache"), if (cacheClearedOnce) "0 MB" else null) {
                 c.cacheDir.listFiles()?.forEach { it.deleteRecursively() }
@@ -703,25 +749,42 @@ fun NotificationsPage() {
     val startOfDay = remember { java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() }
     val items = remember(PushHelper.inbox, lang) {
         if (PushHelper.inbox.isNotEmpty() || !Demo.isActive()) PushHelper.inbox
-        else listOf(
-            tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
-                id = 1L,
-                title = "Tahoe TV ${PushHelper.appVersion(c).first}",
-                body = I18n.get(lang, "update.up_to_date", PushHelper.appVersion(c).first),
-                kind = "update",
-                createdAt = System.currentTimeMillis() - 1_200_000L,
-            ),
-            tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
-                id = 2L,
-                title = I18n.get(lang, "push.channel_name"),
-                body = I18n.get(lang, "push.channel_desc"),
-                kind = "info",
-                createdAt = startOfDay - 86_400_000L,
-            ),
-        )
+        else {
+            val nowMs = System.currentTimeMillis()
+            val demoNames = Demo.channels().map { it.name }
+            listOf(
+                tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
+                    id = 1L,
+                    title = demoNames.firstOrNull() ?: "Tahoe News",
+                    body = I18n.get(lang, "home.on_now_fmt", demoNames.firstOrNull() ?: "Tahoe News"),
+                    kind = "reminder",
+                    createdAt = nowMs - 300_000L,
+                ),
+                tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
+                    id = 2L,
+                    title = demoNames.getOrNull(1) ?: "Alpine Earth",
+                    body = I18n.get(lang, "push.channel_desc"),
+                    kind = "info",
+                    createdAt = nowMs - 3_600_000L,
+                ),
+                tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
+                    id = 3L,
+                    title = "Tahoe TV ${PushHelper.appVersion(c).first}",
+                    body = I18n.get(lang, "update.up_to_date", PushHelper.appVersion(c).first),
+                    kind = "update",
+                    createdAt = startOfDay - 86_400_000L,
+                ),
+                tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
+                    id = 4L,
+                    title = "Living Room TV",
+                    body = I18n.get(lang, "pair.connected"),
+                    kind = "info",
+                    createdAt = startOfDay - 172_800_000L,
+                ),
+            )
+        }
     }
     PageScaffold(I18n.get(lang, "push.inbox_title")) {
-        PillButton(I18n.get(lang, "update.check_btn"), Icons.Rounded.SystemUpdate) { PushHelper.checkUpdateModal(c) }
         if (items.isEmpty()) Note(I18n.get(lang, "push.inbox_empty"), Icons.Rounded.NotificationsNone)
         val (today, earlier) = items.partition { it.createdAt >= startOfDay }
         for ((label, list) in listOf(I18n.get(lang, "push.today") to today, I18n.get(lang, "push.earlier") to earlier)) {
@@ -736,7 +799,7 @@ fun NotificationsPage() {
                         .pressScale(src).padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp)) }
+                    Box(Modifier.size(40.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp)) }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(n.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -757,16 +820,16 @@ fun OfflineState(modifier: Modifier = Modifier) {
     val c = LocalContext.current
     val lang = PhoneRegion.language
     val scope = rememberCoroutineScope()
-    Column(modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Box(Modifier.size(180.dp), contentAlignment = Alignment.Center) {
-            listOf(180.dp to 0.05f, 128.dp to 0.10f, 76.dp to 0.18f).forEach { (d, a) ->
+            listOf(180.dp to 0.06f, 128.dp to 0.11f, 76.dp to 0.16f).forEach { (d, a) ->
                 Box(Modifier.size(d).clip(CircleShape).background(Tahoe.Warm.copy(alpha = a)))
             }
-            Icon(Icons.Rounded.WifiOff, null, tint = Tahoe.Warm, modifier = Modifier.size(40.dp))
+            Icon(Icons.Rounded.WifiOff, null, tint = Tahoe.Warm, modifier = Modifier.size(56.dp))
         }
-        Text(I18n.get(lang, "offline.no_internet"), fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(I18n.get(lang, "offline.no_internet"), fontSize = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.56).sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Text(I18n.get(lang, "home.channels_failed"), fontSize = 15.sp, color = Tahoe.Dim, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             PillButton(I18n.get(lang, "common.retry"), Icons.Rounded.Refresh) { Channels.reload(c); scope.launch { Channels.load(c) } }
             GlassPill(I18n.get(lang, "offline.watch_saved"), Icons.Rounded.Bookmarks) { Nav.tab = 3; Nav.page = null }
         }
@@ -785,7 +848,7 @@ fun SearchPage() {
     var filter by remember { mutableStateOf(SearchFilter.All) }
     val all = Channels.entries ?: if (Demo.isActive()) demoEntries() else emptyList()
     val now = remember { Instant.now() }
-    val q = query.trim().lowercase()
+    val effectiveQuery = query.trim().ifEmpty { if (Demo.isActive()) "Tahoe" else "" }.lowercase()
 
     PageScaffold(I18n.get(lang, "search.title")) {
         SearchPill(query, { query = it }, I18n.get(lang, "home.search_hint"), active = true)
@@ -795,58 +858,84 @@ fun SearchPage() {
             Chip(I18n.get(lang, "search.chip_shows"), filter == SearchFilter.Shows) { filter = SearchFilter.Shows }
             Chip(I18n.get(lang, "search.chip_schedule"), filter == SearchFilter.Schedule) { filter = SearchFilter.Schedule }
         }
-        if (q.isEmpty()) {
-            Text(I18n.get(lang, "search.recent").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                all.take(6).forEach { e -> Chip(e.name, false) { query = e.name } }
-            }
-        } else {
+        if (effectiveQuery.isNotEmpty()) {
             val chMatches = if (filter == SearchFilter.All || filter == SearchFilter.Channels) {
-                all.filter { it.name.lowercase().contains(q) || it.category.label(lang).lowercase().contains(q) }
+                all.filter { it.name.lowercase().contains(effectiveQuery) || it.category.label(lang).lowercase().contains(effectiveQuery) }
             } else emptyList()
             val showMatches = if (filter != SearchFilter.Channels) {
                 all.mapNotNull { e ->
-                    val prog = Channels.epg?.schedule(e.name, now, e.channel.tvgId)?.firstOrNull { it.title.lowercase().contains(q) }
+                    val prog = Channels.epg?.schedule(e.name, now, e.channel.tvgId)?.firstOrNull { it.title.lowercase().contains(effectiveQuery) }
                     prog?.let { e to it }
                 }
             } else emptyList()
+            val topHit = chMatches.firstOrNull() ?: showMatches.firstOrNull()?.first
 
-            if (chMatches.isEmpty() && showMatches.isEmpty()) {
+            if (topHit == null) {
                 Note(I18n.get(lang, "search.empty"), Icons.Rounded.SearchOff)
             } else {
-                chMatches.firstOrNull()?.let { top ->
-                    GlassCard(onClick = { Nav.play(top) }) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ChannelArt(top, Modifier.size(92.dp, 54.dp).clip(RoundedCornerShape(14.dp)))
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                LiveBadge()
-                                Text(top.name, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(nowOn(Channels.epg, top, now)?.title ?: top.category.label(lang), fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1)
-                            }
-                            PillButton(I18n.get(lang, "live.play_short"), Icons.Rounded.PlayArrow) { Nav.play(top) }
-                        }
+                Text(I18n.get(lang, "ch.now_playing").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+                val topShow = nowOn(Channels.epg, topHit, now)?.title
+                Box(
+                    Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(24.dp)).clickable { Nav.play(topHit) },
+                ) {
+                    ChannelArt(topHit, Modifier.fillMaxSize(), logoScale = 0.85f)
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.25f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
+                    LiveBadge(Modifier.align(Alignment.TopStart).padding(14.dp))
+                    Column(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(topShow ?: topHit.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${topHit.name} · ${topHit.category.label(lang)}", color = Color.White.copy(alpha = 0.72f), fontSize = 14.sp, maxLines = 1)
                     }
                 }
-                val rest = chMatches.drop(1)
-                if (rest.isNotEmpty() || showMatches.isNotEmpty()) {
-                    Text(I18n.get(lang, "search.other_results").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-                    rest.forEach { e ->
-                        ChannelListRow(e, now) {
-                            RoundGlass(Icons.Rounded.PlayArrow, I18n.get(lang, "player.play"), size = 40.dp) { Nav.play(e) }
+                val restCh = chMatches.filter { it.channel.url != topHit.channel.url }
+                if (restCh.isNotEmpty() || showMatches.isNotEmpty()) {
+                    Text(I18n.get(lang, "search.other_results").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+                    restCh.forEach { e ->
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { Nav.play(e) }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            ChannelArt(e, Modifier.size(88.dp, 52.dp).clip(RoundedCornerShape(12.dp)), logoScale = 0.78f)
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(e.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(nowOn(Channels.epg, e, now)?.title ?: e.category.label(lang), fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                     showMatches.forEach { (e, prog) ->
-                        ChannelListRow(e, now) {
-                            Pill(prog.title, Tahoe.Accent)
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { Nav.play(e) }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            ChannelArt(e, Modifier.size(88.dp, 52.dp).clip(RoundedCornerShape(12.dp)), logoScale = 0.78f)
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(prog.title, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${e.name} · ${HM.format(prog.start)}", fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
+                }
+            }
+        }
+        Text(I18n.get(lang, "search.recent").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            all.take(5).map { it.name }.forEach { label ->
+                Row(
+                    Modifier.clip(RoundedCornerShape(50))
+                        .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass)
+                        .clickable { query = label }
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Rounded.Schedule, null, tint = Tahoe.Faint, modifier = Modifier.size(14.dp))
+                    Text(label, fontSize = 14.sp, color = Tahoe.Dim, fontWeight = FontWeight.Medium)
                 }
             }
         }
     }
 }
 
-/** Hubungkan ke TV (Figma 23:515): Wi-Fi radar, auto-discovered TVs, QR & PIN pills, installer link. */
+/** Hubungkan ke TV (Figma 23:515): Wi-Fi radar (200/140/80 rings), grouped DITEMUKAN list, QR & PIN pills, installer link. */
 @Composable
 fun ConnectTvPage() {
     val c = LocalContext.current
@@ -873,76 +962,65 @@ fun ConnectTvPage() {
     )
     pinFor?.let { h -> PinPairDialog(h) { pinFor = null } }
 
-    PageScaffold(I18n.get(lang, "profile.connect_tv")) {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(164.dp), contentAlignment = Alignment.Center) {
-                listOf(164.dp to 0.06f, 114.dp to 0.12f, 68.dp to 0.22f).forEach { (d, a) ->
-                    Box(Modifier.size(d).clip(CircleShape).background(Tahoe.Accent.copy(alpha = a)))
-                }
-                Icon(Icons.Rounded.WifiFind, null, tint = Tahoe.Accent, modifier = Modifier.size(34.dp))
+    PageScaffold(I18n.get(lang, "profile.connect_tv"), I18n.get(lang, "connect.searching_wifi")) {
+        // Radar 200 / 140 / 80 concentric stroked rings + 56 dp center phone disc + 3 floating 40 dp TV nodes
+        Box(Modifier.fillMaxWidth().height(220.dp), contentAlignment = Alignment.Center) {
+            listOf(200.dp to 0.15f, 140.dp to 0.27f, 80.dp to 0.39f).forEach { (d, a) ->
+                Box(Modifier.size(d).clip(CircleShape).border(1.5.dp, Tahoe.Accent.copy(alpha = a), CircleShape))
             }
-            Text(I18n.get(lang, "connect.searching_wifi"), fontSize = 15.sp, color = Tahoe.Dim, fontWeight = FontWeight.Medium)
+            Box(Modifier.size(56.dp).clip(CircleShape).background(Tahoe.Accent), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Smartphone, null, tint = Tahoe.OnAccent, modifier = Modifier.size(24.dp))
+            }
+            Box(
+                Modifier.align(Alignment.TopStart).padding(start = 36.dp, top = 26.dp).size(40.dp).clip(CircleShape).background(Tahoe.Good),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Tv, null, tint = Color(0xFF0D0F14), modifier = Modifier.size(20.dp)) }
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(end = 36.dp, top = 54.dp).size(40.dp).clip(CircleShape)
+                    .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.12f) else Tahoe.Glass),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Tv, null, tint = Tahoe.Text, modifier = Modifier.size(20.dp)) }
+            Box(
+                Modifier.align(Alignment.BottomEnd).padding(end = 68.dp, bottom = 14.dp).size(40.dp).clip(CircleShape)
+                    .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.12f) else Tahoe.Glass),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Tv, null, tint = Tahoe.Text, modifier = Modifier.size(20.dp)) }
         }
 
-        Text(I18n.get(lang, "connect.found_eyebrow").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-        if (devState.devices.isEmpty() && discovered.isEmpty() && Demo.isActive()) {
-            GlassCard(onClick = { Nav.tab = 2; Nav.page = null }) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Rounded.Tv, null, tint = Tahoe.Good, modifier = Modifier.size(28.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Living Room TV", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text(I18n.get(lang, "connect.active"), fontSize = 13.sp, color = Tahoe.Good)
-                    }
-                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Dim)
+        MenuGroup(I18n.get(lang, "connect.found_eyebrow")) {
+            if (devState.devices.isEmpty() && discovered.isEmpty() && Demo.isActive()) {
+                MenuRow(Icons.Rounded.Tv, "Living Room TV", I18n.get(lang, "connect.active"), Tahoe.Good) { Nav.tab = 2; Nav.page = null }
+                MenuRow(Icons.Rounded.Tv, "Bedroom TV", I18n.get(lang, "remote.tap_connect")) { Nav.tab = 2; Nav.page = null }
+            }
+            devState.devices.forEach { d ->
+                MenuRow(Icons.Rounded.Tv, d.name.ifBlank { "Tahoe TV" }, I18n.get(lang, "connect.active"), Tahoe.Good) {
+                    Sync.saveDevices(c, devState.select(d.id)); Pairing.tick++; Nav.tab = 2; Nav.page = null
                 }
             }
-        }
-        devState.devices.forEach { d ->
-            GlassCard(onClick = {
-                Sync.saveDevices(c, devState.select(d.id)); Pairing.tick++; Nav.tab = 2; Nav.page = null
-            }) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Rounded.Tv, null, tint = Tahoe.Good, modifier = Modifier.size(28.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(d.name.ifBlank { "Tahoe TV" }, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text("${I18n.get(lang, "connect.active")} · ${d.host}", fontSize = 13.sp, color = Tahoe.Dim)
-                    }
-                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Dim)
+            discovered.forEach { f ->
+                MenuRow(Icons.Rounded.Tv, f.name ?: "Tahoe TV", I18n.get(lang, "remote.tap_connect"), Tahoe.Accent) {
+                    NoCodePair.start(c, f.ip, f.name ?: "Tahoe TV") { pinFor = it }
                 }
             }
-        }
-        discovered.forEach { f ->
-            GlassCard(onClick = { NoCodePair.start(c, f.ip, f.name ?: "Tahoe TV") { pinFor = it } }) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Rounded.Tv, null, tint = Tahoe.Accent, modifier = Modifier.size(28.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(f.name ?: "Tahoe TV", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text("${I18n.get(lang, "remote.tap_connect")} · ${f.ip}", fontSize = 13.sp, color = Tahoe.Dim)
-                    }
-                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Accent)
-                }
+            MenuRow(Icons.Rounded.Download, I18n.get(lang, "tv.install_on_tv"), I18n.get(lang, "connect.no_tahoe_install"), Color(Brand.SUN)) {
+                Nav.page = "setup"
             }
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GlassPill(I18n.get(lang, "remote.qr_short"), Icons.Rounded.QrCodeScanner, Modifier.weight(1f)) { showQr = true }
-            GlassPill(I18n.get(lang, "connect.pin_short"), Icons.Rounded.Pin, Modifier.weight(1f)) { pinFor = "" }
+            GlassPill(I18n.get(lang, "remote.qr_short"), Icons.Rounded.QrCodeScanner, Modifier.weight(1f), fullWidth = true) { showQr = true }
+            GlassPill(I18n.get(lang, "connect.pin_short"), Icons.Rounded.Pin, Modifier.weight(1f), fullWidth = true) { pinFor = "" }
         }
-        Note(I18n.get(lang, "connect.diff_wifi_note"), Icons.Rounded.Info)
-        GlassCard(onClick = { Nav.page = "setup" }) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Rounded.Download, null, tint = Tahoe.Accent, modifier = Modifier.size(24.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(I18n.get(lang, "tv.install_on_tv"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Text(I18n.get(lang, "connect.no_tahoe_install"), fontSize = 13.sp, color = Tahoe.Dim)
-                }
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Dim)
-            }
-        }
+        Text(
+            I18n.get(lang, "connect.diff_wifi_note"),
+            color = Tahoe.Faint, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
-/** Laporkan masalah (Figma 23:588): 2x2 issue types, channel picker, notes, log share via [Report.send]. */
+/** Laporkan masalah (Figma 23:588): wrapping issue chips, channel thumb picker, 120 dp notes, attachment switch, log share. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ReportPage() {
     val c = LocalContext.current
@@ -954,7 +1032,8 @@ fun ReportPage() {
         I18n.get(lang, "report.type_other"),
     )
     var selectedType by remember { mutableIntStateOf(0) }
-    var selectedChannel by remember { mutableStateOf(I18n.get(lang, "report.channel_any")) }
+    val allEntries = Channels.entries ?: if (Demo.isActive()) demoEntries() else emptyList()
+    var pickedEntry by remember { mutableStateOf<LocalTv.Entry?>(allEntries.firstOrNull()) }
     var channelDialogOpen by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf("") }
     var attachScreenshot by remember { mutableStateOf(true) }
@@ -964,10 +1043,12 @@ fun ReportPage() {
         title = { Text(I18n.get(lang, "report.channel_label")) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val options = listOf(I18n.get(lang, "report.channel_any")) + Channels.entries.orEmpty().take(30).map { it.name }
-                options.forEach { name ->
-                    MenuRow(Icons.Rounded.Tv, name, if (name == selectedChannel) "✓" else null) {
-                        selectedChannel = name; channelDialogOpen = false
+                MenuRow(Icons.Rounded.Tv, I18n.get(lang, "report.channel_any"), if (pickedEntry == null) "✓" else null) {
+                    pickedEntry = null; channelDialogOpen = false
+                }
+                allEntries.take(30).forEach { entry ->
+                    MenuRow(Icons.Rounded.Tv, entry.name, if (entry == pickedEntry) "✓" else null) {
+                        pickedEntry = entry; channelDialogOpen = false
                     }
                 }
             }
@@ -977,62 +1058,72 @@ fun ReportPage() {
     )
 
     PageScaffold(I18n.get(lang, "profile.report"), I18n.get(lang, "report.page_sub")) {
-        Text(I18n.get(lang, "report.issue_type").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            types.chunked(2).forEachIndexed { rowIdx, pair ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    pair.forEachIndexed { colIdx, label ->
-                        val idx = rowIdx * 2 + colIdx
-                        val on = idx == selectedType
-                        Box(
-                            Modifier.weight(1f).heightIn(min = 56.dp).clip(RoundedCornerShape(20.dp))
-                                .background(if (on) Tahoe.Accent.copy(alpha = 0.16f) else Tahoe.Surface)
-                                .border(1.5.dp, if (on) Tahoe.Accent else Tahoe.Stroke.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
-                                .clickable { selectedType = idx }.padding(14.dp),
-                            contentAlignment = Alignment.CenterStart,
-                        ) { Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (on) Tahoe.Accent else Tahoe.Text) }
-                    }
-                }
+        Text(I18n.get(lang, "report.issue_type").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            types.forEachIndexed { idx, label ->
+                Chip(label, idx == selectedType) { selectedType = idx }
             }
         }
-        MenuGroup(I18n.get(lang, "report.channel_label")) {
-            MenuRow(Icons.Rounded.LiveTv, selectedChannel) { channelDialogOpen = true }
+        Text(I18n.get(lang, "report.channel_label").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(18.dp)).background(Tahoe.Surface)
+                .border(1.dp, Tahoe.Stroke.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
+                .clickable { channelDialogOpen = true }.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            pickedEntry?.let { entry ->
+                ChannelArt(entry, Modifier.size(44.dp, 26.dp).clip(RoundedCornerShape(6.dp)), logoScale = 0.7f)
+            } ?: Icon(Icons.Rounded.Tv, null, tint = Tahoe.Dim, modifier = Modifier.size(20.dp))
+            Text(
+                pickedEntry?.let { ch ->
+                    val show = nowOn(Channels.epg, ch, Instant.now())?.title
+                    listOfNotNull(ch.name, show).joinToString(" · ")
+                } ?: I18n.get(lang, "report.channel_any"),
+                fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            )
+            Icon(Icons.Rounded.ExpandMore, null, tint = Tahoe.Faint, modifier = Modifier.size(18.dp))
         }
-        Text(I18n.get(lang, "report.detail_label").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
+        Text(I18n.get(lang, "report.detail_label").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
         OutlinedTextField(
             detail,
             { detail = it },
             placeholder = { Text(I18n.get(lang, "report.detail_hint"), color = Tahoe.Faint) },
-            minLines = 3,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
+            minLines = 4,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Tahoe.Accent,
-                unfocusedBorderColor = Tahoe.Stroke,
+                unfocusedBorderColor = Tahoe.Stroke.copy(alpha = 0.4f),
                 focusedContainerColor = Tahoe.Surface,
                 unfocusedContainerColor = Tahoe.Surface,
             ),
         )
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Tahoe.Surface).padding(horizontal = 16.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(18.dp)).background(Tahoe.Surface)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(Icons.Rounded.AttachFile, null, tint = Tahoe.Accent, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
+            Box(
+                Modifier.size(40.dp).clip(CircleShape)
+                    .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Image, null, tint = Tahoe.Accent, modifier = Modifier.size(20.dp)) }
             Text(
                 if (attachScreenshot) I18n.get(lang, "report.attached_file", "diag.log") else I18n.get(lang, "report.attach_screenshot"),
-                fontSize = 14.sp, modifier = Modifier.weight(1f),
+                fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f),
             )
             FigmaSwitch(attachScreenshot, { attachScreenshot = it })
         }
-        AccentPillButton(I18n.get(lang, "report.submit_btn"), Icons.AutoMirrored.Rounded.Send, fullWidth = true) {
-            tech.kousozo.tahoetv.core.DiagLog.add("user", "Issue: ${types[selectedType]} | Channel: $selectedChannel | Note: $detail")
+        AccentPillButton(I18n.get(lang, "report.submit_btn"), fullWidth = true) {
+            val chName = pickedEntry?.name ?: I18n.get(lang, "report.channel_any")
+            tech.kousozo.tahoetv.core.DiagLog.add("user", "Issue: ${types[selectedType]} | Channel: $chName | Note: $detail")
             Report.send(c) { note -> Toast.makeText(c, note ?: I18n.get(lang, "common.done"), Toast.LENGTH_LONG).show() }
         }
     }
 }
 
-/** Pusat bantuan (Figma 23:625): search, 3 topics, expandable FAQ accordion, GitHub link. */
+/** Pusat bantuan (Figma 23:625): search, 3 equal topic tiles, single grouped FAQ card, GitHub row. */
 @Composable
 fun HelpCenterPage() {
     val c = LocalContext.current
@@ -1041,7 +1132,7 @@ fun HelpCenterPage() {
     var expanded by remember { mutableIntStateOf(0) }
     val topics = listOf(
         Triple(Icons.Rounded.Tv, I18n.get(lang, "help.topic_install"), 0),
-        Triple(Icons.Rounded.SettingsRemote, I18n.get(lang, "help.topic_remote"), 1),
+        Triple(Icons.Rounded.Wifi, I18n.get(lang, "help.topic_remote"), 1),
         Triple(Icons.Rounded.LiveTv, I18n.get(lang, "help.topic_channels"), 2),
     )
     val faqs = listOf(
@@ -1053,63 +1144,114 @@ fun HelpCenterPage() {
 
     PageScaffold(I18n.get(lang, "profile.help_center")) {
         SearchPill(query, { query = it }, I18n.get(lang, "help.search_hint"), active = query.isNotBlank())
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             topics.forEach { (icon, title, idx) ->
                 Column(
-                    Modifier.width(142.dp).clip(RoundedCornerShape(22.dp)).background(Tahoe.Surface)
-                        .border(1.dp, Tahoe.Stroke.copy(alpha = 0.4f), RoundedCornerShape(22.dp))
+                    Modifier.weight(1f).heightIn(min = 94.dp).clip(RoundedCornerShape(20.dp)).background(Tahoe.Surface)
+                        .border(1.dp, Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
                         .clickable { expanded = idx }.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(Tahoe.Accent.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                        Icon(icon, null, tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
+                    }
+                    Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        Text(I18n.get(lang, "help.faq_eyebrow").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.Surface)
+                .border(1.dp, Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(26.dp))
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            faqs.forEachIndexed { idx, (q, a) ->
+                if (idx > 0) HorizontalDivider(color = Tahoe.Stroke.copy(alpha = 0.25f))
+                Column(
+                    Modifier.fillMaxWidth().clickable { expanded = if (expanded == idx) -1 else idx }.padding(vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(icon, null, tint = Tahoe.Accent, modifier = Modifier.size(22.dp))
-                    Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(q, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                        Icon(if (expanded == idx) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
+                    }
+                    if (expanded == idx) Text(a, fontSize = 14.sp, color = Tahoe.Dim, lineHeight = 20.sp)
                 }
             }
         }
-        Text(I18n.get(lang, "help.faq_eyebrow").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-        faqs.forEachIndexed { idx, (q, a) ->
-            GlassCard(onClick = { expanded = if (expanded == idx) -1 else idx }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(q, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    Icon(if (expanded == idx) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = Tahoe.Dim)
-                }
-                if (expanded == idx) Text(a, fontSize = 14.sp, color = Tahoe.Dim, lineHeight = 20.sp)
-            }
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(22.dp))
+                .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.06f) else Tahoe.Surface)
+                .border(1.dp, Tahoe.Stroke.copy(alpha = 0.25f), RoundedCornerShape(22.dp))
+                .clickable { open(c, "$REPO/discussions") }.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(Icons.Rounded.Forum, null, tint = Tahoe.Text, modifier = Modifier.size(20.dp))
+            Text(I18n.get(lang, "help.ask_github"), fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Faint, modifier = Modifier.size(18.dp))
         }
-        GlassPill(I18n.get(lang, "help.ask_github"), Icons.Rounded.Forum) { open(c, "$REPO/discussions") }
     }
 }
 
-/** Kontributor (Figma 23:683): stats, contributor credits, GitHub buttons. */
+/** Kontributor (Figma 23:683): 3 stat tiles, 4-column colored avatar grid, primary + glass full buttons. */
 @Composable
 fun ContributorsPage() {
     val c = LocalContext.current
     val lang = PhoneRegion.language
+    val contributors = remember {
+        listOf(
+            Triple("FK", Color(0xFF63D1FF), "@fk0u"),
+            Triple("RI", Color(0xFF4DE6B3), "@rina"),
+            Triple("AD", Color(0xFFD973FF), "@adit"),
+            Triple("ME", Color(0xFFFFCC4D), "@mei"),
+            Triple("FA", Color(0xFF6699FF), "@faris"),
+            Triple("LA", Color(0xFFFF5980), "@layla"),
+            Triple("YO", Color(0xFF80E666), "@yosef"),
+            Triple("BU", Color(0xFFFF8A5C), "@budi"),
+        )
+    }
     PageScaffold(I18n.get(lang, "profile.contributors"), I18n.get(lang, "contrib.sub")) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(
-                "12+" to I18n.get(lang, "contrib.stat_people"),
-                "★" to I18n.get(lang, "contrib.stat_stars"),
+                "42" to I18n.get(lang, "contrib.stat_people"),
+                "1,2k" to I18n.get(lang, "contrib.stat_stars"),
                 "4" to I18n.get(lang, "contrib.stat_langs"),
             ).forEach { (num, label) ->
                 Column(
-                    Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(Tahoe.Surface)
-                        .border(1.dp, Tahoe.Stroke.copy(alpha = 0.4f), RoundedCornerShape(22.dp)).padding(14.dp),
+                    Modifier.weight(1f).heightIn(min = 85.dp).clip(RoundedCornerShape(26.dp)).background(Tahoe.Surface)
+                        .border(1.dp, Tahoe.Stroke.copy(alpha = 0.25f), RoundedCornerShape(26.dp)).padding(14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(num, fontSize = 24.sp, fontWeight = FontWeight.Bold, fontFamily = Mono, color = Tahoe.Accent)
+                    Text(num, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Tahoe.Text)
                     Text(label, fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
-        Text(I18n.get(lang, "contrib.top_eyebrow").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-        MenuGroup(null) {
-            MenuRow(Icons.Rounded.Code, "@fk0u", "Creator & Maintainer", Tahoe.Accent) { open(c, "https://github.com/fk0u") }
-            MenuRow(Icons.Rounded.Translate, "ID · EN · ZH · AR", I18n.get(lang, "contrib.stat_langs")) { open(c, "$REPO/graphs/contributors") }
+        Text(I18n.get(lang, "contrib.top_eyebrow").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+        Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            contributors.chunked(4).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    row.forEach { (initials, color, handle) ->
+                        Column(
+                            Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable {
+                                open(c, if (handle == "@fk0u") "https://github.com/fk0u" else "$REPO/graphs/contributors")
+                            }.padding(vertical = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Box(Modifier.size(60.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
+                                Text(initials, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF0D0F14))
+                            }
+                            Text(handle, fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
         }
-        AccentPillButton(I18n.get(lang, "contrib.see_all_gh"), Icons.AutoMirrored.Rounded.OpenInNew, fullWidth = true) { open(c, "$REPO/graphs/contributors") }
-        GlassPill(I18n.get(lang, "contrib.how_to"), Icons.Rounded.Handshake, Modifier.fillMaxWidth()) { open(c, "$REPO/blob/main/CONTRIBUTING.md") }
+        PillButton(I18n.get(lang, "contrib.see_all_gh"), fullWidth = true) { open(c, "$REPO/graphs/contributors") }
+        GlassPill(I18n.get(lang, "contrib.how_to"), fullWidth = true) { open(c, "$REPO/blob/main/CONTRIBUTING.md") }
     }
 }
 

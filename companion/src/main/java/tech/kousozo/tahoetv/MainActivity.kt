@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
         Playback.loadPrefs(this)
         tech.kousozo.tahoetv.core.Sources.initCache(cacheDir)
         PhoneRegion.load(this)
+        applyDebugExtras(intent)
         TvDiscovery.start(applicationContext)
         PushHelper.start(applicationContext)
         setContent {
@@ -205,7 +206,55 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pairFrom(intent)
+        applyDebugExtras(intent)
         if (intent.getBooleanExtra("open_update_modal", false)) PushHelper.openUpdateModal(this)
+    }
+
+    /** Debug-only intent extras so adb can launch demo mode, themes, tabs, and sub-pages on a real device. */
+    private fun applyDebugExtras(i: Intent?) {
+        if (i == null || (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0) return
+        i.getStringExtra("demo")?.let {
+            tech.kousozo.tahoetv.core.Demo.enable(it.ifBlank { "en" })
+            PhoneRegion.load(this)
+            Channels.loadDemoSync()
+        }
+        i.getStringExtra("theme")?.let { th ->
+            when (th.lowercase()) {
+                "light" -> { ThemePrefs.mode = tech.kousozo.tahoetv.core.Theme.Mode.LIGHT; ThemePrefs.highContrast = false }
+                "dark" -> { ThemePrefs.mode = tech.kousozo.tahoetv.core.Theme.Mode.DARK; ThemePrefs.highContrast = false }
+                "hc", "high_contrast" -> { ThemePrefs.mode = tech.kousozo.tahoetv.core.Theme.Mode.DARK; ThemePrefs.highContrast = true }
+                "system" -> { ThemePrefs.mode = tech.kousozo.tahoetv.core.Theme.Mode.SYSTEM; ThemePrefs.highContrast = false }
+            }
+        }
+        if (i.hasExtra("tab")) {
+            Nav.tab = i.getIntExtra("tab", 0).coerceIn(0, 4)
+            Nav.page = null; Nav.detail = null; Nav.full = false; WelcomeDebug.step = 0; Channels.debugOffline = false
+        }
+        i.getStringExtra("page")?.let { pg ->
+            WelcomeDebug.step = 0; Channels.debugOffline = false; Nav.detail = null; Nav.full = false
+            when (pg) {
+                "onboarding1" -> WelcomeDebug.step = 1
+                "onboarding2" -> WelcomeDebug.step = 2
+                "onboarding3" -> WelcomeDebug.step = 3
+                "offline" -> { Channels.debugOffline = true; Nav.tab = 1; Nav.page = null }
+                "channel" -> {
+                    Channels.loadDemoSync()
+                    Nav.detail = Channels.entries?.firstOrNull()
+                    Nav.page = null
+                }
+                "player_portrait" -> {
+                    Channels.loadDemoSync()
+                    Nav.tab = 1; Nav.page = null; Nav.full = false
+                    Channels.entries?.firstOrNull()?.let { Nav.playUrl = it.channel.url; Playback.play(this, it) }
+                }
+                "player_landscape" -> {
+                    Channels.loadDemoSync()
+                    Nav.tab = 1; Nav.page = null; Nav.full = true
+                    Channels.entries?.firstOrNull()?.let { Nav.playUrl = it.channel.url; Playback.play(this, it) }
+                }
+                else -> Nav.page = pg
+            }
+        }
     }
 
     /** Opened from the TV's pairing QR (http://<tv-ip>:8765/?code=123456): pair with that TV right away. */
@@ -336,19 +385,24 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
             androidx.compose.animation.Crossfade(hero, Modifier.fillMaxSize(), animationSpec = androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_SLOW, easing = EaseInOutTahoe), label = "hero") { hero ->
             Box(Modifier.fillMaxSize()) {
                 if (hero != null) ChannelArt(hero, Modifier.fillMaxSize(), logoScale = 0.8f, logoTop = 128.dp)
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-                    0f to Tahoe.Stage.copy(alpha = 0.7f), 0.25f to Tahoe.Stage.copy(alpha = 0.15f), 0.5f to Tahoe.Stage.copy(alpha = 0.35f), 1f to Tahoe.Bg)))
+                val scrimBrush = if (ThemePrefs.dark) {
+                    Brush.verticalGradient(0f to Tahoe.Stage.copy(alpha = 0.7f), 0.25f to Tahoe.Stage.copy(alpha = 0.15f), 0.5f to Tahoe.Stage.copy(alpha = 0.35f), 1f to Tahoe.Bg)
+                } else {
+                    // Figma 30:823 Light theme scrim fading smoothly to #F6F7F9
+                    Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.55f), 0.30f to Color.Black.copy(alpha = 0.10f), 0.62f to Tahoe.Bg.copy(alpha = 0.40f), 1f to Tahoe.Bg)
+                }
+                Box(Modifier.fillMaxSize().background(scrimBrush))
                 if (hero != null) Column(Modifier.align(Alignment.TopStart).padding(start = 20.dp, end = 20.dp, top = 236.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     val prog = nowOn(Channels.epg, hero, now)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LiveBadge(); Spacer(Modifier.width(8.dp))
-                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.on_now_fmt", hero.name), color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, letterSpacing = 0.14.sp,
+                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.on_now_fmt", hero.name), color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp, letterSpacing = 0.14.sp,
                             fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Text(prog?.title ?: hero.name, color = Color.White, fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     (prog?.desc?.takeIf { it.isNotBlank() } ?: hero.category.label(lang)).let {
-                        Text(it, color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp, lineHeight = 23.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(it, color = Color.White.copy(alpha = 0.85f), fontSize = 16.sp, lineHeight = 23.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         PillButton(L("home.watch"), Icons.Rounded.PlayArrow) { Nav.play(hero) }
@@ -359,6 +413,7 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
             }
             }
             // top bar: greeting + question, search and notifications (48 dp icon buttons)
+            val topIconTint = if (ThemePrefs.dark) Color.White else Tahoe.Text
             Row(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp).height(48.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -366,9 +421,9 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                         fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(L("home.what_to_watch"), color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
-                RoundGlass(Icons.Rounded.Search, L("home.search_hint"), tint = Color.White) { Nav.page = "search" }
+                RoundGlass(Icons.Rounded.Search, L("home.search_hint"), tint = topIconTint) { Nav.page = "search" }
                 Box {
-                    RoundGlass(Icons.Rounded.Notifications, tech.kousozo.tahoetv.core.I18n.get(lang, "home.notif_desc", PushHelper.unreadCount), tint = Color.White) { onOpenInbox() }
+                    RoundGlass(Icons.Rounded.Notifications, tech.kousozo.tahoetv.core.I18n.get(lang, "home.notif_desc", PushHelper.unreadCount), tint = topIconTint) { onOpenInbox() }
                     if (PushHelper.unreadCount > 0) Box(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 12.dp).size(9.dp).clip(CircleShape).background(Tahoe.Warm))
                 }
             }
@@ -472,11 +527,9 @@ private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, cod
             if (!paired && !open) {
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect_desc"), color = Tahoe.Dim, fontSize = 14.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), Icons.Rounded.QrCodeScanner) { onScanQr() }
-                    GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), Icons.Rounded.Link) { Nav.page = "connect" }
+                    GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "profile.connect_tv"), Icons.Rounded.Tv) { Nav.page = "connect" }
+                    GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), Icons.Rounded.QrCodeScanner) { onScanQr() }
                 }
-                TextButton({ setOpen(true) }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.pin_short"), color = Tahoe.Dim) }
-                TextButton({ Nav.page = "setup" }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.install_on_tv"), color = Tahoe.Text) }
                 return@GlassCard
             }
             Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pair_hint"), color = Tahoe.Dim, fontSize = 13.sp)

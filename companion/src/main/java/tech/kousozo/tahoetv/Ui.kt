@@ -200,27 +200,44 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
 
 /** Figma "Button / Primary": solid pill (text colour), canvas-coloured label 16 Medium, optional 18 dp icon. */
 @Composable
-fun PillButton(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun PillButton(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, fullWidth: Boolean = false, onClick: () -> Unit) {
     val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    Row(modifier.pressScale(press).clip(RoundedCornerShape(50)).background(Tahoe.Text).clickable(press, androidx.compose.material3.ripple(), onClick = onClick)
-        .padding(start = if (icon != null) 20.dp else 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
-    verticalAlignment = Alignment.CenterVertically,
-) {
-    icon?.let { Icon(it, null, tint = Tahoe.Bg, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)) }
-    Text(text, color = Tahoe.Bg, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium)
+    Row(
+        modifier
+            .then(if (fullWidth) Modifier.fillMaxWidth() else Modifier)
+            .heightIn(min = 48.dp)
+            .pressScale(press)
+            .clip(RoundedCornerShape(50))
+            .background(Tahoe.Text)
+            .clickable(press, androidx.compose.material3.ripple(), onClick = onClick)
+            .padding(start = if (icon != null && !fullWidth) 20.dp else 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (fullWidth) Arrangement.Center else Arrangement.Start,
+    ) {
+        icon?.let { Icon(it, null, tint = Tahoe.Bg, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)) }
+        Text(text, color = Tahoe.Bg, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium)
     }
 }
 
 /** Figma "Button / Glass": translucent pill with a hairline, for secondary actions over imagery. */
 @Composable
-fun GlassPill(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun GlassPill(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, fullWidth: Boolean = false, onClick: () -> Unit) {
     val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    Row(modifier.pressScale(press).clip(RoundedCornerShape(50)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(50))
-        .clickable(press, androidx.compose.material3.ripple(), onClick = onClick).padding(start = if (icon != null) 20.dp else 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
-    verticalAlignment = Alignment.CenterVertically,
-) {
-    icon?.let { Icon(it, null, tint = Tahoe.Text, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)) }
-    Text(text, color = Tahoe.Text, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    Row(
+        modifier
+            .then(if (fullWidth) Modifier.fillMaxWidth() else Modifier)
+            .heightIn(min = 48.dp)
+            .pressScale(press)
+            .clip(RoundedCornerShape(50))
+            .background(Tahoe.Glass)
+            .border(1.dp, Tahoe.Stroke, RoundedCornerShape(50))
+            .clickable(press, androidx.compose.material3.ripple(), onClick = onClick)
+            .padding(start = if (icon != null && !fullWidth) 20.dp else 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (fullWidth) Arrangement.Center else Arrangement.Start,
+    ) {
+        icon?.let { Icon(it, null, tint = Tahoe.Text, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)) }
+        Text(text, color = Tahoe.Text, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 

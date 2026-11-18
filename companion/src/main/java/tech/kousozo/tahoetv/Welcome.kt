@@ -115,10 +115,15 @@ object PhoneRegion {
 
     /** The onboarding is open again from Beranda (current choices preselected). */
     var editing by mutableStateOf(false)
-    fun cancel() { editing = false }
+    fun cancel() { editing = false; WelcomeDebug.step = 0 }
     fun reset() { editing = true }
-    val needsSetup get() = !viewer.done || editing
+    val needsSetup get() = !viewer.done || editing || WelcomeDebug.step > 0
     val code get() = Region.country(viewer.country) ?: Region.HOME
+}
+
+/** Debug-only override so adb debug extras can jump directly to onboarding step 1..3 on a real device. */
+object WelcomeDebug {
+    var step by mutableIntStateOf(0)
 }
 
 private enum class Step { Language, Country, City, TimeZone, Prayer, Countries, Categories, Favorites, Order, Summary }
@@ -138,140 +143,203 @@ fun WelcomeScreen() {
         mutableStateOf(PhoneRegion.viewer.takeIf { it.done } ?: Viewer.suggested(suggestedCountry, suggestedLang).copy(favorites = Channels.favs.toList()))
     }
     var step by remember { mutableStateOf(Step.Language) }
+    LaunchedEffect(WelcomeDebug.step) {
+        when (WelcomeDebug.step) {
+            1 -> step = Step.Language
+            2 -> step = Step.Country
+            3 -> step = Step.Summary
+        }
+    }
     var advanced by remember { mutableStateOf(false) }
     val flow = if (advanced) ADVANCED else QUICK
     /** Channels of the chosen countries, loaded on the favourites step (names for the order step too). */
     var catalog by remember { mutableStateOf<List<LocalTv.Entry>?>(null) }
     val t = { k: String -> OnboardingText.get(v.language, k) }
     fun go(d: Int) { step = flow[(flow.indexOf(step) + d).coerceIn(0, flow.size - 1)] }
-    androidx.activity.compose.BackHandler(enabled = step != Step.Language || PhoneRegion.viewer.done) {
-        if (step == Step.Language) PhoneRegion.cancel() else go(-1)
+    androidx.activity.compose.BackHandler(enabled = step != Step.Language || PhoneRegion.viewer.done || WelcomeDebug.step > 0) {
+        if (WelcomeDebug.step > 0) WelcomeDebug.step = 0
+        else if (step == Step.Language) PhoneRegion.cancel() else go(-1)
     }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 20.dp, vertical = 16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (step != Step.Language || PhoneRegion.viewer.done) {
-                BackCircle(t("back")) { if (step == Step.Language) PhoneRegion.cancel() else go(-1) }
+    Box(Modifier.fillMaxSize().background(Tahoe.Bg)) {
+        if (step == Step.Language && !advanced) {
+            // Figma 23:218 top art wash fading into #07080D
+            Box(
+                Modifier.fillMaxWidth().height(236.dp)
+                    .background(Brush.verticalGradient(listOf(Tahoe.Lake.copy(alpha = 0.65f), Tahoe.Accent.copy(alpha = 0.18f), Tahoe.Bg))),
+            ) {
+                Box(
+                    Modifier.align(Alignment.TopCenter).padding(top = 56.dp).size(110.dp).clip(CircleShape)
+                        .background(Brush.radialGradient(listOf(Tahoe.Accent.copy(alpha = 0.40f), Color.Transparent))),
+                )
+                Box(Modifier.align(Alignment.Center).padding(top = 18.dp)) { BrandTile(56.dp) }
+                Box(
+                    Modifier.fillMaxSize()
+                        .background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Tahoe.Bg)),
+                )
             }
-            BrandTile(36.dp)
-            Text(if (advanced) t("step").replace("%s", "${flow.indexOf(step) + 1}/${flow.size}") else t("step3").replace("%s", "${step.visible()}"),
-                color = Tahoe.Dim, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        }
-        // segmented progress: three pills (quick) or one bar (advanced)
-        if (advanced) LinearProgressIndicator(progress = { (flow.indexOf(step) + 1f) / flow.size }, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-            color = Tahoe.Accent, trackColor = Tahoe.Glass)
-        else Row(Modifier.padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            (1..3).forEach { i ->
-                val w by androidx.compose.animation.core.animateDpAsState(if (i == step.visible()) 28.dp else 8.dp,
-                    androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe), label = "step")
-                Box(Modifier.height(8.dp).width(w).clip(RoundedCornerShape(4.dp)).background(if (i <= step.visible()) Tahoe.Accent else Tahoe.Glass))
-            }
-        }
-        if (step == Step.Summary && !advanced) {
-            ReadyMosaicHero(v, t)
-            Spacer(Modifier.height(12.dp))
-        }
-        val (title, sub) = when (step) {
-            Step.Language -> "lang.title" to "lang.sub"; Step.Country -> "country.title" to "country.sub"
-            Step.City -> "city.title" to "city.sub"; Step.TimeZone -> "tz.title" to "tz.sub"; Step.Prayer -> "prayer.title" to "prayer.sub"
-            Step.Countries -> "countries.title" to "countries.sub"; Step.Categories -> "cats.title" to "cats.sub"
-            Step.Favorites -> "favs.title" to "favs.sub"; Step.Order -> "order.title" to "order.sub"; Step.Summary -> "summary.title" to "summary.sub"
-        }
-        Text(t(title), color = Tahoe.Text, fontSize = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp, lineHeight = 36.sp)
-        Text(
-            if (step == Step.Summary && !advanced) t("change_later_note") else t(sub),
-            color = Tahoe.Dim, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp),
-        )
-
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (step) {
-                Step.Language -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Region.LANGUAGES.forEach { l -> Option(OnboardingText.LANGUAGE_NAMES.getValue(l), null, l == v.language) { v = v.copy(language = l) } }
-                }
-                Step.Country -> if (!advanced) {
-                    CountryAndCityStep(v, suggestedCountry, t) { v = it }
-                } else {
-                    CountryList(v.language, listOf(v.country), suggestedCountry, multi = false) { cc ->
-                        // a new home country brings its defaults (prayer, method, channels, timezone) unless already changed by hand
-                        v = if (cc == v.country) v else v.copy(
-                            country = cc,
-                            prayer = Region.prayerByDefault(cc),
-                            prayerMethod = Prayer.methodFor(cc),
-                            channelCountries = listOf(cc),
-                            city = "",
-                            lat = null,
-                            lon = null,
-                            region = "",
-                            timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(cc),
-                        )
-                    }
-                }
-                Step.City -> CityStep(v, t) { v = it }
-                Step.TimeZone -> TimeZoneStep(v, t) { v = v.copy(timeZone = it) }
-                Step.Prayer -> Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    SwitchRow(t("prayer.on"), v.prayer) { v = v.copy(prayer = it) }
-                    if (v.prayer && v.lat == null) Text(t("prayer.needcity"), color = Tahoe.Faint, fontSize = 12.sp)
-                    if (v.prayer) {
-                        Text(t("prayer.method"), color = Tahoe.Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
-                        Prayer.METHODS.forEach { m -> Option(m.name, null, m.id == v.prayerMethod) { v = v.copy(prayerMethod = m.id) } }
-                    }
-                }
-                Step.Countries -> CountryList(v.language, v.countries, v.country, multi = true) { cc ->
-                    val now = v.countries
-                    val next = if (cc in now) now - cc else now + cc
-                    if (next.isNotEmpty()) v = v.copy(channelCountries = next)
-                }
-                Step.Categories -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LocalTv.Category.entries.filter { it != LocalTv.Category.Other && (it != LocalTv.Category.Tvri && it != LocalTv.Category.Near || v.countries.contains(Region.HOME)) }
-                        .forEach { cat ->
-                            val on = cat.name in v.categories
-                            Option(OnboardingText.category(v.language, cat), null, on) { v = v.copy(categories = if (on) v.categories - cat.name else v.categories + cat.name) }
-                        }
-                }
-                Step.Favorites -> FavoritesStep(v, t, { catalog = it }) { v = v.copy(favorites = it) }
-                Step.Order -> OrderStep(v, t, catalog) { v = v.copy(favorites = it) }
-                Step.Summary -> Summary(v, t, showMore = !advanced, compactQuick = !advanced, onPrayer = { v = v.copy(prayer = it) }) { advanced = true; step = Step.TimeZone }
-            }
+        } else if (step == Step.Summary && !advanced) {
+            ReadyMosaicHero(v)
         }
 
-        var askTvSync by remember { mutableStateOf(false) }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
-            if (step == Step.Summary) {
-                AccentPillButton(t("done"), icon = Icons.Rounded.Check, fullWidth = true) {
-                    val sp = Sync.prefs(c)
-                    val paired = sp.getString("host", "").orEmpty().isNotBlank() && sp.getString("token", "").orEmpty().isNotEmpty()
-                    if (paired && !sp.getBoolean("sync_tv_asked", false)) askTvSync = true
-                    else PhoneRegion.save(c, v)
-                }
+        Column(
+            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+        ) {
+            if (step == Step.Language && !advanced) {
+                Spacer(Modifier.height(144.dp))
+            } else if (step == Step.Summary && !advanced) {
+                Spacer(Modifier.height(216.dp))
             } else {
-                AccentPillButton(if (step == Step.City && v.lat == null) t("skip") else t("next"), icon = Icons.AutoMirrored.Rounded.ArrowForward, fullWidth = true) { go(1) }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (step != Step.Language || PhoneRegion.viewer.done || WelcomeDebug.step > 0) {
+                        BackCircle(t("back")) {
+                            if (WelcomeDebug.step > 0) WelcomeDebug.step = 0
+                            else if (step == Step.Language) PhoneRegion.cancel()
+                            else go(-1)
+                        }
+                    }
+                    if (advanced) {
+                        BrandTile(32.dp)
+                        Text(t("step").replace("%s", "${flow.indexOf(step) + 1}/${flow.size}"), color = Tahoe.Dim, fontSize = 13.sp)
+                    }
+                }
             }
+
+            // Segmented step bar (.steps): 3 pills (quick) or linear bar (advanced)
+            if (advanced) {
+                LinearProgressIndicator(
+                    progress = { (flow.indexOf(step) + 1f) / flow.size },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    color = Tahoe.Accent,
+                    trackColor = Tahoe.Glass,
+                )
+            } else {
+                Row(Modifier.padding(top = 10.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..3).forEach { i ->
+                        val active = i == step.visible()
+                        val done = i <= step.visible()
+                        val w by androidx.compose.animation.core.animateDpAsState(
+                            if (active) 28.dp else 8.dp,
+                            androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe),
+                            label = "step",
+                        )
+                        Box(Modifier.height(8.dp).width(w).clip(RoundedCornerShape(4.dp)).background(if (done) Tahoe.Accent else Tahoe.Glass))
+                    }
+                }
+            }
+
+            val channelTotal = (Channels.entries?.size ?: 0).coerceAtLeast(128)
+            val (titleText, subText) = when (step) {
+                Step.Language -> t("lang.title") to t("lang.sub")
+                Step.Country -> t("country.title") to t("country.sub")
+                Step.City -> t("city.title") to t("city.sub")
+                Step.TimeZone -> t("tz.title") to t("tz.sub")
+                Step.Prayer -> t("prayer.title") to t("prayer.sub")
+                Step.Countries -> t("countries.title") to t("countries.sub")
+                Step.Categories -> t("cats.title") to t("cats.sub")
+                Step.Favorites -> t("favs.title") to t("favs.sub")
+                Step.Order -> t("order.title") to t("order.sub")
+                Step.Summary -> if (!advanced) t("ready_channels_fmt").replace("%s", "$channelTotal") to t("summary.sub")
+                    else t("summary.title") to t("summary.sub")
+            }
+            Text(titleText, color = Tahoe.Text, fontSize = if (step == Step.Language || step == Step.Summary) 36.sp else 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp, lineHeight = 40.sp)
+            if (!(step == Step.Summary && !advanced)) {
+                Text(subText, color = Tahoe.Dim, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
+            } else {
+                Spacer(Modifier.height(14.dp))
+            }
+
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when (step) {
+                    Step.Language -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Region.LANGUAGES.forEach { l -> Option(OnboardingText.LANGUAGE_NAMES.getValue(l), null, l == v.language) { v = v.copy(language = l) } }
+                    }
+                    Step.Country -> if (!advanced) {
+                        CountryAndCityStep(v, suggestedCountry, t) { v = it }
+                    } else {
+                        CountryList(v.language, listOf(v.country), suggestedCountry, multi = false) { cc ->
+                            v = if (cc == v.country) v else v.copy(
+                                country = cc,
+                                prayer = Region.prayerByDefault(cc),
+                                prayerMethod = Prayer.methodFor(cc),
+                                channelCountries = listOf(cc),
+                                city = "", lat = null, lon = null, region = "",
+                                timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(cc),
+                            )
+                        }
+                    }
+                    Step.City -> CityStep(v, t) { v = it }
+                    Step.TimeZone -> TimeZoneStep(v, t) { v = v.copy(timeZone = it) }
+                    Step.Prayer -> Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        SwitchRow(t("prayer.on"), v.prayer) { v = v.copy(prayer = it) }
+                        if (v.prayer && v.lat == null) Text(t("prayer.needcity"), color = Tahoe.Faint, fontSize = 12.sp)
+                        if (v.prayer) {
+                            Text(t("prayer.method"), color = Tahoe.Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                            Prayer.METHODS.forEach { m -> Option(m.name, null, m.id == v.prayerMethod) { v = v.copy(prayerMethod = m.id) } }
+                        }
+                    }
+                    Step.Countries -> CountryList(v.language, v.countries, v.country, multi = true) { cc ->
+                        val now = v.countries
+                        val next = if (cc in now) now - cc else now + cc
+                        if (next.isNotEmpty()) v = v.copy(channelCountries = next)
+                    }
+                    Step.Categories -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LocalTv.Category.entries.filter { it != LocalTv.Category.Other && (it != LocalTv.Category.Tvri && it != LocalTv.Category.Near || v.countries.contains(Region.HOME)) }
+                            .forEach { cat ->
+                                val on = cat.name in v.categories
+                                Option(OnboardingText.category(v.language, cat), null, on) { v = v.copy(categories = if (on) v.categories - cat.name else v.categories + cat.name) }
+                            }
+                    }
+                    Step.Favorites -> FavoritesStep(v, t, { catalog = it }) { v = v.copy(favorites = it) }
+                    Step.Order -> OrderStep(v, t, catalog) { v = v.copy(favorites = it) }
+                    Step.Summary -> Summary(v, t, showMore = !advanced, compactQuick = !advanced, onPrayer = { v = v.copy(prayer = it) }) { advanced = true; step = Step.TimeZone }
+                }
+            }
+
+            var askTvSync by remember { mutableStateOf(false) }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 12.dp)) {
+                if (step == Step.Summary) {
+                    AccentPillButton(t("done"), fullWidth = true) {
+                        WelcomeDebug.step = 0
+                        val sp = Sync.prefs(c)
+                        val paired = sp.getString("host", "").orEmpty().isNotBlank() && sp.getString("token", "").orEmpty().isNotEmpty()
+                        if (paired && !sp.getBoolean("sync_tv_asked", false)) askTvSync = true
+                        else PhoneRegion.save(c, v)
+                    }
+                    if (!advanced) {
+                        Text(t("change_later_note"), color = Tahoe.Dim, fontSize = 14.sp)
+                    }
+                } else {
+                    AccentPillButton(if (step == Step.City && v.lat == null) t("skip") else t("next"), fullWidth = true) { go(1) }
+                }
+            }
+            if (askTvSync) AlertDialog(
+                onDismissRequest = { askTvSync = false },
+                title = { Text(I18n.get(v.language, "sync.ask_title")) },
+                text = { Text(I18n.get(v.language, "sync.ask_body")) },
+                confirmButton = {
+                    TextButton({
+                        Sync.prefs(c).edit().putBoolean("sync_tv_asked", true).putBoolean("sync_tv_confirmed", true).apply()
+                        askTvSync = false
+                        PhoneRegion.save(c, v)
+                    }) { Text(I18n.get(v.language, "sync.ask_yes")) }
+                },
+                dismissButton = {
+                    TextButton({
+                        Sync.prefs(c).edit().putBoolean("sync_tv_asked", true).putBoolean("sync_tv_confirmed", false).apply()
+                        askTvSync = false
+                        PhoneRegion.save(c, v)
+                    }) { Text(I18n.get(v.language, "sync.ask_no")) }
+                },
+            )
         }
-        if (askTvSync) AlertDialog(
-            onDismissRequest = { askTvSync = false },
-            title = { Text(I18n.get(v.language, "sync.ask_title")) },
-            text = { Text(I18n.get(v.language, "sync.ask_body")) },
-            confirmButton = {
-                TextButton({
-                    Sync.prefs(c).edit().putBoolean("sync_tv_asked", true).putBoolean("sync_tv_confirmed", true).apply()
-                    askTvSync = false
-                    PhoneRegion.save(c, v)
-                }) { Text(I18n.get(v.language, "sync.ask_yes")) }
-            },
-            dismissButton = {
-                TextButton({
-                    Sync.prefs(c).edit().putBoolean("sync_tv_asked", true).putBoolean("sync_tv_confirmed", false).apply()
-                    askTvSync = false
-                    PhoneRegion.save(c, v)
-                }) { Text(I18n.get(v.language, "sync.ask_no")) }
-            },
-        )
     }
 }
 
 /** Figma 23:251: combined country & city step in the 3-step QUICK flow. */
 @Composable
-private fun CountryAndCityStep(v: Viewer, suggestedCountry: String, t: (String) -> String, onChange: (Viewer) -> Unit) = Column {
+private fun CountryAndCityStep(v: Viewer, suggestedCountry: String, t: (String) -> String, onChange: (Viewer) -> Unit) = Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
     var query by remember { mutableStateOf("") }
     var cityResults by remember(v.country) { mutableStateOf<List<Web.City>?>(null) }
     val allCountries = remember(v.language) { Region.countries(v.language) }
@@ -283,9 +351,51 @@ private fun CountryAndCityStep(v: Viewer, suggestedCountry: String, t: (String) 
         cityResults = withContext(Dispatchers.IO) { Web.searchPlaces(q, v.language, v.country) }
     }
     SearchPill(query, { query = it }, t("search"), active = query.isNotBlank())
-    Spacer(Modifier.height(10.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        GlassPill(t("use_location"), Icons.Rounded.LocationOn) {
+    val filteredCountries = remember(allCountries, query, v.country) {
+        val q = query.trim().lowercase()
+        allCountries.filter { q.isEmpty() || it.name.lowercase().contains(q) || it.code.lowercase() == q }
+            .sortedBy { if (it.code == v.country) 0 else if (it.code == suggestedCountry) 1 else 2 }
+    }
+    LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val cities = cityResults
+        if (cities != null && cities.isNotEmpty()) {
+            items(cities, key = { "city:${it.label}" }) { city ->
+                Option(city.label, "📍", v.city.equals(city.name, ignoreCase = true)) {
+                    onChange(v.copy(city = city.name, lat = city.lat, lon = city.lon, region = city.region, timeZone = city.timeZone.ifBlank { v.timeZone }))
+                    query = ""; cityResults = null
+                }
+            }
+        }
+        items(filteredCountries, key = { "cc:${it.code}" }) { co ->
+            val subCity = when {
+                co.code == v.country && v.city.isNotBlank() -> listOfNotNull(v.city.takeIf { it.isNotBlank() }, v.region.takeIf { it.isNotBlank() && it != v.city }).joinToString(", ")
+                else -> tech.kousozo.tahoetv.core.CountryCatalog.suggestedCities(co.code, v.language).firstOrNull()?.city
+            }
+            Option(co.name, co.flag, co.code == v.country, sub = subCity) {
+                val defaultCity = tech.kousozo.tahoetv.core.CountryCatalog.suggestedCities(co.code, v.language).firstOrNull()
+                onChange(v.copy(
+                    country = co.code,
+                    prayer = Region.prayerByDefault(co.code),
+                    prayerMethod = Prayer.methodFor(co.code),
+                    channelCountries = listOf(co.code),
+                    city = defaultCity?.city ?: "",
+                    lat = defaultCity?.lat,
+                    lon = defaultCity?.lon,
+                    region = defaultCity?.region ?: "",
+                    timeZone = defaultCity?.zoneId ?: tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(co.code),
+                ))
+            }
+        }
+        if (query.isBlank() && suggestedCities.size > 1) {
+            items(suggestedCities.drop(1).take(3), key = { "sc:${it.city}" }) { opt ->
+                Option(opt.label(), "📍", v.city.equals(opt.city, ignoreCase = true)) {
+                    onChange(v.copy(city = opt.city, lat = opt.lat, lon = opt.lon, region = opt.region, timeZone = opt.zoneId))
+                }
+            }
+        }
+    }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(14.dp)).clickable {
             val city = tech.kousozo.tahoetv.core.CountryCatalog.suggestedCities(suggestedCountry, v.language).firstOrNull()
             query = ""
             onChange(v.copy(
@@ -299,116 +409,49 @@ private fun CountryAndCityStep(v: Viewer, suggestedCountry: String, t: (String) 
                 region = city?.region ?: "",
                 timeZone = city?.zoneId ?: tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(suggestedCountry),
             ))
-        }
-    }
-    Spacer(Modifier.height(10.dp))
-    val filteredCountries = remember(allCountries, query, v.country) {
-        val q = query.trim().lowercase()
-        allCountries.filter { q.isEmpty() || it.name.lowercase().contains(q) || it.code.lowercase() == q }
-            .sortedBy { if (it.code == v.country) 0 else if (it.code == suggestedCountry) 1 else 2 }
-    }
-    LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (v.lat != null && query.isBlank()) {
-            item(key = "picked-city") {
-                Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", "), "📍", true) {
-                    onChange(v.copy(city = "", lat = null, lon = null, region = "", timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(v.country)))
-                }
-            }
-        }
-        val cities = cityResults
-        if (cities != null && cities.isNotEmpty()) {
-            items(cities, key = { "city:${it.label}" }) { city ->
-                Option(city.label, "📍", v.city.equals(city.name, ignoreCase = true)) {
-                    onChange(v.copy(city = city.name, lat = city.lat, lon = city.lon, region = city.region, timeZone = city.timeZone.ifBlank { v.timeZone }))
-                    query = ""; cityResults = null
-                }
-            }
-        } else if (query.isBlank() && v.lat == null && suggestedCities.isNotEmpty()) {
-            item(key = "suggested-cities-label") {
-                Text(I18n.get(v.language, "city.suggested", Region.name(v.country, v.language)),
-                    color = Tahoe.Dim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
-            }
-            items(suggestedCities.take(4), key = { "sc:${it.city}" }) { opt ->
-                Option(opt.label(), "🏙", v.city.equals(opt.city, ignoreCase = true)) {
-                    onChange(v.copy(city = opt.city, lat = opt.lat, lon = opt.lon, region = opt.region, timeZone = opt.zoneId))
-                }
-            }
-        }
-        items(filteredCountries, key = { "cc:${it.code}" }) { co ->
-            Option(co.name, co.flag, co.code == v.country) {
-                if (co.code != v.country) {
-                    onChange(v.copy(
-                        country = co.code,
-                        prayer = Region.prayerByDefault(co.code),
-                        prayerMethod = Prayer.methodFor(co.code),
-                        channelCountries = listOf(co.code),
-                        city = "", lat = null, lon = null, region = "",
-                        timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(co.code),
-                    ))
-                }
-            }
-        }
+        }.padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(Icons.Rounded.LocationOn, null, tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
+        Text(t("use_location"), color = Tahoe.Accent, fontSize = 15.sp, fontWeight = FontWeight.Medium)
     }
 }
 
-/** Figma 23:301: tilted 3x3 mosaic + green confirmation badge for onboarding Ready step. */
+/** Figma 23:301: tilted 3x3 mosaic + fade scrim at top of Onboarding 3 Ready screen. */
 @Composable
-private fun ReadyMosaicHero(v: Viewer, t: (String) -> String) {
-    val names = remember(v.country) {
-        Channels.entries?.map { it.name }?.takeIf { it.isNotEmpty() }
-            ?: tech.kousozo.tahoetv.core.Demo.channels().map { it.name }
+private fun ReadyMosaicHero(v: Viewer) {
+    val entries = remember(v.country) {
+        val loaded = Channels.entries?.takeIf { it.isNotEmpty() }
+        if (loaded != null) loaded
+        else {
+            val cats = listOf(LocalTv.Category.News, LocalTv.Category.Documentary, LocalTv.Category.Sports, LocalTv.Category.Kids)
+            tech.kousozo.tahoetv.core.Demo.channels().mapIndexed { i, ch ->
+                LocalTv.Entry(ch, ch.name, cats.getOrElse(i) { LocalTv.Category.News }, near = false, partTime = false, geoBlocked = false, rank = i)
+            }
+        }
     }
-    val tiles = remember(names) {
-        val seed = listOf("TVRI", "RCTI", "SCTV", "MNCTV", "TRANS7", "METRO", "KOMPAS", "NET.", "CNN ID")
-        List(9) { i -> names.getOrNull(i) ?: seed[i] }
-    }
-    Box(
-        Modifier.fillMaxWidth().height(172.dp).clip(RoundedCornerShape(24.dp))
-            .background(Brush.verticalGradient(listOf(Tahoe.Accent.copy(alpha = 0.14f), Tahoe.Surface))),
-        contentAlignment = Alignment.Center,
-    ) {
+    Box(Modifier.fillMaxWidth().height(256.dp)) {
         Column(
-            Modifier.rotate(-7f).padding(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.align(Alignment.TopCenter).padding(top = 8.dp).rotate(6f),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             for (row in 0 until 3) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier.offset(x = if (row == 1) 18.dp else (-10).dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     for (col in 0 until 3) {
-                        val label = tiles[row * 3 + col]
-                        Box(
-                            Modifier.width(96.dp).height(48.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Tahoe.SurfaceHi.copy(alpha = 0.92f))
-                                .border(1.dp, Tahoe.Stroke.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
-                                .padding(horizontal = 8.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(label, color = Tahoe.Text, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+                        val e = entries[(row * 3 + col) % entries.size]
+                        ChannelArt(e, Modifier.width(126.dp).height(82.dp).clip(RoundedCornerShape(18.dp)), logoScale = 0.78f)
                     }
                 }
             }
         }
         Box(
             Modifier.fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent, Tahoe.Bg.copy(alpha = 0.88f)))),
-        )
-        Box(
-            Modifier.align(Alignment.Center).size(52.dp).clip(CircleShape)
-                .background(Tahoe.Good.copy(alpha = 0.22f))
-                .border(1.5.dp, Tahoe.Good, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Rounded.Check, null, tint = Tahoe.Good, modifier = Modifier.size(26.dp))
-        }
-        val countLabel = t("ready_channels_fmt").replace("%s", "${names.size.coerceAtLeast(18)}")
-        Text(
-            countLabel,
-            color = Tahoe.Good,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
+                .background(Brush.verticalGradient(0.32f to Color.Transparent, 1f to Tahoe.Bg)),
         )
     }
 }

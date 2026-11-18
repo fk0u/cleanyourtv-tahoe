@@ -97,7 +97,8 @@ fun LiveScreen() {
     // full screen = landscape, player only, system bars and tab bar hidden; Back returns.
     val activity = c as? Activity
     val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    LaunchedEffect(landscape) { if (playing != null) full = landscape }
+    var orientationReady by remember { mutableStateOf(false) }
+    LaunchedEffect(landscape) { if (orientationReady) { if (playing != null) full = landscape } else orientationReady = true }
     DisposableEffect(full) {
         activity?.requestedOrientation = if (full) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         activity?.window?.let { w ->
@@ -122,10 +123,14 @@ fun LiveScreen() {
     }
     val fullOrPip = full || Nav.inPip
     Column(Modifier.fillMaxSize().then(if (fullOrPip) Modifier.background(Color.Black) else Modifier.systemBarsPadding())) {
-        playing?.let { e ->
-            Box(Modifier.fillMaxWidth().then(if (fullOrPip) Modifier.fillMaxHeight() else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                .clip(RoundedCornerShape(22.dp)).aspectRatio(16f / 9f)).background(Color.Black)
-                .semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "live.stream_aria", e.name) }) {
+        if (!Channels.debugOffline) playing?.let { e ->
+            Box(
+                Modifier.fillMaxWidth().then(
+                    if (fullOrPip) Modifier.fillMaxHeight()
+                    else Modifier.height(244.dp),
+                ).background(Color.Black)
+                    .semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "live.stream_aria", e.name) },
+            ) {
                 KeepLtr { PlayerStage(e, fullOrPip, onFull = { full = !full }) { dir -> Playback.zap(c, shown?.map { it.entry } ?: list, dir) } }
             }
         }
@@ -145,18 +150,19 @@ fun LiveScreen() {
             tvLink.onTvState = { s -> main.post { tvState = s } }
             onDispose { tvLink.onTvState = {} }
         }
-        Column(Modifier.padding(horizontal = 20.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(if (playing == null) 20.dp else 12.dp)) {
-            if (playing == null) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(if (playing == null || Channels.debugOffline) 20.dp else 12.dp)) {
+            if (playing == null || Channels.debugOffline) {
                 // Figma "Mobile / Live TV": Title 32 SemiBold
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live_short"), fontSize = 32.sp, lineHeight = 37.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.64).sp, modifier = Modifier.padding(top = 16.dp))
+            } else {
+                NowPlayingInfo(playing, epg, now)
             }
-            playing?.let { e -> NowPlayingInfo(e, epg, now) }
-            if (tvLink != null && tvState != null) {
+            if (tvLink != null && tvState != null && !Channels.debugOffline) {
                 TvConnectBar(tvState!!, tvLink, lang)
             }
-            if (list == null) {
-                if (failed) OfflineState()
+            if (list == null || Channels.debugOffline) {
+                if (failed || Channels.debugOffline) OfflineState()
                 else LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
                 return@Column
             }
@@ -191,7 +197,7 @@ fun LiveScreen() {
         }
         // browsing (no search, no filter, nothing playing): Figma "Pilihan untukmu" posters and the "Kategori" grid first
         val browsing = query.isBlank() && cat == null && !Nav.favOnly && playing == null && list != null
-        shown?.let { hits ->
+        if (!Channels.debugOffline && list != null) shown?.let { hits ->
             val rows = hits
             val wide = LocalConfiguration.current.screenWidthDp >= 600
             if (wide) {
@@ -206,6 +212,33 @@ fun LiveScreen() {
                 }
             } else {
                 LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp), contentPadding = PaddingValues(top = 12.dp, bottom = TabInset)) {
+                    if (playing != null && query.isBlank() && cat == null && !Nav.favOnly) {
+                        val others = list.orEmpty().filter { it.channel.url != playing.channel.url }.take(4)
+                        if (others.isNotEmpty()) {
+                            item(key = "other-hdr") {
+                                Text(
+                                    tech.kousozo.tahoetv.core.I18n.get(lang, "player.other_channels_swipe").uppercase(),
+                                    fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                )
+                            }
+                            items(others, key = { "other:${it.channel.url}" }) { ch ->
+                                val chShow = nowOn(epg, ch, now)
+                                Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { Playback.play(c, ch) }
+                                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    ChannelArt(ch, Modifier.size(110.dp, 62.dp).clip(RoundedCornerShape(14.dp)), logoScale = 0.8f)
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(ch.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(chShow?.title ?: ch.category.label(lang), fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if (browsing) item(key = "browse") { BrowseSections(list.orEmpty(), now) { k -> cat = k; Nav.liveCategory = k } }
                     item(key = "sort") { sortRow() }
                     items(rows, key = { it.entry.channel.url }) { h -> ChannelRow(h.entry, h.programme, epg, now, on = h.entry == playing) }
@@ -274,7 +307,7 @@ fun shareChannel(c: android.content.Context, e: LocalTv.Entry) {
     }
 }
 
-/** Under the player (Figma 23:400): name, show on now, action pills, and quick swipe-able other channels strip. */
+/** Under the player (Figma 23:400): LiveBadge + channel · time, 32 dp title, and 3 glass pills. */
 @Composable
 private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
     val c = LocalContext.current
@@ -282,19 +315,24 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
     val show = nowOn(epg, e, now)
     val fav = e.channel.url in Channels.favs
     val activeDev = remember(Pairing.tick) { Sync.devices(c).active() }
-    val others = remember(Channels.entries, e.channel.url) {
-        Channels.entries.orEmpty().filter { it.channel.url != e.channel.url }.take(8)
-    }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(e.name, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(show?.let { "${it.title} · ${HM.format(it.start)}–${HM.format(it.stop)}" } ?: e.category.label(lang),
-                        Modifier.weight(1f, fill = false), color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Playback.format?.let { Spacer(Modifier.width(8.dp)); FormatBadge(it, onClick = { statsSheetOpen = true }) }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LiveBadge()
+                    Text(
+                        listOfNotNull(e.name, show?.let { "${HM.format(it.start)}–${HM.format(it.stop)}" }).joinToString(" · "),
+                        color = Tahoe.Dim, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Playback.format?.let { FormatBadge(it, onClick = { statsSheetOpen = true }) }
                 }
+                Text(
+                    show?.title ?: e.name,
+                    fontSize = 30.sp, lineHeight = 35.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
             }
             if (activeDev != null) {
                 Spacer(Modifier.width(8.dp))
@@ -304,30 +342,13 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
                 }
             }
         }
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GlassPill(
-                tech.kousozo.tahoetv.core.I18n.get(lang, if (fav) "ch.fav_remove" else "ch.fav_add"),
-                if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                if (fav) "★ ${tech.kousozo.tahoetv.core.I18n.get(lang, "home.favorites")}"
+                else tech.kousozo.tahoetv.core.I18n.get(lang, "home.favorites"),
             ) { Channels.toggleFav(c, e) }
-            GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "live.channel_page_generic"), Icons.Rounded.Info) { Nav.detail = e }
-            GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "player.share"), Icons.Rounded.Share) { shareChannel(c, e) }
-        }
-        if (others.isNotEmpty()) {
-            Text(
-                tech.kousozo.tahoetv.core.I18n.get(lang, "player.other_channels_swipe").uppercase(),
-                fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(others, key = { it.channel.url }) { ch ->
-                    Column(
-                        Modifier.width(110.dp).clickable { Playback.play(c, ch) },
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        ChannelArt(ch, Modifier.size(110.dp, 62.dp).clip(RoundedCornerShape(14.dp)), logoScale = 0.85f)
-                        Text(ch.name, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
+            GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "live.channel_page_generic")) { Nav.detail = e }
+            GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "player.share")) { shareChannel(c, e) }
         }
     }
 }
@@ -514,25 +535,38 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
         } }
     }
     Box(Modifier.fillMaxSize().then(gestureMod).then(tapMod)) {
-        if (swipeHint != 0) {
-            val allCh = Channels.entries.orEmpty()
-            val idx = allCh.indexOfFirst { it.channel.url == e.channel.url }
-            val nextEntry = if (idx >= 0 && allCh.isNotEmpty()) allCh[(idx + swipeHint + allCh.size) % allCh.size] else null
-            Row(
-                Modifier.align(if (swipeHint > 0) Alignment.CenterEnd else Alignment.CenterStart).padding(20.dp).zIndex(2f)
-                    .clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.72f))
-                    .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                nextEntry?.let { ChannelArt(it, Modifier.size(48.dp, 28.dp).clip(RoundedCornerShape(8.dp)), logoScale = 0.8f) }
-                Column {
-                    Text(
-                        tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (swipeHint > 0) "player.next_channel" else "player.prev_channel"),
-                        color = Color.White.copy(alpha = 0.72f), fontSize = 10.sp,
-                    )
-                    if (nextEntry != null) Text(nextEntry.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        val lang0 = PhoneRegion.language
+        val showNow = remember(Channels.epg, e) { nowOn(Channels.epg, e, Instant.now()) }
+        val allCh = Channels.entries.orEmpty()
+        val idx = allCh.indexOfFirst { it.channel.url == e.channel.url }
+        val stepDir = if (swipeHint != 0) swipeHint else 1
+        val previewEntry = if (idx >= 0 && allCh.size > 1) allCh[(idx + stepDir + allCh.size) % allCh.size] else null
+        val slate = Playback.slate
+        if (swipeHint != 0 || (full && visible && slate == null && !busy && !Nav.inPip && previewEntry != null)) {
+            previewEntry?.let { nextEntry ->
+                Row(
+                    Modifier.align(if (swipeHint < 0) Alignment.CenterStart else Alignment.CenterEnd)
+                        .let { if (full) it.displayCutoutPadding() else it }
+                        .padding(horizontal = 20.dp).zIndex(2f)
+                        .clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = 0.58f))
+                        .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(14.dp))
+                        .clickable { poke(); zap(stepDir) }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    ChannelArt(nextEntry, Modifier.size(56.dp, 32.dp).clip(RoundedCornerShape(8.dp)), logoScale = 0.78f)
+                    Column {
+                        Text(
+                            tech.kousozo.tahoetv.core.I18n.get(lang0, if (stepDir > 0) "player.next_channel" else "player.prev_channel"),
+                            color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp,
+                        )
+                        val nextShow = nowOn(Channels.epg, nextEntry, Instant.now())?.title
+                        Text(
+                            listOfNotNull(nextEntry.name, nextShow).joinToString(" · "),
+                            color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
@@ -549,7 +583,6 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
             it.subtitleView?.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, Playback.subtitleSize.spPhone)
             it.resizeMode = if (zoomFill) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
         })
-        val slate = Playback.slate
         if (slate != null) ChannelSlate(e, slate, full, zap)
         else Playback.message?.let {
             if (it.isNotEmpty()) Text(it, Modifier.align(Alignment.Center).semantics { liveRegion = LiveRegionMode.Polite }
@@ -559,65 +592,75 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
         // the slate brings its own actions: the player controls would sit on top of it
         androidx.compose.animation.AnimatedVisibility(visible && slate == null && !Nav.inPip, Modifier.fillMaxSize(),
             enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
-            Box(Modifier.fillMaxSize().background(if (busy) Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Black.copy(alpha = 0.45f)))
-                else Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.65f))))) {
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.65f), 0.35f to Color.Black.copy(alpha = 0.10f), 0.65f to Color.Black.copy(alpha = 0.15f), 1f to Color.Black.copy(alpha = 0.75f)))) {
                 val lang = PhoneRegion.language
                 val actSize = 48.dp // minimum touch target
                 val actIcon = if (full) 22.dp else 18.dp
-                // Single shared top row prevents channel title from colliding under toolbar buttons on narrow widths.
+                // Figma 11:66 (landscape) / 23:400 (portrait) top overlay
                 Row(
                     Modifier.align(Alignment.TopCenter).fillMaxWidth()
                         .let { if (full) it.statusBarsPadding().displayCutoutPadding() else it }
-                        .padding(start = 10.dp, end = 4.dp, top = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .padding(start = 10.dp, end = 6.dp, top = 6.dp),
+                    verticalAlignment = Alignment.Top,
                 ) {
                     if (full) {
                         IconButton({ poke(); onFull() }, Modifier.size(actSize)) {
                             Icon(Icons.Rounded.KeyboardArrowDown, tech.kousozo.tahoetv.core.I18n.get(lang, "player.exit_fullscreen"), tint = Color.White, modifier = Modifier.size(26.dp))
                         }
-                    }
-                    Row(Modifier.weight(1f).padding(end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        LiveBadge(); Spacer(Modifier.width(8.dp))
-                        Text(e.name, color = Color.White, fontSize = if (full) 15.sp else 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Column(Modifier.weight(1f).padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                LiveBadge()
+                                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.on_now_fmt", e.name).uppercase(),
+                                    color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, maxLines = 1)
+                            }
+                            Text(showNow?.title ?: e.name, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(showNow?.let { "${HM.format(it.start)} – ${HM.format(it.stop)} · ${e.category.label(lang)}" } ?: e.category.label(lang),
+                                color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    } else {
+                        Row(Modifier.weight(1f).padding(top = 10.dp, start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            LiveBadge(); Spacer(Modifier.width(8.dp))
+                            Text(e.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton({ poke(); zoomFill = !zoomFill }, Modifier.size(actSize)) {
-                            Icon(Icons.Rounded.AspectRatio, tech.kousozo.tahoetv.core.I18n.get(lang, if (zoomFill) "player.zoom_fit" else "player.zoom_fill"), tint = Color.White, modifier = Modifier.size(actIcon))
-                        }
-                        if (android.os.Build.VERSION.SDK_INT >= 26) {
-                            IconButton({
-                                poke()
-                                (c as? Activity)?.let { act ->
-                                    runCatching {
-                                        act.enterPictureInPictureMode(
-                                            android.app.PictureInPictureParams.Builder()
-                                                .setAspectRatio(android.util.Rational(16, 9))
-                                                .build()
-                                        )
-                                    }
-                                }
-                            }, Modifier.size(actSize)) {
-                                Icon(Icons.Rounded.PictureInPictureAlt, tech.kousozo.tahoetv.core.I18n.get(lang, "player.pip"), tint = Color.White, modifier = Modifier.size(actIcon))
-                            }
-                        }
                         IconButton({
                             poke()
                             val res = Playback.cycleTrack(c, androidx.media3.common.C.TRACK_TYPE_TEXT)
                             android.widget.Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "player.subtitle_toast", res), android.widget.Toast.LENGTH_SHORT).show()
                         }, Modifier.size(actSize)) {
-                            Icon(androidx.compose.material.icons.Icons.Rounded.ClosedCaption,
+                            Icon(Icons.Rounded.ClosedCaption,
                                 tech.kousozo.tahoetv.core.I18n.get(lang, "player.subtitle_cycle", Playback.subtitleLabel ?: "Auto"), tint = Color.White, modifier = Modifier.size(actIcon))
                         }
-                        IconButton({
-                            poke()
-                            val res = Playback.cycleTrack(c, androidx.media3.common.C.TRACK_TYPE_AUDIO)
-                            android.widget.Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "player.audio_toast", res), android.widget.Toast.LENGTH_SHORT).show()
-                        }, Modifier.size(actSize)) {
-                            Icon(androidx.compose.material.icons.Icons.Rounded.Audiotrack,
-                                tech.kousozo.tahoetv.core.I18n.get(lang, "player.audio_cycle", Playback.audioLabel ?: "Auto"), tint = Color.White, modifier = Modifier.size(actIcon))
-                        }
-                        IconButton({ poke(); statsSheetOpen = true }, Modifier.size(actSize)) {
-                            Icon(Icons.Rounded.Info, tech.kousozo.tahoetv.core.I18n.get(lang, "stats.title"), tint = Color.White, modifier = Modifier.size(actIcon))
+                        if (full) {
+                            IconButton({
+                                poke()
+                                val res = Playback.cycleTrack(c, androidx.media3.common.C.TRACK_TYPE_AUDIO)
+                                android.widget.Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "player.audio_toast", res), android.widget.Toast.LENGTH_SHORT).show()
+                            }, Modifier.size(actSize)) {
+                                Icon(Icons.Rounded.Audiotrack,
+                                    tech.kousozo.tahoetv.core.I18n.get(lang, "player.audio_cycle", Playback.audioLabel ?: "Auto"), tint = Color.White, modifier = Modifier.size(actIcon))
+                            }
+                            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                                IconButton({
+                                    poke()
+                                    (c as? Activity)?.let { act ->
+                                        runCatching {
+                                            act.enterPictureInPictureMode(
+                                                android.app.PictureInPictureParams.Builder()
+                                                    .setAspectRatio(android.util.Rational(16, 9))
+                                                    .build()
+                                            )
+                                        }
+                                    }
+                                }, Modifier.size(actSize)) {
+                                    Icon(Icons.Rounded.PictureInPictureAlt, tech.kousozo.tahoetv.core.I18n.get(lang, "player.pip"), tint = Color.White, modifier = Modifier.size(actIcon))
+                                }
+                            }
+                        } else {
+                            IconButton({ poke(); zoomFill = !zoomFill }, Modifier.size(actSize)) {
+                                Icon(Icons.Rounded.AspectRatio, tech.kousozo.tahoetv.core.I18n.get(lang, if (zoomFill) "player.zoom_fit" else "player.zoom_fill"), tint = Color.White, modifier = Modifier.size(actIcon))
+                            }
                         }
                         IconButton({ poke(); settings = true }, Modifier.size(actSize)) {
                             Icon(Icons.Rounded.Settings, tech.kousozo.tahoetv.core.I18n.get(lang, "player.settings_desc"), tint = Color.White, modifier = Modifier.size(actIcon))
@@ -631,7 +674,7 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                 if (!busy) Row(
                     Modifier.align(Alignment.Center),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(if (full) 28.dp else 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(if (full) 34.dp else 12.dp),
                 ) {
                     IconButton({ poke(); zap(-1) }, Modifier.size(48.dp)) {
                         Icon(Icons.Rounded.SkipPrevious, tech.kousozo.tahoetv.core.I18n.get(lang, "player.prev_channel"), tint = Color.White, modifier = Modifier.size(28.dp))
@@ -641,15 +684,15 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                     }
                     Box(
                         Modifier.size(72.dp).clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.16f))
-                            .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
+                            .background(Color.White.copy(alpha = 0.18f))
+                            .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                             .clickable { poke(); Playback.toggle() },
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             if (Playback.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
                             tech.kousozo.tahoetv.core.I18n.get(lang, if (Playback.paused) "player.play" else "player.pause"),
-                            tint = Color.White, modifier = Modifier.size(38.dp),
+                            tint = Color.White, modifier = Modifier.size(34.dp),
                         )
                     }
                     IconButton({ poke(); seekForward(player, 10_000) }, Modifier.size(48.dp)) {
@@ -659,24 +702,25 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                         Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(lang, "player.next_channel"), tint = Color.White, modifier = Modifier.size(28.dp))
                     }
                 }
-                val showNow = remember(Channels.epg, e) { nowOn(Channels.epg, e, Instant.now()) }
                 val progFrac = showNow?.let { progress(it, Instant.now()) } ?: 1f
                 Column(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                         .let { if (full) it.navigationBarsPadding().displayCutoutPadding() else it }
-                        .padding(horizontal = 16.dp, vertical = if (full) 14.dp else 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                        .padding(horizontal = 16.dp, vertical = if (full) 14.dp else 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ProgressBar(progFrac, Modifier.weight(1f))
-                        Playback.format?.let { Text(it, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontFamily = Mono) }
-                    }
                     if (full) {
-                        Text(
-                            tech.kousozo.tahoetv.core.I18n.get(lang, "player.hold_slide_rewind"),
-                            color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(HM.format(Instant.now()), color = Color.White, fontSize = 13.sp, fontFamily = Mono)
+                            Text(
+                                tech.kousozo.tahoetv.core.I18n.get(lang, "player.hold_slide_rewind").uppercase(),
+                                color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(Playback.format ?: "LIVE", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = Mono)
+                        }
                     }
+                    ProgressBar(progFrac, Modifier.fillMaxWidth())
                 }
             }
         }
@@ -719,12 +763,21 @@ object Channels {
     var entries by mutableStateOf<List<LocalTv.Entry>?>(null); private set
     var epg by mutableStateOf<Epg?>(null); private set
     var failed by mutableStateOf(false); private set
+    var debugOffline by mutableStateOf(false)
     private var loading = false
     /** Bumped on a country change: a load still running for the old country throws its result away. */
     private var generation = 0
 
+    /** Synchronously populates demo channels/EPG when Demo mode is active (used by debug intent jumps). */
+    fun loadDemoSync() {
+        if (!tech.kousozo.tahoetv.core.Demo.isActive()) return
+        val list = LocalTv.arrange(tech.kousozo.tahoetv.core.Demo.channels(), null, PhoneRegion.viewer.countries, PhoneRegion.viewer.sort, PhoneRegion.viewer.city, PhoneRegion.viewer.country)
+        if (favs.isEmpty()) favs = list.take(2).map { it.channel.url }.toSet()
+        all = list; entries = PhoneRegion.viewer.arrange(list); epg = tech.kousozo.tahoetv.core.Demo.epg(); failed = false; loading = false
+    }
+
     /** Country changed: forget the list; the next screen that shows loads the new one. */
-    fun reload(@Suppress("UNUSED_PARAMETER") c: android.content.Context) { generation++; loading = false; entries = null; all = null; epg = null; failed = false }
+    fun reload(@Suppress("UNUSED_PARAMETER") c: android.content.Context) { generation++; loading = false; entries = null; all = null; epg = null; failed = false; debugOffline = false }
 
     suspend fun load(c: android.content.Context) {
         if (entries != null || loading) return
