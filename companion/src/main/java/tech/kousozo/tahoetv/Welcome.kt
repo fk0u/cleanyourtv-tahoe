@@ -58,6 +58,7 @@ object PhoneRegion {
     val language get() = viewer.language
 
     fun load(c: Context) {
+        if (tech.kousozo.tahoetv.core.Demo.isActive()) { viewer = tech.kousozo.tahoetv.core.Demo.viewer(); return } // never saved
         val saved = p(c).getString("viewer", null)
         viewer = if (saved != null) Viewer.fromJson(saved) else {
             // from the earlier two-step setup (country + language only)

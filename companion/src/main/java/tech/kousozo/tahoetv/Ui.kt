@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
@@ -61,13 +62,14 @@ object ThemePrefs {
     /** Resolved by [TahoeTheme] from [mode] and the system setting. */
     internal var systemDark by androidx.compose.runtime.mutableStateOf(true)
     val dark get() = tech.kousozo.tahoetv.core.Theme.isDark(mode, systemDark)
-    val palette get() = tech.kousozo.tahoetv.core.Theme.palette(dark, highContrast, 0xFF141216.toInt(), 0xFF1E1B21.toInt())
+    val palette get() = tech.kousozo.tahoetv.core.Theme.palette(dark, highContrast) // Figma bg/canvas #0D0F14, bg/surface #191C23
 }
 
 object Tahoe {
     private val p get() = ThemePrefs.palette
     val Bg get() = Color(p.bg)
     val Surface get() = Color(p.surface)
+    val SurfaceHi get() = Color(p.surfaceHi)
     val Text get() = Color(p.text)
     val Dim get() = Color(p.dim)
     val Faint get() = Color(p.faint)
@@ -142,8 +144,10 @@ private fun TahoeThemeInner(content: @Composable () -> Unit) = MaterialTheme(
  *  app tinting itself with the album cover). The tint cross-fades when it changes. GPU-cheap: two gradients. */
 @Composable
 fun Backdrop(tint: Color?, modifier: Modifier = Modifier) {
-    val t by animateColorAsState(tint ?: Color(0xFF3A3340), tween(900), label = "tint")
+    // Figma screens sit on a flat bg/canvas; only a playing channel tints the top, faintly
+    val t by animateColorAsState(tint ?: Color.Transparent, tween(900), label = "tint")
     Canvas(modifier.fillMaxSize().background(Tahoe.Bg)) {
+        if (t.alpha == 0f) return@Canvas
         drawRect(Brush.verticalGradient(0f to t.copy(alpha = 0.42f), 0.45f to t.copy(alpha = 0.10f), 0.75f to Color.Transparent))
         val c = Offset(size.width * 0.15f, size.height * 0.08f); val r = size.maxDimension * 0.55f
         drawCircle(Brush.radialGradient(listOf(t.copy(alpha = 0.25f), Color.Transparent), c, r), r, c)
@@ -176,32 +180,65 @@ private object DominantCache {
     }
 }
 
-/** Filter chip (Mochy-style): glass pill, white when selected. */
+/** Figma "Chip": glass pill with a hairline (Default), solid text colour when Selected. Label 14 Medium. */
 @Composable
 fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
     val bg by animateColorAsState(if (selected) Tahoe.Text else Tahoe.Glass, label = "chip")
     Text(text, Modifier.clip(RoundedCornerShape(50)).background(bg)
+        .border(1.dp, if (selected) Color.Transparent else Tahoe.Stroke, RoundedCornerShape(50))
         .selectable(selected = selected, onClick = onClick, role = androidx.compose.ui.semantics.Role.RadioButton) // TalkBack: "dipilih"
-        .padding(horizontal = 14.dp, vertical = 8.dp),
-        color = if (selected) Color(0xFF141216) else Tahoe.Text, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+        .padding(horizontal = 16.dp, vertical = 8.dp),
+        color = if (selected) Tahoe.Bg else Tahoe.Dim, fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.14.sp, fontWeight = FontWeight.Medium)
 }
 
-/** Light pill button ("Tonton", "View →"). */
+/** Figma "Button / Primary": solid pill (text colour), canvas-coloured label 16 Medium, optional 18 dp icon. */
 @Composable
-fun PillButton(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) = Row(
-    modifier.clip(RoundedCornerShape(50)).background(Tahoe.Text.copy(alpha = 0.92f)).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 9.dp),
+fun PillButton(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Row(modifier.pressScale(press).clip(RoundedCornerShape(50)).background(Tahoe.Text).clickable(press, androidx.compose.material3.ripple(), onClick = onClick)
+        .padding(start = if (icon != null) 20.dp else 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
-    icon?.let { Icon(it, null, tint = Color(0xFF141216), modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)) }
-    Text(text, color = Color(0xFF141216), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    icon?.let { Icon(it, null, tint = Tahoe.Bg, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)) }
+    Text(text, color = Tahoe.Bg, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium)
+    }
 }
 
-/** Round glass icon button (♥, ⌄, info). */
+/** Figma "Button / Glass": translucent pill with a hairline, for secondary actions over imagery. */
 @Composable
-fun RoundGlass(icon: ImageVector, label: String, size: Dp = 40.dp, tint: Color = Tahoe.Text, onClick: () -> Unit) = Box(
-    Modifier.size(size).clip(RoundedCornerShape(50)).background(Tahoe.Glass).clickable(onClick = onClick),
+fun GlassPill(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Row(modifier.pressScale(press).clip(RoundedCornerShape(50)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(50))
+        .clickable(press, androidx.compose.material3.ripple(), onClick = onClick).padding(start = if (icon != null) 20.dp else 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    icon?.let { Icon(it, null, tint = Tahoe.Text, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)) }
+    Text(text, color = Tahoe.Text, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/** Figma "Icon Button": 48 dp glass circle with a hairline and a 22 dp icon. */
+@Composable
+fun RoundGlass(icon: ImageVector, label: String, size: Dp = 48.dp, tint: Color = Tahoe.Text, onClick: () -> Unit) = Box(
+    Modifier.size(size).clip(RoundedCornerShape(50)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(50)).clickable(onClick = onClick),
     contentAlignment = Alignment.Center,
-) { Icon(icon, label, tint = tint, modifier = Modifier.size(size * 0.5f)) }
+) { Icon(icon, label, tint = tint, modifier = Modifier.size(size * 0.46f)) }
+
+/** Figma "Live Badge": red pill, white dot, LIVE in 11 SemiBold caps. */
+@Composable
+fun LiveBadge(modifier: Modifier = Modifier) = Row(
+    modifier.clip(RoundedCornerShape(50)).background(Tahoe.Bad).padding(start = 8.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Box(Modifier.size(6.dp).clip(RoundedCornerShape(50)).background(Color.White)); Spacer(Modifier.width(6.dp))
+    Text("LIVE", color = Color.White, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+}
+
+/** Figma "Progress Bar": 4 dp track (20 % white) with an accent fill. */
+@Composable
+fun ProgressBar(fraction: Float, modifier: Modifier = Modifier) = Box(modifier.height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.2f))) {
+    Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(Tahoe.Accent))
+}
 
 /** Small monospace caption (times, channel numbers, formats): the "spec sheet" voice. */
 val Mono = FontFamily.Monospace

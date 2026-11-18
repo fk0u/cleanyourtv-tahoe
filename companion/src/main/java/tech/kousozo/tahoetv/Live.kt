@@ -22,6 +22,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
@@ -143,10 +144,11 @@ fun LiveScreen() {
             tvLink.onTvState = { s -> main.post { tvState = s } }
             onDispose { tvLink.onTvState = {} }
         }
-        Column(Modifier.padding(horizontal = 20.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(if (playing == null) 20.dp else 12.dp)) {
             if (playing == null) {
-                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.kicker"), color = Tahoe.Faint, fontSize = 12.sp, fontFamily = Mono, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 12.dp))
-                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
+                // Figma "Mobile / Live TV": Title 32 SemiBold
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live_short"), fontSize = 32.sp, lineHeight = 37.sp, fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.64).sp, modifier = Modifier.padding(top = 16.dp))
             }
             playing?.let { e -> NowPlayingInfo(e, epg, now) }
             if (tvLink != null && tvState != null) {
@@ -157,15 +159,16 @@ fun LiveScreen() {
                 else LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
                 return@Column
             }
-            // glass search pill
-            Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(Tahoe.Glass).padding(horizontal = 16.dp),
+            // Figma "Search": surface field with a hairline, radius 16, 20 dp icon, Body 16 placeholder
+            Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp)).background(Tahoe.Surface)
+                .border(1.dp, Tahoe.Stroke, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Search, null, tint = Tahoe.Dim, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"), color = Tahoe.Faint, fontSize = 15.sp)
+                    if (query.isEmpty()) Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"), color = Tahoe.Faint, fontSize = 16.sp, lineHeight = 23.sp)
                     androidx.compose.foundation.text.BasicTextField(query, { query = it }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint") },
-                        textStyle = androidx.compose.ui.text.TextStyle(color = Tahoe.Text, fontSize = 15.sp, fontFamily = Outfit),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Tahoe.Text, fontSize = 16.sp, fontFamily = Outfit),
                         cursorBrush = androidx.compose.ui.graphics.SolidColor(Tahoe.Text))
                 }
                 if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(lang, "live.clear_search"), tint = Tahoe.Dim) }
@@ -177,15 +180,16 @@ fun LiveScreen() {
                     Chip(k.label(lang), k == cat) { cat = k; Nav.liveCategory = k }
                 }
             }
-            Spacer(Modifier.height(6.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "sort.label"), color = Tahoe.Dim, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        }
+        val sortRow: @Composable () -> Unit = {
+            Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "sort.label"), color = Tahoe.Dim, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 val activeSort = PhoneRegion.viewer.sort
-                LocalTv.SortMode.entries.forEach { m ->
-                    Chip(m.label(lang), m == activeSort) { PhoneRegion.setSortMode(c, m) }
-                }
+                LocalTv.SortMode.entries.forEach { m -> Chip(m.label(lang), m == activeSort) { PhoneRegion.setSortMode(c, m) } }
             }
         }
+        // browsing (no search, no filter, nothing playing): Figma "Pilihan untukmu" posters and the "Kategori" grid first
+        val browsing = query.isBlank() && cat == null && !Nav.favOnly && playing == null && list != null
         shown?.let { hits ->
             val rows = hits
             val wide = LocalConfiguration.current.screenWidthDp >= 600
@@ -200,11 +204,60 @@ fun LiveScreen() {
                     gridItems(rows, key = { it.entry.channel.url }) { h -> ChannelRow(h.entry, h.programme, epg, now, on = h.entry == playing) }
                 }
             } else {
-                LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp), contentPadding = PaddingValues(top = 4.dp, bottom = TabInset)) {
+                LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp), contentPadding = PaddingValues(top = 12.dp, bottom = TabInset)) {
+                    if (browsing) item(key = "browse") { BrowseSections(list.orEmpty(), now) { k -> cat = k; Nav.liveCategory = k } }
+                    item(key = "sort") { sortRow() }
                     items(rows, key = { it.entry.channel.url }) { h -> ChannelRow(h.entry, h.programme, epg, now, on = h.entry == playing) }
                 }
             }
         }
+    }
+}
+
+/** Figma Live TV browse: "Pilihan untukmu" (150 × 220 posters) and "Kategori" (two-column 96 dp tiles). */
+@Composable
+private fun BrowseSections(list: List<LocalTv.Entry>, now: Instant, onCategory: (LocalTv.Category) -> Unit) {
+    val lang = PhoneRegion.language
+    val L = { k: String -> tech.kousozo.tahoetv.core.I18n.get(lang, k) }
+    Column(Modifier.padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(L("live.for_you"), Modifier.weight(1f), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
+            }
+            LazyRow(contentPadding = PaddingValues(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(list.take(10), key = { "p" + it.channel.url }) { e ->
+                    Column(Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).clickable { Nav.play(e) }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(150.dp, 220.dp).clip(RoundedCornerShape(16.dp))) {
+                            ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.7f)
+                            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.6f))))
+                            Text(e.category.label(lang).uppercase(), Modifier.align(Alignment.BottomStart).padding(12.dp), color = Color.White, fontSize = 11.sp,
+                                lineHeight = 13.sp, letterSpacing = 1.32.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        }
+                        Text(nowOn(Channels.epg, e, now)?.title ?: e.name, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        val cats = LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }
+        if (cats.isNotEmpty()) Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(L("home.categories"), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
+            cats.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    pair.forEach { k ->
+                        val tint = categoryTint(k)
+                        Box(Modifier.weight(1f).height(96.dp).clip(RoundedCornerShape(18.dp))
+                            .background(Brush.linearGradient(listOf(tint, Color(tech.kousozo.tahoetv.core.Brand.LAKE_DEEP), Tahoe.Stage)))
+                            .clickable { onCategory(k) }) {
+                            Icon(categoryIcon(k), null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(36.dp))
+                            Text(k.label(lang), Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 14.dp, end = 14.dp), color = Color.White,
+                                fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+        Text(L("home.all_channels"), Modifier.padding(horizontal = 8.dp), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -594,6 +647,11 @@ object Channels {
     suspend fun load(c: android.content.Context) {
         if (entries != null || loading) return
         loading = true
+        if (tech.kousozo.tahoetv.core.Demo.isActive()) { // sample channels and guide, no network (screenshots)
+            val list = LocalTv.arrange(tech.kousozo.tahoetv.core.Demo.channels(), null, PhoneRegion.viewer.countries, PhoneRegion.viewer.sort, PhoneRegion.viewer.city, PhoneRegion.viewer.country)
+            if (favs.isEmpty()) favs = list.take(2).map { it.channel.url }.toSet() // demo: two saved channels, in memory only
+            all = list; entries = PhoneRegion.viewer.arrange(list); epg = tech.kousozo.tahoetv.core.Demo.epg(); loading = false; return
+        }
         val mine = generation
         try { withContext(Dispatchers.IO) {
             val setup = c.getSharedPreferences("setup", 0)

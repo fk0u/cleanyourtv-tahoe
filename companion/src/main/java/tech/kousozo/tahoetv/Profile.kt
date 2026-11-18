@@ -163,10 +163,11 @@ private fun MenuRow(icon: ImageVector, title: String, value: String? = null, tin
         Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(src, null, onClick = onClick).pressScale(src).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background((tint ?: Tahoe.Text).copy(alpha = if (tint != null) 0.16f else 0.08f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = tint ?: Tahoe.Text, modifier = Modifier.size(20.dp))
+        // Figma Settings Row: bare 22 dp icon (tinted ones get a soft disc), Body/Strong title
+        Box(Modifier.size(36.dp).clip(CircleShape).background(if (tint != null) tint.copy(alpha = 0.16f) else Color.Transparent), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = tint ?: Tahoe.Text, modifier = Modifier.size(22.dp))
         }
-        Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(title, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
         if (value != null) Text(value, fontSize = 14.sp, color = Tahoe.Dim)
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Faint)
     }
@@ -189,20 +190,77 @@ fun WatchlistScreen() {
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(30_000); now = Instant.now() } }
     val saved = Channels.entries.orEmpty().filter { it.channel.url in Channels.favs }
+    var filter by remember { mutableIntStateOf(0) } // 0 Semua, 1 Saluran (programmes and reminders are not saved yet)
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = TabInset),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = TabInset),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { ScreenTitle(I18n.get(lang, "nav.watchlist"), I18n.get(lang, "watchlist.subtitle")) }
-        if (saved.isEmpty()) item { Box(Modifier.padding(top = 12.dp)) { Note(I18n.get(lang, "watchlist.empty"), Icons.Rounded.BookmarkBorder) } }
-        items(saved, key = { it.channel.url }) { e ->
-            ChannelListRow(e, now) {
-                IconButton({ Channels.toggleFav(c, e) }, Modifier.size(48.dp)) {
-                    Icon(Icons.Rounded.Bookmark, I18n.get(lang, "watchlist.remove", e.name), tint = Tahoe.Accent)
+        item { Box(Modifier.padding(horizontal = 4.dp)) { ScreenTitle(I18n.get(lang, "nav.watchlist"), I18n.get(lang, "watchlist.subtitle")) } }
+        item {
+            Row(Modifier.padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip(I18n.get(lang, "live.all"), filter == 0) { filter = 0 }
+                Chip(I18n.get(lang, "watchlist.channels"), filter == 1) { filter = 1 }
+            }
+        }
+        if (saved.isEmpty()) item { Note(I18n.get(lang, "watchlist.empty"), Icons.Rounded.BookmarkBorder) }
+        // Figma featured card: the first saved channel with something on now
+        val featured = saved.firstOrNull { nowOn(Channels.epg, it, now) != null } ?: saved.firstOrNull()
+        if (featured != null && filter == 0) item(key = "featured") {
+            val prog = nowOn(Channels.epg, featured, now)
+            Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(24.dp)).clickable { Nav.play(featured) }) {
+                ChannelArt(featured, Modifier.fillMaxSize(), logoScale = 0.6f, logoTop = 22.dp)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.78f))))
+                Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            LiveBadge(); Spacer(Modifier.width(8.dp))
+                            Text(I18n.get(lang, "watchlist.live_now").uppercase(), color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, letterSpacing = 1.32.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Text(prog?.title ?: featured.name, color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(featured.name + (prog?.let { " · " + HM.format(it.start) + "–" + HM.format(it.stop) } ?: ""), color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 14.sp, letterSpacing = 0.14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    }
+                    Box(Modifier.size(48.dp).clip(CircleShape).background(Color.White).clickable { Nav.play(featured) }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.PlayArrow, I18n.get(lang, "home.watch"), tint = Color(tech.kousozo.tahoetv.core.Brand.CANVAS), modifier = Modifier.size(24.dp))
+                    }
                 }
             }
         }
+        if (saved.isNotEmpty()) item(key = "list") {
+            // Figma list card: surface, hairline, 24 dp corners, rows with a 90 × 52 thumbnail
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Surface).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
+                .padding(horizontal = 12.dp, vertical = 8.dp)) {
+                saved.forEach { e ->
+                    WatchRow(e, now) {
+                        IconButton({ Channels.toggleFav(c, e) }, Modifier.size(48.dp)) {
+                            Icon(Icons.Rounded.Bookmark, I18n.get(lang, "watchlist.remove", e.name), tint = Tahoe.Accent)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Figma Watchlist row: 90 × 52 artwork with a LIVE badge, title 16 Medium, "Saluran · show" 13 secondary. */
+@Composable
+private fun WatchRow(e: LocalTv.Entry, now: Instant, trailing: @Composable () -> Unit) {
+    val lang = PhoneRegion.language
+    val on = nowOn(Channels.epg, e, now)
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { Nav.play(e) }.padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(Modifier.size(90.dp, 52.dp).clip(RoundedCornerShape(12.dp))) {
+            ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.3f)
+            if (on != null) Text("● LIVE", Modifier.padding(5.dp).clip(RoundedCornerShape(50)).background(Tahoe.Bad).padding(horizontal = 6.dp, vertical = 2.dp),
+                color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.9.sp)
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(e.name, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(I18n.get(lang, "watchlist.channel") + " · " + (on?.title ?: e.category.label(lang)), fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        trailing()
     }
 }
 
@@ -263,7 +321,6 @@ fun ProfileScreen() {
                 MenuRow(Icons.Rounded.History, I18n.get(lang, "profile.history")) { Nav.page = "history" }
                 MenuRow(Icons.Rounded.Tv, I18n.get(lang, "profile.connect_tv"), if (tvCount > 0) "$tvCount" else null) { showDevices = true }
                 MenuRow(Icons.Rounded.Download, I18n.get(lang, "tv.install_on_tv")) { Nav.page = "setup" }
-                MenuRow(Icons.Rounded.GridView, I18n.get(lang, "profile.explore")) { Nav.page = "explore" }
             }
             MenuGroup(I18n.get(lang, "profile.help_group")) {
                 MenuRow(Icons.Rounded.Flag, I18n.get(lang, "profile.report")) { Report.send(c) { note -> note?.let { Toast.makeText(c, it, Toast.LENGTH_LONG).show() } } }

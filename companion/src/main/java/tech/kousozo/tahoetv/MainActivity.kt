@@ -90,6 +90,10 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra("open_update_modal", false) == true) {
             PushHelper.openUpdateModal(this)
         }
+        // Demo mode for screenshots (debug builds only): `adb shell am start -n <pkg>/.MainActivity --es demo id`
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            intent?.getStringExtra("demo")?.let { tech.kousozo.tahoetv.core.Demo.enable(it.ifBlank { "en" }) }
+        }
         Channels.loadFavs(this)
         Playback.loadPrefs(this)
         tech.kousozo.tahoetv.core.Sources.initCache(cacheDir)
@@ -124,7 +128,7 @@ class MainActivity : ComponentActivity() {
                 val twoPane = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 840 && !Nav.full && !Nav.inPip
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     // the playing channel (or the hero channel on Beranda) tints the whole app, like album art in a music app
-                    val tintLogo = rememberNetImage((Playback.entry ?: Nav.hero)?.channel?.logo)
+                    val tintLogo = rememberNetImage(Playback.entry?.channel?.logo) // Figma: flat canvas unless something plays
                     Backdrop(tintLogo?.let { dominantColor(it) })
                     AnimatedContent(Nav.tab, transitionSpec = { if (ThemePrefs.reduceMotion) fadeIn(androidx.compose.animation.core.snap()) togetherWith fadeOut(androidx.compose.animation.core.snap())
                         else fadeIn(androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe)) togetherWith fadeOut(androidx.compose.animation.core.tween(160, easing = EaseOutTahoe)) }, label = "tab") { t ->
@@ -324,55 +328,74 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
     val hero = Playback.entry ?: heroPool.getOrNull(heroIdx % maxOf(1, heroPool.size)) ?: entries?.firstOrNull()
     LaunchedEffect(hero) { Nav.hero = hero }
 
+    val L = { k: String -> tech.kousozo.tahoetv.core.I18n.get(lang, k) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = TabInset),
-        verticalArrangement = Arrangement.spacedBy(26.dp)) {
-        // hero
-        Box(Modifier.fillMaxWidth().height(440.dp)) {
+        verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        // hero (Figma "Mobile / Home", 390 × 520): artwork, scrim, top bar, on-now copy, Tonton + Favorit, pager
+        Box(Modifier.fillMaxWidth().height(520.dp)) {
             androidx.compose.animation.Crossfade(hero, Modifier.fillMaxSize(), animationSpec = androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_SLOW, easing = EaseInOutTahoe), label = "hero") { hero ->
             Box(Modifier.fillMaxSize()) {
-            val logo = rememberNetImage(hero?.channel?.logo)
-            if (logo != null) Image(logo, null, Modifier.fillMaxSize().blur(70.dp).alpha(0.45f), contentScale = ContentScale.Crop)
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Tahoe.Bg)))
-            if (hero != null) Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text((hello + if (name.isNotEmpty()) ", $name" else "").uppercase(), color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono, letterSpacing = 1.2.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(22.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
-                        if (logo != null) Image(logo, null, Modifier.padding(3.dp).fillMaxSize(), contentScale = ContentScale.Fit)
+                if (hero != null) ChannelArt(hero, Modifier.fillMaxSize(), logoScale = 0.8f, logoTop = 128.dp)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
+                    0f to Tahoe.Stage.copy(alpha = 0.7f), 0.25f to Tahoe.Stage.copy(alpha = 0.15f), 0.5f to Tahoe.Stage.copy(alpha = 0.35f), 1f to Tahoe.Bg)))
+                if (hero != null) Column(Modifier.align(Alignment.TopStart).padding(start = 20.dp, end = 20.dp, top = 236.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val prog = nowOn(Channels.epg, hero, now)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LiveBadge(); Spacer(Modifier.width(8.dp))
+                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.on_now_fmt", hero.name), color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, letterSpacing = 0.14.sp,
+                            fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Text(when { Playback.entry != null -> tech.kousozo.tahoetv.core.I18n.get(lang, "home.now_watching"); recentWatched.isNotEmpty() -> tech.kousozo.tahoetv.core.I18n.get(lang, "home.continue_watching"); else -> tech.kousozo.tahoetv.core.I18n.get(lang, "home.featured_channel") },
-                        fontSize = 14.sp, color = Tahoe.Text.copy(alpha = 0.85f))
+                    Text(prog?.title ?: hero.name, color = Color.White, fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    (prog?.desc?.takeIf { it.isNotBlank() } ?: hero.category.label(lang)).let {
+                        Text(it, color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp, lineHeight = 23.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        PillButton(L("home.watch"), Icons.Rounded.PlayArrow) { Nav.play(hero) }
+                        val fav = hero.channel.url in Channels.favs
+                        GlassPill(L("live.favorites_star"), if (fav) Icons.Rounded.Favorite else null) { Channels.toggleFav(c, hero) }
+                    }
                 }
-                Text(hero.name, fontSize = 44.sp, lineHeight = 46.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                nowOn(Channels.epg, hero, now)?.let { Text(it.title, fontSize = 15.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), Icons.Rounded.PlayArrow) { Nav.play(hero) }
-                    Spacer(Modifier.width(10.dp))
-                    RoundGlass(Icons.Rounded.Info, tech.kousozo.tahoetv.core.I18n.get(lang, "home.channel_page", hero.name)) { Nav.detail = hero }
+            }
+            }
+            // top bar: greeting + question, search and notifications (48 dp icon buttons)
+            Row(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp).height(48.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(hello + if (name.isNotEmpty()) ", $name" else "", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, letterSpacing = 0.14.sp,
+                        fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(L("home.what_to_watch"), color = Color.White, fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
-            }
-            }
-            }
-            Row(Modifier.statusBarsPadding().padding(start = 20.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                BrandMark(30.dp, tint = Color.White)
-                Spacer(Modifier.weight(1f))
+                RoundGlass(Icons.Rounded.Search, L("home.search_hint"), tint = Color.White) { Nav.category(null) }
                 Box {
-                    RoundGlass(Icons.Rounded.Notifications, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "home.notif_desc", PushHelper.unreadCount),
-                        tint = if (PushHelper.unreadCount > 0) Tahoe.Accent else Tahoe.Text) { onOpenInbox() }
-                    if (PushHelper.unreadCount > 0) {
-                        Box(Modifier.align(Alignment.TopEnd).size(9.dp).clip(CircleShape).background(Tahoe.Accent))
-                    }
+                    RoundGlass(Icons.Rounded.Notifications, tech.kousozo.tahoetv.core.I18n.get(lang, "home.notif_desc", PushHelper.unreadCount), tint = Color.White) { onOpenInbox() }
+                    if (PushHelper.unreadCount > 0) Box(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 12.dp).size(9.dp).clip(CircleShape).background(Tahoe.Warm))
                 }
-                Spacer(Modifier.width(8.dp))
-                RoundGlass(if (paired) Icons.Rounded.Tv else Icons.Rounded.TvOff, tech.kousozo.tahoetv.core.I18n.get(lang, if (paired) "home.tv_connected" else "tv.connect_title"),
-                    tint = if (paired) Tahoe.Good else Tahoe.Text) { if (paired) showDevices = true else showPair = !showPair }
-                Spacer(Modifier.width(8.dp))
-                RoundGlass(Icons.Rounded.SettingsRemote, tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote")) { Nav.tab = 2 }
             }
-            if (Playback.entry == null && heroPool.size > 1) Row(Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                heroPool.indices.forEach { i -> Box(Modifier.height(6.dp).width(if (i == heroIdx % heroPool.size) 22.dp else 6.dp).clip(CircleShape).background(Tahoe.Text.copy(alpha = if (i == heroIdx % heroPool.size) 1f else 0.35f))) }
+            if (Playback.entry == null && heroPool.size > 1) Row(Modifier.align(Alignment.BottomStart).padding(start = 20.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                heroPool.indices.forEach { i ->
+                    val on = i == heroIdx % heroPool.size
+                    val w by androidx.compose.animation.core.animateDpAsState(if (on) 24.dp else 6.dp, androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe), label = "dot")
+                    Box(Modifier.height(6.dp).width(w).clip(RoundedCornerShape(3.dp)).background(if (on) Color.White else Color.White.copy(alpha = 0.62f)))
+                }
             }
         }
+
+        // category chips: Semua + categories with channels
+        entries?.let { all ->
+            val cats = LocalTv.Category.entries.map { k -> k to all.count { LocalTv.inCategory(it, k) } }.filter { it.second > 0 }
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip(L("live.all"), true) { Nav.category(null) }
+                cats.forEach { (k, _) -> Chip(k.label(lang), false) { Nav.category(k) } }
+            }
+        }
+
+        val recent = recentWatched.ifEmpty { entries.orEmpty().take(8) }
+        if (recent.isNotEmpty()) CardShelf(L(if (recentWatched.isEmpty()) "home.featured_channels" else "home.continue_watching"), recent, now) { Nav.category(null) }
+        val favs = entries.orEmpty().filter { it.channel.url in Channels.favs }
+        if (favs.isNotEmpty()) CardShelf(L("home.favorites"), favs, now) { Nav.category(null, favourites = true) }
+        if (entries == null) { if (Channels.failed) OfflineState()
+            else LinearProgressIndicator(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass) }
 
         // pairing / TV card opens from the TV button
         val activeToken = devState.active()?.token ?: p.getString("token", "").orEmpty()
@@ -413,29 +436,6 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
             Sync.recordPaired(c, host, res); code = ""; paired = true; showPair = false
         }
 
-        val recent = recentWatched.ifEmpty { entries.orEmpty().take(8) }
-        if (recent.isNotEmpty()) Shelf(tech.kousozo.tahoetv.core.I18n.get(lang, if (recentWatched.isEmpty()) "home.featured_channels" else "home.recently_watched"), recent, now) { Nav.category(null) }
-        val favs = entries.orEmpty().filter { it.channel.url in Channels.favs }
-        if (favs.isNotEmpty()) Shelf(tech.kousozo.tahoetv.core.I18n.get(lang, "home.favorites"), favs, now) { Nav.category(null, favourites = true) }
-
-        entries?.let { all ->
-            val cats = LocalTv.Category.entries.map { k -> k to all.count { LocalTv.inCategory(it, k) } }.filter { it.second > 0 }
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SectionHeader(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.explore")) { Nav.page = "explore" }
-                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    cats.forEach { (k, _) -> Chip(k.label(lang), false) { Nav.category(k) } }
-                }
-                // bento of numbers
-                val near = all.count { it.near }
-                Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Bento(tech.kousozo.tahoetv.core.I18n.get(lang, "home.all_channels"), all.size.toString(), Icons.Rounded.LiveTv, Modifier.weight(1f)) { Nav.category(null) }
-                    Bento(if (near > 0) tech.kousozo.tahoetv.core.I18n.get(lang, "home.near_you") else tech.kousozo.tahoetv.core.I18n.get(lang, "home.categories"), (if (near > 0) near else cats.size).toString(), Icons.Rounded.Place, Modifier.weight(1f)) {
-                        if (near > 0) Nav.category(LocalTv.Category.Near) else Nav.page = "explore"
-                    }
-                }
-            }
-        } ?: if (Channels.failed) OfflineState()
-            else LinearProgressIndicator(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), color = Tahoe.Text, trackColor = Tahoe.Glass)
 
         if (paired && !showPair) Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -506,40 +506,55 @@ private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, cod
     }
 }
 
-/** A horizontal shelf of square channel cards ("Recently played" style): logo on white, name, show on now. */
+/** Artwork for a channel (no programme art in the playlists): its colour as a deep gradient, the logo on a white tile. */
 @Composable
-private fun Shelf(title: String, items: List<LocalTv.Entry>, now: Instant, onAll: () -> Unit) = Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-    SectionHeader(title, onAll)
-    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        items(items, key = { it.channel.url }) { e ->
-            val logo = rememberNetImage(e.channel.logo)
-            val tint = logo?.let { dominantColor(it) } ?: categoryTint(e.category)
-            Column(Modifier.width(128.dp).clip(RoundedCornerShape(18.dp)).clickable { Nav.play(e) }) {
-                Box(Modifier.size(128.dp).clip(RoundedCornerShape(18.dp))
-                    .background(Brush.linearGradient(listOf(tint.copy(alpha = 0.95f), tint.copy(alpha = 0.45f)))), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(78.dp, 56.dp).clip(RoundedCornerShape(12.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-                        if (logo != null) Image(logo, e.name, Modifier.padding(8.dp).fillMaxSize(), contentScale = ContentScale.Fit)
-                        else Text(e.name.take(3).uppercase(), color = Color(0xFF141216), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Text(e.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
-                Text(nowOn(Channels.epg, e, now)?.title ?: e.category.label(PhoneRegion.language), fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+fun ChannelArt(e: LocalTv.Entry, modifier: Modifier, logoScale: Float = 1f, logoTop: androidx.compose.ui.unit.Dp? = null) {
+    val logo = rememberNetImage(e.channel.logo)
+    val tint = logo?.let { dominantColor(it) } ?: categoryTint(e.category)
+    Box(modifier.background(Brush.linearGradient(listOf(tint.copy(alpha = 0.95f), Color(Brand.LAKE_DEEP), Tahoe.Stage))),
+        contentAlignment = if (logoTop != null) Alignment.TopCenter else Alignment.Center) {
+        Box(Modifier.then(if (logoTop != null) Modifier.padding(top = logoTop) else Modifier).size(132.dp * logoScale, 88.dp * logoScale).clip(RoundedCornerShape(18.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+            if (logo != null) Image(logo, null, Modifier.padding(14.dp * logoScale).fillMaxSize(), contentScale = ContentScale.Fit)
+            else Text(e.name.take(3).uppercase(), color = Color(Brand.CANVAS), fontSize = (22 * logoScale).sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
-/** A big-number glass card (bento). */
+/** Figma "Channel Card" (280 × 158 artwork): LIVE badge, channel name, programme progress; title and "category · N min left" below. */
 @Composable
-private fun Bento(label: String, value: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit) = Column(
-    modifier.height(108.dp).clip(RoundedCornerShape(22.dp)).background(Tahoe.Glass).clickable(onClick = onClick).padding(14.dp),
-    verticalArrangement = Arrangement.SpaceBetween,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Tahoe.Dim, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp))
-        Text(label, fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1)
+fun ChannelCard(e: LocalTv.Entry, now: Instant, modifier: Modifier = Modifier) {
+    val lang = PhoneRegion.language
+    val prog = nowOn(Channels.epg, e, now)
+    Column(modifier.width(280.dp).clip(RoundedCornerShape(18.dp)).clickable { Nav.play(e) }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.size(280.dp, 158.dp).clip(RoundedCornerShape(18.dp))) {
+            ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.62f)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.7f))))
+            LiveBadge(Modifier.padding(12.dp))
+            Text(e.name, Modifier.align(Alignment.BottomStart).padding(start = 14.dp, end = 14.dp, bottom = 16.dp), color = Color.White, fontSize = 20.sp, lineHeight = 25.sp,
+                letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val frac = prog?.let { (now.epochSecond - it.start.epochSecond).toFloat() / maxOf(1L, it.stop.epochSecond - it.start.epochSecond) } ?: 0f
+            ProgressBar(if (prog != null) frac else 0f, Modifier.align(Alignment.BottomStart).padding(start = 14.dp, end = 14.dp, bottom = 8.dp).fillMaxWidth())
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(prog?.title ?: e.name, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val left = prog?.let { java.time.Duration.between(now, it.stop).toMinutes().coerceAtLeast(0) }
+            Text(e.category.label(lang) + (left?.let { " · " + tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_min_left", it.toString()) } ?: " · LIVE"),
+                fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.14.sp, color = Tahoe.Dim, fontWeight = FontWeight.Medium, maxLines = 1)
+        }
     }
-    Text(value, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
+}
+
+/** Section of channel cards with a "Lihat semua" link (Figma "Continue watching"). */
+@Composable
+private fun CardShelf(title: String, items: List<LocalTv.Entry>, now: Instant, onAll: () -> Unit) = Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "home.see_all"), Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onAll).padding(4.dp),
+            color = Tahoe.Dim, fontSize = 14.sp, letterSpacing = 0.14.sp, fontWeight = FontWeight.Medium)
+    }
+    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(items, key = { it.channel.url }) { e -> ChannelCard(e, now) }
+    }
 }
 
 @Composable

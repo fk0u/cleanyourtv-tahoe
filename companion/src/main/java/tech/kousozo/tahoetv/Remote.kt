@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.*
@@ -79,99 +81,124 @@ fun RemoteScreen() {
     if (showDevices) TvDevicesSheet({ showDevices = false }) { Nav.tab = 0 }
     if (showTvSettings && host.isNotBlank() && token.isNotEmpty()) TvSettingsSheet(host, token) { showTvSettings = false }
 
+    val lang = PhoneRegion.language
+    val L = { k: String -> tech.kousozo.tahoetv.core.I18n.get(lang, k) }
+    var qr by remember { mutableStateOf(false) }
+    var pinFor by remember { mutableStateOf<String?>(null) } // host to pair with a 6-digit code, or "" to type one
+    var typing by remember { mutableStateOf(false) }
+    val speech = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { r ->
+        r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.takeIf { it.isNotBlank() }?.let { link?.ask(it) }
+    }
+    val scope = rememberCoroutineScope()
+    if (qr) QrCodeScannerDialog(onScanned = { q -> qr = false
+        scope.launch {
+            val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { TvLink.pairWithInfo(q.host, q.code, lang, android.os.Build.MODEL.orEmpty()) } }
+            r.onSuccess { Sync.recordPaired(c, q.host, it); Pairing.tick++ }
+            android.widget.Toast.makeText(c, r.exceptionOrNull()?.message ?: L("pair.connected"), android.widget.Toast.LENGTH_SHORT).show()
+        } }, onDismiss = { qr = false })
+    pinFor?.let { h -> PinPairDialog(h) { pinFor = null } }
+
+    LaunchedEffect(Unit) { TvDiscovery.start(c) }
+    val known = devState.devices.mapTo(HashSet()) { it.host }
+    val found = TvDiscovery.discovered.filter { it.ip !in known }
     Column(
         Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = TabInset + 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = TabInset + 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // TV pill (tap to switch TV / inspect mDNS devices)
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(10.dp).clip(CircleShape).background(if (online) Tahoe.Good else Tahoe.Faint))
-            Spacer(Modifier.width(10.dp))
-            Row(Modifier.weight(1f).clip(RoundedCornerShape(50)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(50))
-                .clickable { showDevices = true }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Tv, null, tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(tvName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    val channel = tv?.optString("channel").orEmpty()
-                    Text(
-                        if (link == null) tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.not_paired_short")
-                        else if (!online) tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.connecting")
-                        else if (channel.isNotEmpty()) tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.live_fmt", "%03d".format(tv?.optInt("number") ?: 0), channel)
-                        else tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.connected_host", host),
-                        fontSize = 12.sp, color = Tahoe.Dim
-                    )
+        // Figma "Mobile / Remote": title, Wi-Fi line, "+" to add a TV
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(L("nav.remote"), fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Wifi, null, tint = Tahoe.Good, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp))
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "remote.found_fmt", devState.devices.size + found.size), fontSize = 14.sp, color = Tahoe.Dim,
+                        letterSpacing = 0.14.sp, fontWeight = FontWeight.Medium)
                 }
-                Icon(Icons.Rounded.ExpandMore, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "connect.devices"), tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
             }
-            Spacer(Modifier.width(10.dp))
-            if (link != null) {
-                RoundKey(Icons.Rounded.Tune, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "tvset.title"), 44.dp, tint = Tahoe.Accent) { showTvSettings = true }
-                Spacer(Modifier.width(8.dp))
-            }
-            RoundKey(Icons.Rounded.Settings, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.tv_settings"), 44.dp) { key("settings") }
-            Spacer(Modifier.width(8.dp))
-            RoundKey(Icons.Rounded.PowerSettingsNew, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.standby"), 44.dp, tint = Color(0xFFFF6B6B)) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); link?.power() }
+            RoundGlass(Icons.Rounded.Add, L("connect.devices")) { showDevices = true }
         }
 
-        // TV switcher (#180): saved TVs switch with one tap; TVs found on this Wi-Fi connect without a code (OK on the TV)
-        LaunchedEffect(Unit) { TvDiscovery.start(c) }
-        val known = devState.devices.mapTo(HashSet()) { it.host }
-        val found = TvDiscovery.discovered.filter { it.ip !in known }
-        if (devState.devices.size > 1 || found.isNotEmpty()) Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp),
+        // TV cards: saved TVs switch with one tap; TVs found on this Wi-Fi connect without a code (OK on the TV)
+        if (devState.devices.isNotEmpty() || found.isNotEmpty()) Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             devState.devices.forEach { d ->
                 val on = d.id == activeDev?.id
-                Row(Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(50)).background(if (on) Tahoe.Text else Tahoe.Glass)
-                    .border(1.dp, if (on) Color.Transparent else Tahoe.Stroke, RoundedCornerShape(50))
-                    .clickable { if (!on) { Sync.saveDevices(c, devState.select(d.id)); Pairing.tick++ } }
-                    .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.Tv, null, tint = if (on) Tahoe.Bg else Tahoe.Dim, modifier = Modifier.size(16.dp))
-                    Text(d.name.ifBlank { "Tahoe TV" }, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (on) Tahoe.Bg else Tahoe.Text, maxLines = 1)
+                TvCardTile(d.name.ifBlank { "Tahoe TV" }, if (on) L("remote.connected") else L("remote.tap_control"), if (on) Tahoe.Good else Tahoe.Faint, on) {
+                    if (!on) { Sync.saveDevices(c, devState.select(d.id)); Pairing.tick++ }
                 }
             }
             found.forEach { f ->
-                Row(Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(50)).background(Tahoe.Accent.copy(alpha = 0.14f))
-                    .clickable { NoCodePair.start(c, f.ip, f.name ?: "Tahoe TV") { showDevices = true } }
-                    .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.Add, null, tint = Tahoe.Accent, modifier = Modifier.size(16.dp))
-                    Text(f.name ?: "Tahoe TV", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Tahoe.Accent, maxLines = 1)
+                TvCardTile(f.name ?: "Tahoe TV", L("remote.tap_connect"), Color(tech.kousozo.tahoetv.core.Brand.SUN), false) {
+                    NoCodePair.start(c, f.ip, f.name ?: "Tahoe TV") { pinFor = f.ip }
                 }
             }
         }
-
-        if (link == null) Note(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.not_paired_note"), Icons.Rounded.Info)
-        DPad(onKey = ::key)
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            RoundKey(Icons.AutoMirrored.Rounded.ArrowBack, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.back")) { key("back") }
-            RoundKey(Icons.Rounded.Home, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.power")) { key("home") }
-            RoundKey(Icons.AutoMirrored.Rounded.VolumeOff, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.mute_label")) { key("mute") }
+        // the promise, in green
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Tahoe.Good.copy(alpha = 0.12f)).border(1.dp, Tahoe.Good.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Check, null, tint = Tahoe.Good, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp))
+            Text(L("remote.nocode_note"), fontSize = 14.sp, lineHeight = 19.sp)
         }
 
-        // rockers: volume | Live TV | channel
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            Rocker("VOL", Icons.Rounded.Add, Icons.Rounded.Remove, { link?.volume(1); haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
-                { link?.volume(-1); haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) })
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                RoundKey(Icons.Rounded.LiveTv, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.live_tv"), tint = Color(0xFFFF5A5F)) { key("livetv") }
-                RoundKey(Icons.Rounded.Apps, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.apps")) { key("apps") }
+        // remote panel
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Tahoe.Surface).border(1.dp, Tahoe.Stroke, RoundedCornerShape(28.dp))
+            .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(CircleShape).background(Tahoe.Bad.copy(alpha = 0.18f)).clickable { haptic.performHapticFeedback(HapticFeedbackType.LongPress); link?.power() },
+                    contentAlignment = Alignment.Center) { Icon(Icons.Rounded.PowerSettingsNew, L("remote.standby"), tint = Tahoe.Bad) }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(L("remote.controlling"), fontSize = 13.sp, color = Tahoe.Dim)
+                    Text(tvName, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable(enabled = link != null) { showTvSettings = true })
+                }
+                RoundKey(Icons.Rounded.Mic, L("remote.speak"), 48.dp) {
+                    runCatching { speech.launch(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                        .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)) }
+                }
             }
-            Rocker("CH", Icons.Rounded.KeyboardArrowUp, Icons.Rounded.KeyboardArrowDown, { key("ch_up") }, { key("ch_down") })
+            DPad(onKey = ::key)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                LabeledKey(Icons.AutoMirrored.Rounded.ArrowBack, L("common.back")) { key("back") }
+                LabeledKey(Icons.Rounded.Home, L("nav.home")) { key("home") }
+                LabeledKey(Icons.Rounded.Menu, L("remote.menu")) { key("menu") }
+                LabeledKey(Icons.Rounded.Keyboard, L("remote.type")) { typing = !typing }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                PillRocker("VOL", Icons.Rounded.Remove, Icons.Rounded.Add, { link?.volume(-1); haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
+                    { link?.volume(1); haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, Modifier.weight(1f))
+                PillRocker("CH", Icons.Rounded.KeyboardArrowDown, Icons.Rounded.KeyboardArrowUp, { key("ch_down") }, { key("ch_up") }, Modifier.weight(1f))
+                RoundKey(Icons.AutoMirrored.Rounded.VolumeOff, L("remote.mute_label"), 48.dp) { key("mute") }
+            }
+            if (typing) {
+                var typed by remember { mutableStateOf("") }
+                Field(typed, { typed = it; link?.text(it) }, L("remote.type_hint"), trailing = {
+                    IconButton({ typed = ""; link?.text("") }) { Icon(Icons.Rounded.Backspace, L("remote.clear"), tint = Tahoe.Dim) }
+                })
+            }
         }
 
-        // volume slider with the TV's real level
-        var vol by remember { mutableFloatStateOf(-1f) }
-        LaunchedEffect(tv) { tv?.let { vol = it.optInt("volume").toFloat() } }
-        if (vol >= 0) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
-            .padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (tv?.optBoolean("muted") == true) Icons.AutoMirrored.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
-                tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (tv?.optBoolean("muted") == true) "remote.mute_label" else "remote.volume"), tint = Tahoe.Accent)
-            Slider(vol, { vol = it }, Modifier.weight(1f).padding(horizontal = 12.dp).semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.vol_tv") }, valueRange = 0f..100f,
-                onValueChangeFinished = { link?.volumeSet(vol.toInt()) })
-            Text("${vol.toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(40.dp))
+        // TV on another network: QR or 6-digit code; install Tahoe on a TV
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Surface).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
+            .padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(L("remote.other_net_title"), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
+            Text(L("remote.other_net_desc"), fontSize = 14.sp, lineHeight = 19.sp, color = Tahoe.Dim)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                GlassPill(L("remote.qr_short"), Icons.Rounded.QrCodeScanner, Modifier.weight(1f)) { qr = true }
+                GlassPill(L("remote.enter_pin"), Icons.Rounded.Dialpad, Modifier.weight(1f)) { pinFor = host }
+            }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { Nav.page = "setup" }.padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(Color(tech.kousozo.tahoetv.core.Brand.SUN).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Download, null, tint = Color(tech.kousozo.tahoetv.core.Brand.SUN), modifier = Modifier.size(20.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(L("tv.install_on_tv"), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text(L("remote.install_sub"), fontSize = 13.sp, color = Tahoe.Dim)
+                }
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Faint)
+            }
         }
 
         // sleep timer: tap to step Mati → 15 → 30 → 60 → 90 → 120 → Mati; shows the TV's minutes left
@@ -211,12 +238,6 @@ fun RemoteScreen() {
                 Triple(Icons.Rounded.Menu, "menu", tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.menu")),
             ).forEach { (icon, k, desc) -> IconButton({ key(k) }) { Icon(icon, desc, tint = Tahoe.Text) } }
         }
-
-        // type into the TV's focused text field (search boxes in YouTube, Netflix, Tahoe…)
-        var typed by remember { mutableStateOf("") }
-        Field(typed, { typed = it; link?.text(it) }, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.type_hint"), trailing = {
-            IconButton({ typed = ""; link?.text("") }) { Icon(Icons.Rounded.Backspace, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.clear"), tint = Tahoe.Dim) }
-        })
 
         // ask the TV
         var q by remember { mutableStateOf("") }
@@ -281,7 +302,7 @@ private fun KidsPinDialog(host: String, token: String, close: () -> Unit) {
 private fun DPad(onKey: (String) -> Unit) {
     var acc by remember { mutableStateOf(Offset.Zero) }
     var pressed by remember { mutableStateOf<String?>(null) }
-    val ring = 260.dp
+    val ring = 240.dp
     Box(
         Modifier.size(ring).clip(CircleShape)
             .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.04f))))
@@ -318,12 +339,79 @@ private fun DPad(onKey: (String) -> Unit) {
         Arrow(Icons.Rounded.KeyboardArrowLeft, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.dir_left"), "left", Alignment.CenterStart)
         Arrow(Icons.Rounded.KeyboardArrowRight, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.dir_right"), "right", Alignment.CenterEnd)
         val s by animateFloatAsState(if (pressed == "ok") 0.92f else 1f, spring(), label = "ok")
-        Box(Modifier.size(104.dp).scale(s).clip(CircleShape)
-            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.10f))))
-            .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape), contentAlignment = Alignment.Center) {
-            Text("OK", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Box(Modifier.size(96.dp).scale(s).clip(CircleShape).background(Tahoe.Accent), contentAlignment = Alignment.Center) {
+            Text("OK", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Tahoe.OnAccent)
         }
     }
+}
+
+/** Figma TV card: artwork area, name, status dot. The active TV is the solid (text-coloured) card. */
+@Composable
+private fun TvCardTile(name: String, status: String, dot: Color, on: Boolean, onClick: () -> Unit) {
+    val fg = if (on) Tahoe.Bg else Tahoe.Text
+    Column(Modifier.width(158.dp).clip(RoundedCornerShape(22.dp)).background(if (on) Tahoe.Text else Tahoe.Surface)
+        .border(1.dp, if (on) Color.Transparent else Tahoe.Stroke, RoundedCornerShape(22.dp)).clickable(onClick = onClick).padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.fillMaxWidth().height(74.dp).clip(RoundedCornerShape(14.dp))
+            .background(Brush.linearGradient(listOf(Color(tech.kousozo.tahoetv.core.Brand.LAKE), Color(tech.kousozo.tahoetv.core.Brand.LAKE_DEEP), Tahoe.Stage))),
+            contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Tv, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(30.dp)) }
+        Text(name, Modifier.padding(horizontal = 4.dp), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(7.dp).clip(CircleShape).background(dot)); Spacer(Modifier.width(6.dp))
+            Text(status, fontSize = 12.sp, color = fg.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Round key with a caption under it (Kembali · Beranda · Menu · Ketik). */
+@Composable
+private fun LabeledKey(icon: ImageVector, label: String, onClick: () -> Unit) = Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    RoundKey(icon, label, 52.dp, onClick = onClick)
+    Text(label, fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1)
+}
+
+/** Figma VOL / CH pill: − LABEL + side by side. */
+@Composable
+private fun PillRocker(label: String, downIcon: ImageVector, upIcon: ImageVector, down: () -> Unit, up: () -> Unit, modifier: Modifier) = Row(
+    modifier.height(48.dp).clip(RoundedCornerShape(24.dp)).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp)),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    IconButton(down) { Icon(downIcon, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.rocker_down", label), tint = Tahoe.Text) }
+    Text(label, Modifier.weight(1f), fontSize = 11.sp, color = Tahoe.Dim, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    IconButton(up) { Icon(upIcon, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.rocker_up", label), tint = Tahoe.Text) }
+}
+
+/** Pair with a 6-digit code from the TV (Pusat Kontrol → HP), for a TV on another network or without discovery. */
+@Composable
+private fun PinPairDialog(host0: String, close: () -> Unit) {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    val scope = rememberCoroutineScope()
+    var host by remember { mutableStateOf(host0) }
+    var code by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    AlertDialog(onDismissRequest = close, title = { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "remote.enter_pin")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pair_hint"), fontSize = 13.sp, color = Tahoe.Dim)
+                Field(host, { host = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.host_hint"), androidx.compose.ui.text.input.KeyboardType.Uri)
+                Field(code, { code = it.filter(Char::isDigit).take(6) }, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.code_hint"), androidx.compose.ui.text.input.KeyboardType.NumberPassword)
+            }
+        },
+        confirmButton = {
+            TextButton({
+                busy = true
+                scope.launch {
+                    val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        runCatching { TvLink.pairWithInfo(host.trim(), code, lang, android.os.Build.MODEL.orEmpty()) }
+                    }
+                    busy = false
+                    r.onSuccess { Sync.recordPaired(c, host.trim(), it); Pairing.tick++; close() }
+                    android.widget.Toast.makeText(c, r.exceptionOrNull()?.message ?: tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connected_toast"), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }, enabled = !busy && host.isNotBlank() && code.length == 6) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect")) }
+        },
+        dismissButton = { TextButton(close) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "common.cancel")) } })
 }
 
 /** Tall pill with + / − (or ∧ / ∨) and a caption in the middle. */
