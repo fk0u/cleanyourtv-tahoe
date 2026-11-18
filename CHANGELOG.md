@@ -3,6 +3,18 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
+## Belum dirilis
+
+### Baru
+- **Redesign 4.0 · 18 layar HP lanjutan mengikuti Figma (#179).**
+  - **Onboarding 3 langkah cepat:** Bahasa → Wilayah (negara & kota beserta lokasi saat ini) → Siap (mozaik saluran + tanda konfirmasi), lengkap dengan indikator progres pil dan tombol kembali melingkar.
+  - **Halaman baru di HP:** Cari saluran & acara (`SearchPage`), Hubungkan ke TV dengan radar Wi-Fi & QR/PIN (`ConnectTvPage`), Laporkan masalah beserta pilihan jenis gangguan & kirim log (`ReportPage`), Pusat bantuan dengan pencarian & FAQ (`HelpCenterPage`), Kontributor (`ContributorsPage`), Rekap bulanan (`RecapPage`), serta pembaruan Detail saluran (`ChannelScreen`).
+  - **Penyempurnaan layar HP lain:** Pengaturan baru (pencarian setelan, kartu Disarankan, 4 kelompok setelan dengan dialog pemilih), Riwayat tontonan (filter HP/TV, Hari ini/Kemarin, progres, hapus riwayat), Notifikasi (data demo otomatis), Keadaan offline dengan pintasan Watchlist, pemutar potret/lanskap (`PlayerStage` 5 tombol transport & pratinjau usap, strip saluran lain di `NowPlayingInfo`), `MiniPlayer` baru, kontras titik indikator tema terang di Beranda, serta dukungan mode demo bahasa Arab (`ar`).
+
+### Perbaikan
+- Menghapus blok setelan bahasa saluran, tampilan, dan pembaruan yang terduplikasi di `:desktop` (`SettingsScreen`).
+- Menyelaraskan tipografi hero, efek kartu kaca landing, dan versi awal di `website/` dengan token Redesign 4.0.
+
 ## 3.5.0-alpha.12
 
 **v3.500.12 Alpha Dev** · rilis uji (prerelease) redesign 4.0. Belum untuk pemakaian sehari-hari; laporkan masalah lewat Profil → Laporkan masalah.
