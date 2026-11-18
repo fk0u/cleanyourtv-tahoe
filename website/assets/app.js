@@ -285,7 +285,10 @@
         const init = escHtml((ch.name || "?").charAt(0).toUpperCase());
         const logoHtml = ch.logo ? `<img src="${escHtml(ch.logo)}" alt="" loading="lazy">` : init;
         const drmBadge = ch.drm ? '<span class="tag drm">DRM</span>' : "";
-        return `<div class="ch-card"><div class="ch-logo">${logoHtml}</div><div class="ch-meta"><b>${escHtml(ch.name)}</b><small>${escHtml(ch.group)} · <span class="tag">${escHtml(ch.format)}</span>${drmBadge}</small></div></div>`;
+        const body = `<div class="ch-logo">${logoHtml}</div><div class="ch-meta"><b>${escHtml(ch.name)}</b><small>${escHtml(ch.group)} · <span class="tag">${escHtml(ch.format)}</span>${drmBadge}</small></div>`;
+        return ch.stream
+          ? `<a class="ch-card play" href="watch?ch=${encodeURIComponent(ch.name)}">${body}<span class="play-ic" aria-hidden="true">▶</span></a>`
+          : `<div class="ch-card">${body}</div>`;
       }).join("");
     }).catch(() => {
       const grid = $("#ch-grid");

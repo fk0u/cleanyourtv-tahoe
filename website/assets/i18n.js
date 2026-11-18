@@ -1,6 +1,7 @@
 window.I18N = {
   en: {},
   id: {
+    "w.home": "Beranda", "w.pick": "Pilih saluran untuk mulai menonton.", "w.app": "Pakai aplikasi Tahoe", "w.title": "Live TV di browser", "w.sub": "Saluran publik gratis. Tanpa pasang aplikasi.", "w.prev": "Saluran sebelumnya", "w.next": "Saluran berikutnya", "w.note": "Browser hanya memutar saluran HLS terbuka. Saluran DRM, DASH, atau yang butuh header khusus diputar di aplikasi Tahoe untuk TV, HP, dan desktop.", "w.cant": "Saluran ini tidak bisa diputar di browser. Coba saluran lain, atau tonton di aplikasi Tahoe.", "w.loading": "Menghubungkan…", "w.none": "Tidak ada saluran yang cocok.", "w.offline": "Daftar saluran sedang tidak bisa dihubungi.", "w.search": "Cari saluran", "w.all": "Semua", "nav.watch": "Tonton",
     "hero.works": "Tersedia untuk", "foot.tag": "TV yang tenang dan mudah, untuk seisi rumah.", "foot.get": "Dapatkan Tahoe", "foot.community": "Komunitas", "foot.help": "Bantuan",
     "nav.features": "Fitur", "nav.explore": "Saluran", "nav.start": "Unduh", "nav.tools": "Alat & SHA-256", "nav.faq": "FAQ",
     "notice.view": "Lihat pembaruan",
@@ -96,6 +97,7 @@ window.I18N = {
     "dot.label": "Gambar ", "_docs": "docs/id/INSTALL.md", "_title": "Tahoe TV — Aplikasi TV & Live TV Gratis"
   },
   zh: {
+    "w.home": "首页", "w.pick": "选择一个频道开始观看。", "w.app": "获取 Tahoe 应用", "w.title": "浏览器里看直播", "w.sub": "免费公开频道，无需安装。", "w.prev": "上一个频道", "w.next": "下一个频道", "w.note": "浏览器只能播放开放的 HLS 频道。带 DRM、DASH 或特殊请求头的频道请在电视、手机或电脑上的 Tahoe 应用中观看。", "w.cant": "该频道无法在浏览器中播放。换一个频道，或在 Tahoe 应用中观看。", "w.loading": "正在连接…", "w.none": "没有匹配的频道。", "w.offline": "暂时无法连接频道目录。", "w.search": "搜索频道", "w.all": "全部", "nav.watch": "在线观看",
     "hero.works": "支持平台", "foot.tag": "安静、简单，全家都会用的电视。", "foot.get": "获取 Tahoe", "foot.community": "社区", "foot.help": "帮助",
     "nav.features": "功能", "nav.explore": "频道目录", "nav.start": "下载", "nav.tools": "工具与校验", "nav.faq": "常见问题",
     "notice.view": "查看更新",
@@ -128,6 +130,7 @@ window.I18N = {
     "dot.label": "截图 ", "_docs": "README.zh.md", "_title": "Tahoe TV — 免费开源智能电视桌面与直播应用"
   },
   ar: {
+    "w.home": "الرئيسية", "w.pick": "اختر قناة لبدء المشاهدة.", "w.app": "احصل على تطبيق Tahoe", "w.title": "البث المباشر في متصفحك", "w.sub": "قنوات عامة مجانية. لا حاجة للتثبيت.", "w.prev": "القناة السابقة", "w.next": "القناة التالية", "w.note": "يشغّل المتصفح قنوات HLS المفتوحة فقط. القنوات ذات DRM أو DASH أو الترويسات الخاصة تعمل في تطبيق Tahoe على التلفاز والهاتف والحاسوب.", "w.cant": "لا تعمل هذه القناة في المتصفح. جرّب قناة أخرى أو شاهدها في تطبيق Tahoe.", "w.loading": "جارٍ الاتصال…", "w.none": "لا توجد قنوات مطابقة.", "w.offline": "دليل القنوات غير متاح الآن.", "w.search": "ابحث عن قناة", "w.all": "الكل", "nav.watch": "شاهد",
     "hero.works": "متوفر على", "foot.tag": "تلفاز هادئ وبسيط لكل العائلة.", "foot.get": "احصل على Tahoe", "foot.community": "المجتمع", "foot.help": "المساعدة",
     "nav.features": "الميزات", "nav.explore": "القنوات", "nav.start": "تنزيل", "nav.tools": "الأدوات و SHA-256", "nav.faq": "الأسئلة الشائعة",
     "notice.view": "عرض التحديث",

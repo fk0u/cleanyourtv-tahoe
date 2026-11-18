@@ -179,6 +179,9 @@ textarea.input { width: 100%; min-height: 110px; resize: vertical; font-family: 
 .chip-btn.on { background: var(--cyan); color: #050811; border-color: var(--cyan); font-weight: 700; }
 .channel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .ch-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: var(--surface); border: 1px solid rgba(255,255,255,.08); transition: border-color var(--motion-fast) var(--ease), transform var(--motion-fast) var(--ease); }
+a.ch-card { text-decoration: none; }
+.play-ic { color: var(--cyan); font-size: 14px; }
+[dir="rtl"] .play-ic { transform: scaleX(-1); }
 .ch-card:hover { border-color: rgba(92,208,255,.5); transform: translateY(-2px); }
 .ch-logo { width: 48px; height: 48px; border-radius: 10px; background: rgba(255,255,255,.08); display: grid; place-items: center; overflow: hidden; flex-shrink: 0; font-weight: 700; color: var(--cyan); }
 .ch-logo img { width: 100%; height: 100%; object-fit: contain; background: #fff; padding: 3px; }
@@ -239,6 +242,37 @@ details p { color: var(--text2); margin: 10px 0 0; }
 .footer nav a:hover { color: var(--cyan); }
 .footer .fine { font-size: 12px; max-width: 1200px; margin: 40px auto 0; padding-top: 20px; border-top: 1px solid rgba(255,255,255,.06); }
 @media (max-width: 760px) { .foot-grid { grid-template-columns: 1fr 1fr; } .foot-brand { grid-column: 1 / -1; } }
+
+/* web player (/watch) */
+.watch { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; max-width: 1400px; margin: 0 auto; padding: 24px clamp(16px, 4vw, 48px) 0; align-items: start; }
+.screen { position: relative; aspect-ratio: 16/9; border-radius: var(--radius); overflow: hidden; background: var(--night); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 30px 90px rgba(0,0,0,.55); }
+.screen video { width: 100%; height: 100%; background: var(--night); display: block; }
+.screen:fullscreen { border-radius: 0; border: 0; }
+.screen-msg { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 24px; text-align: center; color: var(--text2); font-size: 17px;
+  background: radial-gradient(closest-side, rgba(92,208,255,.14), transparent), var(--night); }
+.screen-msg p { margin: 0; max-width: 30em; }
+.now { display: flex; align-items: center; gap: 16px; margin: 18px 0 8px; }
+.now .ch-logo { width: 64px; height: 64px; border-radius: 16px; font-size: 22px; }
+.now-meta { flex: 1; min-width: 0; }
+.now .ch-logo, .now-actions { flex-shrink: 0; }
+.now-meta h1 { font-size: clamp(24px, 3vw, 34px); font-weight: 700; margin: 4px 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.now-meta p { margin: 0; color: var(--text3); font-size: 15px; }
+.now-actions { display: flex; gap: 10px; }
+.live-badge { display: inline-flex; align-items: center; gap: 6px; font: 700 12px Outfit, sans-serif; letter-spacing: .08em; color: var(--live); }
+.live-badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--live); animation: pulse-live 2s infinite; }
+@keyframes pulse-live { 50% { opacity: .35; } }
+.guide { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 96px); }
+.guide .input { width: 100%; }
+.guide .pills-row { margin-bottom: 0; }
+.w-list { list-style: none; margin: 0; padding: 0 4px 0 0; overflow-y: auto; display: grid; gap: 6px; }
+.w-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: transparent; border: 1px solid transparent; color: var(--text); text-align: start; font: inherit; cursor: pointer;
+  transition: background var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease); }
+.w-row:hover { background: var(--surface); }
+.w-row.on { background: var(--surface-hi); border-color: rgba(92,208,255,.55); }
+.w-row.off { opacity: .55; }
+.w-row:active { transform: scale(.97); transition-duration: 120ms; }
+.watch-page .footer { margin-top: 60px; padding-top: 24px; }
+@media (max-width: 960px) { .watch { grid-template-columns: minmax(0, 1fr); } .guide { position: static; max-height: none; } .w-list { max-height: 60vh; } }
 
 /* admin layout */
 .admin-wrap { max-width: 1260px; margin: 0 auto; padding: 32px clamp(16px, 4vw, 48px) 80px; }

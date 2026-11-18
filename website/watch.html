@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Watch · Tahoe TV</title>
+<meta name="description" content="Watch free public live TV channels in your browser with Tahoe TV.">
+<meta name="theme-color" content="#07080D">
+<link rel="icon" href="assets/logo-mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/js-on.js"></script>
+</head>
+<body class="watch-page">
+<header class="nav">
+  <a class="brand" href="./"><img src="assets/logo-mark.svg" alt="" width="28" height="28"><span>Tahoe TV</span></a>
+  <nav class="links">
+    <a href="./" data-i18n="w.home">Home</a>
+    <a href="./#start" data-i18n="nav.start">Download</a>
+  </nav>
+  <div class="nav-right">
+    <div class="lang" role="group" aria-label="Language">
+      <button data-lang="en">EN</button><button data-lang="id">ID</button><button data-lang="zh">中文</button><button data-lang="ar">العربية</button>
+    </div>
+  </div>
+</header>
+
+<main class="watch">
+  <section class="stage" aria-labelledby="w-name">
+    <div class="screen" id="screen">
+      <video id="video" playsinline controls preload="none"></video>
+      <div class="screen-msg" id="screen-msg">
+        <p id="msg-text" data-i18n="w.pick">Pick a channel to start watching.</p>
+        <a class="btn ghost small" id="msg-app" href="./#start" hidden data-i18n="w.app">Get the Tahoe app</a>
+      </div>
+    </div>
+    <div class="now">
+      <div class="ch-logo" id="w-logo" aria-hidden="true">▶</div>
+      <div class="now-meta">
+        <span class="live-badge" id="w-live" hidden><i></i>LIVE</span>
+        <h1 id="w-name" data-i18n="w.title">Live TV in your browser</h1>
+        <p id="w-group" data-i18n="w.sub">Free public channels. Nothing to install.</p>
+      </div>
+      <div class="now-actions">
+        <button class="round" id="w-prev" type="button" data-i18n-label="w.prev" aria-label="Previous channel"><span aria-hidden="true">‹</span></button>
+        <button class="round" id="w-next" type="button" data-i18n-label="w.next" aria-label="Next channel"><span aria-hidden="true">›</span></button>
+      </div>
+    </div>
+    <p class="dl-sub" data-i18n="w.note">The browser plays open HLS channels only. Channels with DRM, DASH or special headers play in the Tahoe app for TV, phone and desktop.</p>
+  </section>
+
+  <aside class="guide" aria-label="Channels">
+    <input class="input" id="w-search" type="search" placeholder="Search channels" aria-label="Search channels">
+    <div class="pills-row" id="w-groups"></div>
+    <ol class="w-list" id="w-list"><li class="dl-sub" data-i18n="exp.loading">Loading public directory…</li></ol>
+  </aside>
+</main>
+
+<footer class="footer">
+  <p class="fine" data-i18n="foot.fine">Independent open-source project; not an Apple product or affiliated with Apple Inc. Tahoe hosts no streams.</p>
+</footer>
+
+<script src="assets/i18n.js"></script>
+<script src="assets/watch.js"></script>
+</body>
+</html>
