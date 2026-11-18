@@ -9,7 +9,7 @@ object I18n {
     private val EN = mapOf(
         "nav.home" to "Home",
         "nav.live" to "Live TV",
-        "nav.live_short" to "Live",
+        "nav.live_short" to "Live TV",
         "nav.recordings" to "Recordings",
         "nav.tv" to "Home TV",
         "nav.remote" to "Remote",
@@ -25,6 +25,14 @@ object I18n {
         "greet.subtitle" to "%s · what do you feel like watching today?",
 
         "home.search_hint" to "Search channels or shows…",
+
+        "remote.found_fmt" to "Wi-Fi · %d TV found automatically", "remote.nocode_note" to "One phone can control every TV on the same Wi-Fi, no code needed.", "remote.controlling" to "Controlling", "remote.connected" to "Connected", "remote.tap_control" to "Tap to control", "remote.tap_connect" to "Tap to connect", "remote.other_net_title" to "TV on another network?", "remote.other_net_desc" to "On a different Wi-Fi, connect once with the QR or the 6-digit PIN from the TV.", "remote.qr_short" to "Scan QR", "remote.enter_pin" to "Enter PIN", "remote.install_sub" to "Over Wi-Fi, no cable or laptop", "remote.type" to "Type", "remote.speak" to "Speak to the TV",
+
+        "watchlist.channels" to "Channels", "watchlist.channel" to "Channel",
+
+        "live.for_you" to "Picked for you",
+
+        "home.what_to_watch" to "What do you want to watch?", "home.on_now_fmt" to "On now · %s",
         "home.watch_live" to "Watch Live",
         "home.weather" to "Weather",
         "home.watch" to "Watch",
@@ -1045,7 +1053,7 @@ object I18n {
     private val ID = mapOf(
         "nav.home" to "Beranda",
         "nav.live" to "TV Live",
-        "nav.live_short" to "Live",
+        "nav.live_short" to "Live TV",
         "nav.recordings" to "Rekaman",
         "nav.tv" to "TV Rumah",
         "nav.remote" to "Remote",
@@ -1061,6 +1069,14 @@ object I18n {
         "greet.subtitle" to "%s · mau nonton apa hari ini?",
 
         "home.search_hint" to "Cari saluran atau acara…",
+
+        "remote.found_fmt" to "Wi-Fi · %d TV ditemukan otomatis", "remote.nocode_note" to "Satu HP bisa mengontrol semua TV di Wi-Fi yang sama, tanpa kode.", "remote.controlling" to "Mengontrol", "remote.connected" to "Terhubung", "remote.tap_control" to "Ketuk untuk kontrol", "remote.tap_connect" to "Ketuk untuk sambungkan", "remote.other_net_title" to "TV di jaringan lain?", "remote.other_net_desc" to "Kalau beda Wi-Fi, sambungkan sekali dengan QR atau PIN 6 digit dari TV.", "remote.qr_short" to "Scan QR", "remote.enter_pin" to "Masukkan PIN", "remote.install_sub" to "Lewat Wi-Fi, tanpa kabel atau laptop", "remote.type" to "Ketik", "remote.speak" to "Bicara ke TV",
+
+        "watchlist.channels" to "Saluran", "watchlist.channel" to "Saluran",
+
+        "live.for_you" to "Pilihan untukmu",
+
+        "home.what_to_watch" to "Mau nonton apa?", "home.on_now_fmt" to "Sedang tayang · %s",
         "home.watch_live" to "Tonton Live",
         "home.weather" to "Cuaca",
         "home.watch" to "Tonton",
@@ -2097,6 +2113,14 @@ object I18n {
         "greet.subtitle" to "%s · 今天想看什么？",
 
         "home.search_hint" to "搜索频道或节目…",
+
+        "remote.found_fmt" to "Wi-Fi · 自动发现 %d 台电视", "remote.nocode_note" to "同一 Wi-Fi 下，一部手机即可控制所有电视，无需输入代码。", "remote.controlling" to "正在控制", "remote.connected" to "已连接", "remote.tap_control" to "点按以控制", "remote.tap_connect" to "点按以连接", "remote.other_net_title" to "电视在其他网络？", "remote.other_net_desc" to "不在同一 Wi-Fi 时，用电视上的二维码或 6 位 PIN 连接一次即可。", "remote.qr_short" to "扫描二维码", "remote.enter_pin" to "输入 PIN", "remote.install_sub" to "通过 Wi-Fi，无需数据线或电脑", "remote.type" to "输入", "remote.speak" to "对电视说话",
+
+        "watchlist.channels" to "频道", "watchlist.channel" to "频道",
+
+        "live.for_you" to "为你推荐",
+
+        "home.what_to_watch" to "想看点什么？", "home.on_now_fmt" to "正在播出 · %s",
         "home.watch_live" to "观看直播",
         "home.weather" to "天气",
         "home.watch" to "观看",
