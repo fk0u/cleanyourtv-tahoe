@@ -1,0 +1,540 @@
+/*
+ * Tahoe TV redesign 4.0 · Figma "📱 Mobile" page (node 7:48) · CSS from Figma Dev Mode
+ * File: https://www.figma.com/design/W3FBycV5KKVCD5RWHDk3kV/tahoeApp · exported 2026-11-18
+ *
+ * How this file is laid out
+ *   1. Tokens (the values Figma repeats everywhere).
+ *   2. Shared components, defined ONCE (Dock, Chip, Live Badge, Button, Icon Button, Channel Card, Poster Card,
+ *      Mini Player, Settings group/row, Switch, Back button, Search field, Option card, Steps, Section eyebrow).
+ *      Figma repeated these on every screen with identical values; screens below say "→ Dock" etc. instead.
+ *   3. Screens, in Figma order, with every value that is unique to the screen (position, size, copy, colour).
+ *
+ * Units are Figma px = Android dp (frame 390 × 844). "url(.jpg)" = a photo fill in Figma (stock image, design only):
+ * in the app that slot is ChannelArt (channel colour gradient + logo), see docs/HANDOFF-GEMINI.md §7.
+ * Labels marked † are NOT in the exported CSS (only the box width is): they are a best guess, check the Figma frame.
+ * Icons are Lucide-style 2 px strokes; map them to the nearest Material Rounded icon.
+ * Implementation notes for the Compose app: companion/src/main/java/tech/kousozo/tahoetv/Ui.kt already has
+ * Chip, PillButton (Primary), GlassPill (Glass), RoundGlass (Icon Button), LiveBadge, ProgressBar.
+ */
+
+/* ============================================================== 1. tokens */
+:root {
+  /* dark (default) */
+  --bg-canvas: #0D0F14;          /* home, live tv */
+  --bg-night: #07080D;           /* remote, watchlist, profil, pengaturan, onboarding, sub-pages */
+  --bg-surface: #191C23;
+  --bg-surface-hi: #242833;
+  --bg-glass: rgba(255, 255, 255, 0.09);
+  --bg-glass-2: rgba(255, 255, 255, 0.08);   /* remote keys, rockers, icon discs */
+  --bg-glass-3: rgba(255, 255, 255, 0.10);   /* back button, dock active tab, "Tentang" */
+  --border-stroke: rgba(255, 255, 255, 0.20);
+  --border-card: rgba(255, 255, 255, 0.06);  /* surface cards (groups, panels) */
+  --border-key: rgba(255, 255, 255, 0.10);   /* remote keys */
+  --text-primary: #F7F8FA;
+  --text-secondary: rgba(247, 248, 250, 0.80);
+  --text-tertiary: rgba(247, 248, 250, 0.62);
+  --accent: #5CD0FF;
+  --on-accent: #04202D;
+  --accent-glow: rgba(99, 209, 255, 0.35);
+  --accent-soft: rgba(99, 209, 255, 0.16);
+  --warm: #FF8A5C;
+  --warm-soft: rgba(255, 138, 92, 0.16);
+  --live: #FF453A;
+  --live-soft: rgba(255, 69, 59, 0.16);
+  --success: #30D158;
+  --success-soft: rgba(48, 209, 89, 0.12);   /* 0.16–0.18 on icon discs */
+  --favorite: #FFD60A;
+  --favorite-soft: rgba(255, 214, 10, 0.16);
+  --scrim-photo: #0E0F13;
+  --radius-pill: 999px;
+  --radius-m: 18px;
+  --frame-radius: 44px;                       /* device frame only */
+
+  /* type styles (font: Outfit) */
+  --display-l: 700 40px/110% Outfit;    /* letter-spacing -0.02em */
+  --title: 600 32px/115% Outfit;        /* letter-spacing -0.02em */
+  --headline: 600 20px/125% Outfit;     /* letter-spacing -0.01em */
+  --body: 400 16px/145% Outfit;
+  --body-strong: 500 16px/145% Outfit;
+  --label: 500 14px/130% Outfit;        /* letter-spacing 0.01em */
+  --caption: 400 12px/130% Outfit;      /* letter-spacing 0.01em */
+  --eyebrow: 600 11px/120% Outfit;      /* letter-spacing 0.12em; text-transform: uppercase */
+}
+
+/* light theme (only "Beranda (tema terang)" uses it) */
+:root[data-theme="light"] {
+  --bg-canvas: #F6F7F9;
+  --text-primary: #0B0C10;
+  --text-secondary: rgba(11, 12, 16, 0.80);
+  --text-tertiary: rgba(11, 12, 16, 0.62);
+  --bg-glass: rgba(14, 15, 19, 0.06);
+  --border-stroke: rgba(11, 12, 16, 0.16);
+  --accent: #0062A3;
+  --live: #D92D20;
+  /* dock bar #FFFFFF; mini player #ECEFF4; Primary button bg #0B0C10 with #F6F7F9 label;
+     remote button bg #0062A3, border 5px #F6F7F9, icon #FFFFFF */
+}
+
+/* ============================================================== 2. shared components */
+
+/* Icon Button · 48 × 48 */
+.icon-button { box-sizing: border-box; display: flex; justify-content: center; align-items: center;
+  width: 48px; height: 48px; background: var(--bg-glass); border: 1px solid var(--border-stroke); border-radius: 999px; }
+.icon-button > .icon { width: 22px; height: 22px; /* stroke 2px var(--text-primary) */ }
+
+/* Back button (sub-pages) · 44 × 44, no border */
+.back { display: flex; justify-content: center; align-items: center; width: 44px; height: 44px;
+  background: rgba(255, 255, 255, 0.10); border-radius: 999px; }
+.back > .icon { width: 20px; height: 20px; /* chevron-left, stroke 2px #F7F8FA */ }
+
+/* Button · "Primary CTA (white), Accent (Tahoe cyan) and Glass (secondary over imagery)" */
+.button { display: flex; flex-direction: row; align-items: center; gap: 10px;
+  padding: 12px 24px 12px 20px; height: 47px; border-radius: 999px; font: var(--body-strong); }
+.button > .icon { width: 18px; height: 18px; }          /* hidden (display:none) when there is no icon */
+.button.primary { background: #F7F8FA; color: #0D0F14; } /* icon fill #0D0F14 */
+.button.accent  { background: #5CD0FF; color: #04202D; } /* icon fill #04202D */
+.button.glass   { box-sizing: border-box; height: 49px; background: var(--bg-glass);
+  border: 1px solid var(--border-stroke); color: #F7F8FA; }
+.button.full    { width: 350px; justify-content: center; }  /* footers of onboarding / forms */
+
+/* Chip */
+.chip { display: flex; padding: 8px 16px; border-radius: 999px; font: var(--label); letter-spacing: 0.01em; }
+.chip.default  { box-sizing: border-box; height: 36px; background: var(--bg-glass);
+  border: 1px solid var(--border-stroke); color: var(--text-secondary); }
+.chip.selected { height: 34px; background: #F7F8FA; color: #0D0F14; }
+.chip-row { display: flex; gap: 8px; }                   /* scrolls horizontally past the frame */
+
+/* Live Badge · "Red LIVE pill for channels on air." · 58 × 21 */
+.live-badge { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px;
+  background: #FF453A; border-radius: 999px; }
+.live-badge > .dot { width: 6px; height: 6px; border-radius: 50%; background: #FFFFFF; }
+.live-badge > .text { font: var(--eyebrow); letter-spacing: 0.12em; text-transform: uppercase; color: #FFFFFF; } /* "LIVE" */
+/* small variant on 96 × 56 thumbnails: padding 3.4px 8.5px 3.4px 6.8px; gap 5.1px; dot 5.1px; text 9.35px; at left 6px top 6px */
+
+/* Progress Bar */
+.progress { height: 4px; background: rgba(255, 255, 255, 0.20); border-radius: 2px; position: relative; }
+.progress > .fill { position: absolute; left: 0; top: 0; height: 4px; background: #5CD0FF; border-radius: 2px; }
+
+/* Section eyebrow (group titles: AKTIVITAS, HARI INI, …) */
+.eyebrow { font: var(--eyebrow); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); }
+
+/* Section header (row): Headline left, "Lihat semua" Label secondary right */
+.section-header { display: flex; justify-content: space-between; align-items: center; height: 25px; }
+.section-header > .title { font: var(--headline); letter-spacing: -0.01em; color: #F7F8FA; }
+.section-header > .link  { font: var(--label); letter-spacing: 0.01em; color: var(--text-secondary); }
+
+/* Channel Card · "Live channel tile: 16:9 artwork, LIVE badge, channel wordmark, programme progress, title + time." */
+.channel-card { display: flex; flex-direction: column; gap: 10px; width: 280px; height: 211px; }
+.channel-card > .thumbnail { position: relative; width: 280px; height: 158px; border-radius: 18px; background: url(.jpg); overflow: hidden; }
+.channel-card .scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.7) 100%); }
+.channel-card .live-badge { position: absolute; left: 12px; top: 12px; }
+.channel-card .logo { position: absolute; left: 14px; top: 118px; font: var(--headline); letter-spacing: -0.01em; color: #FFFFFF; } /* channel name */
+.channel-card .progress { position: absolute; left: 14px; top: 146px; width: 252px; }                                            /* fill e.g. 96px */
+.channel-card .meta { display: flex; flex-direction: column; gap: 2px; }
+.channel-card .meta > .title    { font: var(--body-strong); color: #F7F8FA; }           /* programme */
+.channel-card .meta > .subtitle { font: var(--label); letter-spacing: 0.01em; color: var(--text-secondary); } /* "Berita · sisa 22 mnt" */
+
+/* Poster Card (Live TV "Pilihan untukmu") · 150 × 251 */
+.poster-card { display: flex; flex-direction: column; gap: 8px; width: 150px; }
+.poster-card > .poster { position: relative; width: 150px; height: 220px; border-radius: 16px; background: url(.jpg); }
+.poster-card .category { position: absolute; left: 12px; top: 190px; font: var(--eyebrow); letter-spacing: 0.12em; text-transform: uppercase; color: #FFFFFF; }
+.poster-card > .title { font: var(--body-strong); color: #F7F8FA; }
+
+/* Category tile (Live TV "Kategori") · flex 1 × 96, two per row, gap 12 */
+.category-tile { display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 14px 14px;
+  height: 96px; border-radius: 18px; background: url(.jpg); font: var(--body-strong); color: #FFFFFF; }
+
+/* Dock · "Mobile bottom dock: Beranda · Live TV · Remote (raised round, opens multi-TV remote & install) · Watchlist · Profil." */
+.dock { position: absolute; left: 16px; width: 358px; height: 92px; /* top = frame height − 110px */ }
+.dock > .bar { box-sizing: border-box; position: absolute; left: 0; top: 24px; width: 358px; height: 68px;
+  display: flex; justify-content: space-between; align-items: center; padding: 0 14px;
+  background: #191C23; border: 1px solid rgba(255, 255, 255, 0.20); border-radius: 999px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4); backdrop-filter: blur(15px); }
+.dock .tab { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px;
+  padding: 6px 10px; width: 62px; height: 52px; border-radius: 999px;
+  font: var(--caption); letter-spacing: 0.01em; color: var(--text-tertiary); }      /* icon 22px, stroke = text colour */
+.dock .tab.active { background: rgba(255, 255, 255, 0.10); color: #F7F8FA; }
+.dock .remote-slot { width: 64px; height: 10px; }                                     /* order: Beranda, Live TV, slot, Watchlist, Profil */
+.dock > .remote { position: absolute; left: 145px; top: 0; width: 68px; height: 68px;
+  display: flex; justify-content: center; align-items: center;
+  background: #5CD0FF; border: 5px solid #0D0F14; border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(99, 209, 255, 0.35); }                                  /* 0.65 on the Remote screen itself */
+.dock > .remote > .icon { width: 28px; height: 28px; /* remote, stroke 2px #04202D */ }
+
+/* Mini Player · 358 × 68, sits at frame height − 186px (top 658 on 844) */
+.mini-player { box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 8px;
+  width: 358px; height: 68px; background: #242833; border: 1px solid rgba(255, 255, 255, 0.20);
+  border-radius: 22px; backdrop-filter: blur(15px); }
+.mini-player > .thumb { width: 88px; height: 50px; border-radius: 14px; background: url(.jpg); }
+.mini-player > .meta { flex-grow: 1; display: flex; flex-direction: column; gap: 2px; }
+.mini-player .title { font: var(--body-strong); color: #F7F8FA; }                     /* "Liga 1: Persib vs Persija" */
+.mini-player .subtitle { font: var(--label); letter-spacing: 0.01em; color: var(--text-secondary); } /* "SCTV · LIVE" */
+.mini-player > .play { width: 24px; height: 24px; /* filled #F7F8FA */ }
+.mini-player > .next { width: 22px; height: 22px; /* skip-forward, stroke rgba(247,248,250,0.8) */ }
+
+/* Settings group + row (Profil, Pengaturan) */
+.group { box-sizing: border-box; display: flex; flex-direction: column; padding: 6px 4px; width: 358px;
+  background: #191C23; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 28px; }
+.row { display: flex; align-items: center; gap: 14px; padding: 12px 14px; height: 64px; }
+.row > .icon-disc { display: flex; justify-content: center; align-items: center; width: 40px; height: 40px;
+  border-radius: 999px; background: rgba(255, 255, 255, 0.08); }                     /* icon 20px stroke #F7F8FA */
+.row > .title { flex-grow: 1; font: var(--body-strong); color: #F7F8FA; }
+.row > .value { font: var(--label); letter-spacing: 0.01em; color: var(--text-secondary); }   /* "Gelap", "2 terhubung" */
+.row > .chevron { width: 18px; height: 18px; /* chevron-right, stroke rgba(247,248,250,0.62) */ }
+/* tinted disc variants: star → bg rgba(255,214,10,0.16) icon #FFD60A; suggestion → bg rgba(99,209,255,0.16) icon #5CD0FF */
+
+/* Switch · 52 × 32 */
+.switch { position: relative; width: 52px; height: 32px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); }
+.switch > .knob { position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: rgba(247, 248, 250, 0.8); }
+.switch.on { background: #5CD0FF; }
+.switch.on > .knob { left: 23px; background: #04202D; }
+
+/* Search field · Live TV variant (radius 16, hairline) */
+.search { box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 14px 16px; height: 53px;
+  background: #191C23; border: 1px solid rgba(255, 255, 255, 0.20); border-radius: 16px;
+  font: var(--body); color: var(--text-tertiary); }                                   /* icon 20px */
+/* Search field · pill variant (Pengaturan, Onboarding 2, Pusat bantuan): no border */
+.search.pill { padding: 15px 18px; border: 0; border-radius: 999px; }                 /* icon 18px */
+/* Search field · active (Cari): height 56, border 1.5px solid #5CD0FF, text #F7F8FA, clear icon 18px */
+
+/* Option card (onboarding choices) */
+.option { box-sizing: border-box; display: flex; align-items: center; gap: 14px; padding: 16px 18px; width: 350px;
+  height: 60px; background: #191C23; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 22px; }
+.option > .label { flex-grow: 1; font: var(--body-strong); color: #F7F8FA; }          /* optional Caption sub-line below */
+.option > .radio { width: 26px; height: 26px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.option.selected { height: 62px; background: rgba(255, 255, 255, 0.10); border: 2px solid #5CD0FF; }
+.option.selected > .radio { background: #5CD0FF; /* check 16px stroke #04202D */ }
+
+/* Steps (onboarding) */
+.steps { display: flex; gap: 6px; }
+.steps > i { width: 8px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.20); }
+.steps > i.done { background: #5CD0FF; }
+.steps > i.current { width: 28px; background: #5CD0FF; }
+
+/* Media row (Riwayat, Cari, Player "saluran lain", Watchlist) */
+.media-row { display: flex; align-items: center; gap: 12px; }
+.media-row > .thumb { border-radius: 14px; background: url(.jpg); }                  /* 112×64 riwayat · 110×62 player · 88×52 cari (r12) · 96×56 watchlist */
+.media-row .title { font: var(--body-strong); color: #F7F8FA; }
+.media-row .sub { font: var(--caption); letter-spacing: 0.01em; color: var(--text-secondary); }
+
+/* ============================================================== 3. screens */
+
+/* ---------------- Mobile / Home · slide 1 (10:2) · 390 × 844 · bg #0D0F14 */
+.home .hero { position: absolute; left: 0; top: 0; width: 390px; height: 520px; background: url(.jpg); }
+.home .hero .scrim { position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(14,15,19,0.7) 0%, rgba(14,15,19,0.15) 25%, rgba(14,15,19,0.35) 50%, #0E0F13 100%); }
+.home .top-bar { position: absolute; left: 20px; top: 58px; width: 350px; height: 48px; display: flex; align-items: center; gap: 10px; }
+.home .top-bar .greeting { font: var(--label); letter-spacing: 0.01em; color: var(--text-secondary); }  /* "Selamat malam" */
+.home .top-bar .question { font: var(--headline); letter-spacing: -0.01em; color: #F7F8FA; }           /* "Mau nonton apa?" */
+/* then → Icon Button (search), → Icon Button (bell) */
+.home .hero-copy { position: absolute; left: 20px; top: 236px; width: 350px; display: flex; flex-direction: column; gap: 12px; }
+/*   row gap 8: → Live Badge + "Sedang tayang · TVRI Nasional" (Label, secondary)
+     title: "Dunia Dalam Berita" Display/L #F7F8FA (2 lines, 232 × 88)
+     body: "Rangkuman berita nasional dan internasional malam ini, langsung dari studio TVRI Jakarta." Body secondary, 350 wide
+     buttons gap 10: → Button.primary "Tonton" (play icon, 122 × 47) + → Button.glass "Favorit" (no icon, 98 × 49) */
+.home .pager { position: absolute; left: 20px; top: 500px; display: flex; gap: 6px; }
+.home .pager > i { width: 6px; height: 6px; border-radius: 3px; background: rgba(247, 248, 250, 0.62); }
+.home .pager > i.on { width: 24px; background: #F7F8FA; }
+.home .body { position: absolute; left: 20px; top: 536px; width: 370px; display: flex; flex-direction: column; gap: 24px; }
+/*   → chip-row: Semua (selected), Berita, Olahraga, Film, Anak, Religi
+     "Continue watching" column gap 12: → Section header "Lanjutkan menonton" / "Lihat semua" (padding-right 20)
+     row gap 12: → Channel Card ×3: RCTI "Seputar iNews Pagi" "Berita · sisa 22 mnt"; Kompas TV "Kompas Petang"
+     "Berita · sisa 41 mnt"; TVRI "Liga Nusantara" "Olahraga · LIVE" */
+/* → Mini Player at left 16 top 658 ("Liga 1: Persib vs Persija" / "SCTV · LIVE"); → Dock at top 734, Beranda active */
+
+/* ---------------- Mobile / Home · slide 2 (24:258): same as slide 1 except
+   "Sedang tayang · SCTV", title "Liga 1: Persib vs Persija" (227 × 88), body "Babak kedua, skor 1–1. Ketuk Tonton untuk
+   masuk ke siaran langsung.", pager second dot is the 24px one. */
+
+/* ---------------- Mobile / Beranda (tema terang) (30:823): slide 1 with light tokens
+   bg #F6F7F9; scrim linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 30%, rgba(246,247,249,0.4) 62%, #F6F7F9 100%);
+   greeting + question #FFFFFF; icon buttons bg rgba(14,15,19,0.06) border rgba(11,12,16,0.16) icon #0B0C10;
+   live badge #D92D20; "Sedang tayang" + body rgba(255,255,255,0.85); title #FFFFFF;
+   Primary button bg #0B0C10 label/icon #F6F7F9; Glass button bg rgba(14,15,19,0.06) border rgba(11,12,16,0.16) label #0B0C10;
+   pager #0B0C10 / rgba(11,12,16,0.62); chip selected bg #0B0C10 label #F6F7F9, default label rgba(11,12,16,0.8);
+   section title #0B0C10; progress fill #0062A3; card title #0B0C10 sub rgba(11,12,16,0.8);
+   dock bar #FFFFFF border rgba(11,12,16,0.16), active label/icon #0B0C10, others rgba(11,12,16,0.62);
+   remote button #0062A3 border 5px #F6F7F9 icon #FFFFFF; mini player #ECEFF4 border rgba(11,12,16,0.16), text #0B0C10. */
+
+/* ---------------- Mobile / Live TV (10:125) · bg #0D0F14 */
+.live .body { position: absolute; left: 20px; top: 60px; width: 350px; display: flex; flex-direction: column; gap: 24px; }
+/*   "Live TV" Title (32/115%, -0.02em)
+     → Search (Live TV variant) "Cari saluran, acara, atau kategori"
+     → chip-row: Nasional, Daerah (selected), Berita, Olahraga, Film
+     "Recommended" gap 12: → Section header "Pilihan untukmu" / "Lihat semua"; posters gap 12:
+        → Poster Card OLAHRAGA "Liga 1 Live", FILM "Film Malam", ANAK "Si Kancil"
+     "Categories grid" gap 12: Headline "Kategori"; 2 rows of → Category tile: Berita, Olahraga / Anak & Animasi, Religi */
+/* → Dock top 734, Live TV active (no mini player) */
+
+/* ---------------- Mobile / Player (landscape) (11:66) · 844 × 390 · bg #07080D */
+.player-land .video { position: absolute; inset: 0; background: url(.jpg); }
+.player-land .scrim { position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.1) 35%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.75) 100%); }
+.player-land .now { position: absolute; left: 48px; top: 28px; display: flex; gap: 14px; }
+/*   chevron-down 24px white; column gap 4: [→ Live Badge + "SEDANG TAYANG · TVRI" Eyebrow rgba(255,255,255,0.8)]
+     "Dunia Dalam Berita" Headline #FFFFFF; "19.00 – 20.00 · Berita" Label rgba(255,255,255,0.7) */
+.player-land .actions { position: absolute; left: 640px; top: 36px; display: flex; gap: 20px; }  /* 4 icons 24px white: subtitles, cast, pip, settings */
+.player-land .transport { position: absolute; left: 232px; top: 159px; display: flex; align-items: center; gap: 48px; }
+/*   previous (28, filled), rewind-10 (30), play button, forward-10 (30), next (28, filled) */
+.player-land .play { box-sizing: border-box; width: 72px; height: 72px; border-radius: 999px;
+  background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35); backdrop-filter: blur(10px); } /* play 30 filled white */
+.player-land .swipe-preview { position: absolute; left: 634px; top: 150px; display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: rgba(0,0,0,0.55); opacity: 0.95; border-radius: 14px; }
+/*   thumb 56 × 32 r8; "Berikutnya" Caption rgba(255,255,255,0.7); "RCTI · Liga 1" Label #FFFFFF */
+.player-land .seek { position: absolute; left: 48px; top: 300px; width: 748px; display: flex; flex-direction: column; gap: 10px; }
+/*   row space-between: "19.32" Label #FFFFFF · "TAHAN & GESER UNTUK MUNDUR" Eyebrow rgba(255,255,255,0.6) · "LIVE −0:08" Label rgba(255,255,255,0.8)
+     → Progress 748 wide */
+
+/* ---------------- Mobile / Detail saluran (11:121) · bg #0D0F14 */
+.detail .header-art { position: absolute; left: 0; top: 0; width: 390px; height: 360px; background: url(.jpg); }
+.detail .header-art::after { background: linear-gradient(180deg, rgba(14,15,19,0) 30%, #0E0F13 100%); }
+.detail .back { position: absolute; left: 16px; top: 56px; /* → Icon Button 48 with chevron-left #FFFFFF */ }
+.detail .body { position: absolute; left: 20px; top: 220px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   logo tile 84 × 84 #FFFFFF r24 with "TVRI" Headline #0D0D12
+     "TVRI Nasional" Title
+     row gap 8: → Live Badge + "Nasional · 3 sumber · HD" Label secondary
+     row gap 10: → Button.accent "Tonton sekarang"† (play icon, 191 × 47) + Icon Button (heart) + Icon Button (record) */
+.detail .now-next { box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; padding: 18px; width: 350px;
+  background: #191C23; border: 1px solid rgba(255,255,255,0.20); border-radius: 22px; }
+/*   "SEDANG TAYANG" Eyebrow #5CD0FF; "Dunia Dalam Berita" Headline; → Progress 312; "19.00 – 20.00 · sisa 28 menit" Label secondary;
+     divider 1px rgba(255,255,255,0.2); "BERIKUTNYA" Eyebrow tertiary;
+     rows gap 16: time Body/Strong secondary + title Body #F7F8FA:
+     "20.00 Klik Indonesia Malam", "21.00 Film Nasional: Laskar Pelangi", "23.00 Berita Tengah Malam" */
+
+/* ---------------- Mobile / Remote (19:133) · 390 × 1236 · bg #07080D */
+.remote .body { position: absolute; left: 16px; top: 60px; width: 358px; display: flex; flex-direction: column; gap: 16px; }
+/*   header 64: column gap 2 ["Remote" Display/L; row gap 6: wifi 14px stroke #30D158 + "Wi-Fi Rumah · 3 TV ditemukan otomatis"
+     Label secondary] + add button 48 (bg rgba(255,255,255,0.08), border rgba(255,255,255,0.1), plus 22px) */
+.remote .tv-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; width: 150px; border-radius: 22px; }
+.remote .tv-card.active { height: 153px; background: #F7F8FA; }   /* name #0D0F14, status #0D0F14, dot #30D158 "Terhubung" */
+.remote .tv-card.idle { box-sizing: border-box; height: 155px; background: #191C23; border: 1px solid rgba(255,255,255,0.08); }
+/*   picture 126 × 70 r12 (url .jpg); name Body/Strong; status row gap 6: dot 7px + Caption
+     "Kamar Tidur" · dot rgba(247,248,250,0.62) · "Ketuk untuk kontrol" secondary
+     "Mi Box Dapur" · dot #FFD60A · "Belum ada Tahoe" secondary; cards in a row, gap 10 */
+.remote .note { display: flex; align-items: center; gap: 12px; padding: 12px 14px; height: 60px;
+  background: rgba(48,209,89,0.12); border-radius: 18px; }
+/*   check 18px stroke #30D158; "Satu HP bisa mengontrol semua TV di Wi-Fi yang sama, tanpa kode." Label #F7F8FA */
+.remote .pad { box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 18px;
+  height: 482px; background: #191C23; border: 1px solid rgba(255,255,255,0.06); border-radius: 28px; }
+/*   top row space-between: power 48 (bg rgba(255,69,59,0.16), icon 20 stroke #FF453A) ·
+     column ["Mengontrol" Caption tertiary; "Ruang Keluarga" Body/Strong] · mic 48 (bg 0.08, border 0.1, icon 20)
+     D-pad 220: ring bg rgba(255,255,255,0.06) border 1px rgba(255,255,255,0.08);
+        OK 92 at 64,64 bg #5CD0FF shadow 0 6px 20px rgba(99,209,255,0.4), "OK" Headline #04202D;
+        chevrons 24px stroke rgba(247,248,250,0.8) at (98,18) (98,178) (18,98) (178,98)
+     key row space-between 320: 4 × [key 52 (bg 0.08, border 0.1, icon 22) + Caption tertiary]: Kembali, Beranda, Menu, Ketik
+     rocker row gap 12: VOL rocker + CH rocker (flex 1 each) + mute key 48 (bg 0.08, border 0.1, icon 20) */
+.remote .rocker { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; height: 44px;
+  background: rgba(255,255,255,0.08); border-radius: 999px; }   /* − VOL + / ∨ CH ∧ · icons 20 · label Eyebrow secondary */
+.remote .other-network { box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 18px; height: 232px;
+  background: #191C23; border: 1px solid rgba(255,255,255,0.06); border-radius: 28px; }
+/*   "TV di jaringan lain?" Headline; "Kalau beda Wi-Fi, sambungkan sekali dengan QR atau PIN 6 digit dari TV." Label secondary
+     row gap 10: 2 × pill (flex 1, padding 14px 0, gap 8, bg rgba(255,255,255,0.08), r999, icon 18 + Body/Strong):
+       "Scan QR" (qr icon), "Masukkan PIN" (keyboard icon)
+     install row (padding-top 6, gap 12): disc 40 bg rgba(255,214,10,0.16) icon 18 stroke #FFD60A; column ["Pasang Tahoe ke TV"
+       Body/Strong; "Lewat Wi-Fi, tanpa kabel atau laptop" Caption secondary]; chevron 18 tertiary */
+/* → Dock top 1126, no tab active (remote button shadow 0.65) */
+
+/* ---------------- Mobile / Watchlist (19:285) · 390 × 940 · bg #07080D */
+.watchlist .body { position: absolute; left: 16px; top: 60px; width: 358px; display: flex; flex-direction: column; gap: 16px; }
+/*   "Watchlist" Display/L; "Saluran & acara yang kamu simpan" Label secondary (gap 2)
+     → chip-row: Semua (selected), Saluran, Acara, Pengingat */
+.watchlist .up-next { position: relative; width: 358px; height: 190px; border-radius: 28px; background: url(.jpg); }
+/*   scrim linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.85) 100%);
+     copy at left 18 top 96, gap 4: [→ Live Badge + "DIMULAI 5 MENIT LAGI" Eyebrow rgba(255,255,255,0.8)];
+       "Liga 1: Persib vs Persija" Headline #FFFFFF; "SCTV · 19.00 · Pengingat aktif" Label rgba(255,255,255,0.75)
+     bell button 44 #FFFFFF at left 296 top 128 (bell 20 stroke #0D0F14) */
+.watchlist .saved { box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 8px; height: 414px;
+  background: #191C23; border: 1px solid rgba(255,255,255,0.06); border-radius: 28px; }
+.watchlist .saved-row { display: flex; align-items: center; gap: 12px; padding: 10px; height: 76px; border-radius: 20px; }
+/*   thumb 96 × 56 r14 (+ small Live Badge for channels on now); column gap 3 [title Body/Strong; sub Caption secondary];
+     trailing 20px: bookmark filled #5CD0FF (saved) or bell stroke #FFD60A (reminder)
+     rows: TVRI Nasional "Saluran · Dunia Dalam Berita sedang tayang" (live, bookmark); Kompas TV "Saluran · Kompas Petang"
+     (live, bookmark); Jejak Petualang "Acara · Trans 7 · Sabtu 07.00" (bell); Konser Musik Malam "Acara · Indosiar · Jumat 21.00"
+     (bell); Dapur Nusantara "Acara · tersimpan 2 hari lalu" (bookmark) */
+/* → Dock top 830, Watchlist active */
+
+/* ---------------- Mobile / Profil (19:384) · 390 × 1335 · bg #07080D */
+.profile .header { position: absolute; left: 0; top: 0; width: 390px; height: 360px;
+  background: linear-gradient(156.04deg, #0F1F66 7.69%, #0D0F14 84.62%); border-radius: 0 0 40px 40px; }
+.profile .watermark { position: absolute; left: 150px; top: 360px; font: 700 150px/100% Outfit; letter-spacing: -2px;
+  color: rgba(255,255,255,0.04); transform: rotate(90deg); }   /* "TAHOE" */
+.profile .hello { position: absolute; left: 20px; top: 64px; font: var(--display-l); }   /* "Halo lagi 👋" */
+.profile .id-card { box-sizing: border-box; position: absolute; left: 20px; top: 140px; width: 350px; height: 122px;
+  display: flex; align-items: center; gap: 16px; padding: 18px; background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 26px; backdrop-filter: blur(15px); }
+/*   avatar 84 round, linear-gradient(135deg, #63D1FF 0%, #1F3BD1 50%), initials "RT" Title #F7F8FA
+     column gap 4: "PROFIL UTAMA · TAHOE ID" 500 10px/12px (Inter in Figma; use Outfit) letter-spacing 0.1em rgba(255,255,255,0.55)
+       row gap 6: "Rumah Tahoe" Headline + pencil 14 tertiary; "Bergabung 7 Nov 2026 · 2 TV · 3 HP" Caption secondary */
+.profile .stats { box-sizing: border-box; position: absolute; left: 16px; top: 300px; width: 358px; height: 130px;
+  display: flex; flex-direction: column; gap: 12px; padding: 18px; background: #191C23;
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 28px; }
+/*   row gap 14: "12" Display/L + "j" Headline secondary (baseline, gap 2) · divider 1 × 40 rgba(255,255,255,0.15) ·
+     "40" + "m" · "Total nonton bulan ini" Label secondary right-aligned (flex 1)
+     divider 1px rgba(255,255,255,0.08); "Lihat rekap bulanan" Body/Strong #5CD0FF + chevron 16 #5CD0FF */
+.profile .body { position: absolute; left: 16px; top: 449px; width: 358px; display: flex; flex-direction: column; gap: 16px; }
+/*   AKTIVITAS → group: Riwayat tontonan; Hubungkan ke TV (value "2 terhubung")
+     BANTUAN → group: Laporkan masalah; Pusat bantuan
+     KOMUNITAS → group: Beri bintang di GitHub (star disc yellow, value "★ 1,2k"); Kontributor kami
+     → group (78 tall): Pengaturan
+     version card: box padding 18, gap 6, h 102, #191C23, border 0.06, r28: row [column gap 2: "Versi & tentang aplikasi"
+       Label secondary; "3.4.1" Display/L] + pill "Tentang" (padding 10px 18px, bg rgba(255,255,255,0.1), Body/Strong) */
+/* → Dock top 1225, Profil active */
+
+/* ---------------- Mobile / Pengaturan (19:511) · 390 × 1401 · bg #07080D */
+.settings .body { position: absolute; left: 16px; top: 56px; width: 358px; display: flex; flex-direction: column; gap: 16px; }
+/*   → Back; "Pengaturan" Display/L; → Search.pill "Cari pengaturan"
+     "Recommended" card (box, padding 18, gap 10, h 110, #191C23, border 0.06, r28): "Disarankan" Label tertiary;
+       row gap 14: disc 44 bg rgba(99,209,255,0.16) globe 20 stroke #5CD0FF; ["Tambah bahasa saluran" Body/Strong;
+       "Pengaturan › Saluran" Caption secondary]
+     TAMPILAN → group (206): Tema (value "Gelap" + chevron); Kontras tinggi (switch off); Kurangi gerakan (switch off)
+     PEMUTARAN → group (206): Kualitas video "Otomatis"; Latensi siaran "Standar"; Ukuran subtitle "Normal"
+     SALURAN & WILAYAH → group (276): Bahasa aplikasi "Indonesia"; Wilayah & kota "🇮🇩 Samarinda";
+       Bahasa saluran tambahan "Arab, Inggris" (row h 70, title wraps); Jadwal shalat & adzan (switch on)
+     LAINNYA → group (142): Notifikasi siaran (switch on); Hapus cache saluran (chevron) */
+
+/* ---------------- Mobile / Onboarding 1 · Bahasa (23:218) · bg #07080D */
+.onb1 .art { position: absolute; left: 0; top: 0; width: 390px; height: 330px; background: url(.jpg); }
+.onb1 .art::after { background: linear-gradient(180deg, rgba(8,8,13,0) 40%, #08080D 100%); }
+.onb1 .body { position: absolute; left: 20px; top: 250px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   → Steps (current, idle, idle); "Selamat datang di Tahoe TV" Display/L (285 wide, 2 lines);
+     "Pilih bahasa yang kamu pakai sehari-hari." Body secondary;
+     → Option.selected "Bahasa Indonesia"; → Option "English"; "中文（简体）"; "العربية" */
+.onb .footer { position: absolute; left: 20px; top: 758px; width: 350px; }  /* → Button.accent.full "Lanjut"† */
+
+/* ---------------- Mobile / Onboarding 2 · Wilayah (23:251) · bg #07080D */
+.onb2 .body { position: absolute; left: 20px; top: 64px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   → Back; → Steps (done 8, current 28, idle); "Kamu tinggal di mana?" Display/L (236 wide);
+     "Untuk saluran lokal, cuaca, dan jadwal shalat." Body secondary; → Search.pill "Cari negara atau kota"
+     → Option.selected (h 77): flag "🇮🇩" Headline + ["Indonesia" Body/Strong; "Samarinda, Kalimantan Timur" Caption secondary]
+     → Option (h 75): 🇲🇾 Malaysia / "Kuala Lumpur"; → Option: 🇸🇬 Singapura; → Option: 🇸🇦 Arab Saudi
+     row gap 8: map-pin 16 stroke #5CD0FF + "Gunakan lokasi saat ini" Body/Strong #5CD0FF
+   footer top 758: → Button.accent.full "Lanjut"† */
+
+/* ---------------- Mobile / Onboarding 3 · Siap (23:301) · bg #07080D */
+.onb3 .mosaic { position: absolute; left: 0; top: 0; width: 390px; height: 420px; }
+.onb3 .mosaic > i { position: absolute; width: 140px; height: 96px; border-radius: 18px; background: url(.jpg); transform: rotate(6deg); }
+/*   9 tiles, columns x = −40.03 / 109.97 / 259.97 on rows y = 40 and 260, x = −0.03 / 149.97 / 299.97 on row y = 150;
+     overlay linear-gradient(180deg, rgba(8,8,13,0) 35%, #08080D 100%) */
+.onb3 .body { position: absolute; left: 20px; top: 400px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   → Steps (done, done, current); "128 saluran siap ditonton" Display/L (232 wide);
+     3 rows gap 10: check disc 22 bg rgba(48,209,89,0.18) check 13 stroke #30D158 + Body secondary:
+       "Saluran Indonesia + daerah Kalimantan Timur", "Jadwal shalat Samarinda aktif", "Hubungkan TV kapan saja dari tab Remote" */
+.onb3 .footer { position: absolute; left: 20px; top: 731px; width: 350px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/*   → Button.accent.full "Mulai menonton"†; "Bisa diubah nanti di Pengaturan" Label secondary */
+
+/* ---------------- Mobile / Cari (23:341) · bg #07080D */
+.search-page .body { position: absolute; left: 20px; top: 60px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   active search pill (h 56, border 1.5px #5CD0FF, padding 15px 18px, gap 10): search 18 + "liga" Body #F7F8FA + clear 18 tertiary
+     → chip-row: Semua (selected), Saluran†, Acara†, Jadwal†
+     "SEDANG TAYANG" Eyebrow; top result 350 × 180 r24 (url .jpg), scrim linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.85) 100%),
+       → Live Badge at 14,14; "Liga 1: Persib vs Persija" Headline #FFFFFF at 16,118; "SCTV · babak 2" Label rgba(255,255,255,0.7) at 16,146
+     "HASIL LAINNYA" Eyebrow; → media-row (thumb 88 × 52 r12): "Liga Nusantara" / "TVRI · LIVE"; "Liga Inggris: Sorotan" /
+       "beIN · Sabtu 22.00"; "Liga Basket Indonesia" / "TVRI Sport · Minggu"
+     "PENCARIAN TERAKHIR" Eyebrow; row gap 8 of pills (padding 8px 14px, gap 6, bg rgba(255,255,255,0.08), r999,
+       clock 14 tertiary + Label secondary): "berita malam", "kartun", "tvri" */
+
+/* ---------------- Mobile / Player (potret) (23:400) · bg #07080D */
+.player-port .video { position: absolute; left: 0; top: 50px; width: 390px; height: 250px; background: url(.jpg); }
+/*   scrim linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 70%, rgba(0,0,0,0.7) 100%)
+     chevron-down 22 white at 14,14; icons row gap 18 at 274,14 (subtitles, cast, fullscreen, 22 each, white)
+     play button 60 round bg rgba(255,255,255,0.2) at 165,95 (play 26 filled white); → Progress 362 at 14,232 */
+.player-port .body { position: absolute; left: 20px; top: 320px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   row gap 8: → Live Badge + "TVRI Nasional · 19.00–20.00" Label secondary
+     "Dunia Dalam Berita" Title
+     row gap 10: → Button.glass ×3 (no icons): "Favorit"† (100), "Detail saluran"† (135), "Bagikan"† (95)
+     "SALURAN LAIN · GESER VIDEO UNTUK PINDAH" Eyebrow
+     → media-row (thumb 110 × 62 r14): "Kompas TV" / "Kompas Petang"; "TVRI" / "Liga Nusantara"; "NET." / "Tonight Show";
+       "Trans 7" / "Jejak Petualang" */
+
+/* ---------------- Mobile / Riwayat tontonan (23:459) · bg #07080D */
+.history .body { position: absolute; left: 20px; top: 56px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   → Back; "Riwayat" Display/L; → chip-row: Semua (selected), HP†, TV Ruang Keluarga†, Desktop†
+     "HARI INI" Eyebrow; → media-row (h 64, thumb 112 × 64 r14 with → Progress 112 at bottom, top 60):
+       "Liga Nusantara" / "TVRI · 52 mnt · di TV Ruang Keluarga"; "Dunia Dalam Berita" / "TVRI · 28 mnt · di HP"
+     "KEMARIN" Eyebrow; "Konser Musik Malam" / "Indosiar · 1 j 10 mnt"; "Kompas Petang" / "Kompas TV · 15 mnt";
+       "Dapur Nusantara" / "Trans 7 · 22 mnt"
+     row gap 8: trash 16 stroke #FF453A + "Hapus riwayat" Body/Strong #FF453A */
+
+/* ---------------- Mobile / Hubungkan ke TV (23:515) · bg #07080D */
+.connect .body { position: absolute; left: 20px; top: 56px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   → Back; "Hubungkan ke TV" Display/L (204 wide, 2 lines); "Mencari TV dengan Tahoe di Wi-Fi “Rumah”…" Body secondary
+     radar 350 × 220: rings 200 / 140 / 80 (border 1.5px rgba(99,209,255, 0.15 / 0.27 / 0.39)) centred at 175,110;
+       centre disc 56 #5CD0FF (phone icon 24 stroke #04202D); TV dots 40: one #30D158 (tv icon #0D0F14) at 40,30,
+       two rgba(255,255,255,0.12) (tv icon #F7F8FA) at 270,60 and 230,170
+     "DITEMUKAN" Eyebrow
+     found list (box, padding 6, gap 4, #191C23, border 0.06, r26): rows (padding 12, gap 12, r18): tv disc 40 bg 0.08 +
+       [name Body/Strong; status Caption] + trailing:
+       "Ruang Keluarga" / "Android TV · Terhubung" #30D158 + check 20 #30D158
+       "Kamar Tidur" / "Google TV · Ketuk untuk sambungkan" secondary + chevron 18
+       "Mi Box Dapur" / "Belum ada Tahoe · Pasang sekarang" #FFD60A + chevron 18
+     row gap 10: 2 × pill (flex 1, padding 14px 0, bg 0.08): "Scan QR", "PIN 6 digit"
+     "Beda Wi-Fi? Pakai QR atau PIN dari TV: Pusat Kontrol → HP." Caption tertiary */
+
+/* ---------------- Mobile / Laporkan masalah (23:588) · bg #07080D */
+.report .body { position: absolute; left: 20px; top: 56px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   → Back; "Laporkan masalah" Display/L (2 lines); "Ceritakan yang terjadi. Log teknis ikut terkirim tanpa token atau kata sandi."
+       Body secondary
+     "JENIS MASALAH" Eyebrow; wrapping chips (gap 8): "Siaran tidak jalan"† (selected), "Suara/gambar tidak sinkron"†, "Remote"†,
+       "Lainnya"†
+     "SALURAN" Eyebrow; field (box, padding 14px 16px, gap 10, #191C23, border rgba(255,255,255,0.08), r18): thumb 44 × 26 r6 +
+       "RCTI · Seputar iNews" Body/Strong + chevron-down 18
+     "DETAIL" Eyebrow; text area (same field style, h 120): "Gambar berhenti setiap 10 detik sejak tadi sore, padahal internet
+       lancar." Body secondary
+     row gap 10: image disc 40 bg 0.08 + "Lampirkan tangkapan layar" Body/Strong
+     → Button.accent.full "Kirim laporan"† */
+
+/* ---------------- Mobile / Pusat bantuan (23:625) · bg #07080D */
+.help .body { position: absolute; left: 20px; top: 56px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   → Back; "Pusat bantuan" Display/L; → Search.pill "Cari bantuan"
+     3 topic tiles (flex 1, gap 10, box, padding 14, gap 10, h 94, #191C23, border 0.06, r20): disc 36 bg rgba(99,209,255,0.16)
+       icon 18 stroke #5CD0FF + Label #F7F8FA: "Pasang di TV", "Remote & Wi-Fi", "Saluran"
+     "PERTANYAAN UMUM" Eyebrow
+     FAQ card (box, padding 4px 16px, #191C23, border 0.06, r26): items padding 14px 0, gap 8, divider border-top 1px
+       rgba(255,255,255,0.06); question Body/Strong + chevron-down 18; first one open with answer Label secondary:
+       "Bagaimana memasang Tahoe di TV tanpa kabel?" → "Buka tab Remote, pilih TV yang belum ada Tahoe, lalu ketuk Pasang.
+       HP mengirim aplikasinya lewat Wi-Fi."; "Kenapa ada saluran yang tidak bisa diputar?"; "Apakah Tahoe gratis dan tanpa
+       iklan?"; "Bisakah satu HP mengontrol beberapa TV?"
+     community row (padding 16, gap 12, bg rgba(255,255,255,0.06), r22): github 20 + "Masih bingung? Tanya komunitas di GitHub"
+       Body/Strong + chevron 18 */
+
+/* ---------------- Mobile / Kontributor (23:683) · bg #07080D */
+.contributors .body { position: absolute; left: 20px; top: 56px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+/*   → Back; "Kontributor kami" Display/L (2 lines); "Tahoe TV dibuat bersama komunitas open source (MIT)." Body secondary
+     3 stat tiles (flex 1, gap 10, box, padding 14px 18px, gap 2, h 85, #191C23, border 0.06, r26, centred):
+       Title + Caption secondary: "42" kontributor, "1,2k" bintang, "4" bahasa
+     "KONTRIBUTOR TERATAS" Eyebrow
+     avatar grid (wrap, gap 18px 14px): items 76 wide, column gap 6: circle 60 + initials Body/Strong #0D0F14, handle Caption secondary
+       KO #63D1FF @kousozo · BE #FF7340 @bensoncloud · RI #4DE6B3 @rina · AD #D973FF @adit · ME #FFCC4D @mei ·
+       FA #6699FF @faris · LA #FF5980 @layla · YO #80E666 @yosef   (sample data: load real contributors from GitHub)
+     → Button.primary full "Lihat semua di GitHub"† (justify center); → Button.glass full "Cara ikut berkontribusi"† */
+
+/* ---------------- Mobile / Notifikasi (30:714) · bg #07080D */
+.notifications .body { position: absolute; left: 20px; top: 56px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+.notification { display: flex; align-items: flex-start; gap: 14px; padding: 16px; height: 76px; background: #191C23; border-radius: 22px; }
+/*   disc 40 (tinted) + icon 18; column gap 3: [title Body/Strong (flex 1) + time Caption tertiary]; body Label secondary
+   → Back; "Notifikasi" Display/L
+   "HARI INI": bell warm (bg rgba(255,138,92,0.16), #FF8A5C) "Dimulai 5 menit lagi" · "5 mnt" · "Liga 1: Persib vs Persija di SCTV"
+               record green (bg rgba(48,209,89,0.16), #30D158) "Rekaman selesai" · "1 j" · "Dunia Dalam Berita · 58 menit tersimpan"
+   "SEBELUMNYA": download cyan (bg rgba(92,209,255,0.16), #5CD0FF) "Tahoe TV 3.4.1 tersedia" · "Kemarin" · "Bahasa Arab lengkap dan tampilan baru"
+                 tv cyan "TV Kamar terhubung" · "Senin" · "Sekarang bisa dikontrol dari HP ini" */
+
+/* ---------------- Mobile / Rekap bulanan (30:761) · bg #07080D */
+.recap .body { position: absolute; left: 20px; top: 56px; width: 350px; display: flex; flex-direction: column; gap: 16px; }
+.recap .story { position: relative; width: 350px; height: 460px; border-radius: 32px;
+  background: linear-gradient(143.13deg, #1F3BD1 14.29%, #5CD1FF 57.14%, #FF8A5C 85.71%); }
+/*   copy at 24,28 gap 8: "REKAP NOVEMBER" Eyebrow rgba(255,255,255,0.8); "12 jam 40 menit" 700 60px/105% letter-spacing −0.02em #FFFFFF
+       (2 lines, 239 wide); "menonton di Tahoe bulan ini" Body rgba(255,255,255,0.85)
+     at 24,250 gap 10: "SALURAN FAVORIT" Eyebrow; 3 rows gap 12: rank Title rgba(255,255,255,0.6) + channel Headline #FFFFFF +
+       time Label rgba(255,255,255,0.8): 1 TVRI 4 j 12 m · 2 SCTV 3 j 05 m · 3 Kompas TV 1 j 48 m
+     at 24,410: "Penonton setia Liga Nusantara ⚽" Body/Strong #FFFFFF */
+.recap .peak { box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 18px; height: 181px;
+  background: #191C23; border: 1px solid rgba(255,255,255,0.06); border-radius: 26px; }
+/*   "Jam favoritmu" Label secondary; "19.00 – 21.00" Title; bars (align flex-end, gap 6): 10 bars 24 wide r6 rgba(255,255,255,0.15),
+     heights 10 14 8 20 34 56 72 48 30 16, the 72 one #5CD0FF
+   → Button.accent.full "Bagikan ke Story"†; "Dihitung di HP ini saja, tidak dikirim ke mana pun." Caption tertiary */
+
+/* ---------------- Mobile / Offline (30:805) · bg #07080D */
+.offline { position: absolute; left: 35px; top: 206.5px; width: 320px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+/*   illustration 180: circles 180 / 128 / 76 rgba(255,138,92, 0.06 / 0.11 / 0.16); wifi-off 56 stroke #FF8A5C centred
+     "Tidak ada internet" Title centred; "Saluran tidak bisa dimuat. Periksa Wi-Fi atau data seluler, lalu coba lagi." Body secondary centred
+     → Button.primary "Coba lagi"† (112); → Button.glass "Tonton yang tersimpan"† (197) */

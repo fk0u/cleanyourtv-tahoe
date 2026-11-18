@@ -100,6 +100,8 @@ adb exec-out screencap -p > shot.png
 
 ## 6. Pekerjaan berikutnya (urut prioritas)
 
+**Spesifikasi HP sudah ada di repo:** [`docs/design/figma-mobile.css`](design/figma-mobile.css) berisi CSS Figma Dev Mode untuk ke-23 layar HP (token, komponen bersama sekali saja, lalu nilai unik per layar). Pakai ini dulu sebelum memanggil Figma. Label bertanda † tidak ada di CSS ekspor dan perlu dicek di frame Figma.
+
 Alur kerja per layar: ambil `get_design_context` untuk node Figma → sesuaikan ke komponen yang sudah ada (§4), jangan menyalin React/Tailwind → screenshot mode demo → bandingkan dengan Figma → commit per modul.
 
 ### 6.1 HP: 18 layar sisa (`:companion`, halaman Figma `7:48`)
