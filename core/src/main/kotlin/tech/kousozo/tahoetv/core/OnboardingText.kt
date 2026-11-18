@@ -39,6 +39,12 @@ object OnboardingText {
         "cat.Entertainment" to "Entertainment & series", "cat.News" to "News", "cat.Kids" to "Kids & animation",
         "cat.Documentary" to "Documentary", "cat.Music" to "Music & radio", "cat.Lifestyle" to "Lifestyle",
         "cat.Religious" to "Religious", "cat.Tvri" to "TVRI regional", "cat.Local" to "Local TV", "cat.Vod" to "VOD & films", "cat.Other" to "Other",
+        "use_location" to "Use current location",
+        "ready_channels_fmt" to "%s channels ready to watch",
+        "ready_check_region" to "Local & national channels active",
+        "ready_check_prayer" to "Prayer times & weather ready",
+        "ready_check_remote" to "Connect your TV anytime from the Remote tab",
+        "change_later_note" to "You can change this anytime in Settings",
     )
 
     private val ID = mapOf(
@@ -71,6 +77,12 @@ object OnboardingText {
         "cat.Entertainment" to "Hiburan & Serial", "cat.News" to "Berita", "cat.Kids" to "Anak & Animasi",
         "cat.Documentary" to "Dokumenter", "cat.Music" to "Musik & Radio", "cat.Lifestyle" to "Gaya Hidup",
         "cat.Religious" to "Religi", "cat.Tvri" to "TVRI Daerah", "cat.Local" to "TV Daerah", "cat.Vod" to "VOD & Film", "cat.Other" to "Lainnya",
+        "use_location" to "Gunakan lokasi saat ini",
+        "ready_channels_fmt" to "%s saluran siap ditonton",
+        "ready_check_region" to "Saluran nasional & daerah aktif",
+        "ready_check_prayer" to "Jadwal shalat & cuaca siap",
+        "ready_check_remote" to "Hubungkan TV kapan saja dari tab Remote",
+        "change_later_note" to "Bisa diubah nanti di Pengaturan",
     )
 
     private val ZH = mapOf(
@@ -103,6 +115,12 @@ object OnboardingText {
         "cat.Entertainment" to "娱乐与剧集", "cat.News" to "新闻", "cat.Kids" to "少儿与动画",
         "cat.Documentary" to "纪录片", "cat.Music" to "音乐与电台", "cat.Lifestyle" to "生活",
         "cat.Religious" to "宗教", "cat.Tvri" to "TVRI 地方台", "cat.Local" to "地方台", "cat.Vod" to "点播与电影", "cat.Other" to "其他",
+        "use_location" to "使用当前位置",
+        "ready_channels_fmt" to "%s 个频道已可观看",
+        "ready_check_region" to "本地与全国频道已就绪",
+        "ready_check_prayer" to "礼拜时间与天气已启用",
+        "ready_check_remote" to "可随时从遥控器标签页连接电视",
+        "change_later_note" to "以后可随时在设置中修改",
     )
 
     private val AR = mapOf(
@@ -135,6 +153,12 @@ object OnboardingText {
         "cat.Entertainment" to "ترفيه ومسلسلات", "cat.News" to "أخبار", "cat.Kids" to "أطفال ورسوم متحركة",
         "cat.Documentary" to "وثائقي", "cat.Music" to "موسيقى وإذاعة", "cat.Lifestyle" to "أسلوب حياة",
         "cat.Religious" to "ديني", "cat.Tvri" to "TVRI الإقليمية", "cat.Local" to "تلفاز محلي", "cat.Vod" to "أفلام عند الطلب", "cat.Other" to "أخرى",
+        "use_location" to "استخدام الموقع الحالي",
+        "ready_channels_fmt" to "%s قناة جاهزة للمشاهدة",
+        "ready_check_region" to "القنوات الوطنية والمحلية نشطة",
+        "ready_check_prayer" to "مواقيت الصلاة والطقس جاهزة",
+        "ready_check_remote" to "اربط التلفاز في أي وقت من تبويب التحكم",
+        "change_later_note" to "يمكنك تغيير هذا في أي وقت من الإعدادات",
     )
 
     private val T = mapOf("en" to EN, "id" to ID, "zh" to ZH, "ar" to AR)

@@ -40,6 +40,7 @@ object Demo {
     fun profileName(lang: String = language): String = when (Region.language(lang)) {
         "id" -> "Rina"
         "zh" -> "小林"
+        "ar" -> "ليلى"
         else -> "Alex"
     }
 
@@ -63,6 +64,15 @@ object Demo {
             timeZone = "Asia/Singapore",
             prayer = false,
             channelCountries = listOf("SG", "US"),
+            favorites = listOf("demo-news", "demo-nature"),
+        )
+        "ar" -> Viewer(
+            language = "ar",
+            country = "SA",
+            city = "Riyadh",
+            timeZone = "Asia/Riyadh",
+            prayer = true,
+            channelCountries = listOf("SA", "ID"),
             favorites = listOf("demo-news", "demo-nature"),
         )
         else -> Viewer(
