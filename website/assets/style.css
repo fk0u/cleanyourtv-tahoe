@@ -70,7 +70,7 @@ h3 { font-size: 19px; font-weight: 600; }
 .pill b { color: var(--text); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pine); box-shadow: 0 0 0 0 rgba(48,209,88,.6); animation: pulse 2s infinite; }
 @keyframes pulse { 70% { box-shadow: 0 0 0 10px rgba(48,209,88,0); } 100% { box-shadow: 0 0 0 0 rgba(48,209,88,0); } }
-.hero h1 { font-size: clamp(42px, 6.4vw, 82px); font-weight: 800; margin: 20px 0 16px; background: linear-gradient(100deg, #fff 35%, var(--cyan) 75%, var(--warm)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero h1 { font-size: clamp(42px, 6.4vw, 82px); font-weight: 800; line-height: 1.04; letter-spacing: -.03em; margin: 20px 0 16px; background: linear-gradient(100deg, #fff 35%, var(--cyan) 75%, var(--warm)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .lead { font-size: clamp(17px, 1.6vw, 20px); color: var(--text2); max-width: 34em; margin: 0 0 26px; }
 .cta { display: flex; gap: 12px; flex-wrap: wrap; }
 .stats { list-style: none; padding: 0; margin: 36px 0 0; display: grid; grid-template-columns: repeat(4, minmax(100px, auto)); gap: 20px; justify-content: start; }
@@ -111,7 +111,7 @@ h3 { font-size: 19px; font-weight: 600; }
 .sub { text-align: center; color: var(--text2); font-size: 18px; max-width: 42em; margin: 14px auto 34px; }
 .grid { display: grid; gap: 18px; }
 .features { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.card { position: relative; padding: 26px; border-radius: var(--radius); background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)); border: 1px solid var(--stroke); transition: transform .35s var(--ease), border-color .35s, background .35s; overflow: hidden; }
+.card { position: relative; padding: 26px; border-radius: var(--radius); background: linear-gradient(180deg, rgba(36,40,51,.72), rgba(25,28,35,.84)); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.14); transition: transform var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease); overflow: hidden; }
 .card::after { content: ""; position: absolute; inset: 0; background: radial-gradient(400px circle at var(--mx, 50%) var(--my, 0%), rgba(255,255,255,.10), transparent 40%); opacity: 0; transition: opacity .3s; pointer-events: none; }
 .card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,.26); }
 .card:hover::after { opacity: 1; }
