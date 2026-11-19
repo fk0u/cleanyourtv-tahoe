@@ -302,24 +302,26 @@ final class Hero extends FrameLayout {
         showing = key;
         tech.kousozo.tahoetv.core.DeviceProfile.Profile prof = DeviceProfiler.current(getContext());
         long animMs = prof.getHeroAnimMs();
-        boolean motion = contextual != null && animMs > 0 && Ui.motion(getContext()) > 0;
-        if (!fade || animMs <= 0 || back.getDrawable() == null) { back.setImageBitmap(bm); kenBurns(back, motion); return; }
+        boolean motion = animMs > 0 && Ui.motion(getContext()) > 0; // contextual art pushes in fast, wallpapers drift slowly
+        boolean slow = contextual == null;
+        if (!fade || animMs <= 0 || back.getDrawable() == null) { back.setImageBitmap(bm); kenBurns(back, motion, slow); return; }
         front.animate().cancel();
         front.setImageBitmap(bm); front.setAlpha(0f);
-        kenBurns(front, motion);
+        kenBurns(front, motion, slow);
         front.animate().alpha(1).setDuration(animMs + 240).withEndAction(() -> {
             back.animate().cancel();
             back.setImageBitmap(bm); back.setScaleX(front.getScaleX()); back.setScaleY(front.getScaleY());
-            kenBurns(back, motion);
+            kenBurns(back, motion, slow);
             front.setAlpha(0f); front.setImageDrawable(null); front.setScaleX(1); front.setScaleY(1);
         }).start();
     }
 
-    /** Slow push-in on contextual images (the "motion" stand-in for trailers); wallpapers stay still. */
-    static void kenBurns(ImageView v, boolean on) {
+    /** Slow push-in: 16 s on contextual images (the "motion" stand-in for trailers), 40 s ambient drift on wallpapers. */
+    static void kenBurns(ImageView v, boolean on, boolean slow) {
         v.animate().cancel();
         if (!on) { v.setScaleX(1); v.setScaleY(1); return; }
-        v.animate().scaleX(1.08f).scaleY(1.08f).setDuration(16_000).setInterpolator(new android.view.animation.LinearInterpolator()).start();
+        float to = slow ? 1.05f : 1.08f;
+        v.animate().scaleX(to).scaleY(to).setDuration(slow ? 40_000 : 16_000).setInterpolator(new android.view.animation.LinearInterpolator()).start();
     }
 
     /** Live preview in the Home TV hero (#181): plays quietly after dwell, disabled on LIGHT tier / DRM / DASH. */

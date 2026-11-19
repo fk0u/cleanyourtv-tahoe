@@ -13,6 +13,7 @@ final class Tile extends FrameLayout {
     final ImageView image;
     final Shine shine;
     final View ring;
+    final View glow; // soft light in the banner's own colour that blooms under the focused tile
     final View dot; // "running" indicator under dock tiles
     final float w, h, radius;
     final Home.App app;
@@ -23,6 +24,17 @@ final class Tile extends FrameLayout {
         this.app = app; this.w = w; this.h = h; this.radius = Ui.dp(c, Ui.R_SMALL);
         setContentDescription(app.label);
         setClipChildren(false); setClipToPadding(false);
+        glow = new View(c);
+        glow.setAlpha(0f);
+        int gc = app.banner == null ? 0xFF5A8CFF : Ui.average(app.banner);
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+        gd.setGradientType(android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT);
+        gd.setGradientRadius(h * 0.98f); // fits the glow view's half-height so no hard edge shows
+        gd.setColors(new int[]{(gc & 0x00FFFFFF) | 0x99000000, gc & 0x00FFFFFF});
+        glow.setBackground(gd);
+        LayoutParams gl = new LayoutParams((int) (w * 1.8f), (int) (h * 2.0f));
+        gl.leftMargin = (int) (-w * 0.4f); gl.topMargin = (int) (-h * 0.5f);
+        addView(glow, gl);
         image = new ImageView(c);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         image.setImageDrawable(app.banner);
@@ -51,6 +63,7 @@ final class Tile extends FrameLayout {
         long d = Ui.dur(getContext(), ms);
         animate().scaleX(s).scaleY(s).translationZ(focused ? Ui.dp(getContext(), 18) : 0)
                 .setDuration(d).setInterpolator(Ui.out()).start();
+        glow.animate().alpha(focused ? 1f : 0f).setDuration(d).setInterpolator(Ui.out()).start();
         if (focused) {
             ring.setBackground(Ui.focusRing(getContext(), radius));
             ring.animate().alpha(1f).setDuration(d).setInterpolator(Ui.out()).start();
