@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -317,8 +318,12 @@ fun PushBannerBar(onOpenInbox: () -> Unit, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = banner != null,
         modifier = modifier,
-        enter = slideInVertically { -it } + fadeIn(),
-        exit = slideOutVertically { -it } + fadeOut(),
+        enter = if (ThemePrefs.reduceMotion) fadeIn(tween(200))
+        else slideInVertically(tween(tech.kousozo.tahoetv.core.Brand.MOTION_SHEET, easing = EaseDrawerTahoe)) { -it } +
+            fadeIn(tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe)),
+        exit = if (ThemePrefs.reduceMotion) fadeOut(tween(200))
+        else slideOutVertically(tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe)) { -it } +
+            fadeOut(tween(180, easing = EaseOutTahoe)),
     ) {
         banner?.let { n ->
             val accent = when (n.kind) {

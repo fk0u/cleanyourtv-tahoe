@@ -5,10 +5,17 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -296,6 +303,7 @@ object Playback {
 
     /** Start [e] (from its best source), or carry on if it's already the channel playing. */
     fun play(c: Context, e: LocalTv.Entry) {
+        MobileLivePreview.stop()
         if (entry?.channel?.url == e.channel.url && slate == null) { resume(); return }
         flushRecap()
         recapDir = java.io.File(c.applicationContext.filesDir, "recap")
@@ -483,53 +491,109 @@ object Playback {
     }
 }
 
-/** Floating mini-player (Mochy-style): the channel playing, its show, ⏯ and next; tap to open TV Live, ✕ to stop.
+/** Floating mini-player (Mochy-style): the channel playing, its show, live progress, ⏯ and next; tap to open TV Live, ✕ to stop.
  *  Shown on every tab except TV Live while something plays. */
 @Composable
 fun MiniPlayer(visible: Boolean, modifier: Modifier = Modifier) {
     val c = LocalContext.current
     val lang = PhoneRegion.language
     val e = Playback.entry
-    AnimatedVisibility(visible && e != null, modifier, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+    val enterAnim = if (ThemePrefs.reduceMotion) {
+        fadeIn(tween(200))
+    } else {
+        slideInVertically(tween(tech.kousozo.tahoetv.core.Brand.MOTION_MED, easing = EaseDrawerTahoe)) { it } +
+            fadeIn(tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe))
+    }
+    val exitAnim = if (ThemePrefs.reduceMotion) {
+        fadeOut(tween(200))
+    } else {
+        slideOutVertically(tween(240, easing = EaseDrawerTahoe)) { it } +
+            fadeOut(tween(180, easing = EaseOutTahoe))
+    }
+    AnimatedVisibility(visible && e != null, modifier, enter = enterAnim, exit = exitAnim) {
         val ch = e ?: return@AnimatedVisibility
-        val show = nowOn(Channels.epg, ch, Instant.now())?.title
+        var now by remember(ch.channel.url) { mutableStateOf(Instant.now()) }
+        LaunchedEffect(ch.channel.url) {
+            while (true) {
+                delay(15_000)
+                now = Instant.now()
+            }
+        }
+        val prog = nowOn(Channels.epg, ch, now)
+        val frac = prog?.let { progress(it, now) }
+        val minLeft = prog?.let { java.time.Duration.between(now, it.stop).toMinutes().coerceAtLeast(0) }
+        val statusLine = when (Playback.message) {
+            "" -> tech.kousozo.tahoetv.core.I18n.get(lang, "player.loading")
+            null -> {
+                val stateWord = if (Playback.paused) tech.kousozo.tahoetv.core.I18n.get(lang, "player.paused") else "LIVE"
+                val leftPart = minLeft?.let { " · " + tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_min_left", it.toString()) }.orEmpty()
+                "${ch.name} · $stateWord$leftPart"
+            }
+            else -> tech.kousozo.tahoetv.core.I18n.get(lang, "player.status_unplayable")
+        }
         Surface(
-            Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(68.dp).clickable { Nav.tab = 1; Nav.detail = null; Nav.page = null },
+            Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(72.dp),
             shape = RoundedCornerShape(22.dp),
             color = Tahoe.SurfaceHi,
-            border = BorderStroke(1.dp, Tahoe.Stroke),
+            border = BorderStroke(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke),
             shadowElevation = 14.dp,
         ) {
-            Row(Modifier.fillMaxSize().padding(start = 10.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                ChannelArt(ch, Modifier.size(88.dp, 50.dp).clip(RoundedCornerShape(14.dp)), logoScale = 0.85f)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        show ?: ch.name,
-                        fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Tahoe.Text,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        when (Playback.message) {
-                            "" -> tech.kousozo.tahoetv.core.I18n.get(lang, "player.loading")
-                            null -> "${ch.name} · LIVE"
-                            else -> tech.kousozo.tahoetv.core.I18n.get(lang, "player.status_unplayable")
-                        },
-                        fontSize = 14.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
+            Box(Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxSize().padding(start = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.weight(1f).fillMaxHeight()
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(role = Role.Button) { Nav.tab = 1; Nav.detail = null; Nav.page = null }
+                            .semantics(mergeDescendants = true) {
+                                liveRegion = LiveRegionMode.Polite
+                                contentDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "a11y.mini_player_fmt", prog?.title ?: ch.name, ch.name) + " · $statusLine"
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(88.dp, 50.dp).clip(RoundedCornerShape(14.dp))) {
+                            ChannelArt(ch, Modifier.fillMaxSize(), logoScale = 0.85f)
+                            if (Playback.message == null) {
+                                Box(
+                                    Modifier.align(Alignment.BottomEnd).padding(4.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.Black.copy(alpha = 0.72f))
+                                        .padding(horizontal = 5.dp, vertical = 3.dp),
+                                ) {
+                                    NowPlayingIndicator(playing = !Playback.paused)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                prog?.title ?: ch.name,
+                                fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Tahoe.Text,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                statusLine,
+                                fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    IconButton({ Playback.toggle() }, Modifier.size(48.dp)) {
+                        Icon(
+                            if (Playback.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                            tech.kousozo.tahoetv.core.I18n.get(lang, if (Playback.paused) "player.play" else "player.pause"),
+                            Modifier.size(26.dp),
+                        )
+                    }
+                    IconButton({ Playback.zap(c, Channels.entries, 1) }, Modifier.size(48.dp)) {
+                        Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(lang, "player.next_channel"))
+                    }
+                    IconButton({ Playback.stop() }, Modifier.size(48.dp)) {
+                        Icon(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(lang, "player.stop"), tint = Tahoe.Dim, modifier = Modifier.size(20.dp))
+                    }
                 }
-                IconButton({ Playback.toggle() }) {
-                    Icon(
-                        if (Playback.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
-                        tech.kousozo.tahoetv.core.I18n.get(lang, if (Playback.paused) "player.play" else "player.pause"),
-                        Modifier.size(28.dp),
-                    )
-                }
-                IconButton({ Playback.zap(c, Channels.entries, 1) }) {
-                    Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(lang, "player.next_channel"))
-                }
-                IconButton({ Playback.stop() }) {
-                    Icon(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(lang, "player.stop"), tint = Tahoe.Dim, modifier = Modifier.size(20.dp))
+                if (frac != null) {
+                    KeepLtr {
+                        ProgressBar(frac, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp).height(3.dp))
+                    }
                 }
             }
         }

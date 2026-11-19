@@ -4,9 +4,14 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -20,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -51,7 +57,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -134,7 +144,7 @@ fun Dock(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int) -
 
 @Composable
 private fun ScreenTitle(title: String, sub: String?) = Column(Modifier.padding(top = 8.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-    Text(title, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp)
+    Text(title, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp, modifier = Modifier.a11yHeading())
     if (sub != null) Text(sub, fontSize = 14.sp, color = Tahoe.Dim)
 }
 
@@ -169,8 +179,8 @@ private fun ChannelListRow(e: LocalTv.Entry, now: Instant, trailing: @Composable
 @Composable
 private fun MenuGroup(label: String?, content: @Composable ColumnScope.() -> Unit) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     if (label != null) Text(label.uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
-        modifier = Modifier.padding(start = 4.dp))
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.Surface).border(1.dp, Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(26.dp))
+        modifier = Modifier.padding(start = 4.dp).a11yHeading())
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.Surface).border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(26.dp))
         .padding(vertical = 6.dp), content = content)
 }
 
@@ -180,7 +190,9 @@ private fun MenuRow(icon: ImageVector, title: String, value: String? = null, tin
     val discBg = if (tint != null) tint.copy(alpha = 0.16f)
         else if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable(src, null, onClick = onClick).pressScale(src).padding(horizontal = 14.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable(src, null, role = Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
+            .pressScale(src).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(discBg), contentAlignment = Alignment.Center) {
@@ -197,14 +209,17 @@ private fun SwitchMenuRow(icon: ImageVector, title: String, checked: Boolean, ti
     val discBg = if (tint != null) tint.copy(alpha = 0.16f)
         else if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 14.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().heightIn(min = 60.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .semantics(mergeDescendants = true) {}
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(discBg), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = tint ?: Tahoe.Text, modifier = Modifier.size(20.dp))
         }
         Text(title, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-        FigmaSwitch(checked, onCheckedChange)
+        FigmaSwitch(checked, onCheckedChange, interactive = false)
     }
 }
 
@@ -284,16 +299,27 @@ fun WatchlistScreen() {
 private fun WatchRow(e: LocalTv.Entry, now: Instant, trailing: @Composable () -> Unit) {
     val lang = PhoneRegion.language
     val on = nowOn(Channels.epg, e, now)
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { Nav.play(e) }.padding(vertical = 8.dp),
+    val isPlaying = Playback.entry?.channel?.url == e.channel.url
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Box(Modifier.size(90.dp, 52.dp).clip(RoundedCornerShape(12.dp))) {
-            ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.3f)
-            if (on != null) Text("● LIVE", Modifier.padding(5.dp).clip(RoundedCornerShape(50)).background(Tahoe.Bad).padding(horizontal = 6.dp, vertical = 2.dp),
-                color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.9.sp)
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(e.name, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(I18n.get(lang, "watchlist.channel") + " · " + (on?.title ?: e.category.label(lang)), fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(
+            Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable(role = Role.Button) { Nav.play(e) }
+                .semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(Modifier.size(90.dp, 52.dp).clip(RoundedCornerShape(12.dp))) {
+                ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.3f)
+                if (on != null) Text("● LIVE", Modifier.padding(5.dp).clip(RoundedCornerShape(50)).background(Tahoe.Bad).padding(horizontal = 6.dp, vertical = 2.dp),
+                    color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.9.sp)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(e.name, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, color = if (isPlaying) Tahoe.Accent else Tahoe.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    if (isPlaying) NowPlayingIndicator(playing = !Playback.paused)
+                }
+                Text(I18n.get(lang, "watchlist.channel") + " · " + (on?.title ?: e.category.label(lang)), fontSize = 13.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
         trailing()
     }
@@ -699,8 +725,13 @@ fun SettingsPage() {
                 ThemePrefs.reduceMotion = it; AppearancePrefs.save(c)
             }
         }
-        val showPlayback = matches(I18n.get(lang, "settings.group_playback"), I18n.get(lang, "player.quality"), I18n.get(lang, "player.latency"), I18n.get(lang, "sub.size_label"))
+        val showPlayback = matches(I18n.get(lang, "settings.group_playback"), I18n.get(lang, "tv.live_preview"), I18n.get(lang, "player.quality"), I18n.get(lang, "player.latency"), I18n.get(lang, "sub.size_label"))
         if (showPlayback) MenuGroup(I18n.get(lang, "settings.group_playback")) {
+            SwitchMenuRow(Icons.Rounded.Preview, I18n.get(lang, "tv.live_preview"), MobileLivePreview.enabled) {
+                MobileLivePreview.enabled = it
+                if (!it) MobileLivePreview.stop()
+                AppearancePrefs.save(c)
+            }
             MenuRow(Icons.Rounded.Hd, I18n.get(lang, "player.quality"), Playback.quality.label(lang)) { dialog = SettingsDialog.Quality }
             MenuRow(Icons.Rounded.Speed, I18n.get(lang, "player.latency"), Playback.latency.label(lang)) { dialog = SettingsDialog.Latency }
             MenuRow(Icons.Rounded.Subtitles, I18n.get(lang, "sub.size_label"), Playback.subtitleSize.label(lang)) { dialog = SettingsDialog.SubtitleSize }
@@ -916,14 +947,15 @@ fun SearchPage() {
                 }
             }
         }
-        Text(I18n.get(lang, "search.recent").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+        Text(I18n.get(lang, "search.recent").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, modifier = Modifier.a11yHeading())
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             all.take(5).map { it.name }.forEach { label ->
                 Row(
-                    Modifier.clip(RoundedCornerShape(50))
+                    Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(50))
                         .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass)
-                        .clickable { query = label }
-                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                        .clickable(role = Role.Button) { query = label }
+                        .semantics(mergeDescendants = true) {}
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -964,7 +996,7 @@ fun ConnectTvPage() {
 
     PageScaffold(I18n.get(lang, "profile.connect_tv"), I18n.get(lang, "connect.searching_wifi")) {
         // Radar 200 / 140 / 80 concentric stroked rings + 56 dp center phone disc + 3 floating 40 dp TV nodes
-        Box(Modifier.fillMaxWidth().height(220.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().height(220.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
             listOf(200.dp to 0.15f, 140.dp to 0.27f, 80.dp to 0.39f).forEach { (d, a) ->
                 Box(Modifier.size(d).clip(CircleShape).border(1.5.dp, Tahoe.Accent.copy(alpha = a), CircleShape))
             }
@@ -1159,23 +1191,31 @@ fun HelpCenterPage() {
                 }
             }
         }
-        Text(I18n.get(lang, "help.faq_eyebrow").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp)
+        Text(I18n.get(lang, "help.faq_eyebrow").uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, modifier = Modifier.a11yHeading())
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.Surface)
-                .border(1.dp, Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(26.dp))
+                .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(26.dp))
                 .padding(horizontal = 16.dp, vertical = 4.dp),
         ) {
             faqs.forEachIndexed { idx, (q, a) ->
                 if (idx > 0) HorizontalDivider(color = Tahoe.Stroke.copy(alpha = 0.25f))
                 Column(
-                    Modifier.fillMaxWidth().clickable { expanded = if (expanded == idx) -1 else idx }.padding(vertical = 14.dp),
+                    Modifier.fillMaxWidth().clickable(role = Role.Button) { expanded = if (expanded == idx) -1 else idx }.padding(vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(q, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                         Icon(if (expanded == idx) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = Tahoe.Dim, modifier = Modifier.size(18.dp))
                     }
-                    if (expanded == idx) Text(a, fontSize = 14.sp, color = Tahoe.Dim, lineHeight = 20.sp)
+                    AnimatedVisibility(
+                        visible = expanded == idx,
+                        enter = if (ThemePrefs.reduceMotion) fadeIn(tween(150))
+                        else expandVertically(tween(Brand.MOTION_FAST, easing = EaseOutTahoe)) + fadeIn(tween(Brand.MOTION_FAST, easing = EaseOutTahoe)),
+                        exit = if (ThemePrefs.reduceMotion) fadeOut(tween(150))
+                        else shrinkVertically(tween(180, easing = EaseOutTahoe)) + fadeOut(tween(150, easing = EaseOutTahoe)),
+                    ) {
+                        Text(a, fontSize = 14.sp, color = Tahoe.Dim, lineHeight = 20.sp)
+                    }
                 }
             }
         }

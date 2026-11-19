@@ -1,9 +1,20 @@
 package tech.kousozo.tahoetv
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.drawscope.rotate
 import tech.kousozo.tahoetv.core.DiagLog
@@ -154,7 +165,7 @@ fun LiveScreen() {
             if (playing == null || Channels.debugOffline) {
                 // Figma "Mobile / Live TV": Title 32 SemiBold
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live_short"), fontSize = 32.sp, lineHeight = 37.sp, fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.64).sp, modifier = Modifier.padding(top = 16.dp))
+                    letterSpacing = (-0.64).sp, modifier = Modifier.padding(top = 16.dp).a11yHeading())
             } else {
                 NowPlayingInfo(playing, epg, now)
             }
@@ -168,7 +179,7 @@ fun LiveScreen() {
             }
             // Figma "Search": surface field with a hairline, radius 16, 20 dp icon, Body 16 placeholder
             Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp)).background(Tahoe.Surface)
-                .border(1.dp, Tahoe.Stroke, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp),
+                .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke, RoundedCornerShape(16.dp)).padding(start = 16.dp, end = if (query.isNotEmpty()) 4.dp else 16.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Search, null, tint = Tahoe.Dim, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
@@ -178,7 +189,7 @@ fun LiveScreen() {
                         textStyle = androidx.compose.ui.text.TextStyle(color = Tahoe.Text, fontSize = 16.sp, fontFamily = Outfit),
                         cursorBrush = androidx.compose.ui.graphics.SolidColor(Tahoe.Text))
                 }
-                if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(lang, "live.clear_search"), tint = Tahoe.Dim) }
+                if (query.isNotEmpty()) IconButton({ query = "" }, Modifier.size(48.dp)) { Icon(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(lang, "live.clear_search"), tint = Tahoe.Dim) }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip(tech.kousozo.tahoetv.core.I18n.get(lang, "live.all"), cat == null && !Nav.favOnly) { cat = null; Nav.liveCategory = null; Nav.favOnly = false }
@@ -219,13 +230,15 @@ fun LiveScreen() {
                                 Text(
                                     tech.kousozo.tahoetv.core.I18n.get(lang, "player.other_channels_swipe").uppercase(),
                                     fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp).a11yHeading(),
                                 )
                             }
                             items(others, key = { "other:${it.channel.url}" }) { ch ->
                                 val chShow = nowOn(epg, ch, now)
                                 Row(
-                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { Playback.play(c, ch) }
+                                    Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp))
+                                        .clickable(role = Role.Button) { Playback.play(c, ch) }
+                                        .semantics(mergeDescendants = true) {}
                                         .padding(horizontal = 8.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -256,11 +269,16 @@ private fun BrowseSections(list: List<LocalTv.Entry>, now: Instant, onCategory: 
     Column(Modifier.padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(L("live.for_you"), Modifier.weight(1f), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
+                Text(L("live.for_you"), Modifier.weight(1f).a11yHeading(), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
             }
             LazyRow(contentPadding = PaddingValues(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(list.take(10), key = { "p" + it.channel.url }) { e ->
-                    Column(Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).clickable { Nav.play(e) }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(
+                        Modifier.width(150.dp).clip(RoundedCornerShape(16.dp))
+                            .clickable(role = Role.Button) { Nav.play(e) }
+                            .semantics(mergeDescendants = true) {},
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Box(Modifier.size(150.dp, 220.dp).clip(RoundedCornerShape(16.dp))) {
                             ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.7f)
                             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.6f))))
@@ -274,14 +292,16 @@ private fun BrowseSections(list: List<LocalTv.Entry>, now: Instant, onCategory: 
         }
         val cats = LocalTv.Category.entries.filter { k -> list.any { LocalTv.inCategory(it, k) } }
         if (cats.isNotEmpty()) Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(L("home.categories"), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
+            Text(L("home.categories"), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.a11yHeading())
             cats.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     pair.forEach { k ->
                         val tint = categoryTint(k)
                         Box(Modifier.weight(1f).height(96.dp).clip(RoundedCornerShape(18.dp))
                             .background(Brush.linearGradient(listOf(tint, Color(tech.kousozo.tahoetv.core.Brand.LAKE_DEEP), Tahoe.Stage)))
-                            .clickable { onCategory(k) }) {
+                            .then(if (ThemePrefs.highContrast) Modifier.border(2.dp, Tahoe.Stroke, RoundedCornerShape(18.dp)) else Modifier)
+                            .clickable(role = Role.Button) { onCategory(k) }
+                            .semantics(mergeDescendants = true) {}) {
                             Icon(categoryIcon(k), null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(36.dp))
                             Text(k.label(lang), Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 14.dp, end = 14.dp), color = Color.White,
                                 fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -291,7 +311,7 @@ private fun BrowseSections(list: List<LocalTv.Entry>, now: Instant, onCategory: 
                 }
             }
         }
-        Text(L("home.all_channels"), Modifier.padding(horizontal = 8.dp), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
+        Text(L("home.all_channels"), Modifier.padding(horizontal = 8.dp).a11yHeading(), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -307,31 +327,40 @@ fun shareChannel(c: android.content.Context, e: LocalTv.Entry) {
     }
 }
 
-/** Under the player (Figma 23:400): LiveBadge + channel · time, 32 dp title, and 3 glass pills. */
+/** Under the player (Figma 23:400): LiveBadge + equalizer + channel · time, title, live EPG progress/next show, and action pills. */
 @Composable
 private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
     val c = LocalContext.current
     val lang = PhoneRegion.language
-    val show = nowOn(epg, e, now)
+    val schedule = remember(epg, e, now.epochSecond / 30) { epg?.schedule(e.name, now, e.channel.tvgId).orEmpty() }
+    val show = schedule.firstOrNull()?.takeIf { it.start <= now }
+    val nextShow = schedule.firstOrNull { it.start > now }
     val fav = e.channel.url in Channels.favs
     val activeDev = remember(Pairing.tick) { Sync.devices(c).active() }
+    val streamStateLabel = when {
+        Playback.message == "" -> tech.kousozo.tahoetv.core.I18n.get(lang, "player.buffering")
+        Playback.paused -> tech.kousozo.tahoetv.core.I18n.get(lang, "player.paused")
+        else -> null
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LiveBadge()
+                    if (Playback.message == null) NowPlayingIndicator(playing = !Playback.paused)
                     Text(
-                        listOfNotNull(e.name, show?.let { "${HM.format(it.start)}–${HM.format(it.stop)}" }).joinToString(" · "),
+                        listOfNotNull(e.name, streamStateLabel, show?.let { "${HM.format(it.start)}–${HM.format(it.stop)}" }).joinToString(" · "),
                         color = Tahoe.Dim, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    Playback.format?.let { FormatBadge(it, onClick = { statsSheetOpen = true }) }
+                    Playback.format?.let { FormatBadge(it, lang = lang, onClick = { statsSheetOpen = true }) }
                 }
                 Text(
                     show?.title ?: e.name,
                     fontSize = 30.sp, lineHeight = 35.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp,
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.a11yHeading(),
                 )
             }
             if (activeDev != null) {
@@ -342,10 +371,22 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
                 }
             }
         }
+        if (show != null || nextShow != null) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (show != null) {
+                KeepLtr { ProgressBar(progress(show, now), Modifier.fillMaxWidth()) }
+            }
+            val left = show?.let { java.time.Duration.between(now, it.stop).toMinutes().coerceAtLeast(0) }
+            val metaLine = listOfNotNull(
+                left?.let { tech.kousozo.tahoetv.core.I18n.get(lang, "tv.cc_min_left", it.toString()) },
+                nextShow?.let { "${tech.kousozo.tahoetv.core.I18n.get(lang, "ch.up_next")}: ${it.title} (${HM.format(it.start)})" },
+            ).joinToString(" · ")
+            if (metaLine.isNotBlank()) Text(metaLine, color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GlassPill(
-                if (fav) "★ ${tech.kousozo.tahoetv.core.I18n.get(lang, "home.favorites")}"
-                else tech.kousozo.tahoetv.core.I18n.get(lang, "home.favorites"),
+                tech.kousozo.tahoetv.core.I18n.get(lang, "home.favorites"),
+                icon = if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                stateLabel = tech.kousozo.tahoetv.core.I18n.get(lang, if (fav) "a11y.favorited" else "a11y.not_favorited"),
             ) { Channels.toggleFav(c, e) }
             GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "live.channel_page_generic")) { Nav.detail = e }
             GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "player.share")) { shareChannel(c, e) }
@@ -404,32 +445,66 @@ private var statsSheetOpen by mutableStateOf(false)
 
 /** "1080p · H.264 · AAC" in a hairline box, like a music app's "AAC · 44,1 kHz". */
 @Composable
-fun FormatBadge(text: String, onClick: (() -> Unit)? = null) = Text(text,
-    Modifier.clip(RoundedCornerShape(5.dp))
-        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-        .border(1.dp, Tahoe.Faint, RoundedCornerShape(5.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
-    color = Tahoe.Dim, fontSize = 10.sp, fontFamily = Mono)
+fun FormatBadge(text: String, lang: String = PhoneRegion.language, onClick: (() -> Unit)? = null) {
+    val pill: @Composable () -> Unit = {
+        Text(
+            text,
+            Modifier.clip(RoundedCornerShape(5.dp))
+                .border(1.dp, Tahoe.Faint, RoundedCornerShape(5.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
+            color = Tahoe.Dim, fontSize = 10.sp, fontFamily = Mono,
+        )
+    }
+    if (onClick == null) pill()
+    else Box(
+        Modifier.heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "player.open_stats") + ": $text" },
+        contentAlignment = Alignment.Center,
+    ) { pill() }
+}
 
 @Composable
 private fun ChannelRow(e: LocalTv.Entry, match: Epg.Programme?, epg: Epg?, now: Instant, on: Boolean) {
     val c = LocalContext.current
+    val lang = PhoneRegion.language
     val prog = match ?: nowOn(epg, e, now)
-    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(20.dp))
-        .background(if (on) Color.White.copy(alpha = 0.12f) else Color.Transparent).clickable { Playback.play(c, e) }.padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        ChannelLogo(e, Modifier.size(64.dp, 44.dp))
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(e.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(prog?.let { pr -> if (pr.start > now) tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "live.at_time_title", HM.format(pr.start), pr.title) else pr.title } ?: e.category.label(PhoneRegion.language),
-                color = if (match != null) Tahoe.Text else Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            prog?.takeIf { it.start <= now }?.let { pr ->
-                LinearProgressIndicator({ progress(pr, now) }, Modifier.padding(top = 6.dp).fillMaxWidth(0.6f).height(3.dp).clip(RoundedCornerShape(2.dp)),
-                    color = if (on) Tahoe.Text else Tahoe.Dim, trackColor = Tahoe.Stroke)
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(20.dp))
+            .background(if (on) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+            .then(if (on && ThemePrefs.highContrast) Modifier.border(2.dp, Tahoe.Accent, RoundedCornerShape(20.dp)) else Modifier),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            Modifier.weight(1f).heightIn(min = 56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable(role = Role.Button) { Playback.play(c, e) }
+                .semantics(mergeDescendants = true) {
+                    if (on) stateDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_playing")
+                }
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ChannelLogo(e, Modifier.size(64.dp, 44.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(e.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    if (on) NowPlayingIndicator(playing = !Playback.paused && Playback.message == null)
+                }
+                Text(prog?.let { pr -> if (pr.start > now) tech.kousozo.tahoetv.core.I18n.get(lang, "live.at_time_title", HM.format(pr.start), pr.title) else pr.title } ?: e.category.label(lang),
+                    color = if (match != null) Tahoe.Text else Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                prog?.takeIf { it.start <= now }?.let { pr ->
+                    KeepLtr {
+                        LinearProgressIndicator({ progress(pr, now) }, Modifier.padding(top = 6.dp).fillMaxWidth(0.6f).height(3.dp).clip(RoundedCornerShape(2.dp)),
+                            color = if (on) Tahoe.Text else Tahoe.Dim, trackColor = Tahoe.Stroke)
+                    }
+                }
+            }
+            if (e.channel.url in Channels.favs) {
+                Icon(Icons.Rounded.Favorite, tech.kousozo.tahoetv.core.I18n.get(lang, "a11y.favorited"), tint = Tahoe.Bad, modifier = Modifier.size(16.dp))
             }
         }
-        if (e.channel.url in Channels.favs) Icon(Icons.Rounded.Favorite, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "home.favorites"), tint = Tahoe.Bad, modifier = Modifier.size(16.dp))
-        IconButton({ Nav.detail = e }) { Icon(Icons.Rounded.MoreHoriz, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "live.channel_page", e.name), tint = Tahoe.Dim) }
+        IconButton({ Nav.detail = e }, Modifier.size(48.dp)) { Icon(Icons.Rounded.MoreHoriz, tech.kousozo.tahoetv.core.I18n.get(lang, "live.channel_page", e.name), tint = Tahoe.Dim) }
     }
 }
 
@@ -457,9 +532,24 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
     if (statsSheetOpen) PlayerStatsSheet { statsSheetOpen = false }
     var visible by remember { mutableStateOf(true) }
     val busy = Playback.message != null
-    LaunchedEffect(shownAt, busy, touchExploration) {
+    var liveTick by remember(e.channel.url) { mutableLongStateOf(0L) }
+    LaunchedEffect(player, e.channel.url) {
+        while (true) {
+            delay(1000)
+            liveTick++
+        }
+    }
+    var scrubFrac by remember(e.channel.url) { mutableStateOf<Float?>(null) }
+    var feedbackPill by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(feedbackPill) {
+        if (feedbackPill != null) {
+            delay(1500)
+            feedbackPill = null
+        }
+    }
+    LaunchedEffect(shownAt, busy, touchExploration, scrubFrac) {
         visible = true
-        if (!busy && !touchExploration) {
+        if (!busy && !touchExploration && scrubFrac == null) {
             delay(3000)
             visible = false
         }
@@ -473,10 +563,11 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
         }
     }
     fun poke() { shownAt = System.currentTimeMillis() }
+    val langPlayer = PhoneRegion.language
     val tapMod = if (touchExploration) {
         Modifier.clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { poke() }
     } else {
-        Modifier.pointerInput(busy, zoomFill) {
+        Modifier.pointerInput(busy, zoomFill, langPlayer) {
             detectTapGestures(
                 onTap = { if (visible && !busy) visible = false else poke() },
                 onDoubleTap = { offset ->
@@ -485,14 +576,17 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                         offset.x < w / 3f -> {
                             player.seekTo(maxOf(0L, player.currentPosition - 10_000L))
                             player.play()
+                            feedbackPill = "−10s"
                             poke()
                         }
                         offset.x > w * 2f / 3f -> {
                             seekForward(player, 10_000L)
+                            feedbackPill = "+10s"
                             poke()
                         }
                         else -> {
                             zoomFill = !zoomFill
+                            feedbackPill = tech.kousozo.tahoetv.core.I18n.get(langPlayer, if (zoomFill) "player.zoom_fill" else "player.zoom_fit")
                             poke()
                         }
                     }
@@ -503,16 +597,20 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
     // swipe left/right = next/previous channel (away from the system back-gesture edges); pinch = fit ↔ zoom (#41)
     var swipeHint by remember { mutableStateOf(0) }
     LaunchedEffect(swipeHint) { if (swipeHint != 0) { delay(900); swipeHint = 0 } }
-    val gestureMod = if (touchExploration) Modifier else Modifier.pointerInput(busy) {
+    val gestureMod = if (touchExploration) Modifier else Modifier.pointerInput(busy, langPlayer) {
         val edge = 32.dp.toPx(); val swipeMin = 72.dp.toPx()
         awaitPointerEventScope { while (true) {
             val down = awaitFirstDown(requireUnconsumed = false)
             val fromEdge = down.position.x < edge || down.position.x > size.width - edge
-            var dx = 0f; var dy = 0f; var scale = 1f; var multi = false
+            var dx = 0f; var dy = 0f; var scale = 1f; var multi = false; var childConsumed = false
             while (true) {
                 val ev = awaitPointerEvent()
                 val pressed = ev.changes.filter { it.pressed }
                 if (pressed.isEmpty()) break
+                if (ev.changes.any { it.isConsumed }) {
+                    childConsumed = true
+                    break
+                }
                 if (pressed.size >= 2) {
                     multi = true
                     val a = pressed[0]; val b = pressed[1]
@@ -524,9 +622,17 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                     if (kotlin.math.abs(dx) > swipeMin / 3 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5f) ch.consume()
                 }
             }
-            when {
-                multi && scale > 1.15f -> { zoomFill = true; poke() }
-                multi && scale < 0.87f -> { zoomFill = false; poke() }
+            if (!childConsumed) when {
+                multi && scale > 1.15f -> {
+                    zoomFill = true
+                    feedbackPill = tech.kousozo.tahoetv.core.I18n.get(langPlayer, "player.zoom_fill")
+                    poke()
+                }
+                multi && scale < 0.87f -> {
+                    zoomFill = false
+                    feedbackPill = tech.kousozo.tahoetv.core.I18n.get(langPlayer, "player.zoom_fit")
+                    poke()
+                }
                 !multi && !fromEdge && kotlin.math.abs(dx) > swipeMin && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5f -> {
                     val step = if (dx < 0) 1 else -1
                     swipeHint = step; zap(step)
@@ -536,21 +642,35 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
     }
     Box(Modifier.fillMaxSize().then(gestureMod).then(tapMod)) {
         val lang0 = PhoneRegion.language
-        val showNow = remember(Channels.epg, e) { nowOn(Channels.epg, e, Instant.now()) }
+        val nowInstant = remember(liveTick) { Instant.now() }
+        val showNow = remember(Channels.epg, e, nowInstant.epochSecond / 30) { nowOn(Channels.epg, e, nowInstant) }
+        val durMs = remember(liveTick, e.channel.url) { player.duration }
+        val posMs = remember(liveTick, e.channel.url) { player.currentPosition }
+        val liveOffMs = remember(liveTick, e.channel.url) { player.currentLiveOffset }
+        val isLiveStream = remember(liveTick, e.channel.url) { player.isCurrentMediaItemLive }
+        val isSeekable = player.isCurrentMediaItemSeekable && durMs > 10_000L
+        val atLiveEdge = tech.kousozo.tahoetv.core.LiveSeek.isAtLiveEdge(isLiveStream, liveOffMs)
         val allCh = Channels.entries.orEmpty()
         val idx = allCh.indexOfFirst { it.channel.url == e.channel.url }
         val stepDir = if (swipeHint != 0) swipeHint else 1
         val previewEntry = if (idx >= 0 && allCh.size > 1) allCh[(idx + stepDir + allCh.size) % allCh.size] else null
         val slate = Playback.slate
-        if (swipeHint != 0 || (full && visible && slate == null && !busy && !Nav.inPip && previewEntry != null)) {
+        val pillShow = swipeHint != 0 || (full && visible && slate == null && !busy && !Nav.inPip && previewEntry != null)
+        AnimatedVisibility(
+            pillShow && previewEntry != null,
+            Modifier.align(if (swipeHint < 0) Alignment.CenterStart else Alignment.CenterEnd).zIndex(2f),
+            enter = fadeIn(tween(if (ThemePrefs.reduceMotion) 200 else tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe)),
+            exit = fadeOut(tween(if (ThemePrefs.reduceMotion) 200 else 180, easing = EaseOutTahoe)),
+        ) {
             previewEntry?.let { nextEntry ->
                 Row(
-                    Modifier.align(if (swipeHint < 0) Alignment.CenterStart else Alignment.CenterEnd)
+                    Modifier
                         .let { if (full) it.displayCutoutPadding() else it }
-                        .padding(horizontal = 20.dp).zIndex(2f)
+                        .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = 0.58f))
                         .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(14.dp))
-                        .clickable { poke(); zap(stepDir) }
+                        .clickable(role = Role.Button) { poke(); zap(stepDir) }
+                        .semantics(mergeDescendants = true) {}
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -561,7 +681,7 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                             tech.kousozo.tahoetv.core.I18n.get(lang0, if (stepDir > 0) "player.next_channel" else "player.prev_channel"),
                             color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp,
                         )
-                        val nextShow = nowOn(Channels.epg, nextEntry, Instant.now())?.title
+                        val nextShow = nowOn(Channels.epg, nextEntry, nowInstant)?.title
                         Text(
                             listOfNotNull(nextEntry.name, nextShow).joinToString(" · "),
                             color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -569,6 +689,20 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                     }
                 }
             }
+        }
+        feedbackPill?.let { msg ->
+            Text(
+                msg,
+                Modifier.align(Alignment.TopCenter).padding(top = 56.dp).zIndex(3f)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.Black.copy(alpha = 0.74f))
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
         AndroidView({
             PlayerView(it).apply {
@@ -590,8 +724,12 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
             else ChannelLoader(e.name, Modifier.fillMaxSize().semantics { liveRegion = LiveRegionMode.Polite; contentDescription = "${tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.loading")} ${e.name}" })
         }
         // the slate brings its own actions: the player controls would sit on top of it
-        androidx.compose.animation.AnimatedVisibility(visible && slate == null && !Nav.inPip, Modifier.fillMaxSize(),
-            enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
+        AnimatedVisibility(
+            visible && slate == null && !Nav.inPip,
+            Modifier.fillMaxSize(),
+            enter = fadeIn(tween(if (ThemePrefs.reduceMotion) 200 else tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe)),
+            exit = fadeOut(tween(if (ThemePrefs.reduceMotion) 200 else 180, easing = EaseOutTahoe)),
+        ) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.65f), 0.35f to Color.Black.copy(alpha = 0.10f), 0.65f to Color.Black.copy(alpha = 0.15f), 1f to Color.Black.copy(alpha = 0.75f)))) {
                 val lang = PhoneRegion.language
                 val actSize = 48.dp // minimum touch target
@@ -686,7 +824,7 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                         Modifier.size(72.dp).clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.18f))
                             .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
-                            .clickable { poke(); Playback.toggle() },
+                            .clickable(role = Role.Button) { poke(); Playback.toggle() },
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -702,25 +840,143 @@ private fun PlayerStage(e: LocalTv.Entry, full: Boolean, onFull: () -> Unit, zap
                         Icon(Icons.Rounded.SkipNext, tech.kousozo.tahoetv.core.I18n.get(lang, "player.next_channel"), tint = Color.White, modifier = Modifier.size(28.dp))
                     }
                 }
-                val progFrac = showNow?.let { progress(it, Instant.now()) } ?: 1f
+                val progFrac = showNow?.let { progress(it, nowInstant) } ?: 1f
+                val liveFrac = if (isSeekable) tech.kousozo.tahoetv.core.LiveSeek.fractionFor(posMs, durMs) else progFrac
+                val displayFrac = scrubFrac ?: liveFrac
+                var barWidth by remember { mutableIntStateOf(1) }
+                val scrubLabel = scrubFrac?.let { f ->
+                    tech.kousozo.tahoetv.core.LiveSeek.formatBehind(
+                        tech.kousozo.tahoetv.core.LiveSeek.behindLiveMs(
+                            durMs,
+                            tech.kousozo.tahoetv.core.LiveSeek.positionFor(f, durMs),
+                        ),
+                    )
+                }
                 Column(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                         .let { if (full) it.navigationBarsPadding().displayCutoutPadding() else it }
-                        .padding(horizontal = 16.dp, vertical = if (full) 14.dp else 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(horizontal = 16.dp, vertical = if (full) 10.dp else 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    if (full) {
+                    if (full || scrubLabel != null || (!atLiveEdge && !busy)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(HM.format(Instant.now()), color = Color.White, fontSize = 13.sp, fontFamily = Mono)
                             Text(
-                                tech.kousozo.tahoetv.core.I18n.get(lang, "player.hold_slide_rewind").uppercase(),
-                                color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                scrubLabel ?: if (!atLiveEdge && isLiveStream) tech.kousozo.tahoetv.core.LiveSeek.formatBehind(maxOf(0L, liveOffMs)) else HM.format(nowInstant),
+                                color = if (scrubLabel != null) Tahoe.Accent else Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = if (scrubLabel != null) FontWeight.Bold else FontWeight.Normal,
+                                fontFamily = Mono,
                             )
-                            Text(Playback.format ?: "LIVE", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = Mono)
+                            if (!atLiveEdge && !busy) {
+                                Box(
+                                    Modifier.heightIn(min = 36.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Tahoe.Bad)
+                                        .clickable(role = Role.Button) {
+                                            player.seekToDefaultPosition()
+                                            player.play()
+                                            scrubFrac = null
+                                            poke()
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "player.back_to_live"), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            } else if (full && isSeekable) {
+                                Text(
+                                    tech.kousozo.tahoetv.core.I18n.get(lang, "player.hold_slide_rewind").uppercase(),
+                                    color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            if (full) {
+                                Text(Playback.format ?: "LIVE", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = Mono)
+                            }
                         }
                     }
-                    ProgressBar(progFrac, Modifier.fillMaxWidth())
+                    Box(
+                        Modifier.fillMaxWidth().height(48.dp)
+                            .onSizeChanged { barWidth = it.width.coerceAtLeast(1) }
+                            .pointerInput(isSeekable, durMs, busy, lang) {
+                                detectHorizontalDragGestures(
+                                    onDragStart = { offset ->
+                                        poke()
+                                        if (busy) return@detectHorizontalDragGestures
+                                        if (isSeekable) {
+                                            scrubFrac = (offset.x / barWidth.toFloat()).coerceIn(0f, 1f)
+                                        } else {
+                                            feedbackPill = tech.kousozo.tahoetv.core.I18n.get(lang, "player.seek_unavailable")
+                                        }
+                                    },
+                                    onHorizontalDrag = { change, _ ->
+                                        poke()
+                                        if (isSeekable && !busy) {
+                                            change.consume()
+                                            scrubFrac = (change.position.x / barWidth.toFloat()).coerceIn(0f, 1f)
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        val target = scrubFrac
+                                        scrubFrac = null
+                                        if (target != null && isSeekable && durMs > 0L) {
+                                            player.seekTo(tech.kousozo.tahoetv.core.LiveSeek.positionFor(target, durMs))
+                                            player.play()
+                                        }
+                                        poke()
+                                    },
+                                    onDragCancel = { scrubFrac = null },
+                                )
+                            }
+                            .pointerInput(isSeekable, durMs, busy, lang) {
+                                detectTapGestures(
+                                    onTap = { offset ->
+                                        poke()
+                                        if (busy) return@detectTapGestures
+                                        if (isSeekable && durMs > 0L) {
+                                            val f = (offset.x / barWidth.toFloat()).coerceIn(0f, 1f)
+                                            player.seekTo(tech.kousozo.tahoetv.core.LiveSeek.positionFor(f, durMs))
+                                            player.play()
+                                        } else {
+                                            feedbackPill = tech.kousozo.tahoetv.core.I18n.get(lang, "player.seek_unavailable")
+                                        }
+                                    },
+                                )
+                            }
+                            .semantics {
+                                contentDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "player.seekbar_desc")
+                                stateDescription = if (atLiveEdge) "LIVE"
+                                    else tech.kousozo.tahoetv.core.I18n.get(
+                                        lang,
+                                        "player.behind_live_fmt",
+                                        tech.kousozo.tahoetv.core.LiveSeek.formatBehind(maxOf(0L, liveOffMs)),
+                                    )
+                                if (isSeekable) {
+                                    progressBarRangeInfo = ProgressBarRangeInfo(displayFrac, 0f..1f)
+                                    setProgress { target ->
+                                        player.seekTo(tech.kousozo.tahoetv.core.LiveSeek.positionFor(target, durMs))
+                                        player.play()
+                                        poke()
+                                        true
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            Modifier.fillMaxWidth()
+                                .height(if (scrubFrac != null) 6.dp else 4.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(Color.White.copy(alpha = 0.24f)),
+                        ) {
+                            Box(
+                                Modifier.fillMaxWidth(displayFrac.coerceIn(0f, 1f))
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(if (!atLiveEdge || scrubFrac != null) Tahoe.Warm else Tahoe.Accent),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -919,8 +1175,8 @@ fun progress(p: Epg.Programme, now: Instant) =
  *  name, and a tvOS spinner (12 ticks fading around a circle). No text about sources or retries. */
 @Composable
 private fun ChannelLoader(name: String, modifier: Modifier = Modifier) {
-    val t by androidx.compose.animation.core.rememberInfiniteTransition(label = "load").animateFloat(0f, 12f,
-        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing)), label = "spin")
+    val t = if (ThemePrefs.reduceMotion) 0f else androidx.compose.animation.core.rememberInfiniteTransition(label = "load").animateFloat(0f, 12f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing)), label = "spin").value
     Column(modifier.background(Color(0xCC07080D)), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Box(Modifier.size(80.dp, 54.dp).background(Color.White, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
             Text(name.take(3).uppercase(), color = Color(0xFF111114), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
@@ -952,7 +1208,7 @@ fun PlayerSettingsSheet(onDismiss: () -> Unit) {
     val lang = PhoneRegion.language
     ModalBottomSheet(onDismiss, containerColor = Tahoe.Surface) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "player.settings"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "player.settings"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.a11yHeading())
             Text(tech.kousozo.tahoetv.core.I18n.get(lang, "player.quality"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 tech.kousozo.tahoetv.core.PlayPrefs.Quality.entries.forEach { q -> Chip(q.label(lang), Playback.quality == q) { Playback.setQuality(c, q) } }
@@ -991,10 +1247,10 @@ fun PlayerStatsSheet(onDismiss: () -> Unit) {
     }
     ModalBottomSheet(onDismiss, containerColor = Tahoe.Surface) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.title"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.title"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.a11yHeading())
             snap?.let { s ->
                 tech.kousozo.tahoetv.core.PlayerStats.rows(s, lang).forEach { (k, v) ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(k, color = Tahoe.Dim, fontSize = 13.sp)
                         Spacer(Modifier.width(12.dp))
                         Text(v, color = Tahoe.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono)
@@ -1006,12 +1262,12 @@ fun PlayerStatsSheet(onDismiss: () -> Unit) {
                         val cm = c.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
                         cm?.setPrimaryClip(android.content.ClipData.newPlainText("Tahoe TV Stats", txt))
                         android.widget.Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "stats.copied"), android.widget.Toast.LENGTH_SHORT).show()
-                    }, Modifier.weight(1f)) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.copy")) }
+                    }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.copy")) }
                     OutlinedButton({
                         val txt = tech.kousozo.tahoetv.core.PlayerStats.formatText(s, lang)
                         tech.kousozo.tahoetv.core.DiagLog.add("stats", txt.replace("\n", " | "))
                         android.widget.Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "stats.log_saved"), android.widget.Toast.LENGTH_SHORT).show()
-                    }, Modifier.weight(1f)) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.send_log")) }
+                    }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "stats.send_log")) }
                 }
             }
         }
@@ -1060,7 +1316,9 @@ private fun ChannelSlate(e: LocalTv.Entry, reason: tech.kousozo.tahoetv.core.Sla
 @Composable
 private fun SlateButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, big: Boolean, primary: Boolean = false, onClick: () -> Unit) = Row(
     Modifier.defaultMinSize(minHeight = 48.dp, minWidth = 48.dp)
-        .clip(RoundedCornerShape(50)).background(if (primary) Color.White else Color.White.copy(alpha = 0.16f)).clickable(onClick = onClick)
+        .clip(RoundedCornerShape(50)).background(if (primary) Color.White else Color.White.copy(alpha = 0.16f))
+        .clickable(role = Role.Button, onClick = onClick)
+        .semantics(mergeDescendants = true) {}
         .padding(horizontal = if (big) 16.dp else 12.dp, vertical = if (big) 10.dp else 6.dp),
     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
 ) {

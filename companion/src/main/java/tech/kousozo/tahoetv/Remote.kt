@@ -1,14 +1,14 @@
 package tech.kousozo.tahoetv
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,8 +33,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -109,8 +113,9 @@ fun RemoteScreen() {
         // Figma "Mobile / Remote": title, Wi-Fi line, "+" to add a TV
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(L("nav.remote"), fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(L("nav.remote"), fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp,
+                    modifier = Modifier.a11yHeading())
+                Row(Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Wifi, null, tint = Tahoe.Good, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp))
                     Text(tech.kousozo.tahoetv.core.I18n.get(lang, "remote.found_fmt", devState.devices.size + found.size), fontSize = 14.sp, color = Tahoe.Dim,
                         letterSpacing = 0.14.sp, fontWeight = FontWeight.Medium)
@@ -143,15 +148,33 @@ fun RemoteScreen() {
         }
 
         // remote panel
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Tahoe.Surface).border(1.dp, Tahoe.Stroke, RoundedCornerShape(28.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Tahoe.Surface)
+            .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke, RoundedCornerShape(28.dp))
             .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(48.dp).clip(CircleShape).background(Tahoe.Bad.copy(alpha = 0.18f)).clickable { haptic.performHapticFeedback(HapticFeedbackType.LongPress); link?.power() },
-                    contentAlignment = Alignment.Center) { Icon(Icons.Rounded.PowerSettingsNew, L("remote.standby"), tint = Tahoe.Bad) }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    Modifier.size(48.dp).clip(CircleShape).background(Tahoe.Bad.copy(alpha = 0.18f))
+                        .then(if (ThemePrefs.highContrast) Modifier.border(2.dp, Tahoe.Bad, CircleShape) else Modifier)
+                        .clickable(role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); link?.power() }
+                        .semantics { contentDescription = L("remote.standby") },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.PowerSettingsNew, null, tint = Tahoe.Bad) }
+                Column(
+                    Modifier.weight(1f).heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .then(
+                            if (link != null) Modifier.clickable(role = Role.Button) { showTvSettings = true }
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "a11y.open_tv_settings", tvName)
+                                }
+                            else Modifier.semantics(mergeDescendants = true) {},
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
                     Text(L("remote.controlling"), fontSize = 13.sp, color = Tahoe.Dim)
-                    Text(tvName, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable(enabled = link != null) { showTvSettings = true })
+                    Text(tvName, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 RoundKey(Icons.Rounded.Mic, L("remote.speak"), 48.dp) {
                     runCatching { speech.launch(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -174,22 +197,29 @@ fun RemoteScreen() {
             if (typing) {
                 var typed by remember { mutableStateOf("") }
                 Field(typed, { typed = it; link?.text(it) }, L("remote.type_hint"), trailing = {
-                    IconButton({ typed = ""; link?.text("") }) { Icon(Icons.Rounded.Backspace, L("remote.clear"), tint = Tahoe.Dim) }
+                    IconButton({ typed = ""; link?.text("") }, Modifier.size(48.dp)) { Icon(Icons.Rounded.Backspace, L("remote.clear"), tint = Tahoe.Dim) }
                 })
             }
         }
 
         // TV on another network: QR or 6-digit code; install Tahoe on a TV
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Surface).border(1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Tahoe.Surface)
+            .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke, RoundedCornerShape(24.dp))
             .padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(L("remote.other_net_title"), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
+            Text(L("remote.other_net_title"), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.a11yHeading())
             Text(L("remote.other_net_desc"), fontSize = 14.sp, lineHeight = 19.sp, color = Tahoe.Dim)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 GlassPill(L("remote.qr_short"), Icons.Rounded.QrCodeScanner, Modifier.weight(1f)) { qr = true }
                 GlassPill(L("remote.enter_pin"), Icons.Rounded.Dialpad, Modifier.weight(1f)) { pinFor = host }
             }
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { Nav.page = "setup" }.padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp))
+                    .clickable(role = Role.Button) { Nav.page = "setup" }
+                    .semantics(mergeDescendants = true) {}
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 Box(Modifier.size(40.dp).clip(CircleShape).background(Color(tech.kousozo.tahoetv.core.Brand.SUN).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Download, null, tint = Color(tech.kousozo.tahoetv.core.Brand.SUN), modifier = Modifier.size(20.dp))
                 }
@@ -218,9 +248,10 @@ fun RemoteScreen() {
                         if (d.isEmpty()) Spacer(Modifier.size(62.dp))
                         else {
                             val desc = if (d == "⟲") tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.prev_ch") else tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.digit", d)
-                            Box(Modifier.size(62.dp).clip(CircleShape).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, CircleShape)
+                            Box(Modifier.size(62.dp).clip(CircleShape).background(Tahoe.Glass)
+                                .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke, CircleShape)
                                 .semantics { contentDescription = desc }
-                                .clickable { key(if (d == "⟲") "prev" else d) }, // ⟲ = previous channel
+                                .clickable(role = Role.Button) { key(if (d == "⟲") "prev" else d) }, // ⟲ = previous channel
                                 contentAlignment = Alignment.Center) { Text(d, fontSize = 22.sp, fontWeight = FontWeight.SemiBold) }
                         }
                     }
@@ -297,50 +328,78 @@ private fun KidsPinDialog(host: String, token: String, close: () -> Unit) {
         dismissButton = { TextButton(close) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "common.cancel")) } })
 }
 
-/** Ring D-pad: arrows on the ring, OK in the middle; a swipe anywhere on it also moves (one step per ~60 dp). */
+/** Ring D-pad: accessible buttons on the ring (kept LTR in RTL locales), OK in the middle; swipe anywhere moves too. */
 @Composable
 private fun DPad(onKey: (String) -> Unit) {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    val am = remember { c.getSystemService(android.content.Context.ACCESSIBILITY_SERVICE) as? android.view.accessibility.AccessibilityManager }
+    var touchExploration by remember { mutableStateOf(am?.isTouchExplorationEnabled == true) }
+    DisposableEffect(am) {
+        if (am == null) return@DisposableEffect onDispose {}
+        val l = android.view.accessibility.AccessibilityManager.TouchExplorationStateChangeListener { touchExploration = it }
+        am.addTouchExplorationStateChangeListener(l)
+        onDispose { am.removeTouchExplorationStateChangeListener(l) }
+    }
     var acc by remember { mutableStateOf(Offset.Zero) }
-    var pressed by remember { mutableStateOf<String?>(null) }
     val ring = 240.dp
-    Box(
-        Modifier.size(ring).clip(CircleShape)
-            .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.04f))))
-            .border(1.dp, Tahoe.Stroke, CircleShape)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = { o ->
-                        val cx = size.width / 2f; val cy = size.height / 2f; val dx = o.x - cx; val dy = o.y - cy
-                        val k = when {
-                            dx * dx + dy * dy < (size.width * 0.2f) * (size.width * 0.2f) -> "ok"
-                            abs(dx) > abs(dy) -> if (dx > 0) "right" else "left"
-                            else -> if (dy > 0) "down" else "up"
+    KeepLtr {
+        Box(
+            Modifier.size(ring).clip(CircleShape)
+                .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.04f))))
+                .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke, CircleShape)
+                .then(
+                    if (touchExploration) Modifier
+                    else Modifier.pointerInput(Unit) {
+                        detectDragGestures(onDragEnd = { acc = Offset.Zero }) { ch, d ->
+                            ch.consume(); acc += d
+                            if (abs(acc.x) > 160f || abs(acc.y) > 160f) {
+                                onKey(if (abs(acc.x) > abs(acc.y)) (if (acc.x > 0) "right" else "left") else (if (acc.y > 0) "down" else "up"))
+                                acc = Offset.Zero
+                            }
                         }
-                        pressed = k; tryAwaitRelease(); pressed = null; onKey(k)
-                    })
-            }
-            .pointerInput(Unit) {
-                detectDragGestures(onDragEnd = { acc = Offset.Zero }) { ch, d ->
-                    ch.consume(); acc += d
-                    if (abs(acc.x) > 160f || abs(acc.y) > 160f) {
-                        onKey(if (abs(acc.x) > abs(acc.y)) (if (acc.x > 0) "right" else "left") else (if (acc.y > 0) "down" else "up"))
-                        acc = Offset.Zero
-                    }
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            @Composable fun Arrow(icon: ImageVector, label: String, k: String, a: Alignment) {
+                val src = remember { MutableInteractionSource() }
+                val down by src.collectIsPressedAsState()
+                val s by animateFloatAsState(
+                    if (down && !ThemePrefs.reduceMotion) 1.25f else 1f,
+                    tween(if (ThemePrefs.reduceMotion) 0 else tech.kousozo.tahoetv.core.Brand.MOTION_PRESS, easing = EaseOutTahoe),
+                    label = "arrow",
+                )
+                Box(
+                    Modifier.align(a).size(66.dp).clip(CircleShape)
+                        .clickable(src, null, role = Role.Button) { onKey(k) }
+                        .semantics { contentDescription = label },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, null, tint = if (down) Tahoe.Accent else Tahoe.Dim, modifier = Modifier.size(30.dp).scale(s))
                 }
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        @Composable fun Arrow(icon: ImageVector, label: String, k: String, a: Alignment) {
-            val s by animateFloatAsState(if (pressed == k) 1.35f else 1f, spring(), label = "arrow")
-            Icon(icon, label, tint = if (pressed == k) Tahoe.Accent else Tahoe.Dim, modifier = Modifier.align(a).padding(18.dp).size(30.dp).scale(s))
-        }
-        Arrow(Icons.Rounded.KeyboardArrowUp, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.dir_up"), "up", Alignment.TopCenter)
-        Arrow(Icons.Rounded.KeyboardArrowDown, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.dir_down"), "down", Alignment.BottomCenter)
-        Arrow(Icons.Rounded.KeyboardArrowLeft, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.dir_left"), "left", Alignment.CenterStart)
-        Arrow(Icons.Rounded.KeyboardArrowRight, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.dir_right"), "right", Alignment.CenterEnd)
-        val s by animateFloatAsState(if (pressed == "ok") 0.92f else 1f, spring(), label = "ok")
-        Box(Modifier.size(96.dp).scale(s).clip(CircleShape).background(Tahoe.Accent), contentAlignment = Alignment.Center) {
-            Text("OK", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Tahoe.OnAccent)
+            }
+            Arrow(Icons.Rounded.KeyboardArrowUp, tech.kousozo.tahoetv.core.I18n.get(lang, "remote.dir_up"), "up", Alignment.TopCenter)
+            Arrow(Icons.Rounded.KeyboardArrowDown, tech.kousozo.tahoetv.core.I18n.get(lang, "remote.dir_down"), "down", Alignment.BottomCenter)
+            Arrow(Icons.Rounded.KeyboardArrowLeft, tech.kousozo.tahoetv.core.I18n.get(lang, "remote.dir_left"), "left", Alignment.CenterStart)
+            Arrow(Icons.Rounded.KeyboardArrowRight, tech.kousozo.tahoetv.core.I18n.get(lang, "remote.dir_right"), "right", Alignment.CenterEnd)
+
+            val okSrc = remember { MutableInteractionSource() }
+            val okDown by okSrc.collectIsPressedAsState()
+            val s by animateFloatAsState(
+                if (okDown && !ThemePrefs.reduceMotion) tech.kousozo.tahoetv.core.Brand.PRESS_SCALE else 1f,
+                tween(if (ThemePrefs.reduceMotion) 0 else tech.kousozo.tahoetv.core.Brand.MOTION_PRESS, easing = EaseOutTahoe),
+                label = "ok",
+            )
+            Box(
+                Modifier.size(96.dp).scale(s).clip(CircleShape).background(Tahoe.Accent)
+                    .then(if (ThemePrefs.highContrast) Modifier.border(2.dp, Tahoe.Text, CircleShape) else Modifier)
+                    .clickable(okSrc, null, role = Role.Button) { onKey("ok") }
+                    .semantics { contentDescription = tech.kousozo.tahoetv.core.I18n.get(lang, "a11y.dpad_ok") },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("OK", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Tahoe.OnAccent)
+            }
         }
     }
 }
@@ -348,10 +407,18 @@ private fun DPad(onKey: (String) -> Unit) {
 /** Figma TV card: artwork area, name, status dot. The active TV is the solid (text-coloured) card. */
 @Composable
 private fun TvCardTile(name: String, status: String, dot: Color, on: Boolean, onClick: () -> Unit) {
+    val lang = PhoneRegion.language
     val fg = if (on) Tahoe.Bg else Tahoe.Text
-    Column(Modifier.width(158.dp).clip(RoundedCornerShape(22.dp)).background(if (on) Tahoe.Text else Tahoe.Surface)
-        .border(1.dp, if (on) Color.Transparent else Tahoe.Stroke, RoundedCornerShape(22.dp)).clickable(onClick = onClick).padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        Modifier.width(158.dp).clip(RoundedCornerShape(22.dp)).background(if (on) Tahoe.Text else Tahoe.Surface)
+            .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, if (on) Color.Transparent else Tahoe.Stroke, RoundedCornerShape(22.dp))
+            .selectable(selected = on, role = Role.RadioButton, onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                stateDescription = tech.kousozo.tahoetv.core.I18n.get(lang, if (on) "a11y.selected" else "a11y.not_selected")
+            }
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Box(Modifier.fillMaxWidth().height(74.dp).clip(RoundedCornerShape(14.dp))
             .background(Brush.linearGradient(listOf(Color(tech.kousozo.tahoetv.core.Brand.LAKE), Color(tech.kousozo.tahoetv.core.Brand.LAKE_DEEP), Tahoe.Stage))),
             contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Tv, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(30.dp)) }
@@ -365,9 +432,29 @@ private fun TvCardTile(name: String, status: String, dot: Color, on: Boolean, on
 
 /** Round key with a caption under it (Kembali · Beranda · Menu · Ketik). */
 @Composable
-private fun LabeledKey(icon: ImageVector, label: String, onClick: () -> Unit) = Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    RoundKey(icon, label, 52.dp, onClick = onClick)
-    Text(label, fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1)
+private fun LabeledKey(icon: ImageVector, label: String, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val down by src.collectIsPressedAsState()
+    val s by animateFloatAsState(
+        if (down && !ThemePrefs.reduceMotion) tech.kousozo.tahoetv.core.Brand.PRESS_SCALE else 1f,
+        tween(if (ThemePrefs.reduceMotion) 0 else tech.kousozo.tahoetv.core.Brand.MOTION_PRESS, easing = EaseOutTahoe),
+        label = "labeledKey",
+    )
+    Column(
+        Modifier.clip(RoundedCornerShape(16.dp))
+            .clickable(src, null, role = Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            Modifier.size(52.dp).scale(s).clip(CircleShape).background(Tahoe.Glass)
+                .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = Tahoe.Text) }
+        Text(label, fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1)
+    }
 }
 
 /** Figma VOL / CH pill: − LABEL + side by side. */
@@ -429,7 +516,14 @@ private fun Rocker(label: String, upIcon: ImageVector, downIcon: ImageVector, up
 private fun RoundKey(icon: ImageVector, label: String, size: Dp = 62.dp, tint: Color = Tahoe.Text, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val down by src.collectIsPressedAsState()
-    val s by animateFloatAsState(if (down) 0.9f else 1f, spring(), label = "key")
-    Box(Modifier.size(size).scale(s).clip(CircleShape).background(Tahoe.Glass).border(1.dp, Tahoe.Stroke, CircleShape)
-        .clickable(src, null, onClick = onClick), contentAlignment = Alignment.Center) { Icon(icon, label, tint = tint) }
+    val s by animateFloatAsState(
+        if (down && !ThemePrefs.reduceMotion) tech.kousozo.tahoetv.core.Brand.PRESS_SCALE else 1f,
+        tween(if (ThemePrefs.reduceMotion) 0 else tech.kousozo.tahoetv.core.Brand.MOTION_PRESS, easing = EaseOutTahoe),
+        label = "key",
+    )
+    Box(Modifier.size(size).scale(s).clip(CircleShape).background(Tahoe.Glass)
+        .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke, CircleShape)
+        .clickable(src, null, role = Role.Button, onClick = onClick)
+        .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center) { Icon(icon, null, tint = tint) }
 }

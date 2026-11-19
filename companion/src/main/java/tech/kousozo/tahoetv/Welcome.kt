@@ -1,10 +1,18 @@
 package tech.kousozo.tahoetv
 
 import android.content.Context
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -37,8 +45,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -221,7 +233,7 @@ fun WelcomeScreen() {
                         val done = i <= step.visible()
                         val w by androidx.compose.animation.core.animateDpAsState(
                             if (active) 28.dp else 8.dp,
-                            androidx.compose.animation.core.tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe),
+                            tween(if (ThemePrefs.reduceMotion) 0 else tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe),
                             label = "step",
                         )
                         Box(Modifier.height(8.dp).width(w).clip(RoundedCornerShape(4.dp)).background(if (done) Tahoe.Accent else Tahoe.Glass))
@@ -243,15 +255,32 @@ fun WelcomeScreen() {
                 Step.Summary -> if (!advanced) t("ready_channels_fmt").replace("%s", "$channelTotal") to t("summary.sub")
                     else t("summary.title") to t("summary.sub")
             }
-            Text(titleText, color = Tahoe.Text, fontSize = if (step == Step.Language || step == Step.Summary) 36.sp else 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp, lineHeight = 40.sp)
+            Text(titleText, color = Tahoe.Text, fontSize = if (step == Step.Language || step == Step.Summary) 36.sp else 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp, lineHeight = 40.sp, modifier = Modifier.a11yHeading())
             if (!(step == Step.Summary && !advanced)) {
                 Text(subText, color = Tahoe.Dim, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
             } else {
                 Spacer(Modifier.height(14.dp))
             }
 
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                when (step) {
+            val rtlDir = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
+            AnimatedContent(
+                step,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                transitionSpec = {
+                    val forward = flow.indexOf(targetState) >= flow.indexOf(initialState)
+                    val dir = (if (forward) 1 else -1) * rtlDir
+                    if (ThemePrefs.reduceMotion) {
+                        fadeIn(tween(200)) togetherWith fadeOut(tween(200))
+                    } else {
+                        (slideInHorizontally(tween(tech.kousozo.tahoetv.core.Brand.MOTION_SHEET, easing = EaseDrawerTahoe)) { dir * it / 4 } +
+                            fadeIn(tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe))) togetherWith
+                            (slideOutHorizontally(tween(220, easing = EaseOutTahoe)) { -dir * it / 5 } +
+                                fadeOut(tween(160, easing = EaseOutTahoe)))
+                    }
+                },
+                label = "welcome-step",
+            ) { currentStep ->
+                when (currentStep) {
                     Step.Language -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Region.LANGUAGES.forEach { l -> Option(OnboardingText.LANGUAGE_NAMES.getValue(l), null, l == v.language) { v = v.copy(language = l) } }
                     }
@@ -607,11 +636,12 @@ private fun OrderStep(v: Viewer, t: (String) -> String, catalog: List<LocalTv.En
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Tahoe.Glass).padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("${i + 1}", color = Tahoe.Dim, fontSize = 13.sp, modifier = Modifier.width(28.dp))
-                Text(names[url] ?: url.substringAfterLast('/').substringBefore('.'), color = Tahoe.Text, fontSize = 15.sp, maxLines = 1,
+                val chName = names[url] ?: url.substringAfterLast('/').substringBefore('.')
+                Text(chName, color = Tahoe.Text, fontSize = 15.sp, maxLines = 1,
                     overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                RoundGlass(Icons.Rounded.KeyboardArrowUp, "▲", 36.dp) { if (i > 0) onChange(v.favorites.toMutableList().apply { add(i - 1, removeAt(i)) }) }
+                RoundGlass(Icons.Rounded.KeyboardArrowUp, I18n.get(v.language, "a11y.move_up_fmt", chName), 48.dp) { if (i > 0) onChange(v.favorites.toMutableList().apply { add(i - 1, removeAt(i)) }) }
                 Spacer(Modifier.width(6.dp))
-                RoundGlass(Icons.Rounded.KeyboardArrowDown, "▼", 36.dp) { if (i < v.favorites.size - 1) onChange(v.favorites.toMutableList().apply { add(i + 1, removeAt(i)) }) }
+                RoundGlass(Icons.Rounded.KeyboardArrowDown, I18n.get(v.language, "a11y.move_down_fmt", chName), 48.dp) { if (i < v.favorites.size - 1) onChange(v.favorites.toMutableList().apply { add(i + 1, removeAt(i)) }) }
             }
         }
     }
@@ -666,8 +696,10 @@ private fun Summary(v: Viewer, t: (String) -> String, showMore: Boolean = false,
 private fun Option(text: String, flag: String?, selected: Boolean, sub: String? = null, onClick: () -> Unit) = Row(
     Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(22.dp))
         .background(if (selected) (if (ThemePrefs.dark) Color.White.copy(alpha = 0.10f) else Tahoe.SurfaceHi) else Tahoe.Surface)
-        .border(if (selected) 2.dp else 1.dp, if (selected) Tahoe.Accent else Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(22.dp))
-        .clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 14.dp),
+        .border(if (selected || ThemePrefs.highContrast) 2.dp else 1.dp, if (selected) Tahoe.Accent else Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(22.dp))
+        .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+        .semantics(mergeDescendants = true) {}
+        .padding(horizontal = 18.dp, vertical = 14.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
     flag?.let { Text(it, fontSize = 20.sp, modifier = Modifier.padding(end = 12.dp)) }

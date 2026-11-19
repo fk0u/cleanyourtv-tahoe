@@ -1,9 +1,10 @@
 package tech.kousozo.tahoetv
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -18,10 +19,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import tech.kousozo.tahoetv.core.Brand
 import tech.kousozo.tahoetv.core.LocalTv
 
 /** "Pilih kategori": a 2-column grid of glass tiles (icon, name, channel count). Tap selects; the bottom pill opens
@@ -36,7 +40,7 @@ fun CategoriesScreen() {
     Box(Modifier.fillMaxSize().systemBarsPadding()) {
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.explore_kicker"), Modifier.padding(top = 12.dp), color = Tahoe.Faint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.pick_category"), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.pick_category"), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp, modifier = Modifier.a11yHeading())
             Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.explore_desc"), color = Tahoe.Dim, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp))
             if (all == null) { LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass); return@Column }
             val cats = listOf<LocalTv.Category?>(null) + LocalTv.Category.entries.filter { k -> all.any { LocalTv.inCategory(it, k) } }
@@ -45,11 +49,17 @@ fun CategoriesScreen() {
                 items(cats) { k ->
                     val on = k == picked
                     val n = if (k == null) all.size else all.count { LocalTv.inCategory(it, k) }
-                    val bg by animateColorAsState(if (on) Color.White.copy(alpha = 0.16f) else Tahoe.Glass, label = "tile")
+                    val bg by animateColorAsState(
+                        if (on) Color.White.copy(alpha = 0.16f) else Tahoe.Glass,
+                        animationSpec = tween(if (ThemePrefs.reduceMotion) 0 else Brand.MOTION_FAST, easing = EaseOutTahoe),
+                        label = "tile",
+                    )
                     Column(
                         Modifier.height(112.dp).clip(RoundedCornerShape(22.dp)).background(bg)
-                            .border(1.dp, if (on) Tahoe.Text.copy(alpha = 0.6f) else Tahoe.Stroke, RoundedCornerShape(22.dp))
-                            .clickable { picked = k }.padding(14.dp),
+                            .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, if (on) Tahoe.Text.copy(alpha = 0.6f) else Tahoe.Stroke, RoundedCornerShape(22.dp))
+                            .selectable(selected = on, role = Role.RadioButton) { picked = k }
+                            .semantics(mergeDescendants = true) {}
+                            .padding(14.dp),
                         verticalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Box(Modifier.size(38.dp).clip(CircleShape).background(if (on) Tahoe.Text else Color.White.copy(alpha = 0.08f)),

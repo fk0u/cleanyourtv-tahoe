@@ -27,6 +27,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -87,14 +89,14 @@ fun RecapPage() {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(I18n.get(lang, "recap.month_fmt", summary.month).uppercase(),
-                fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, color = Color.White.copy(alpha = 0.8f))
+                fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, color = Color.White.copy(alpha = 0.8f), modifier = Modifier.a11yHeading())
             Text(I18n.get(lang, "recap.hours_mins", hrs, mins),
                 fontSize = 52.sp, lineHeight = 56.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1.1).sp, color = Color.White)
             Text(I18n.get(lang, "recap.watching_this_month"), fontSize = 16.sp, color = Color.White.copy(alpha = 0.85f))
             Spacer(Modifier.weight(1f, fill = true))
             if (summary.topChannels.isNotEmpty()) {
                 Text(I18n.get(lang, "recap.top_channels").uppercase(),
-                    fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, color = Color.White.copy(alpha = 0.8f))
+                    fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, color = Color.White.copy(alpha = 0.8f), modifier = Modifier.a11yHeading())
                 summary.topChannels.take(3).forEachIndexed { idx, item ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("${idx + 1}", fontSize = 26.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.6f))
@@ -112,10 +114,16 @@ fun RecapPage() {
                 .border(1.dp, Tahoe.Stroke, RoundedCornerShape(26.dp)).padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(I18n.get(lang, "recap.peak_hour"), fontSize = 14.sp, color = Tahoe.Dim)
-            Text("%02d.00 – %02d.00".format(peakStart, (peakStart + 2) % 24),
+            Text(I18n.get(lang, "recap.peak_hour"), fontSize = 14.sp, color = Tahoe.Dim, modifier = Modifier.a11yHeading())
+            val peakRange = "%02d.00 – %02d.00".format(peakStart, (peakStart + 2) % 24)
+            Text(peakRange,
                 fontSize = 32.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.64).sp, fontFamily = Mono)
-            Row(Modifier.fillMaxWidth().height(76.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+            val chartDesc = I18n.get(lang, "a11y.recap_chart_fmt", peakRange)
+            Row(
+                Modifier.fillMaxWidth().height(76.dp).clearAndSetSemantics { contentDescription = chartDesc },
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
                 barHeights.forEachIndexed { idx, h ->
                     Box(Modifier.weight(1f).height(h.dp).clip(RoundedCornerShape(6.dp))
                         .background(if (idx == 6) Tahoe.Accent else if (ThemePrefs.dark) Color.White.copy(alpha = 0.15f) else Tahoe.Glass))
