@@ -3,6 +3,11 @@
 package tech.kousozo.tahoetv.desktop
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -270,8 +275,7 @@ private fun HeroCarousel(heroes: List<Web.Hero>, modifier: Modifier, onLive: () 
         ) { cur ->
             Box(Modifier.fillMaxSize()) {
                 cur?.let { c -> rememberImage(c.image)?.let { Image(it, null, Modifier.fillMaxHeight().fillMaxWidth(0.68f).align(Alignment.CenterEnd), contentScale = ContentScale.Crop) } }
-                    ?: Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Tahoe.Accent.copy(alpha = 0.35f), Color.Transparent),
-                        center = androidx.compose.ui.geometry.Offset(1100f, 120f), radius = 700f)))
+                    ?: HeroAurora()
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Tahoe.Card, 0.38f to Tahoe.Card.copy(alpha = 0.92f), 0.7f to Color.Transparent)))
                 Column(Modifier.align(Alignment.CenterStart).padding(start = 32.dp, end = 24.dp).widthIn(max = 460.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "home.trending_on", cur.source) else "Tahoe TV", fontSize = 16.sp, fontWeight = FontWeight.Medium)
@@ -414,4 +418,18 @@ private fun AssistantPanel() {
 
 fun Modifier.onEnter(action: () -> Unit) = onPreviewKeyEvent {
     if (it.key == Key.Enter && it.type == KeyEventType.KeyDown) { action(); true } else false
+}
+
+/** Slow drifting glows behind the hero when there is no picture; static with "Kurangi gerakan". */
+@Composable
+private fun HeroAurora() {
+    val t by if (ThemePrefs.reduceMotion) remember { mutableStateOf(0f) } else rememberInfiniteTransition(label = "aurora")
+        .animateFloat(0f, 1f, infiniteRepeatable(tween(14000, easing = LinearEasing), RepeatMode.Reverse), label = "t")
+    Canvas(Modifier.fillMaxSize()) {
+        val a = 2f * Math.PI.toFloat() * t
+        fun glow(cx: Float, cy: Float, r: Float, c: Color) =
+            drawCircle(Brush.radialGradient(listOf(c, Color.Transparent), androidx.compose.ui.geometry.Offset(cx, cy), r), r, androidx.compose.ui.geometry.Offset(cx, cy))
+        glow(size.width * (0.72f + 0.12f * kotlin.math.cos(a)), size.height * (0.3f + 0.15f * kotlin.math.sin(a)), size.width * 0.5f, Tahoe.Accent.copy(alpha = 0.38f))
+        glow(size.width * (0.9f - 0.15f * kotlin.math.sin(a)), size.height * (0.85f - 0.12f * kotlin.math.cos(a)), size.width * 0.4f, Color(0xFF8A5CF6).copy(alpha = 0.25f))
+    }
 }
