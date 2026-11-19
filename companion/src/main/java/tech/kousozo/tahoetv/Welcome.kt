@@ -662,7 +662,7 @@ private fun Summary(v: Viewer, t: (String) -> String, showMore: Boolean = false,
         checkLine(t("ready_check_remote"))
         Spacer(Modifier.height(4.dp))
         SwitchRow(t("prayer.on"), v.prayer) { onPrayer(it) }
-        if (showMore) SecondaryButton(t("more"), Icons.Rounded.Tune) { onMore() }
+        if (showMore) IconRow { RoundGlass(Icons.Rounded.Tune, t("more")) { onMore() } }
         return@Column
     }
     // what is ready, in plain words, plus the one choice most people care about here (prayer times)
@@ -673,7 +673,7 @@ private fun Summary(v: Viewer, t: (String) -> String, showMore: Boolean = false,
     }
     SwitchRow(t("prayer.on"), v.prayer) { onPrayer(it) }
     if (v.prayer && v.lat == null) Text(t("prayer.needcity"), color = Tahoe.Faint, fontSize = 12.sp)
-    if (showMore) SecondaryButton(t("more"), Icons.Rounded.Tune) { onMore() }
+    if (showMore) IconRow { RoundGlass(Icons.Rounded.Tune, t("more")) { onMore() } }
     fun row(k: String, value: String) = k to value
     listOf(
         row("sum.language", OnboardingText.LANGUAGE_NAMES.getValue(v.language)),

@@ -382,14 +382,14 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
             ).joinToString(" · ")
             if (metaLine.isNotBlank()) Text(metaLine, color = Tahoe.Dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GlassPill(
-                tech.kousozo.tahoetv.core.I18n.get(lang, "home.favorites"),
-                icon = if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            RoundGlass(
+                if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, tech.kousozo.tahoetv.core.I18n.get(lang, "home.favorites"),
+                tint = if (fav) Tahoe.Bad else Tahoe.Text,
                 stateLabel = tech.kousozo.tahoetv.core.I18n.get(lang, if (fav) "a11y.favorited" else "a11y.not_favorited"),
             ) { Channels.toggleFav(c, e) }
-            GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "live.channel_page_generic")) { Nav.detail = e }
-            GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "player.share")) { shareChannel(c, e) }
+            RoundGlass(Icons.Rounded.Info, tech.kousozo.tahoetv.core.I18n.get(lang, "live.channel_page_generic")) { Nav.detail = e }
+            RoundGlass(Icons.Rounded.Share, tech.kousozo.tahoetv.core.I18n.get(lang, "player.share")) { shareChannel(c, e) }
         }
     }
 }

@@ -209,9 +209,9 @@ fun RemoteScreen() {
             Text(L("remote.other_net_title"), fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.a11yHeading())
             Text(L("remote.other_net_desc"), fontSize = 14.sp, lineHeight = 19.sp, color = Tahoe.Dim)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GlassPill(L("remote.qr_short"), Icons.Rounded.QrCodeScanner, Modifier.weight(1f)) { qr = true }
-                GlassPill(L("remote.enter_pin"), Icons.Rounded.Dialpad, Modifier.weight(1f)) { pinFor = host }
+            IconRow {
+                RoundGlass(Icons.Rounded.QrCodeScanner, L("remote.qr_short"), size = 56.dp, filled = true) { qr = true }
+                RoundGlass(Icons.Rounded.Dialpad, L("remote.enter_pin"), size = 56.dp) { pinFor = host }
             }
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp))
@@ -233,14 +233,17 @@ fun RemoteScreen() {
 
         // sleep timer: tap to step Mati → 15 → 30 → 60 → 90 → 120 → Mati; shows the TV's minutes left
         val sleepLeft = tv?.optInt("sleep") ?: 0
-        TextButton({ link?.sleep(listOf(15, 30, 60, 90, 120).firstOrNull { it > sleepLeft } ?: 0) }) {
-            Icon(Icons.Rounded.Bedtime, null); Spacer(Modifier.width(8.dp))
-            Text(if (sleepLeft == 0) tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.sleep_off") else tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.sleep_mins", sleepLeft))
-        }
 
         // channel numbers (Live TV): 1–3 digits, the TV tunes 1.5 s after the last one
         var pad by remember { mutableStateOf(false) }
-        TextButton({ pad = !pad }) { Icon(Icons.Rounded.Dialpad, null); Spacer(Modifier.width(8.dp)); Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (pad) "remote.numpad_hide" else "remote.numpad_show")) }
+        val sleepText = if (sleepLeft == 0) tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.sleep_off") else tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "player.sleep_mins", sleepLeft)
+        IconRow {
+            RoundGlass(Icons.Rounded.Bedtime, sleepText, tint = if (sleepLeft > 0) Tahoe.Accent else Tahoe.Text, stateLabel = sleepText) {
+                link?.sleep(listOf(15, 30, 60, 90, 120).firstOrNull { it > sleepLeft } ?: 0)
+            }
+            RoundGlass(Icons.Rounded.Dialpad, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (pad) "remote.numpad_hide" else "remote.numpad_show"),
+                tint = if (pad) Tahoe.Accent else Tahoe.Text) { pad = !pad }
+        }
         if (pad) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("⟲", "0", "")).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -279,12 +282,12 @@ fun RemoteScreen() {
         // support: send logs, reset the kids PIN
         var pinDialog by remember { mutableStateOf(false) }
         var sending by remember { mutableStateOf(false) }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            TextButton({
+        IconRow {
+            RoundGlass(Icons.Rounded.BugReport, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (sending) "remote.sending_log" else "remote.send_log"), enabled = !sending) {
                 sending = true
                 Report.send(c) { n -> sending = false; n?.let { android.widget.Toast.makeText(c, it, android.widget.Toast.LENGTH_LONG).show() } }
-            }, enabled = !sending) { Icon(Icons.Rounded.BugReport, null); Spacer(Modifier.width(8.dp)); Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, if (sending) "remote.sending_log" else "remote.send_log")) }
-            if (link != null) TextButton({ pinDialog = true }) { Icon(Icons.Rounded.Lock, null); Spacer(Modifier.width(8.dp)); Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.kids_pin")) }
+            }
+            if (link != null) RoundGlass(Icons.Rounded.Lock, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "remote.kids_pin")) { pinDialog = true }
         }
         if (pinDialog) KidsPinDialog(host, token) { pinDialog = false }
     }

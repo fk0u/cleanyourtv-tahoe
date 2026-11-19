@@ -484,12 +484,12 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                     (prog?.desc?.takeIf { it.isNotBlank() } ?: curHero.category.label(lang)).let {
                         Text(it, color = Color.White.copy(alpha = 0.85f), fontSize = 16.sp, lineHeight = 23.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PillButton(L("home.watch"), Icons.Rounded.PlayArrow) { Nav.play(curHero) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        PillButton(L("home.watch"), Icons.Rounded.PlayArrow) { Nav.play(curHero) } // the one labelled action
                         val fav = curHero.channel.url in Channels.favs
-                        GlassPill(
-                            L("live.favorites_star"),
-                            if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        RoundGlass(
+                            if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, L("live.favorites_star"),
+                            tint = if (fav) Tahoe.Bad else Color.White,
                             stateLabel = tech.kousozo.tahoetv.core.I18n.get(lang, if (fav) "a11y.favorited" else "a11y.not_favorited"),
                         ) { Channels.toggleFav(c, curHero) }
                     }
@@ -616,7 +616,11 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
         if (paired && !showPair) Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.your_tv"), fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).a11yHeading())
-                TextButton({ showDevices = true }, Modifier.heightIn(min = 48.dp)) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.devices"), color = Tahoe.Accent) }
+                if (activeToken.isNotEmpty()) {
+                    RoundGlass(Icons.Rounded.Tune, tech.kousozo.tahoetv.core.I18n.get(lang, "tvset.open_full")) { showTvSettings = true }
+                    Spacer(Modifier.width(8.dp))
+                }
+                RoundGlass(Icons.Rounded.Devices, tech.kousozo.tahoetv.core.I18n.get(lang, "connect.devices")) { showDevices = true }
             }
             GlassCard(onClick = { showPair = true }) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -626,10 +630,9 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                         Text(devState.active()?.name?.ifBlank { null } ?: tech.kousozo.tahoetv.core.I18n.get(lang, "home.connected_tv"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Text("$host · ${Sync.status.value}", color = Tahoe.Dim, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote"), Icons.Rounded.SettingsRemote) { Nav.tab = 2 }
+                    RoundGlass(Icons.Rounded.SettingsRemote, tech.kousozo.tahoetv.core.I18n.get(lang, "nav.remote"), filled = true) { Nav.tab = 2 }
                 }
             }
-            if (activeToken.isNotEmpty()) SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tvset.open_full"), Icons.Rounded.Tune) { showTvSettings = true }
         }
     }
 }
@@ -647,14 +650,14 @@ private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, cod
         GlassCard {
             if (!paired && !open) {
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect_desc"), color = Tahoe.Dim, fontSize = 14.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "profile.connect_tv"), Icons.Rounded.Tv) { Nav.page = "connect" }
-                    GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), Icons.Rounded.QrCodeScanner) { onScanQr() }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    RoundGlass(Icons.Rounded.Tv, tech.kousozo.tahoetv.core.I18n.get(lang, "profile.connect_tv"), filled = true) { Nav.page = "connect" }
+                    RoundGlass(Icons.Rounded.QrCodeScanner, tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn")) { onScanQr() }
                 }
                 return@GlassCard
             }
             Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.pair_hint"), color = Tahoe.Dim, fontSize = 13.sp)
-            SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), Icons.Rounded.QrCodeScanner) { onScanQr() }
+            RoundGlass(Icons.Rounded.QrCodeScanner, tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn")) { onScanQr() }
             Field(host, setHost, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.host_hint"), KeyboardType.Uri)
             Field(code, { if (it.length <= 6) setCode(it.filter(Char::isDigit)) }, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.code_hint"), KeyboardType.NumberPassword)
             PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.connect"), enabled = host.isNotBlank() && code.length == 6, icon = Icons.Rounded.Link) {
@@ -673,10 +676,12 @@ private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, cod
             }
             SwitchRow(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.forward_notifs"), notif, setNotif)
             SwitchRow(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.show_media"), media, setMedia)
-            if (host.isNotBlank()) TextButton({ c.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://${host.trim()}:8765/"))) }) {
-                Icon(Icons.Rounded.SportsEsports, null, tint = Tahoe.Text); Spacer(Modifier.width(8.dp)); Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.open_gamepad"), color = Tahoe.Text)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (host.isNotBlank()) RoundGlass(Icons.Rounded.SportsEsports, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.open_gamepad")) {
+                    c.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://${host.trim()}:8765/")))
+                }
+                if (open) RoundGlass(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.close")) { setOpen(false) }
             }
-            if (open) TextButton({ setOpen(false) }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.close"), color = Tahoe.Dim) }
         }
     }
 }
@@ -848,11 +853,7 @@ fun TvDevicesSheet(onDismiss: () -> Unit, onScanQr: (() -> Unit)? = null, onPick
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(tech.kousozo.tahoetv.core.I18n.get(lang, "connect.devices"), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f).a11yHeading())
-                if (onScanQr != null) TextButton(onScanQr) {
-                    Icon(Icons.Rounded.QrCodeScanner, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), color = Tahoe.Accent)
-                }
+                if (onScanQr != null) RoundGlass(Icons.Rounded.QrCodeScanner, tech.kousozo.tahoetv.core.I18n.get(lang, "qr.scan_btn"), onClick = onScanQr)
             }
             state.devices.forEach { d ->
                 val isActive = state.active()?.id == d.id
@@ -983,7 +984,7 @@ internal fun RegionCard() {
                     " · " + PhoneRegion.viewer.countries.let { l -> l.take(5).joinToString(" ") { tech.kousozo.tahoetv.core.Region.flag(it) } + if (l.size > 5) " +${l.size - 5}" else "" },
                     color = Tahoe.Dim, fontSize = 12.sp, maxLines = 1)
             }
-            PillButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.change")) { Playback.stop(); PhoneRegion.reset() }
+            RoundGlass(Icons.Rounded.SwapHoriz, tech.kousozo.tahoetv.core.I18n.get(lang, "home.change")) { Playback.stop(); PhoneRegion.reset() }
         }
     }
 }

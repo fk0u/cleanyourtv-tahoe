@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -417,17 +418,35 @@ fun SearchPill(
     }
 }
 
-/** Figma "Icon Button": 48 dp glass circle with a hairline and a 22 dp icon. */
+/** Figma "Icon Button": 48 dp glass circle with a hairline and a 22 dp icon. The minimalist replacement for text buttons:
+ *  [label] is the TalkBack name and also shows as a toast on long press, so an icon is never a mystery.
+ *  [filled] = accent disc (the one highlighted action), [stateLabel] = TalkBack state ("on"/"off", "15 min"). */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun RoundGlass(icon: ImageVector, label: String, size: Dp = 48.dp, tint: Color = Tahoe.Text, onClick: () -> Unit) = Box(
-    Modifier.size(size)
-        .clip(RoundedCornerShape(50))
-        .background(Tahoe.Glass)
-        .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke, RoundedCornerShape(50))
-        .clickable(role = Role.Button, onClick = onClick)
-        .semantics { contentDescription = label },
-    contentAlignment = Alignment.Center,
-) { Icon(icon, null, tint = tint, modifier = Modifier.size(size * 0.46f)) }
+fun RoundGlass(
+    icon: ImageVector, label: String, size: Dp = 48.dp, tint: Color = Tahoe.Text,
+    filled: Boolean = false, enabled: Boolean = true, stateLabel: String? = null, onClick: () -> Unit,
+) {
+    val c = androidx.compose.ui.platform.LocalContext.current
+    val shape = RoundedCornerShape(50)
+    Box(
+        Modifier.size(maxOf(size, 48.dp))
+            .clip(shape)
+            .background(if (filled) Tahoe.Accent else Tahoe.Glass)
+            .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, if (filled) Color.Transparent else Tahoe.Stroke, shape)
+            .combinedClickable(enabled = enabled, role = Role.Button, onLongClickLabel = label, onClick = onClick,
+                onLongClick = { android.widget.Toast.makeText(c, label, android.widget.Toast.LENGTH_SHORT).show() })
+            .semantics { contentDescription = label; if (stateLabel != null) stateDescription = stateLabel },
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, null, tint = if (filled) Tahoe.OnAccent else if (enabled) tint else Tahoe.Faint, modifier = Modifier.size(size * 0.46f)) }
+}
+
+/** A row of [RoundGlass] actions, evenly spaced: where a screen used to stack two or three wide text buttons. */
+@Composable
+fun IconRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) = Row(
+    modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
+    verticalAlignment = Alignment.CenterVertically, content = content,
+)
 
 /** Figma "Live Badge": red pill, white dot, LIVE in 11 SemiBold caps. */
 @Composable

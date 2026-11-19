@@ -61,8 +61,10 @@ fun SetupScreen(onExit: () -> Unit, m: SetupModel = viewModel()) {
             Section(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.or_ip"))
             Field(m.host, { m.host = it }, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.ip_field"), KeyboardType.Uri)
             PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.connect_btn"), enabled = m.host.isNotBlank()) { m.connect() }
-            SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.rescan"), Icons.Rounded.Refresh) { m.scan() }
-            SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.back"), Icons.AutoMirrored.Rounded.ArrowBack, onClick = exit)
+            IconRow {
+                RoundGlass(Icons.Rounded.Refresh, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.rescan")) { m.scan() }
+                RoundGlass(Icons.AutoMirrored.Rounded.ArrowBack, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.back"), onClick = exit)
+            }
         }
 
         SetupModel.Step.Connect -> Page(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.step", 2), tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.connect_step_title"),
@@ -77,7 +79,7 @@ fun SetupScreen(onExit: () -> Unit, m: SetupModel = viewModel()) {
             } else {
                 Note(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.connect_failed", err), Icons.Rounded.ErrorOutline)
                 PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.retry"), icon = Icons.Rounded.Refresh) { m.connect() }
-                SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.back")) { m.back() }
+                IconRow { RoundGlass(Icons.AutoMirrored.Rounded.ArrowBack, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "common.back")) { m.back() } }
             }
         }
 
@@ -87,7 +89,7 @@ fun SetupScreen(onExit: () -> Unit, m: SetupModel = viewModel()) {
             Page(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.step", 3), tv.model,
                 "Android ${tv.release} (SDK ${tv.sdk})" + (if (tv.lowRam) " · ${tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.low_ram")}" else "") + (m.version?.let { "\n${tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.installed_note", it)}" } ?: "")) {
                 if (tv.sdk < 26) Note(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.sdk_low"), Icons.Rounded.Info)
-                if (m.version != null) SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.restore_btn"), Icons.Rounded.Restore, Tahoe.Bad) { confirm = true }
+                if (m.version != null) IconRow { RoundGlass(Icons.Rounded.Restore, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.restore_btn"), tint = Tahoe.Bad) { confirm = true } }
                 Section(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.debloat_title"))
                 Text(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "setup.debloat_sub"), color = Tahoe.Dim, fontSize = 13.sp)
                 val items = TvAdb.CATALOG.filter { it.pkg in m.debloat }
@@ -160,8 +162,10 @@ fun SetupScreen(onExit: () -> Unit, m: SetupModel = viewModel()) {
                         m.disableDebugging { Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(langS, "setup.usb_off_toast"), Toast.LENGTH_SHORT).show() }
                     }
                 }
-                if (!m.busy && m.step == SetupModel.Step.Apply) SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(langS, "setup.edit_prefs"), Icons.AutoMirrored.Rounded.ArrowBack) { m.next() }
-                if (!m.busy) SecondaryButton(tech.kousozo.tahoetv.core.I18n.get(langS, "setup.go_home"), Icons.Rounded.Home, onClick = exit)
+                if (!m.busy) IconRow {
+                    if (m.step == SetupModel.Step.Apply) RoundGlass(Icons.AutoMirrored.Rounded.ArrowBack, tech.kousozo.tahoetv.core.I18n.get(langS, "setup.edit_prefs")) { m.next() }
+                    RoundGlass(Icons.Rounded.Home, tech.kousozo.tahoetv.core.I18n.get(langS, "setup.go_home"), onClick = exit)
+                }
             }
         }
     }

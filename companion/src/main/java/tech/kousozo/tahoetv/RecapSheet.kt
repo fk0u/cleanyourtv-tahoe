@@ -213,10 +213,12 @@ fun RecapSheet(onDismiss: () -> Unit) {
                 WatchRecap.setEnabled(dir, on)
                 enabled = on
             }
-            SecondaryButton(I18n.get(lang, "recap.clear"), Icons.Rounded.DeleteOutline, Tahoe.Bad) {
-                WatchRecap.clear(dir)
-                rev++
-                Toast.makeText(c, I18n.get(lang, "recap.cleared"), Toast.LENGTH_SHORT).show()
+            IconRow {
+                RoundGlass(Icons.Rounded.DeleteOutline, I18n.get(lang, "recap.clear"), tint = Tahoe.Bad) {
+                    WatchRecap.clear(dir)
+                    rev++
+                    Toast.makeText(c, I18n.get(lang, "recap.cleared"), Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

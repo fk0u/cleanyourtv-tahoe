@@ -459,7 +459,7 @@ fun ProfileScreen() {
                         Text(I18n.get(lang, "profile.version_label"), fontSize = 14.sp, color = Tahoe.Dim)
                         Text(versionName, fontSize = 32.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.64).sp)
                     }
-                    GlassPill(I18n.get(lang, "profile.about_btn")) { aboutOpen = true }
+                    RoundGlass(Icons.Rounded.Info, I18n.get(lang, "profile.about_btn")) { aboutOpen = true }
                 }
             }
             Box(Modifier.fillMaxWidth()) { UpdateCard() }
@@ -860,9 +860,9 @@ fun OfflineState(modifier: Modifier = Modifier) {
         }
         Text(I18n.get(lang, "offline.no_internet"), fontSize = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.56).sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Text(I18n.get(lang, "home.channels_failed"), fontSize = 15.sp, color = Tahoe.Dim, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             PillButton(I18n.get(lang, "common.retry"), Icons.Rounded.Refresh) { Channels.reload(c); scope.launch { Channels.load(c) } }
-            GlassPill(I18n.get(lang, "offline.watch_saved"), Icons.Rounded.Bookmarks) { Nav.tab = 3; Nav.page = null }
+            RoundGlass(Icons.Rounded.Bookmarks, I18n.get(lang, "offline.watch_saved")) { Nav.tab = 3; Nav.page = null }
         }
     }
 }
@@ -1039,9 +1039,9 @@ fun ConnectTvPage() {
             }
         }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GlassPill(I18n.get(lang, "remote.qr_short"), Icons.Rounded.QrCodeScanner, Modifier.weight(1f), fullWidth = true) { showQr = true }
-            GlassPill(I18n.get(lang, "connect.pin_short"), Icons.Rounded.Pin, Modifier.weight(1f), fullWidth = true) { pinFor = "" }
+        IconRow {
+            RoundGlass(Icons.Rounded.QrCodeScanner, I18n.get(lang, "remote.qr_short"), size = 56.dp, filled = true) { showQr = true }
+            RoundGlass(Icons.Rounded.Pin, I18n.get(lang, "connect.pin_short"), size = 56.dp) { pinFor = "" }
         }
         Text(
             I18n.get(lang, "connect.diff_wifi_note"),
@@ -1290,8 +1290,10 @@ fun ContributorsPage() {
                 }
             }
         }
-        PillButton(I18n.get(lang, "contrib.see_all_gh"), fullWidth = true) { open(c, "$REPO/graphs/contributors") }
-        GlassPill(I18n.get(lang, "contrib.how_to"), fullWidth = true) { open(c, "$REPO/blob/main/CONTRIBUTING.md") }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            PillButton(I18n.get(lang, "contrib.see_all_gh"), modifier = Modifier.weight(1f), fullWidth = true) { open(c, "$REPO/graphs/contributors") }
+            RoundGlass(Icons.Rounded.MenuBook, I18n.get(lang, "contrib.how_to")) { open(c, "$REPO/blob/main/CONTRIBUTING.md") }
+        }
     }
 }
 
