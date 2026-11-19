@@ -3,6 +3,18 @@
 Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis GitHub, dan tampil di aplikasi
 (TV: Pusat Kontrol → Tentang · HP: Setelan · Desktop: Setelan → Tentang & pembaruan).
 
+## Belum dirilis
+
+### Baru
+- **HP (`:companion`) · Live preview, transisi, Now Playing, & aksesibilitas lengkap (#179).**
+  - **Pratinjau langsung (`MobileLivePreview` & `LivePreviewSurface`):** saluran di Hero Beranda dan Detail Saluran memutar pratinjau bisu (maks. 480p, jeda diam 700 ms, timeout 8 detik) dengan tombol nyalakan/matikan suara dan sakelar **Pratinjau langsung** di Pengaturan; otomatis nonaktif pada mode demo, offline, DRM/DASH, Kurangi gerakan, PiP, dan saat pemutaran penuh aktif.
+  - **Transisi gerak Redesign 4.0:** seluruh perpindahan tab, halaman dorong (sadar RTL), lembar detail saluran, langkah onboarding (`WelcomeScreen`), accordion FAQ (`HelpCenterPage`), `MiniPlayer`, dan `PushBannerBar` mengikuti kurva `EASE_OUT`/`EASE_DRAWER` dan durasi `Brand.MOTION_*`, serta otomatis beralih ke fade saat **Kurangi gerakan** aktif.
+  - **Now Playing & scrubbar interaktif (`LiveSeek`):** `MiniPlayer` dengan progres acara real-time dan indikator status (berputar/jeda/memuat), `NowPlayingInfo` dan daftar saluran/Watchlist menandai saluran yang sedang diputar, serta scrubbar tekan-geser di `PlayerStage` dengan lencana `-mm:ss` dan pil **Kembali ke LIVE**.
+  - **Aksesibilitas menyeluruh:** heading TalkBack (`a11yHeading`), penggabungan semantik baris (`mergeDescendants`), status & `liveRegion` sopan, target sentuh minimum 48 dp, perlindungan arah `KeepLtr` pada D-Pad/scrubbar/progres untuk bahasa Arab (RTL), dan garis tepi 2 dp pada mode Kontras Tinggi.
+- **TV (`:launcher`) · Pratinjau langsung di Hero Beranda & gerak/fokus Redesign 4.0 (#181).** Hero Beranda kini memutar pratinjau langsung (Java Views murni, memakai `LivePreview.java`) saat ubin Live TV difokus, lengkap dengan cincin fokus (`Ui.focusRing`), kurva `Ui.out()`/`Ui.drawer()` sadar `Ui.dur()`, pelokalan layar pilih profil (`Lock.Profiles`), dan pengumuman TalkBack/D-Pad.
+- **Desktop (`:desktop`) · Pintasan keyboard, pratinjau Beranda, & Multi-View (#182).** Tambahan pintasan `Ctrl/Cmd+1..6` untuk pindah halaman, pratinjau pilihan saluran di Beranda (klik sekali pilih, klik lagi/dua kali tonton), batas fokus kontras tinggi 2 dp, serta bingkai cyan `#5CD0FF` dan tombol angka `1`–`4` untuk fokus audio di Multi-View 2×2.
+- **Website (`website/`) · Penyelarasan landing Figma (#183).** Hero rata tengah, showcase 7 tile bergelombang, bagian **Saluran dari 200+ negara** dengan 4 kartu kategori, serta 3 kartu unduh (TV, HP, Desktop gabungan) dengan terjemahan lengkap EN/ID/ZH/AR.
+
 ## 3.5.0-beta.1
 
 **Tahoe TV v3.5.0-beta.1 (Beta)** · rilis beta pengembang Redesign 4.0 (seluruh layar HP selaras dengan Figma, terverifikasi di perangkat fisik). Belum untuk pemakaian sehari-hari; laporkan masalah lewat Profil → Laporkan masalah.
