@@ -55,10 +55,10 @@
 </header>
 
 <main>
-<section class="hero">
+<section class="hero hero-centered">
   <div class="hero-text reveal">
     <button class="pill" id="version-pill" type="button"><span class="dot"></span><span data-i18n="hero.badge">Open source · MIT</span> <b id="version">v3.5.0</b></button>
-    <h1 data-i18n="hero.title">Your TV, beautifully simple.</h1>
+    <h1 data-i18n="hero.title">You choose what to watch.</h1>
     <p class="lead" data-i18n="hero.lead">Tahoe TV: calm, simple TV for the whole family. A free, open-source glass TV home & smart live TV player for Android TV, Android phones, Mac, Windows PC and Debian/Ubuntu Linux. Light enough for a 1 GB TV stick.</p>
     <div class="cta">
       <a class="btn cyan" id="cta-download" href="#start"><span data-i18n="hero.download">Download</span> <small id="cta-os"></small></a>
@@ -68,15 +68,42 @@
     <p class="works"><span data-i18n="hero.works">Works on</span> <b>Android TV</b><b>Android</b><b>macOS</b><b>Windows</b><b>Linux</b></p>
     <ul class="stats">
       <li><b>1,000+</b><span data-i18n="stats.channels">channels indexed</span></li>
-      <li><b>5</b><span data-i18n="stats.platforms">platforms</span></li>
+      <li><b>200+</b><span data-i18n="stats.countries">countries</span></li>
       <li><b>1 GB</b><span data-i18n="stats.ram">RAM is enough</span></li>
       <li><b>0</b><span data-i18n="stats.ads">ads, no root</span></li>
     </ul>
   </div>
-  <div class="hero-art reveal" aria-hidden="true">
-    <div class="glow"></div>
-    <div class="stage-tv"><img src="assets/shots/v2/02-beranda.jpg" alt="" width="1280" height="720"></div>
-    <div class="stage-phone"><img src="assets/shots/mobile-v4/01-beranda.jpg" alt="" width="540" height="1200"></div>
+  <div class="wave-showcase reveal" aria-label="Tahoe TV previews">
+    <a class="wave-tile t1" href="watch"><img src="assets/shots/v2/02-beranda.jpg" alt="" loading="eager"></a>
+    <a class="wave-tile t2" href="watch"><img src="assets/shots/mobile-v4/01-beranda.jpg" alt="" loading="eager"></a>
+    <a class="wave-tile t3" href="watch"><img src="assets/shots/v2/03-hero-aksi.jpg" alt="" loading="eager"></a>
+    <a class="wave-tile t4" href="watch"><img src="assets/shots/mobile-v4/04-tv-live.jpg" alt="" loading="eager"></a>
+    <a class="wave-tile t5" href="watch"><img src="assets/shots/v2/06-pusat-kontrol.jpg" alt="" loading="eager"></a>
+    <a class="wave-tile t6" href="watch"><img src="assets/shots/mobile-v4/03-halaman-saluran.jpg" alt="" loading="eager"></a>
+    <a class="wave-tile t7" href="watch"><img src="assets/shots/v2/04-launchpad.jpg" alt="" loading="eager"></a>
+  </div>
+</section>
+
+<section class="section world-section">
+  <h2 class="reveal" data-i18n="world.title">Channels from 200+ countries</h2>
+  <p class="sub reveal" data-i18n="world.sub">Public broadcasts sorted by region, language, and category — ready on TV, phone, desktop, and browser.</p>
+  <div class="world-grid reveal">
+    <a class="world-card wc-news" href="watch">
+      <span class="wc-tag" data-i18n="world.live">LIVE</span>
+      <div><h3 data-i18n="world.c1.t">News & Live</h3><p data-i18n="world.c1.d">24/7 national & international headlines in your language.</p></div>
+    </a>
+    <a class="world-card wc-sports" href="watch">
+      <span class="wc-tag" data-i18n="world.live">LIVE</span>
+      <div><h3 data-i18n="world.c2.t">Sports & Arena</h3><p data-i18n="world.c2.d">Matches, highlights, and live commentary across regions.</p></div>
+    </a>
+    <a class="world-card wc-family" href="watch">
+      <span class="wc-tag" data-i18n="world.family_tag">FAMILY</span>
+      <div><h3 data-i18n="world.c3.t">Kids & Family</h3><p data-i18n="world.c3.d">Safe channels with PIN-locked Kids profile on TV.</p></div>
+    </a>
+    <a class="world-card wc-culture" href="watch">
+      <span class="wc-tag" data-i18n="world.global_tag">200+</span>
+      <div><h3 data-i18n="world.c4.t">Movies & Culture</h3><p data-i18n="world.c4.d">Documentaries, cinema, music, and local community TV.</p></div>
+    </a>
   </div>
 </section>
 
@@ -200,35 +227,20 @@
     </article>
 
     <article class="card dl reveal" data-os="mac" data-kind="desktop">
-      <span class="role-tag amber" data-i18n="dl.mac.badge">macOS · Desktop</span>
-      <h3>🍎 macOS 13+</h3>
+      <span class="role-tag amber" data-i18n="dl.desk.badge">macOS · Windows · Linux</span>
+      <h3>💻 <span data-i18n="dl.desk.t">For Desktop (Mac, Windows & Linux)</span></h3>
       <ol>
         <li data-i18n="dl.mac.1">Download the DMG for Apple Silicon or Intel Mac and drag Tahoe TV to Applications.</li>
-        <li data-i18n="dl.mac.2">Includes Live TV, DVR Recording, Home IPTV Server, TV Mirroring, and instant update alerts.</li>
+        <li data-i18n="dl.win.1">Download and run the MSI installer for Windows 10/11, or install the 64-bit .deb on Debian/Ubuntu.</li>
+        <li data-i18n="dl.mac.2">Includes Live TV, Multi-view 2×2, DVR Recording, Home IPTV Server, TV Mirroring, and instant update alerts.</li>
       </ol>
       <div class="row">
-        <a class="btn primary small" id="dl-mac-intel" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg">Mac Intel</a>
-        <a class="btn ghost small" id="dl-mac-arm" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg">Apple Silicon</a>
+        <a class="btn primary small" id="dl-mac-arm" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg">macOS Apple Silicon</a>
+        <a class="btn ghost small" id="dl-mac-intel" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg">macOS Intel</a>
+        <a class="btn ghost small" id="dl-win" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi">Windows (.msi)</a>
+        <a class="btn ghost small" id="dl-linux" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-linux-amd64.deb">Linux (.deb)</a>
       </div>
-      <p class="dl-sub"><code>TahoeTV-macos-intel.dmg</code> · <code>TahoeTV-macos-arm64.dmg</code></p>
-    </article>
-
-    <article class="card dl reveal" data-os="windows" data-kind="desktop">
-      <h3>🪟 Windows 10/11</h3>
-      <ol>
-        <li data-i18n="dl.win.1">Download and run the MSI installer.</li>
-        <li data-i18n="dl.win.2">Watch HLS & DASH/DRM live channels with fuzzy auto-failover and LAN server sharing.</li>
-      </ol>
-      <a class="btn primary small" id="dl-win" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi">TahoeTV-windows.msi</a>
-    </article>
-
-    <article class="card dl reveal" data-os="linux" data-kind="desktop">
-      <h3>🐧 Debian / Ubuntu</h3>
-      <ol>
-        <li data-i18n="dl.linux.1">Download the .deb package for 64-bit PCs (amd64).</li>
-        <li data-i18n="dl.linux.2">Install with <code>sudo apt install ./TahoeTV-linux-amd64.deb</code>.</li>
-      </ol>
-      <a class="btn primary small" id="dl-linux" href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-linux-amd64.deb">TahoeTV-linux-amd64.deb</a>
+      <p class="dl-sub"><code>TahoeTV-macos-arm64.dmg</code> · <code>TahoeTV-macos-intel.dmg</code> · <code>TahoeTV-windows.msi</code> · <code>TahoeTV-linux-amd64.deb</code></p>
     </article>
   </div>
 
