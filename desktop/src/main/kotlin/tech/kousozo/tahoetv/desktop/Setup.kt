@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Favorite
@@ -118,8 +119,8 @@ fun SetupScreen(onDone: () -> Unit) {
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 14.dp)) {
-                if (step != Step.Language) GhostButton(t("back")) { go(-1) }
-                else if (Settings.viewer.done) GhostButton(t("back")) { onDone() } // reopened from Settings: leave unchanged
+                if (step != Step.Language) IconAction(Icons.Rounded.ArrowBack, t("back")) { go(-1) }
+                else if (Settings.viewer.done) IconAction(Icons.Rounded.ArrowBack, t("back")) { onDone() } // reopened from Settings: leave unchanged
                 Spacer(Modifier.weight(1f))
                 if (step == Step.Summary) PrimaryButton(t("done"), Icons.Rounded.Check) {
                     val reload = v.countries != Settings.viewer.countries

@@ -40,12 +40,12 @@ fun RecordingsScreen() {
         var bgInstalled by remember { mutableStateOf(BackgroundRecorder.isInstalled()) }
         var bgMessage by remember { mutableStateOf<String?>(null) }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.open_folder"), Icons.Rounded.FolderOpen) { open(Recordings.dir) }
-            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.from_live"), Icons.Rounded.LiveTv) { DeskNav.screen = Screen.Live }
+            IconAction(Icons.Rounded.FolderOpen, tech.kousozo.tahoetv.core.I18n.get(lang, "rec.open_folder")) { open(Recordings.dir) }
+            IconAction(Icons.Rounded.LiveTv, tech.kousozo.tahoetv.core.I18n.get(lang, "rec.from_live")) { DeskNav.screen = Screen.Live }
             if (BackgroundRecorder.isSupported()) {
-                GhostButton(
-                    tech.kousozo.tahoetv.core.I18n.get(lang, if (bgInstalled) "rec.bg_remove" else "rec.bg_install"),
+                IconAction(
                     if (bgInstalled) Icons.Rounded.NotificationsActive else Icons.Rounded.Schedule,
+                    tech.kousozo.tahoetv.core.I18n.get(lang, if (bgInstalled) "rec.bg_remove" else "rec.bg_install"),
                     color = if (bgInstalled) Tahoe.Good else Tahoe.Accent,
                 ) {
                     val res = if (bgInstalled) BackgroundRecorder.remove() else BackgroundRecorder.install()
@@ -103,10 +103,10 @@ private fun RecordingRow(j: Recordings.Job, open: (File) -> Unit) = Glass(paddin
             }
         }
         val f = File(j.file)
-        if (j.bytes > 0 && f.isFile) GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.play"), Icons.Rounded.PlayArrow) { open(f) }
+        if (j.bytes > 0 && f.isFile) IconAction(Icons.Rounded.PlayArrow, tech.kousozo.tahoetv.core.I18n.get(lang, "rec.play"), filled = true) { open(f) }
         when {
-            j.state == "recording" -> GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.stop"), Icons.Rounded.Stop, color = Tahoe.Bad) { Recordings.cancel(j.id) }
-            j.state == "scheduled" -> GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "rec.cancel"), Icons.Rounded.Close) { Recordings.cancel(j.id) }
+            j.state == "recording" -> IconAction(Icons.Rounded.Stop, tech.kousozo.tahoetv.core.I18n.get(lang, "rec.stop"), color = Tahoe.Bad) { Recordings.cancel(j.id) }
+            j.state == "scheduled" -> IconAction(Icons.Rounded.Close, tech.kousozo.tahoetv.core.I18n.get(lang, "rec.cancel")) { Recordings.cancel(j.id) }
             else -> IconButton({ Recordings.delete(j.id) }) { Icon(Icons.Rounded.DeleteOutline, tech.kousozo.tahoetv.core.I18n.get(lang, "rec.delete_aria"), tint = Tahoe.Faint) }
         }
     }

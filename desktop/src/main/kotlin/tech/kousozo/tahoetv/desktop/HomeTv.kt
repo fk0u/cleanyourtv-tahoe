@@ -61,7 +61,7 @@ fun HomeTvScreen(onRemote: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Section(if (scanning) "Mencari TV…" else if (found.isEmpty()) "Tidak ada TV ditemukan" else "TV di jaringan")
                 Spacer(Modifier.weight(1f))
-                GhostButton("Pindai ulang", Icons.Rounded.Refresh) { scan() }
+                IconAction(Icons.Rounded.Refresh, "Pindai ulang") { scan() }
             }
             if (scanning) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
             found.forEach { f ->
@@ -114,9 +114,9 @@ private fun Manage(tv: TvAdb, onRemote: () -> Unit) {
         Title(tv.model, "Android ${tv.release} (SDK ${tv.sdk})" + (if (tv.lowRam) " · RAM rendah" else "") + " · ${tv.host}" +
             (info?.third?.let { " · Tahoe $it terpasang" } ?: ""))
         Spacer(Modifier.weight(1f))
-        GhostButton("Remote & Cermin", Icons.Rounded.SettingsRemote, onClick = onRemote)
+        IconAction(Icons.Rounded.SettingsRemote, "Remote & Cermin", filled = true, onClick = onRemote)
         Spacer(Modifier.width(8.dp))
-        GhostButton("Putuskan", Icons.Rounded.LinkOff) { Session.tv?.close(); Session.tv = null }
+        IconAction(Icons.Rounded.LinkOff, "Putuskan") { Session.tv?.close(); Session.tv = null }
     }
     if (info == null) { LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass); return }
 

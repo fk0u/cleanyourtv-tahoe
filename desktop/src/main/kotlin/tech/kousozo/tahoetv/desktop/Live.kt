@@ -633,12 +633,12 @@ private fun Detail(
                 if (!isPlaying) PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), Icons.Rounded.PlayArrow) { onWatch(e) }
                 else {
                     PrimaryButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.show_player"), Icons.Rounded.PictureInPicture) { PlayerWindow.show() }
-                    GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.mini_player"), Icons.Rounded.PictureInPictureAlt) { PlayerWindow.toggleMiniPlayer() }
-                    GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.stop"), Icons.Rounded.Stop, onClick = onStop)
+                    IconAction(Icons.Rounded.PictureInPictureAlt, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.mini_player")) { PlayerWindow.toggleMiniPlayer() }
+                    IconAction(Icons.Rounded.Stop, tech.kousozo.tahoetv.core.I18n.get(lang, "live.stop"), onClick = onStop)
                 }
 
                 if (PlayerWindow.needsBrowserDrm(e.channel)) {
-                    GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.open_web_player"), Icons.Rounded.OpenInBrowser) {
+                    IconAction(Icons.Rounded.OpenInBrowser, tech.kousozo.tahoetv.core.I18n.get(lang, "live.open_web_player")) {
                         runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(IptvServer.webUrl())) }
                     }
                 }
@@ -653,11 +653,10 @@ private fun Detail(
             val recordable = (listOf(e.channel) + e.alternates).any(Recordings::recordable)
             if (rec != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (rec.state == "recording") tech.kousozo.tahoetv.core.I18n.get(lang, "live.recording_now") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.scheduled"), fontSize = 12.sp, color = Tahoe.Bad, fontWeight = FontWeight.SemiBold)
-                TextButton({ Recordings.cancel(rec.id) }, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text(if (rec.state == "recording") tech.kousozo.tahoetv.core.I18n.get(lang, "live.stop_rec") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.cancel_rec"), fontSize = 12.sp, color = Tahoe.Dim)
-                }
+                IconAction(if (rec.state == "recording") Icons.Rounded.Stop else Icons.Rounded.Close,
+                    if (rec.state == "recording") tech.kousozo.tahoetv.core.I18n.get(lang, "live.stop_rec") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.cancel_rec"), size = 32.dp) { Recordings.cancel(rec.id) }
             }
-            else if (recordable) GhostButton(if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "live.record_show") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.record_1h"), Icons.Rounded.FiberManualRecord, color = Tahoe.Bad) {
+            else if (recordable) IconAction(Icons.Rounded.FiberManualRecord, if (cur != null) tech.kousozo.tahoetv.core.I18n.get(lang, "live.record_show") else tech.kousozo.tahoetv.core.I18n.get(lang, "live.record_1h"), color = Tahoe.Bad) {
                 if (cur != null) onRecord(e, cur.title, nowStart, cur.stop.toEpochMilli() + 120_000)
                 else onRecord(e, tech.kousozo.tahoetv.core.I18n.get(lang, "live.broadcast", e.name), nowStart, nowStart + 3600_000)
             }

@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -181,6 +182,33 @@ fun GhostButton(text: String, icon: ImageVector? = null, color: Color = Tahoe.Te
 ) {
     icon?.let { Icon(it, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
     Text(text)
+}
+
+/** Minimalist secondary action: a round glass icon button. [label] is the screen-reader name and the hover tooltip
+ *  (desktop has no long press), so an icon is never a mystery. [filled] = the one highlighted action. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun IconAction(
+    icon: ImageVector, label: String, color: Color = Tahoe.Text, filled: Boolean = false, enabled: Boolean = true,
+    size: Dp = 40.dp, onClick: () -> Unit,
+) {
+    TooltipArea(
+        tooltip = {
+            Surface(shape = RoundedCornerShape(8.dp), color = Tahoe.CardHi, border = BorderStroke(1.dp, Tahoe.Stroke), shadowElevation = 4.dp) {
+                Text(label, Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontSize = 13.sp, color = Tahoe.Text)
+            }
+        },
+        delayMillis = 300,
+    ) {
+        Box(
+            Modifier.size(size).clip(androidx.compose.foundation.shape.CircleShape)
+                .background(if (filled) Tahoe.Accent else Tahoe.Glass)
+                .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, if (filled) Color.Transparent else Tahoe.Stroke, androidx.compose.foundation.shape.CircleShape)
+                .clickable(enabled = enabled, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+                .semantics { contentDescription = label },
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = if (filled) Tahoe.OnAccent else if (enabled) color else Tahoe.Faint, modifier = Modifier.size(size * 0.5f)) }
+    }
 }
 
 @Composable
