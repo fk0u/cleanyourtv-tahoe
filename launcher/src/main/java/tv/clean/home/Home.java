@@ -142,6 +142,17 @@ public class Home extends Activity {
 
     final Runnable reload = () -> HomeDock.loadApps(this);
 
+    private boolean warming;
+    /** Loads just the channel list in the background (once) so the hero has channels to preview before Live TV was ever opened. */
+    void warmChannels() {
+        if (warming || (Live.cached != null && !Live.cached.isEmpty())) return;
+        warming = true;
+        Live.fetch(this, true, l -> {
+            warming = false;
+            if (!isFinishing() && !isDestroyed() && sheet == null && profiles == null && row <= 0) render(false);
+        }, e -> { }, () -> warming = false);
+    }
+
     @Override protected void onResume() {
         super.onResume();
         if (!TvGuard.isAndroidTv(this)) return;
@@ -151,6 +162,7 @@ public class Home extends Activity {
         if (hero == null) return;
         HomeDock.flushKidsAppUsage(this);
         tick(); checkGamepad(); markRunning();
+        warmChannels();
         if (kids()) HomeSettingsBridge.enforceKidsAllowance(this);
         if (transition != null) { // coming back from an app: dissolve the launch overlay
             View t = transition; transition = null;
@@ -804,17 +816,19 @@ public class Home extends Activity {
             heroActionIcon.setImageResource(R.drawable.ic_play);
             String watchTxt = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_watch_livetv");
             heroActionText.setText(watchTxt); heroAction.setContentDescription(watchTxt);
-            tech.kousozo.tahoetv.core.M3u.Channel previewCh = null;
-            if (Live.cached != null && !Live.cached.isEmpty()) {
+            // every playable source of the first channels, healthiest first: the preview walks through them until one plays
+            java.util.List<tech.kousozo.tahoetv.core.M3u.Channel> previewList = new java.util.ArrayList<>();
+            if (Live.cached != null) {
                 for (tech.kousozo.tahoetv.core.LocalTv.Entry en : Live.cached) {
-                    tech.kousozo.tahoetv.core.M3u.Channel c0 = en.getChannel();
-                    if (!c0.getDrm() && !tech.kousozo.tahoetv.core.Drm.isDash(c0.getUrl(), c0.getDrmType(), c0.getManifestType())) {
-                        previewCh = c0;
-                        break;
+                    java.util.List<tech.kousozo.tahoetv.core.M3u.Channel> raw = new java.util.ArrayList<>();
+                    raw.add(en.getChannel()); raw.addAll(en.getAlternates());
+                    for (tech.kousozo.tahoetv.core.M3u.Channel c0 : tech.kousozo.tahoetv.core.SourceHealth.order(raw)) {
+                        if (!c0.getDrm() && !tech.kousozo.tahoetv.core.Drm.isDash(c0.getUrl(), c0.getDrmType(), c0.getManifestType())) previewList.add(c0);
                     }
+                    if (previewList.size() >= 6) break;
                 }
             }
-            if (row <= 0 && sheet == null && profiles == null && previewCh != null) hero.previewChannel(previewCh);
+            if (row <= 0 && sheet == null && profiles == null && !previewList.isEmpty()) hero.previewChannels(previewList);
             else hero.stopPreview();
             return;
         }

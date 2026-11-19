@@ -529,7 +529,7 @@ public class LiveTv extends Activity {
         targetOffsetMs = tuning.getTargetOffsetMs();
         rebufferCount = 0; rebufferMs = 0L; bufferingSince = -1L; droppedFramesCount = 0L;
         statsVideoDecoder = ""; statsAudioDecoder = "";
-        player.prepare(); player.play();
+        player.prepare(); player.play(); tech.kousozo.tahoetv.core.SourceHealth.yieldToPlayback = true;
         sourceStarted = System.currentTimeMillis(); everReady = false; retries = 0; lastPos = -1; stuckSince = System.currentTimeMillis();
         loading.channel(list.get(index).getChannel().getLogo(), list.get(index).getName());
         loading.setText(""); loading.setVisibility(View.VISIBLE);
@@ -627,7 +627,7 @@ public class LiveTv extends Activity {
         if (!everReady || retries >= 3) { nextSource(); return; }
         retries++; stuckSince = System.currentTimeMillis(); lastPos = -1;
         loading.setText(""); loading.setVisibility(View.VISIBLE);
-        ui.postDelayed(() -> { player.prepare(); player.play(); }, 1000);
+        ui.postDelayed(() -> { player.prepare(); player.play(); tech.kousozo.tahoetv.core.SourceHealth.yieldToPlayback = true; }, 1000);
     }
 
     long lastPos = -1, stuckSince;
@@ -1564,7 +1564,7 @@ public class LiveTv extends Activity {
 
     @Override protected void onStop() { super.onStop(); if (live == this) live = null; if (player != null) player.pause(); if (Home.live != null) Home.live.pushState(); }
     @Override protected void onStart() { super.onStart(); live = this; if (player != null && index >= 0) player.play(); if (Home.live != null) Home.live.pushState(); }
-    @Override protected void onDestroy() { if (activeRecorder != null) { activeRecorder.cancel(); activeRecorder = null; } flushRecapSession(); ui.removeCallbacksAndMessages(null); if (player != null) player.release(); player = null; super.onDestroy(); }
+    @Override protected void onDestroy() { tech.kousozo.tahoetv.core.SourceHealth.yieldToPlayback = false; if (activeRecorder != null) { activeRecorder.cancel(); activeRecorder = null; } flushRecapSession(); ui.removeCallbacksAndMessages(null); if (player != null) player.release(); player = null; super.onDestroy(); }
 
     // ------------------------------------------------------------------ app tile
 

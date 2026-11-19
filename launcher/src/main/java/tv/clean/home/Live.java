@@ -180,6 +180,11 @@ public class Live extends Activity {
 
     /** Channel list + guide, cached for 6 h and shared with the Live TV player. Callbacks run on the main thread. */
     static void fetch(android.content.Context c, java.util.function.Consumer<List<LocalTv.Entry>> list,
+                      java.util.function.Consumer<Epg> guide, Runnable failed) { fetch(c, false, list, guide, failed); }
+
+    /** [listOnly] = just the channel list (no guide, no stream probing, no popularity lookup): Home uses it so the hero can preview
+     *  a channel before the Live TV screen was ever opened, without weighing on a 1 GB stick. */
+    static void fetch(android.content.Context c, boolean listOnly, java.util.function.Consumer<List<LocalTv.Entry>> list,
                       java.util.function.Consumer<Epg> guide, Runnable failed) {
         Handler main = new Handler(Looper.getMainLooper());
         SourceHealth.init(new java.io.File(c.getCacheDir(), "source-health.tsv"), new java.io.File(c.getFilesDir(), "source-banned.txt")); // bans: durable
@@ -187,7 +192,7 @@ public class Live extends Activity {
         tech.kousozo.tahoetv.core.MediaScraper.initCache(c.getCacheDir());
         Sources.scheduleDailyRefresh(() -> cachedAt = 0);
         boolean fresh = cached != null && System.currentTimeMillis() - cachedAt < 6 * 3600_000L;
-        if (fresh) { probe(c, cached); list.accept(cached); if (epg != null) { guide.accept(epg); return; } }
+        if (fresh) { if (!listOnly) probe(c, cached); list.accept(cached); if (listOnly) return; if (epg != null) { guide.accept(epg); return; } }
         Net.bg.execute(() -> {
             try {
                 SharedPreferences cfg = Cfg.p(c);
@@ -216,17 +221,20 @@ public class Live extends Activity {
                     List<LocalTv.Entry> l = vw.arrange(LocalTv.INSTANCE.arrange(
                             rawAll, nearProvince, vw.getCountries(), vw.getSort(), vw.getCity(), vw.getCountry()));
                     currentChannels = l;
-                    probe(c, l);
-                    List<String> chNames = new ArrayList<>(l.size());
-                    for (LocalTv.Entry entry : l) chNames.add(entry.getName());
-                    PopularityScraper.prefetchAsync(vw.getCountries(), chNames, () -> {
-                        Viewer latestVw = TvViewer.get(c);
-                        List<LocalTv.Entry> resorted = latestVw.arrange(l);
-                        main.post(() -> { cached = resorted; cachedAt = System.currentTimeMillis(); list.accept(resorted); });
-                        return kotlin.Unit.INSTANCE;
-                    });
+                    if (!listOnly) {
+                        probe(c, l);
+                        List<String> chNames = new ArrayList<>(l.size());
+                        for (LocalTv.Entry entry : l) chNames.add(entry.getName());
+                        PopularityScraper.prefetchAsync(vw.getCountries(), chNames, () -> {
+                            Viewer latestVw = TvViewer.get(c);
+                            List<LocalTv.Entry> resorted = latestVw.arrange(l);
+                            main.post(() -> { cached = resorted; cachedAt = System.currentTimeMillis(); list.accept(resorted); });
+                            return kotlin.Unit.INSTANCE;
+                        });
+                    }
                     main.post(() -> { cached = l; cachedAt = System.currentTimeMillis(); list.accept(l); });
                 }
+                if (listOnly) return;
                 String guideUrl = cfg.getString("epg_url", "");
                 List<String> guides = new ArrayList<>();
                 for (String cc : vw.getCountries()) for (String g : Region.guides(cc)) if (!guides.contains(g)) guides.add(g);
@@ -400,14 +408,19 @@ public class Live extends Activity {
         LinearLayout acts = new LinearLayout(this); acts.setGravity(Gravity.CENTER_VERTICAL);
         TextView watchB = sheetButton(I18n.get(lang, "home.watch"), true, () -> { closeSheet(); watch(e); });
         acts.addView(watchB);
-        acts.addView(sheetButton(I18n.get(lang, "tv.live_record_btn"), false, () -> {
+        // the main action keeps its label; the others are round icons, and the focused one names itself below the row
+        TextView actHint = Ui.text(this, Ui.BODY, 500, Ui.TEXT_2);
+        acts.addView(sheetIcon(R.drawable.ic_record, I18n.get(lang, "tv.live_record_btn"), actHint, () -> {
             closeSheet(); if (preview != null) preview.stop();
             startActivity(new Intent(this, LiveTv.class).putExtra("url", url).putExtra("record", true)); }));
-        acts.addView(sheetButton(I18n.get(lang, isFav ? "tv.fav_remove" : "tv.fav_add"), false, () -> {
+        acts.addView(sheetIcon(isFav ? R.drawable.ic_heart_filled : R.drawable.ic_heart, I18n.get(lang, isFav ? "tv.fav_remove" : "tv.fav_add"), actHint, () -> {
             if (isFav) fav.remove(url); else fav.add(url);
             live.edit().putStringSet("fav", fav).apply();
             closeSheet(); }));
+        View.OnFocusChangeListener watchFocus = watchB.getOnFocusChangeListener();
+        watchB.setOnFocusChangeListener((v, f) -> { if (watchFocus != null) watchFocus.onFocusChange(v, f); if (f) actHint.setText(""); });
         p.addView(acts, lp(20));
+        p.addView(actHint, lp(10));
         FrameLayout.LayoutParams pl = new FrameLayout.LayoutParams((int) dp(500), -1, Gravity.END);
         pl.setMargins((int) dp(24), (int) dp(24), (int) dp(24), (int) dp(24));
         scrim.addView(p, pl);
@@ -439,6 +452,30 @@ public class Live extends Activity {
         });
         b.setOnClickListener(v -> onClick.run());
         LinearLayout.LayoutParams l = new LinearLayout.LayoutParams(-2, -2); l.setMarginEnd((int) dp(12));
+        b.setLayoutParams(l);
+        return b;
+    }
+
+    /** A round glass icon button for the detail sheet: 60 dp, ring + slight growth on focus, and its name shown in [hint] while focused. */
+    android.widget.ImageView sheetIcon(int res, String label, TextView hint, Runnable onClick) {
+        android.widget.ImageView b = new android.widget.ImageView(this);
+        b.setImageResource(res); b.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+        int pad = (int) dp(17); b.setPadding(pad, pad, pad, pad);
+        b.setContentDescription(label);
+        b.setFocusable(true); b.setFocusableInTouchMode(true);
+        android.graphics.drawable.GradientDrawable base = new android.graphics.drawable.GradientDrawable();
+        base.setShape(android.graphics.drawable.GradientDrawable.OVAL); base.setColor(0x24FFFFFF);
+        b.setBackground(base);
+        b.setOnFocusChangeListener((v, f) -> {
+            android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+            g.setShape(android.graphics.drawable.GradientDrawable.OVAL); g.setColor(f ? 0x47FFFFFF : 0x24FFFFFF);
+            if (f) g.setStroke((int) dp(tech.kousozo.tahoetv.core.Brand.FOCUS_RING_DP), Ui.highContrast(this) ? tech.kousozo.tahoetv.core.Brand.HC_FOCUS : tech.kousozo.tahoetv.core.Brand.CYAN);
+            v.setBackground(g);
+            v.animate().scaleX(f ? 1.08f : 1f).scaleY(f ? 1.08f : 1f).setDuration(Ui.dur(this, Ui.FAST)).start();
+            if (f) hint.setText(label);
+        });
+        b.setOnClickListener(v -> onClick.run());
+        LinearLayout.LayoutParams l = new LinearLayout.LayoutParams((int) dp(60), (int) dp(60)); l.setMarginEnd((int) dp(12));
         b.setLayoutParams(l);
         return b;
     }

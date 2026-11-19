@@ -330,6 +330,14 @@ final class Hero extends FrameLayout {
         }
     }
 
+    /** Preview the first of [sources] that plays: the channel's own and backups, then the next channels'. */
+    void previewChannels(java.util.List<M3u.Channel> sources) {
+        if (livePreview != null) {
+            previewBadge.setText("● " + I18n.get(TvViewer.get(getContext()).getLanguage(), "tv.live_preview"));
+            livePreview.focus(sources);
+        }
+    }
+
     void stopPreview() {
         if (livePreview != null) livePreview.stop();
     }
