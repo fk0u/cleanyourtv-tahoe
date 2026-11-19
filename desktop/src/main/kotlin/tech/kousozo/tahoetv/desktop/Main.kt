@@ -1,6 +1,7 @@
 package tech.kousozo.tahoetv.desktop
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -9,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +33,7 @@ import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -110,9 +113,17 @@ private fun app() = application {
             exitApplication()
         },
         onPreviewKeyEvent = { ev ->
-            if (ev.type == KeyEventType.KeyDown && ev.isShiftPressed && (ev.isMetaPressed || ev.isCtrlPressed) && ev.key == Key.A) {
-                DeskNav.screen = Screen.Admin
-                true
+            if (ev.type == KeyEventType.KeyDown && (ev.isMetaPressed || ev.isCtrlPressed)) {
+                when {
+                    ev.isShiftPressed && ev.key == Key.A -> { DeskNav.screen = Screen.Admin; true }
+                    !ev.isShiftPressed && ev.key == Key.One -> { DeskNav.screen = Screen.Home; true }
+                    !ev.isShiftPressed && ev.key == Key.Two -> { DeskNav.screen = Screen.Live; true }
+                    !ev.isShiftPressed && ev.key == Key.Three -> { DeskNav.screen = Screen.Recordings; true }
+                    !ev.isShiftPressed && ev.key == Key.Four -> { DeskNav.screen = Screen.Tv; true }
+                    !ev.isShiftPressed && ev.key == Key.Five -> { DeskNav.screen = Screen.Remote; true }
+                    !ev.isShiftPressed && ev.key == Key.Six -> { DeskNav.screen = Screen.Prefs; true }
+                    else -> false
+                }
             } else false
         },
         title = "Tahoe TV", icon = icon,
@@ -142,7 +153,16 @@ fun App(initial: Screen = Screen.Home, askRegion: Boolean = true) { // askRegion
             Rail(DeskNav.screen) { DeskNav.screen = it }
             Column(Modifier.weight(1f)) {
                 TopBar()
-                AnimatedContent(DeskNav.screen, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "screen", modifier = Modifier.weight(1f)) { s ->
+                AnimatedContent(
+                    DeskNav.screen,
+                    transitionSpec = {
+                        if (ThemePrefs.reduceMotion) fadeIn(tween(180)) togetherWith fadeOut(tween(180))
+                        else fadeIn(tween(tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe)) togetherWith
+                            fadeOut(tween(160, easing = EaseOutTahoe))
+                    },
+                    label = "screen",
+                    modifier = Modifier.weight(1f),
+                ) { s ->
                     when (s) {
                         Screen.Home -> HomeScreen(onLive = { DeskNav.screen = Screen.Live })
                         Screen.Live -> LiveScreen()
@@ -194,9 +214,10 @@ private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) {
                 Row(
                     Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp))
                         .background(if (on) Tahoe.Accent else if (hover) Tahoe.CardHi else Color.Transparent)
-                        .hoverable(src).clickable { onSelect(s) }
+                        .hoverable(src)
+                        .selectable(selected = on, role = Role.Tab) { onSelect(s) }
                         .padding(horizontal = if (collapsed) 0.dp else 12.dp)
-                        .semantics { contentDescription = s.label },
+                        .semantics(mergeDescendants = true) { contentDescription = s.label },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = if (collapsed) Arrangement.Center else Arrangement.Start,
                 ) {

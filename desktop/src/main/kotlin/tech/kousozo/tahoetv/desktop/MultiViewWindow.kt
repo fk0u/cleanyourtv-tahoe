@@ -147,7 +147,18 @@ object MultiViewWindow {
             style = "-fx-background-color: #07080d;"
         }
         st.userData = grid
-        st.scene = Scene(root, 1120.0, 680.0, Color.BLACK)
+        val scene = Scene(root, 1120.0, 680.0, Color.BLACK)
+        scene.setOnKeyPressed { ev ->
+            val idx = when (ev.code) {
+                javafx.scene.input.KeyCode.DIGIT1, javafx.scene.input.KeyCode.NUMPAD1 -> 0
+                javafx.scene.input.KeyCode.DIGIT2, javafx.scene.input.KeyCode.NUMPAD2 -> 1
+                javafx.scene.input.KeyCode.DIGIT3, javafx.scene.input.KeyCode.NUMPAD3 -> 2
+                javafx.scene.input.KeyCode.DIGIT4, javafx.scene.input.KeyCode.NUMPAD4 -> 3
+                else -> -1
+            }
+            if (idx in 0 until gridMode) focusAudio(idx)
+        }
+        st.scene = scene
         st.setOnHidden { disposeAll(); stage = null }
         return st
     }
@@ -229,7 +240,7 @@ object MultiViewWindow {
     }
 
     private fun tileStyle(active: Boolean): String =
-        if (active) "-fx-background-color: black; -fx-border-color: #0A84FF; -fx-border-width: 2; -fx-background-radius: 8; -fx-border-radius: 8;"
+        if (active) "-fx-background-color: black; -fx-border-color: #5CD0FF; -fx-border-width: 2; -fx-background-radius: 8; -fx-border-radius: 8;"
         else "-fx-background-color: black; -fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;"
 
     private fun disposeTile(t: Tile) {

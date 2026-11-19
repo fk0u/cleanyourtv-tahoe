@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -91,7 +92,7 @@ private fun RecordingRow(j: Recordings.Job, open: (File) -> Unit) = Glass(paddin
             else -> tech.kousozo.tahoetv.core.I18n.get(lang, "rec.state_failed") to Tahoe.Bad
         }
         Box(Modifier.size(10.dp).clip(CircleShape).background(color))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(j.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("${j.channel} · ${dayFmt.format(Instant.ofEpochMilli(j.start))}–${hmFmt.format(Instant.ofEpochMilli(j.stop))}" +
                 (if (j.bytes > 0) " · ${size(j.bytes)}" else ""), fontSize = 13.sp, color = Tahoe.Dim)

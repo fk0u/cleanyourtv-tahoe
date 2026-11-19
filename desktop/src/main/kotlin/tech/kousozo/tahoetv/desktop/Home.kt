@@ -1,9 +1,13 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package tech.kousozo.tahoetv.desktop
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.background
@@ -166,21 +170,49 @@ fun HomeScreen(onLive: () -> Unit) {
                     tech.kousozo.tahoetv.core.CountryCatalog.featuredNames(homeCountry, 7)
                         .ifEmpty { tech.kousozo.tahoetv.core.LocalTv.PRIORITY.take(7).map { PRETTY[it] ?: it } }
                 }
+                var selectedFeatured by remember(homeCountry) { mutableStateOf(0) }
                 featuredNames.forEachIndexed { i, rawName ->
                     val name = PRETTY[rawName.lowercase()] ?: rawName
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { DeskNav.query = name; onLive() }.padding(vertical = 8.dp, horizontal = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text("%02d".format(i + 1), Modifier.width(34.dp), fontSize = 13.sp, color = Tahoe.Faint)
+                    val isSelected = selectedFeatured == i
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                            .background(if (isSelected) Tahoe.Accent.copy(alpha = 0.14f) else Color.Transparent)
+                            .border(
+                                if (isSelected) (if (ThemePrefs.highContrast) 2.dp else 1.dp) else 0.dp,
+                                if (isSelected) Tahoe.Accent.copy(alpha = 0.55f) else Color.Transparent,
+                                RoundedCornerShape(14.dp),
+                            )
+                            .combinedClickable(
+                                onDoubleClick = { DeskNav.query = name; onLive() },
+                                onClick = {
+                                    if (isSelected) { DeskNav.query = name; onLive() }
+                                    else selectedFeatured = i
+                                },
+                            )
+                            .padding(vertical = 8.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("%02d".format(i + 1), Modifier.width(34.dp), fontSize = 13.sp, color = if (isSelected) Tahoe.Accent else Tahoe.Faint, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color.White), contentAlignment = Alignment.Center) {
                             Text(short(name), color = Color(0xFF111114), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(name, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.featured_live", countryLabel), fontSize = 12.sp, color = Tahoe.Faint)
+                            Text(name, fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium)
+                            Text(
+                                if (isSelected) tech.kousozo.tahoetv.core.I18n.get(lang, "desk.live_preview") + " · " + countryLabel
+                                else tech.kousozo.tahoetv.core.I18n.get(lang, "live.featured_live", countryLabel),
+                                fontSize = 12.sp,
+                                color = if (isSelected) Tahoe.Accent else Tahoe.Faint,
+                            )
                         }
-                        Box(Modifier.size(36.dp).clip(CircleShape).background(Tahoe.CardHi), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.PlayArrow, tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), tint = Tahoe.Text, modifier = Modifier.size(18.dp))
+                        Box(
+                            Modifier.size(36.dp).clip(CircleShape)
+                                .background(if (isSelected) Tahoe.Accent else Tahoe.CardHi)
+                                .clickable { DeskNav.query = name; onLive() },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Rounded.PlayArrow, tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), tint = if (isSelected) Tahoe.OnAccent else Tahoe.Text, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -231,7 +263,11 @@ private fun HeroCarousel(heroes: List<Web.Hero>, modifier: Modifier, onLive: () 
     LaunchedEffect(heroes) { while (heroes.isNotEmpty()) { delay(8000); i = (i + 1) % heroes.size } }
     Box(modifier.clip(RoundedCornerShape(30.dp)).background(Tahoe.Card)) {
         val h = heroes.getOrNull(i % heroes.size.coerceAtLeast(1))
-        Crossfade(h, label = "hero") { cur ->
+        Crossfade(
+            h,
+            animationSpec = tween(if (ThemePrefs.reduceMotion) 180 else tech.kousozo.tahoetv.core.Brand.MOTION_MED, easing = EaseInOutTahoe),
+            label = "hero",
+        ) { cur ->
             Box(Modifier.fillMaxSize()) {
                 cur?.let { c -> rememberImage(c.image)?.let { Image(it, null, Modifier.fillMaxHeight().fillMaxWidth(0.68f).align(Alignment.CenterEnd), contentScale = ContentScale.Crop) } }
                     ?: Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Tahoe.Accent.copy(alpha = 0.35f), Color.Transparent),
@@ -331,7 +367,11 @@ private fun LiveCard(modifier: Modifier, onLive: () -> Unit) = Box(
 private fun WatchTile(name: String, color: Color, modifier: Modifier, onClick: () -> Unit) {
     val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val hover by src.collectIsHoveredAsState()
-    val s by androidx.compose.animation.core.animateFloatAsState(if (hover) 1.03f else 1f, label = "tile")
+    val s by androidx.compose.animation.core.animateFloatAsState(
+        if (hover && !ThemePrefs.reduceMotion) 1.03f else 1f,
+        animationSpec = tween(if (ThemePrefs.reduceMotion) 0 else tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe),
+        label = "tile",
+    )
     Box(modifier.aspectRatio(1.15f).scale(s).clip(RoundedCornerShape(22.dp))
         .background(Brush.linearGradient(listOf(color.copy(alpha = 0.95f), color.copy(alpha = 0.35f), Tahoe.Card)))
         .hoverable(src).clickable(onClick = onClick).padding(14.dp)) {

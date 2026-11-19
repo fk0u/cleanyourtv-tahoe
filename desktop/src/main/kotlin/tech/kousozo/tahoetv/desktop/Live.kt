@@ -4,6 +4,7 @@ package tech.kousozo.tahoetv.desktop
 
 import androidx.compose.foundation.Image
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.blur
@@ -439,7 +440,7 @@ fun LiveScreen() {
                         Modifier.clip(RoundedCornerShape(18.dp))
                             .hoverable(hoverSrc)
                             .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
-                            .border(1.dp, if (focused) Color.White.copy(alpha = 0.35f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
+                            .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, if (focused) Tahoe.Accent.copy(alpha = 0.7f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
                             .combinedClickable(onDoubleClick = { watch(e) }) { if (focused) watch(e) else selected = e }.padding(12.dp), // click = preview, again / double-click = watch (#182)
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -482,7 +483,11 @@ fun LiveScreen() {
                 val ch = e.channel
                 val focused = e == selected
                 val on = ch == playing
-                val scale by animateFloatAsState(if (focused) 1.02f else 1f, label = "card")
+                val scale by animateFloatAsState(
+                    if (focused && !ThemePrefs.reduceMotion) 1.02f else 1f,
+                    animationSpec = tween(if (ThemePrefs.reduceMotion) 0 else tech.kousozo.tahoetv.core.Brand.MOTION_FAST, easing = EaseOutTahoe),
+                    label = "card",
+                )
                 val prog = epg?.schedule(e.name, tick)?.firstOrNull()?.takeIf { it.start <= tick }
                 val live = isChannelLive(e)
                 val hoverSrc = remember(ch.url) { MutableInteractionSource() }
@@ -492,7 +497,7 @@ fun LiveScreen() {
                     Modifier.fillMaxWidth().scale(scale).alpha(if (on || live != false) 1f else 0.5f).clip(RoundedCornerShape(18.dp))
                         .hoverable(hoverSrc)
                         .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
-                        .border(1.dp, if (focused) Color.White.copy(alpha = 0.35f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
+                        .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, if (focused) Tahoe.Accent.copy(alpha = 0.7f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
                         .combinedClickable(onDoubleClick = { watch(e) }) { if (focused) watch(e) else selected = e }.padding(12.dp), // click = preview, again / double-click = watch (#182)
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -618,7 +623,9 @@ private fun Detail(
             cur?.desc?.let { Text(it, fontSize = 13.sp, color = Tahoe.Dim, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis) }
             cur?.let { p ->
                 val f = ((now.epochSecond - p.start.epochSecond).toFloat() / (p.stop.epochSecond - p.start.epochSecond).coerceAtLeast(1)).coerceIn(0f, 1f)
-                LinearProgressIndicator({ f }, Modifier.fillMaxWidth().padding(top = 6.dp).height(4.dp).clip(RoundedCornerShape(2.dp)), color = Tahoe.Text, trackColor = Tahoe.Stroke)
+                KeepLtr {
+                    LinearProgressIndicator({ f }, Modifier.fillMaxWidth().padding(top = 6.dp).height(4.dp).clip(RoundedCornerShape(2.dp)), color = Tahoe.Text, trackColor = Tahoe.Stroke)
+                }
                 Row { Text(hm.format(p.start), fontSize = 12.sp, color = Tahoe.Faint); Spacer(Modifier.weight(1f)); Text(hm.format(p.stop), fontSize = 12.sp, color = Tahoe.Faint) }
             }
             val isPlaying = e.channel.url == playingUrl

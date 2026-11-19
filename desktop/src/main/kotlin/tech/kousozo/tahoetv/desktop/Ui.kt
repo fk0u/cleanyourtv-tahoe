@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -130,14 +132,23 @@ fun Aurora(modifier: Modifier = Modifier) = Canvas(modifier.fillMaxSize().backgr
     glow(Tahoe.Lake.copy(alpha = 0.12f), 1.0f, 1.05f, 0.5f)
 }
 
+/** Motion curves shared with mobile & TV (#178, emilkowalski/skills). */
+val EaseOutTahoe = CubicBezierEasing(Brand.EASE_OUT[0], Brand.EASE_OUT[1], Brand.EASE_OUT[2], Brand.EASE_OUT[3])
+val EaseInOutTahoe = CubicBezierEasing(Brand.EASE_IN_OUT[0], Brand.EASE_IN_OUT[1], Brand.EASE_IN_OUT[2], Brand.EASE_IN_OUT[3])
+val EaseDrawerTahoe = CubicBezierEasing(Brand.EASE_DRAWER[0], Brand.EASE_DRAWER[1], Brand.EASE_DRAWER[2], Brand.EASE_DRAWER[3])
+
+fun Modifier.a11yHeading(): Modifier = semantics { heading() }
+
 @Composable
 fun Glass(modifier: Modifier = Modifier, radius: Int = 20, onClick: (() -> Unit)? = null, padding: Int = 18, content: @Composable ColumnScope.() -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hover by src.collectIsHoveredAsState()
     val shape = RoundedCornerShape(radius.dp)
+    val borderW = if (ThemePrefs.highContrast) 2.dp else 1.dp
+    val borderColor = if (ThemePrefs.highContrast) Tahoe.Stroke else Color.White.copy(alpha = 0.06f)
     Column(
         modifier.clip(shape).background(if (hover && onClick != null) Tahoe.CardHi else Tahoe.Card)
-            .border(1.dp, Color.White.copy(alpha = 0.06f), shape)
+            .border(borderW, borderColor, shape)
             .then(if (onClick != null) Modifier.hoverable(src).clickable(onClick = onClick) else Modifier)
             .padding(padding.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp), content = content,
@@ -146,12 +157,12 @@ fun Glass(modifier: Modifier = Modifier, radius: Int = 20, onClick: (() -> Unit)
 
 @Composable
 fun Title(text: String, sub: String? = null) = Column(Modifier.padding(bottom = 8.dp)) {
-    Text(text, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Tahoe.Text)
+    Text(text, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Tahoe.Text, modifier = Modifier.a11yHeading())
     sub?.let { Text(it, fontSize = 15.sp, color = Tahoe.Dim) }
 }
 
 @Composable
-fun Section(text: String) = Text(text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Tahoe.Text, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+fun Section(text: String) = Text(text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Tahoe.Text, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp).a11yHeading())
 
 @Composable
 fun PrimaryButton(text: String, icon: ImageVector? = null, enabled: Boolean = true, onClick: () -> Unit) = Button(
