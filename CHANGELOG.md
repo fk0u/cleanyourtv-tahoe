@@ -6,6 +6,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 ## Belum dirilis
 
 ### Baru
+- **Redesign 4.0 · HP lebih minimalis dan mudah diakses.** Tombol teks sekunder diganti tombol ikon bulat 48 dp (Favorit, Info, Bagikan, Pindai QR, Masukkan PIN, Timer tidur, Numpad, Kirim log, PIN anak, Daftar TV, Pengaturan TV, Ganti wilayah, Tentang, Hapus rekap, dan langkah Pasang TV). Aksi utama tiap layar tetap berlabel (Tonton, Lanjut, Coba lagi, Bagikan Kartu Story). Setiap ikon punya nama untuk TalkBack, status (aktif/mati), dan tekan lama menampilkan namanya, jadi ikon tidak membingungkan. Diuji di HP asli dengan build rilis dan data nyata.
 - **HP (`:companion`) · Live preview, transisi, Now Playing, & aksesibilitas lengkap (#179).**
   - **Pratinjau langsung (`MobileLivePreview` & `LivePreviewSurface`):** saluran di Hero Beranda dan Detail Saluran memutar pratinjau bisu (maks. 480p, jeda diam 700 ms, timeout 8 detik) dengan tombol nyalakan/matikan suara dan sakelar **Pratinjau langsung** di Pengaturan; otomatis nonaktif pada mode demo, offline, DRM/DASH, Kurangi gerakan, PiP, dan saat pemutaran penuh aktif.
   - **Transisi gerak Redesign 4.0:** seluruh perpindahan tab, halaman dorong (sadar RTL), lembar detail saluran, langkah onboarding (`WelcomeScreen`), accordion FAQ (`HelpCenterPage`), `MiniPlayer`, dan `PushBannerBar` mengikuti kurva `EASE_OUT`/`EASE_DRAWER` dan durasi `Brand.MOTION_*`, serta otomatis beralih ke fade saat **Kurangi gerakan** aktif.
