@@ -45,6 +45,7 @@ public class Live extends Activity {
     FrameLayout root;
     /** Channel detail sheet over the guide (#181), or null. */
     View sheet;
+    View sheetOrigin; // the channel row that opened the sheet, so focus returns to it
     /** Text typed in the guide's search field (#181). */
     String query = "";
     LinearLayout cats, rows;
@@ -85,6 +86,17 @@ public class Live extends Activity {
             @Override public void beforeTextChanged(CharSequence a, int b, int c2, int d2) {}
             @Override public void onTextChanged(CharSequence a, int b, int c2, int d2) {}
             @Override public void afterTextChanged(android.text.Editable ed) { query = ed.toString().trim(); filterCat(false); }
+        });
+        // The list sits below-left of the search box, outside the focus beam: send D-pad Down/Left there explicitly.
+        search.setOnKeyListener((v, code, ev) -> {
+            if (ev.getAction() != android.view.KeyEvent.ACTION_DOWN) return false;
+            if (code == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
+                View t = rows.getChildCount() > 0 ? rows.getChildAt(0) : null;
+                if (t != null) { t.requestFocus(); return true; }
+            } else if (code == android.view.KeyEvent.KEYCODE_DPAD_LEFT && cats.getChildCount() > 0) {
+                cats.getChildAt(0).requestFocus(); return true;
+            }
+            return false;
         });
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams((int) dp(240), -2); sl.setMarginEnd((int) dp(12));
         head.addView(search, sl);
@@ -374,7 +386,9 @@ public class Live extends Activity {
     void channelDetail(LocalTv.Entry e) {
         String lang = TvViewer.get(this).getLanguage();
         detail(e);
+        View origin = getCurrentFocus();
         closeSheet();
+        sheetOrigin = origin != null && origin.getTag() instanceof LocalTv.Entry ? origin : null;
         if (preview != null) preview.stop();
         SharedPreferences live = getSharedPreferences("live", MODE_PRIVATE);
         java.util.Set<String> fav = new java.util.HashSet<>(live.getStringSet("fav", new java.util.HashSet<>()));
@@ -406,6 +420,7 @@ public class Live extends Activity {
         View grow = new View(this); p.addView(grow, new LinearLayout.LayoutParams(0, 0, 1));
         // large buttons, one row, each with a clear focus ring
         LinearLayout acts = new LinearLayout(this); acts.setGravity(Gravity.CENTER_VERTICAL);
+        acts.setClipChildren(false); p.setClipChildren(false); // the focus ring and growth must not be cut at the row's edge
         TextView watchB = sheetButton(I18n.get(lang, "home.watch"), true, () -> { closeSheet(); watch(e); });
         acts.addView(watchB);
         // the main action keeps its label; the others are round icons, and the focused one names itself below the row
@@ -419,8 +434,9 @@ public class Live extends Activity {
             closeSheet(); }));
         View.OnFocusChangeListener watchFocus = watchB.getOnFocusChangeListener();
         watchB.setOnFocusChangeListener((v, f) -> { if (watchFocus != null) watchFocus.onFocusChange(v, f); if (f) actHint.setText(""); });
+        LinearLayout.LayoutParams hl = new LinearLayout.LayoutParams(0, -2, 1); hl.setMarginStart((int) dp(6));
+        acts.addView(actHint, hl); // beside the icons, where it can never fall off the panel's bottom
         p.addView(acts, lp(20));
-        p.addView(actHint, lp(10));
         FrameLayout.LayoutParams pl = new FrameLayout.LayoutParams((int) dp(500), -1, Gravity.END);
         pl.setMargins((int) dp(24), (int) dp(24), (int) dp(24), (int) dp(24));
         scrim.addView(p, pl);
@@ -471,8 +487,7 @@ public class Live extends Activity {
             g.setShape(android.graphics.drawable.GradientDrawable.OVAL); g.setColor(f ? 0x47FFFFFF : 0x24FFFFFF);
             if (f) g.setStroke((int) dp(tech.kousozo.tahoetv.core.Brand.FOCUS_RING_DP), Ui.highContrast(this) ? tech.kousozo.tahoetv.core.Brand.HC_FOCUS : tech.kousozo.tahoetv.core.Brand.CYAN);
             v.setBackground(g);
-            v.animate().scaleX(f ? 1.08f : 1f).scaleY(f ? 1.08f : 1f).setDuration(Ui.dur(this, Ui.FAST)).start();
-            if (f) hint.setText(label);
+            if (f) hint.setText(label); // no scale: growth would be cut at the row edge, the ring alone marks focus
         });
         b.setOnClickListener(v -> onClick.run());
         LinearLayout.LayoutParams l = new LinearLayout.LayoutParams((int) dp(60), (int) dp(60)); l.setMarginEnd((int) dp(12));
@@ -484,7 +499,9 @@ public class Live extends Activity {
         if (sheet == null) return;
         View s = sheet; sheet = null;
         s.animate().alpha(0f).setDuration(Ui.dur(this, 200)).withEndAction(() -> root.removeView(s)).start();
-        View f = rows.getFocusedChild(); if (f != null) f.requestFocus();
+        View f = sheetOrigin != null && sheetOrigin.isAttachedToWindow() ? sheetOrigin : rows.getFocusedChild();
+        sheetOrigin = null;
+        if (f != null) f.requestFocus();
     }
 
     // ------------------------------------------------------------------ watch in BitTV
