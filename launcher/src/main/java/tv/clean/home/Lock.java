@@ -98,8 +98,10 @@ public class Lock extends DreamService {
         /** Slide away (macOS style), then run `done`. */
         void unlock(Runnable done) {
             stop();
-            animate().alpha(0).translationY(-getHeight() * 0.06f).setDuration(Ui.SLOW)
-                    .setInterpolator(new android.view.animation.AccelerateInterpolator(1.5f)).withEndAction(done).start();
+            long d = Ui.dur(getContext(), Ui.SLOW);
+            if (d <= 0) { done.run(); return; }
+            animate().alpha(0).translationY(-getHeight() * 0.06f).setDuration(d)
+                    .setInterpolator(Ui.out()).withEndAction(done).start();
         }
     }
 
@@ -187,18 +189,21 @@ public class Lock extends DreamService {
             int av = compact ? 76 : 132;
             LinearLayout col = new LinearLayout(c); col.setOrientation(LinearLayout.VERTICAL); col.setGravity(Gravity.CENTER_HORIZONTAL);
             if (compact) col.setPadding((int) (16 * d), 0, (int) (16 * d), 0);
-            TextView title = Ui.text(c, compact ? 24 : Ui.TITLE, 700, Ui.TEXT); title.setText("Siapa yang menonton?");
-            TextView sub = Ui.text(c, compact ? 13.5f : Ui.BODY, 400, Ui.TEXT_2); sub.setText("Setiap profil punya dock dan riwayatnya sendiri.");
+            String lang2 = TvViewer.get(c).getLanguage();
+            TextView title = Ui.text(c, compact ? 24 : Ui.TITLE, 700, Ui.TEXT);
+            title.setText(tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_who_title"));
+            TextView sub = Ui.text(c, compact ? 13.5f : Ui.BODY, 400, Ui.TEXT_2);
+            sub.setText(tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_who_sub"));
             sub.setPadding(0, (int) (10 * d), 0, (int) ((compact ? 24 : 40) * d));
             title.setGravity(Gravity.CENTER); sub.setGravity(Gravity.CENTER);
             col.addView(title); col.addView(sub);
             LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
             String name = Cfg.s(c, "user_name", R.string.user_name);
-            cards[0] = card(c, Avatar.view(c, av), name.isEmpty() ? "Saya" : name, lastApp, lastIcon);
+            cards[0] = card(c, Avatar.view(c, av), name.isEmpty() ? tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_me") : name, lastApp, lastIcon);
             ImageView guest = Avatar.view(c, av, false); // guest never shows the owner's photo
             int gPad = (int) ((compact ? 18 : 34) * d);
             guest.setPadding(gPad, gPad, gPad, gPad);
-            cards[1] = card(c, guest, "Tamu", null, null);
+            cards[1] = card(c, guest, tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_guest"), null, null);
             ImageView kid = new ImageView(c);
             kid.setImageResource(R.drawable.ic_lock); kid.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
             kid.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
@@ -206,9 +211,9 @@ public class Lock extends DreamService {
             int kPad = (int) ((compact ? 22 : 40) * d);
             kid.setBackground(kb); kid.setPadding(kPad, kPad, kPad, kPad);
             kid.setLayoutParams(new LinearLayout.LayoutParams((int) (av * d), (int) (av * d)));
-            String lang2 = TvViewer.get(c).getLanguage();
             cards[2] = card(c, kid, tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_kids"), null, null);
             ((TextView) cards[2].getChildAt(2)).setText(tech.kousozo.tahoetv.core.I18n.get(lang2, Kids.hasPin(c) ? "tv.lock_pin_locked" : "tv.lock_kids_badge"));
+            Ui.direction(this);
             for (int i = 0; i < KEYS.length; i++) if (KEYS[i].equals(current)) sel = i;
             for (int i = 0; i < 3; i++) {
                 final int idx = i;
@@ -256,12 +261,16 @@ public class Lock extends DreamService {
         }
 
         void render() {
+            long d = Ui.dur(getContext(), Ui.MED);
+            int ringColor = Ui.highContrast(getContext()) ? tech.kousozo.tahoetv.core.Brand.HC_FOCUS : Color.WHITE;
             for (int i = 0; i < 3; i++) {
                 boolean f = i == sel;
-                cards[i].animate().scaleX(f ? 1f : 0.86f).scaleY(f ? 1f : 0.86f).alpha(f ? 1f : 0.55f).setDuration(Ui.MED).setInterpolator(Ui.spring()).start();
+                cards[i].animate().scaleX(f ? 1f : 0.86f).scaleY(f ? 1f : 0.86f).alpha(f ? 1f : 0.55f).setDuration(d).setInterpolator(Ui.out()).start();
                 View p = cards[i].getChildAt(0);
-                ((GradientDrawable) p.getForeground()).setStroke((int) Ui.dp(getContext(), 3), f ? Color.WHITE : 0x00FFFFFF);
+                ((GradientDrawable) p.getForeground()).setStroke((int) Ui.dp(getContext(), 3), f ? ringColor : 0x00FFFFFF);
             }
+            CharSequence name = ((TextView) cards[sel].getChildAt(1)).getText();
+            if (name != null) cards[sel].announceForAccessibility(name);
         }
 
         boolean key(KeyEvent e) {

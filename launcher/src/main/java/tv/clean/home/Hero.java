@@ -7,16 +7,22 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.TextureView;
 import android.view.View;
 import android.widget.*;
 import java.io.File;
 import java.util.*;
+import tech.kousozo.tahoetv.core.I18n;
+import tech.kousozo.tahoetv.core.M3u;
 import tech.kousozo.tahoetv.core.WallpaperProvider;
 
 /** Full-bleed backdrop with an editorial text block (eyebrow, title, meta) on the left.
  *  The backdrop is the rotating wallpaper/photo (personal uploads or free API photos), or a contextual image. */
 final class Hero extends FrameLayout {
     final ImageView back, front;
+    final TextureView previewView;
+    final TextView previewBadge;
+    final LivePreview livePreview;
     final TextView eyebrow, title, meta, attribution;
     final LinearLayout block;
     final Handler ui = new Handler(Looper.getMainLooper());
@@ -37,6 +43,9 @@ final class Hero extends FrameLayout {
         setBackgroundColor(Color.BLACK);
         back = img(c); front = img(c); front.setAlpha(0f);
         addView(back, new LayoutParams(-1, -1)); addView(front, new LayoutParams(-1, -1));
+        previewView = new TextureView(c);
+        previewView.setAlpha(0f);
+        addView(previewView, new LayoutParams(-1, -1));
         View left = new View(c);
         left.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xCC000000, 0x66000000, 0x00000000}));
         addView(left, new LayoutParams((int) (width * 0.62f), -1));
@@ -46,6 +55,17 @@ final class Hero extends FrameLayout {
         View top = new View(c);
         top.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x8C000000, 0x00000000}));
         addView(top, new LayoutParams(-1, (int) Ui.dp(c, 120)));
+
+        previewBadge = Ui.text(c, 11, 700, Ui.TEXT);
+        previewBadge.setText("● " + I18n.get(TvViewer.get(c).getLanguage(), "tv.live_preview"));
+        previewBadge.setPadding((int) Ui.dp(c, 10), (int) Ui.dp(c, 5), (int) Ui.dp(c, 10), (int) Ui.dp(c, 5));
+        previewBadge.setBackground(new GlassDrawable(Ui.dp(c, 14), 0xB307080D, Ui.dp(c, 1)));
+        previewBadge.setAlpha(0f);
+        LayoutParams pbl = new LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        pbl.rightMargin = (int) Ui.dp(c, Ui.SAFE_SIDE);
+        pbl.topMargin = (int) Ui.dp(c, Ui.SAFE_TOP + 54);
+        addView(previewBadge, pbl);
+        livePreview = new LivePreview(c, previewView, previewBadge);
 
         block = new LinearLayout(c); block.setOrientation(LinearLayout.VERTICAL);
         eyebrow = Ui.eyebrow(c, Ui.TEXT_2);
@@ -302,13 +322,36 @@ final class Hero extends FrameLayout {
         v.animate().scaleX(1.08f).scaleY(1.08f).setDuration(16_000).setInterpolator(new android.view.animation.LinearInterpolator()).start();
     }
 
+    /** Live preview in the Home TV hero (#181): plays quietly after dwell, disabled on LIGHT tier / DRM / DASH. */
+    void previewChannel(M3u.Channel ch) {
+        if (livePreview != null) {
+            previewBadge.setText("● " + I18n.get(TvViewer.get(getContext()).getLanguage(), "tv.live_preview"));
+            livePreview.focus(ch);
+        }
+    }
+
+    void stopPreview() {
+        if (livePreview != null) livePreview.stop();
+    }
+
+    void releasePreview() {
+        if (livePreview != null) livePreview.release();
+    }
+
     /** Swap the editorial text with a short fade-rise. */
     void text(String e, String t, String m) {
         if (t.equals(title.getText().toString()) && e.equals(eyebrow.getText().toString())) { meta.setText(m); return; }
         block.animate().cancel();
-        block.animate().alpha(0).translationY(Ui.dp(getContext(), 6)).setDuration(Ui.FAST / 2).withEndAction(() -> {
+        long dOut = Ui.dur(getContext(), Ui.FAST / 2);
+        long dIn = Ui.dur(getContext(), Ui.MED);
+        if (dIn <= 0) {
             eyebrow.setText(e); title.setText(t); meta.setText(m);
-            block.animate().alpha(1).translationY(0).setDuration(Ui.MED).setInterpolator(Ui.out()).start();
+            block.setAlpha(1f); block.setTranslationY(0f);
+            return;
+        }
+        block.animate().alpha(0).translationY(Ui.dp(getContext(), 6)).setDuration(dOut).setInterpolator(Ui.out()).withEndAction(() -> {
+            eyebrow.setText(e); title.setText(t); meta.setText(m);
+            block.animate().alpha(1).translationY(0).setDuration(dIn).setInterpolator(Ui.out()).start();
         }).start();
     }
 }

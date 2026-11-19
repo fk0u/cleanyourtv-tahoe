@@ -12,6 +12,7 @@ import android.widget.ImageView;
 final class Tile extends FrameLayout {
     final ImageView image;
     final Shine shine;
+    final View ring;
     final View dot; // "running" indicator under dock tiles
     final float w, h, radius;
     final Home.App app;
@@ -31,6 +32,9 @@ final class Tile extends FrameLayout {
         shine = new Shine(c);
         Ui.clip(shine, radius);
         addView(shine, new LayoutParams((int) w, (int) h));
+        ring = new View(c);
+        ring.setAlpha(0f);
+        addView(ring, new LayoutParams((int) w, (int) h));
         dot = new View(c);
         android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
         d.setShape(android.graphics.drawable.GradientDrawable.OVAL); d.setColor(0xCCFFFFFF);
@@ -44,9 +48,16 @@ final class Tile extends FrameLayout {
     /** Scale relative to the bottom edge (dock magnification grows upward). */
     void lift(float s, boolean focused, int ms) {
         scale = s;
+        long d = Ui.dur(getContext(), ms);
         animate().scaleX(s).scaleY(s).translationZ(focused ? Ui.dp(getContext(), 18) : 0)
-                .setDuration(ms).setInterpolator(Ui.spring()).start();
-        if (focused && ms > 0) shine.sweep();
+                .setDuration(d).setInterpolator(Ui.out()).start();
+        if (focused) {
+            ring.setBackground(Ui.focusRing(getContext(), radius));
+            ring.animate().alpha(1f).setDuration(d).setInterpolator(Ui.out()).start();
+        } else {
+            ring.animate().alpha(0f).setDuration(d).setInterpolator(Ui.out()).start();
+        }
+        if (focused && d > 0) shine.sweep();
     }
 
     void running(boolean on) { dot.animate().alpha(on ? 1 : 0).setDuration(Ui.FAST).start(); }

@@ -32,6 +32,7 @@
       "Home.java",
       "Keys.java",
       "Live.java",
+      "LivePreview.java",
       "LiveTv.java",
       "Loader.java",
       "Lock.java",

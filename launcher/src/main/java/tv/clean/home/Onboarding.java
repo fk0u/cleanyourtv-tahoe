@@ -451,8 +451,14 @@ public class Onboarding extends Activity {
         bg.setColor(selected ? 0x2664D2FF : Ui.GLASS);
         r.setBackground(bg);
         r.setOnFocusChangeListener((v, f) -> {
-            bg.setColor(f ? 0xE6F5F5F7 : selected ? 0x2664D2FF : Ui.GLASS);
-            r.setTextColor(f ? 0xFF111114 : Ui.TEXT);
+            if (f && Ui.highContrast(this)) {
+                r.setBackground(Ui.focusRing(this, dp(Ui.R_SMALL)));
+                r.setTextColor(Ui.TEXT);
+            } else {
+                bg.setColor(f ? 0xE6F5F5F7 : selected ? 0x2664D2FF : Ui.GLASS);
+                r.setBackground(bg);
+                r.setTextColor(f ? 0xFF111114 : Ui.TEXT);
+            }
             r.setShadowLayer(f ? 0 : dp(10), 0, f ? 0 : dp(1), f ? 0 : 0x66000000);
         });
         r.setOnClickListener(v -> { focusKey = key; onClick.run(); });
@@ -496,7 +502,12 @@ public class Onboarding extends Activity {
         GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(dp(40));
         bg.setColor(primary ? Ui.TEXT : Ui.GLASS); b.setBackground(bg);
         b.setShadowLayer(0, 0, 0, 0);
-        b.setOnFocusChangeListener((v, f) -> { v.setScaleX(f ? 1.08f : 1f); v.setScaleY(f ? 1.08f : 1f); if (!primary) bg.setColor(f ? 0x66FFFFFF : Ui.GLASS); });
+        b.setOnFocusChangeListener((v, f) -> {
+            long d = Ui.dur(this, Ui.FAST);
+            v.animate().scaleX(f ? 1.08f : 1f).scaleY(f ? 1.08f : 1f).setDuration(d).setInterpolator(Ui.out()).start();
+            if (f && Ui.highContrast(this)) b.setBackground(Ui.focusRing(this, dp(40)));
+            else { bg.setColor(primary ? Ui.TEXT : (f ? 0x66FFFFFF : Ui.GLASS)); b.setBackground(bg); }
+        });
         b.setOnClickListener(v -> onClick.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = dp(12);
         footer.addView(b, lp);

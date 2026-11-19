@@ -161,7 +161,13 @@ public class Home extends Activity {
         refreshData(false);
     }
 
+    @Override protected void onPause() {
+        if (hero != null) hero.stopPreview();
+        super.onPause();
+    }
+
     @Override protected void onDestroy() {
+        if (hero != null) hero.releasePreview();
         remote.cancelSleep();
         if (companion != null) companion.stopAll();
         if (pushStream != null) { try { pushStream.close(); } catch (Exception ignored) {} }
@@ -657,13 +663,15 @@ public class Home extends Activity {
         App fa = focusedApp();
         if (fa != null && focused != null) {
             focused.announceForAccessibility(fa.label);
+        } else if (row == -1 && heroAction != null && heroAction.getContentDescription() != null) {
+            heroAction.announceForAccessibility(heroAction.getContentDescription());
         } else if (row == -2 && col < chipViews.size()) {
             CharSequence cd = chipViews.get(col).getContentDescription();
             if (cd != null) chipViews.get(col).announceForAccessibility(cd);
         }
     }
 
-    void openPad() { if (rows() == 0) return; if (row == 0) lastDockCol = col; row = 1; col = 0; firstPadRow = 1; render(true); }
+    void openPad() { if (rows() == 0) return; if (hero != null) hero.stopPreview(); if (row == 0) lastDockCol = col; row = 1; col = 0; firstPadRow = 1; render(true); }
     void toDock() { if (dock.isEmpty()) return; row = 0; col = Math.min(lastDockCol, dock.size() - 1); render(true); }
 
     void render(boolean animate) {
@@ -737,14 +745,21 @@ public class Home extends Activity {
     }
 
     void focusPill(LinearLayout p, boolean f, int ms) {
-        ((GlassDrawable) p.getBackground()).fill(f ? 0xF2F5F5F7 : Ui.GLASS);
-        int c = f ? 0xFF111114 : Ui.TEXT;
+        if (f && Ui.highContrast(this)) {
+            p.setBackground(Ui.focusRing(this, dp(22)));
+        } else {
+            GlassDrawable g = p.getBackground() instanceof GlassDrawable ? (GlassDrawable) p.getBackground() : new GlassDrawable(dp(22), Ui.GLASS, dp(1));
+            g.fill(f ? 0xF2F5F5F7 : Ui.GLASS);
+            p.setBackground(g);
+        }
+        int c = f && !Ui.highContrast(this) ? 0xFF111114 : Ui.TEXT;
         for (int k = 0; k < p.getChildCount(); k++) {
             View v = p.getChildAt(k);
             if (v instanceof TextView) { ((TextView) v).setTextColor(c); ((TextView) v).setShadowLayer(0, 0, 0, 0); }
             else if (v instanceof ImageView && ((ImageView) v).getImageTintList() != null) ((ImageView) v).setImageTintList(android.content.res.ColorStateList.valueOf(c));
         }
-        p.animate().scaleX(f ? 1.08f : 1f).scaleY(f ? 1.08f : 1f).translationZ(f ? dp(8) : 0).setDuration(ms == 0 ? 0 : Ui.FAST).start();
+        long d = ms == 0 ? 0 : Ui.dur(this, Ui.FAST);
+        p.animate().scaleX(f ? 1.08f : 1f).scaleY(f ? 1.08f : 1f).translationZ(f ? dp(8) : 0).setDuration(d).setInterpolator(Ui.out()).start();
     }
 
     // ---------------------------------------------------------------- hero
@@ -757,6 +772,7 @@ public class Home extends Activity {
         App a = row == 0 ? focusedApp() : row == -1 && !dock.isEmpty() ? dock.get(Math.min(lastDockCol, dock.size() - 1)) : null;
         heroAction.setVisibility(a == null ? View.GONE : View.VISIBLE);
         if (a != null && a.pkg.equals(Trending.YT) && !trending.isEmpty()) {
+            hero.stopPreview();
             String lang = TvViewer.get(this).getLanguage();
             Trending.Video v = trending.get(trendIndex % trending.size());
             hero.context(v.thumb);
@@ -767,6 +783,7 @@ public class Home extends Activity {
             return;
         }
         if (a != null && a.pkg.equals(Netflix.PKG) && !netflix.isEmpty()) {
+            hero.stopPreview();
             String lang = TvViewer.get(this).getLanguage();
             Trending.Video v = netflix.get(trendIndex % netflix.size());
             hero.context(v.thumb);
@@ -787,8 +804,21 @@ public class Home extends Activity {
             heroActionIcon.setImageResource(R.drawable.ic_play);
             String watchTxt = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_watch_livetv");
             heroActionText.setText(watchTxt); heroAction.setContentDescription(watchTxt);
+            tech.kousozo.tahoetv.core.M3u.Channel previewCh = null;
+            if (Live.cached != null && !Live.cached.isEmpty()) {
+                for (tech.kousozo.tahoetv.core.LocalTv.Entry en : Live.cached) {
+                    tech.kousozo.tahoetv.core.M3u.Channel c0 = en.getChannel();
+                    if (!c0.getDrm() && !tech.kousozo.tahoetv.core.Drm.isDash(c0.getUrl(), c0.getDrmType(), c0.getManifestType())) {
+                        previewCh = c0;
+                        break;
+                    }
+                }
+            }
+            if (row <= 0 && sheet == null && profiles == null && previewCh != null) hero.previewChannel(previewCh);
+            else hero.stopPreview();
             return;
         }
+        hero.stopPreview();
         if (a != null) {
             String lang = TvViewer.get(this).getLanguage();
             hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, a.system ? "tv.home_sys_app" : "tv.home_dock_app"), a.label, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_hold_ok_opts"));
@@ -823,6 +853,7 @@ public class Home extends Activity {
 
     /** Tile grows to fill the screen in the app's colour, then the app fades in over it. */
     void launch(Intent intent, App a, Tile from) {
+        if (hero != null) hero.stopPreview();
         if (kids()) {
             tech.kousozo.tahoetv.core.KidsPolicy.EvalResult ev = Kids.evaluate(this);
             if (!ev.getAllowed()) {
@@ -869,13 +900,19 @@ public class Home extends Activity {
     }
 
     void openSheet(View v) {
+        if (hero != null) hero.stopPreview();
         closeSheet();
         pendingCenterKey = false;
         sheetView = v; sheet = (Sheet) v;
         updateFocusBlocking();
         root.addView(v, new FrameLayout.LayoutParams(-1, -1));
+        long d = Ui.dur(this, Ui.SLOW);
+        if (d <= 0) {
+            v.setAlpha(1f); v.setScaleX(1f); v.setScaleY(1f);
+            return;
+        }
         v.setAlpha(0); v.setScaleX(1.03f); v.setScaleY(1.03f);
-        v.animate().alpha(1).scaleX(1).scaleY(1).setDuration(Ui.MED).setInterpolator(Ui.out()).start();
+        v.animate().alpha(1).scaleX(1).scaleY(1).setDuration(d).setInterpolator(Ui.drawer()).start();
     }
 
     void closeSheet() {
@@ -885,7 +922,12 @@ public class Home extends Activity {
         sheetView = null; sheet = null;
         updateFocusBlocking();
         s.onClose();
-        v.animate().alpha(0).setDuration(Ui.FAST).withEndAction(() -> root.removeView(v)).start();
+        long d = Ui.dur(this, Ui.FAST);
+        if (d <= 0) {
+            root.removeView(v);
+        } else {
+            v.animate().alpha(0).setDuration(d).setInterpolator(Ui.out()).withEndAction(() -> root.removeView(v)).start();
+        }
     }
 
     void openWeather() { if (weather != null) openSheet(new Weather.Panel(this, weather)); else { toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_loading_weather")); refreshData(true); } }
