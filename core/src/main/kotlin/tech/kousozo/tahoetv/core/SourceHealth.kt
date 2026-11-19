@@ -31,7 +31,18 @@ object SourceHealth {
     private val pool = java.util.concurrent.ThreadPoolExecutor(
         4, 6, 30L, TimeUnit.SECONDS,
         java.util.concurrent.LinkedBlockingQueue(),
-    ) { r -> Thread(r, "tahoe-probe").apply { isDaemon = true } }.apply { allowCoreThreadTimeOut(true) }
+    ) { r -> Thread(r, "tahoe-probe").apply { isDaemon = true; priority = Thread.MIN_PRIORITY } }.apply { allowCoreThreadTimeOut(true) }
+
+    /** True while a stream is playing or previewing: queued probes wait, so they never compete with the picture for bandwidth
+     *  and CPU (the cause of sudden buffering while the health check swept hundreds of channels). */
+    @Volatile @JvmField var yieldToPlayback: Boolean = false
+
+    /** Blocks a probe thread until playback is done (or [maxMs] passed, so a probe never waits forever). Returns the ms waited. */
+    @JvmStatic @JvmOverloads internal fun waitForPlayback(maxMs: Long = 120_000L, stepMs: Long = 300L): Long {
+        var waited = 0L
+        while (yieldToPlayback && waited < maxMs) { Thread.sleep(stepMs); waited += stepMs }
+        return waited
+    }
 
     /** Adapts background stream-probe concurrency to TV hardware capabilities (#38). */
     @JvmStatic fun setProbeConcurrency(threads: Int) {
@@ -165,6 +176,7 @@ object SourceHealth {
         val left = AtomicInteger(todo.size)
         todo.forEach { c ->
             pool.execute {
+                waitForPlayback()
                 reportMetrics(c.url, StreamSelector.inspect(c, 3500))
                 queued.remove(c.url)
                 val rem = left.decrementAndGet()

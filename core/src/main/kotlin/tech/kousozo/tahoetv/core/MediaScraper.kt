@@ -105,7 +105,7 @@ object MediaScraper {
         val now = System.currentTimeMillis()
         logoCache[key]?.takeIf { now - it.at < TTL_MS }?.let { return it.url }
 
-        val found = (scrapeWikiThumb(clean, 400) ?: scrapeBingImage("$clean tv channel logo png"))
+        val found = (scrapeWikiThumb(clean, 400, tvChannel = true) ?: scrapeBingImage("$clean tv channel logo png"))
             ?.takeIf(::verifyImageUrl)
         logoCache[key] = Cached(found, now)
         scheduleSave("logos.tsv", logoCache)
@@ -122,8 +122,8 @@ object MediaScraper {
         val now = System.currentTimeMillis()
         thumbCache[key]?.takeIf { now - it.at < TTL_MS }?.let { return it.url }
 
-        val found = (scrapeWikiThumb(prog, 640) ?: scrapeBingImage(if (ch.isNotBlank()) "$prog $ch tv" else "$prog tv"))
-            ?.takeIf(::verifyImageUrl)
+        // Wikipedia only, and only for a page whose title matches: an image search returns unrelated pictures for programme names
+        val found = scrapeWikiThumb(prog, 640)?.takeIf(::verifyImageUrl)
         thumbCache[key] = Cached(found, now)
         scheduleSave("thumbs.tsv", thumbCache)
         return found
@@ -192,23 +192,42 @@ object MediaScraper {
         }
     }.getOrDefault(false)
 
-    internal fun parseWikiPageImage(json: String): String? = runCatching {
+    /** The thumbnail of the best page. With [query], only a page whose title really matches it counts: a search for "Makan Receh"
+     *  must not return the picture of whatever article merely mentions the words (a wrong photo is worse than none). */
+    internal fun parseWikiPageImage(json: String, query: String? = null): String? = runCatching {
         val pages = JSONObject(json).optJSONObject("query")?.optJSONObject("pages") ?: return null
         val keys = pages.keys()
         while (keys.hasNext()) {
             val page = pages.optJSONObject(keys.next()) ?: continue
+            if (query != null && !titleMatches(query, page.optString("title"))) continue
             val thumb = page.optJSONObject("thumbnail")?.optString("source")?.takeIf { it.startsWith("https://") }
             if (thumb != null) return thumb
         }
         null
     }.getOrNull()
 
-    private fun scrapeWikiThumb(query: String, size: Int): String? {
-        val q = URLEncoder.encode(query, "UTF-8")
+    private val STOP = setOf("tv", "channel", "television", "televisi", "stasiun", "saluran", "the", "program", "acara", "show", "live", "hd")
+    private fun tokens(s: String): Set<String> =
+        s.lowercase().replace(Regex("\\(.*?\\)"), " ").split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() && it !in STOP }.toSet()
+
+    /** The page title and the query share (nearly) all their meaningful words: "Trans TV" ~ "Trans TV", "TVRI" ~ "TVRI (stasiun televisi)", but not "Makan Receh" ~ "Air minum". */
+    internal fun titleMatches(query: String, title: String): Boolean {
+        val q = tokens(query); val t = tokens(title)
+        if (q.isEmpty() || t.isEmpty()) return false
+        val common = q.intersect(t).size
+        return common.toDouble() / maxOf(q.size, t.size) >= 0.6 || (common == q.size && q.size >= 1 && t.size <= q.size + 2)
+    }
+
+    /** The Wikipedia search text: for a channel logo the name plus "television channel" in that wiki's language, so a station's article wins over a person or a place with the same name. */
+    internal fun wikiQuery(lang: String, name: String, tvChannel: Boolean): String =
+        if (!tvChannel) name else name + if (lang == "id") " stasiun televisi" else " television channel"
+
+    private fun scrapeWikiThumb(query: String, size: Int, tvChannel: Boolean = false): String? {
         for (lang in listOf("id", "en")) {
+            val q = URLEncoder.encode(wikiQuery(lang, query, tvChannel), "UTF-8")
             val api = "https://$lang.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=$q&gsrlimit=2&prop=pageimages&piprop=thumbnail&pithumbsize=$size&format=json"
             val body = runCatching { Web.get(api, 3500, mapOf("User-Agent" to "TahoeTV/3.3")) }.getOrNull() ?: continue
-            parseWikiPageImage(body)?.let { return it }
+            parseWikiPageImage(body, query)?.let { return it }
         }
         return null
     }

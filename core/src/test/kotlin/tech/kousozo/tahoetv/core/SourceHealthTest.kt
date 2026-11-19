@@ -98,4 +98,18 @@ class SourceHealthTest {
             dir.deleteRecursively()
         }
     }
+
+    @Test fun probesWaitWhileAStreamPlaysAndResumeAfter() {
+        SourceHealth.yieldToPlayback = false
+        assertEquals(0L, SourceHealth.waitForPlayback(maxMs = 1_000, stepMs = 20)) // idle: no wait at all
+        SourceHealth.yieldToPlayback = true
+        val t = Thread { Thread.sleep(150); SourceHealth.yieldToPlayback = false }.also { it.start() }
+        val waited = SourceHealth.waitForPlayback(maxMs = 5_000, stepMs = 20)
+        t.join()
+        assertTrue(waited in 100..2_000, "waited $waited ms until playback stopped")
+        // a probe never waits forever, even if playback never ends
+        SourceHealth.yieldToPlayback = true
+        assertTrue(SourceHealth.waitForPlayback(maxMs = 100, stepMs = 20) in 100..400)
+        SourceHealth.yieldToPlayback = false
+    }
 }
