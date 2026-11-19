@@ -74,12 +74,15 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
         Box(Modifier.fillMaxWidth().height(380.dp).background(Brush.verticalGradient(listOf(tint.copy(alpha = 0.85f), tint.copy(alpha = 0.35f), Tahoe.Bg)))) {
             val wash = progThumb ?: scrapedBmp
             if (wash != null) Image(wash, null, Modifier.matchParentSize().blur(if (progThumb != null) 12.dp else 60.dp).alpha(if (progThumb != null) 0.55f else 0.35f), contentScale = ContentScale.Crop)
-            LivePreviewSurface(
-                e,
-                owner = "channel",
-                active = Nav.detail?.channel?.url == e.channel.url && Nav.page == null && Playback.entry == null,
-                modifier = Modifier.matchParentSize(),
-            )
+            // 16:9 frame at the top: the picture keeps its real ratio (never cropped or stretched)
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).align(Alignment.TopCenter)) {
+                LivePreviewSurface(
+                    e,
+                    owner = "channel",
+                    active = Nav.detail?.channel?.url == e.channel.url && Nav.page == null && Playback.entry == null,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Tahoe.Bg)))
         }
         Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = TabInset)) {

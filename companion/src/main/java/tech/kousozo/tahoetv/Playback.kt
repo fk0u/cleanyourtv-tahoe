@@ -312,6 +312,7 @@ object Playback {
         recapChannelName = e.name
         recapShow = nowOn(Channels.epg, e, java.time.Instant.now())?.title.orEmpty()
         entry = e; slate = null; autoRetries = 0; retryIn = 0; sawRecording = false
+        MobileLivePreview.syncProbeGate()
         Channels.remember(c, e)
         val raw = listOf(e.channel) + e.alternates
         val app = c.applicationContext
@@ -347,7 +348,7 @@ object Playback {
     fun resume() { player?.play(); paused = false }
 
     /** Stop and forget the channel (the mini-player's ✕). */
-    fun stop() { flushRecap(); attempt++; player?.stop(); entry = null; message = null; format = null; paused = false; slate = null; retryIn = 0 }
+    fun stop() { flushRecap(); attempt++; player?.stop(); entry = null; message = null; format = null; paused = false; slate = null; retryIn = 0; MobileLivePreview.syncProbeGate() }
 
     /** "Coba lagi" on the slate, or the background retry: every source again, best first. */
     fun retry(c: Context) {
@@ -430,47 +431,7 @@ object Playback {
         p.trackSelectionParameters = tsp.build()
 
         val tuning = tech.kousozo.tahoetv.core.PlayPrefs.tuningFor(latency, SourceHealth.isTightWindow(s.url), false)
-        val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
-            .setUserAgent(s.headers["User-Agent"] ?: tech.kousozo.tahoetv.core.Web.STREAM_UA).setDefaultRequestProperties(s.headers - "User-Agent")
-        val item = MediaItem.Builder().setUri(Uri.parse(s.url))
-            // bounded live offset & gentle speed correction so tight 2s-segment HLS feeds play without ±2s stalls (#32)
-            .setLiveConfiguration(
-                MediaItem.LiveConfiguration.Builder()
-                    .setTargetOffsetMs(tuning.targetOffsetMs)
-                    .setMinOffsetMs(tuning.minOffsetMs)
-                    .setMaxOffsetMs(tuning.maxOffsetMs)
-                    .setMinPlaybackSpeed(tuning.minPlaybackSpeed)
-                    .setMaxPlaybackSpeed(tuning.maxPlaybackSpeed)
-                    .build()
-            )
-        if (s.isDash) item.setMimeType(MimeTypes.APPLICATION_MPD)
-        else if (s.url.contains(".m3u8", ignoreCase = true)) item.setMimeType(MimeTypes.APPLICATION_M3U8)
-
-        val factory = DefaultMediaSourceFactory(http)
-        val scheme = Drm.scheme(s.drmType, s.drmKey)
-        val jwk = Drm.toClearKeyJwk(s.drmKey)
-        val licUrl = Drm.licenseUrl(s.drmKey)
-        if (jwk != null) {
-            val mgr = DefaultDrmSessionManager.Builder()
-                .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
-                .setMultiSession(true)
-                .build(LocalMediaDrmCallback(jwk.toByteArray(Charsets.UTF_8)))
-            factory.setDrmSessionManagerProvider { mgr }
-        } else if (licUrl != null && scheme != Drm.Scheme.NONE) {
-            val uuid = when (scheme) {
-                Drm.Scheme.WIDEVINE -> C.WIDEVINE_UUID
-                Drm.Scheme.PLAYREADY -> C.PLAYREADY_UUID
-                else -> C.CLEARKEY_UUID
-            }
-            val drmCfg = MediaItem.DrmConfiguration.Builder(uuid)
-                .setLicenseUri(licUrl)
-                .setMultiSession(true)
-            if (s.headers.isNotEmpty()) drmCfg.setLicenseRequestHeaders(s.headers)
-            item.setDrmConfiguration(drmCfg.build())
-            val drmProv = DefaultDrmSessionManagerProvider().apply { setDrmHttpDataSourceFactory(http) }
-            factory.setDrmSessionManagerProvider(drmProv)
-        }
-        p.setMediaSource(factory.createMediaSource(item.build()))
+        p.setMediaSource(StreamSource.build(s, tuning))
         p.prepare(); p.play()
         ui.postDelayed({ // never started → next source
             if (my == attempt && !everReady) { DiagLog.add("live", "tidak mulai dalam 20 dtk → sumber berikutnya"); next(c) }

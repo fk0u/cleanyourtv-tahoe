@@ -430,22 +430,32 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
     LaunchedEffect(Unit) { while (true) { delay(30_000); now = Instant.now() } } // shows on now roll over at their end
     val recentWatched = Channels.recent(c)
     // hero: the playing channel, else it cycles every 4 s (or 12 s while live preview plays; off with reduced motion)
-    val heroPool = recentWatched.ifEmpty { entries.orEmpty() }.take(4)
+    val poolSource = recentWatched.ifEmpty { entries.orEmpty() }
+    // highlights = channels with a source we can preview, so every hero channel gets its live picture
+    val heroPool = poolSource.filter { MobileLivePreview.candidates(it).isNotEmpty() }.ifEmpty { poolSource }.take(4)
     var heroIdx by remember { mutableIntStateOf(0) }
     val hero = Playback.entry ?: heroPool.getOrNull(heroIdx % maxOf(1, heroPool.size)) ?: entries?.firstOrNull()
     val heroPreviewActive = MobileLivePreview.ready && hero != null && MobileLivePreview.activeUrl == hero.channel.url && Playback.entry == null
-    LaunchedEffect(heroPool.size, Playback.entry == null, ThemePrefs.reduceMotion, heroPreviewActive) {
-        if (Playback.entry == null && heroPool.size > 1 && !ThemePrefs.reduceMotion) {
-            while (true) {
-                delay(if (heroPreviewActive) 12_000L else 4_000L)
-                heroIdx = (heroIdx + 1) % heroPool.size
-            }
-        }
+    val scroll = rememberScrollState()
+    val heroVisible = scroll.value < with(androidx.compose.ui.platform.LocalDensity.current) { 260.dp.toPx() } // scrolled away: stop previewing (saves data and frames)
+    LaunchedEffect(Unit) { MobileLivePreview.clearFailures() }
+    LaunchedEffect(scroll.isScrollInProgress) {
+        if (scroll.isScrollInProgress) MobileLivePreview.setScrolling(true) else { delay(350); MobileLivePreview.setScrolling(false) }
+    }
+    // the hero moves on only after its picture has played for a while (or has given up), never in the middle of connecting
+    LaunchedEffect(heroPool.size, heroIdx, Playback.entry == null, ThemePrefs.reduceMotion, heroVisible) {
+        if (Playback.entry != null || heroPool.size < 2 || ThemePrefs.reduceMotion || !heroVisible) return@LaunchedEffect
+        val cur = heroPool.getOrNull(heroIdx % heroPool.size) ?: return@LaunchedEffect
+        fun playing() = MobileLivePreview.ready && MobileLivePreview.activeUrl == cur.channel.url
+        var waited = 0L
+        while (waited < 9_000L && !playing() && MobileLivePreview.failedUrl != cur.channel.url && MobileLivePreview.canPreview(cur)) { delay(250); waited += 250 }
+        delay(if (playing()) 10_000L else 3_500L)
+        heroIdx = (heroIdx + 1) % heroPool.size
     }
     LaunchedEffect(hero) { Nav.hero = hero }
 
     val L = { k: String -> tech.kousozo.tahoetv.core.I18n.get(lang, k) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = TabInset),
+    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(bottom = TabInset),
         verticalArrangement = Arrangement.spacedBy(24.dp)) {
         // hero (Figma "Mobile / Home", 390 × 520): artwork + optional muted live preview, scrim, top bar, on-now copy, Tonton + Favorit, pager
         Box(Modifier.fillMaxWidth().height(520.dp)) {
@@ -455,16 +465,18 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                 animationSpec = tween(if (ThemePrefs.reduceMotion) 200 else tech.kousozo.tahoetv.core.Brand.MOTION_SLOW, easing = EaseInOutTahoe),
                 label = "hero",
             ) { curHero ->
-            Box(Modifier.fillMaxSize()) {
-                if (curHero != null) {
-                    ChannelArt(curHero, Modifier.fillMaxSize(), logoScale = 0.8f, logoTop = 128.dp)
-                    LivePreviewSurface(
-                        curHero,
-                        owner = "home",
-                        active = Nav.tab == 0 && Nav.page == null && Nav.detail == null && Playback.entry == null,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
+            if (curHero != null) ChannelArt(curHero, Modifier.fillMaxSize(), logoScale = 0.8f, logoTop = 128.dp, programme = nowOn(Channels.epg, curHero, now)?.title)
+            }
+            // ONE preview surface for the hero channel, in a 16:9 frame so the picture is never cropped or stretched
+            if (hero != null) Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).align(Alignment.TopCenter)) {
+                LivePreviewSurface(
+                    hero,
+                    owner = "home",
+                    active = Nav.tab == 0 && Nav.page == null && Nav.detail == null && Playback.entry == null && heroVisible,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            run {
                 val scrimBrush = if (ThemePrefs.dark) {
                     Brush.verticalGradient(0f to Tahoe.Stage.copy(alpha = 0.7f), 0.25f to Tahoe.Stage.copy(alpha = 0.15f), 0.5f to Tahoe.Stage.copy(alpha = 0.35f), 1f to Tahoe.Bg)
                 } else {
@@ -472,6 +484,14 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
                     Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.55f), 0.30f to Color.Black.copy(alpha = 0.10f), 0.62f to Tahoe.Bg.copy(alpha = 0.40f), 1f to Tahoe.Bg)
                 }
                 Box(Modifier.fillMaxSize().background(scrimBrush))
+            }
+            androidx.compose.animation.Crossfade(
+                hero,
+                Modifier.fillMaxSize(),
+                animationSpec = tween(if (ThemePrefs.reduceMotion) 200 else tech.kousozo.tahoetv.core.Brand.MOTION_SLOW, easing = EaseInOutTahoe),
+                label = "hero-copy",
+            ) { curHero ->
+            Box(Modifier.fillMaxSize()) {
                 if (curHero != null) Column(Modifier.align(Alignment.TopStart).padding(start = 20.dp, end = 20.dp, top = 236.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     val prog = nowOn(Channels.epg, curHero, now)
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -686,16 +706,29 @@ private fun TvCard(host: String, setHost: (String) -> Unit, paired: Boolean, cod
     }
 }
 
-/** Artwork for a channel (no programme art in the playlists): its colour as a deep gradient, the logo on a white tile. */
+/** Artwork for a channel: a real photo of the show on now (when the web has one), else the channel's colour as a deep gradient;
+ *  the logo (playlist, Wikipedia or web) sits on a white tile. */
 @Composable
-fun ChannelArt(e: LocalTv.Entry, modifier: Modifier, logoScale: Float = 1f, logoTop: androidx.compose.ui.unit.Dp? = null) {
-    val logo = rememberNetImage(e.channel.logo)
+fun ChannelArt(e: LocalTv.Entry, modifier: Modifier, logoScale: Float = 1f, logoTop: androidx.compose.ui.unit.Dp? = null, programme: String? = null) {
+    val logo = rememberChannelLogo(e)
+    val snapshot = rememberSnapshot(e)
+    val photo = snapshot ?: rememberProgrammePhoto(e, programme)
     val tint = logo?.let { dominantColor(it) } ?: categoryTint(e.category)
     Box(modifier.background(Brush.linearGradient(listOf(tint.copy(alpha = 0.95f), Color(Brand.LAKE_DEEP), Tahoe.Stage))),
         contentAlignment = if (logoTop != null) Alignment.TopCenter else Alignment.Center) {
-        Box(Modifier.then(if (logoTop != null) Modifier.padding(top = logoTop) else Modifier).size(132.dp * logoScale, 88.dp * logoScale).clip(RoundedCornerShape(18.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-            if (logo != null) Image(logo, null, Modifier.padding(14.dp * logoScale).fillMaxSize(), contentScale = ContentScale.Fit)
-            else Text(e.name.take(3).uppercase(), color = Color(Brand.CANVAS), fontSize = (22 * logoScale).sp, fontWeight = FontWeight.Bold)
+        androidx.compose.animation.AnimatedVisibility(photo != null, enter = androidx.compose.animation.fadeIn(tween(tech.kousozo.tahoetv.core.Brand.MOTION_SLOW)),
+            exit = androidx.compose.animation.fadeOut(tween(200)), modifier = Modifier.matchParentSize()) {
+            if (photo != null) Box(Modifier.fillMaxSize()) {
+                Image(photo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(tint.copy(alpha = 0.25f), Color.Black.copy(alpha = 0.35f)))))
+            }
+        }
+        // with a photo the logo shrinks into a small badge so the picture is the star
+        val size = if (photo != null) 0.5f else logoScale
+        val tileMod = if (photo != null) Modifier.align(Alignment.BottomEnd).padding(10.dp) else Modifier.then(if (logoTop != null) Modifier.padding(top = logoTop) else Modifier)
+        Box(tileMod.size(132.dp * size, 88.dp * size).clip(RoundedCornerShape(18.dp * size.coerceAtLeast(0.6f))).background(Color.White), contentAlignment = Alignment.Center) {
+            if (logo != null) Image(logo, null, Modifier.padding(14.dp * size).fillMaxSize(), contentScale = ContentScale.Fit)
+            else Text(e.name.take(3).uppercase(), color = Color(Brand.CANVAS), fontSize = (22 * size).sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -724,7 +757,7 @@ fun ChannelCard(e: LocalTv.Entry, now: Instant, modifier: Modifier = Modifier) {
                     }
                 ),
         ) {
-            ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.62f)
+            ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.62f, programme = prog?.title)
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.7f))))
             Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 LiveBadge()

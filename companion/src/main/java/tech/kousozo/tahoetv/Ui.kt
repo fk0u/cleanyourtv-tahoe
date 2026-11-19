@@ -612,39 +612,65 @@ fun TabBar(tabs: List<Pair<String, ImageVector>>, selected: Int, onSelect: (Int)
 }
 
 /** Remote images (channel logos) with a byte-bounded in-memory LRU cache and downsampled decoding. */
+/** An image from the web: memory cache, then a disk cache (so logos and photos load instantly after the first time and never
+ *  re-download on every launch), then the network. [maxPx] = longest side kept (logos 200, photos 640). */
 @Composable
-fun rememberNetImage(url: String?): androidx.compose.ui.graphics.ImageBitmap? {
-    var img by remember(url) { mutableStateOf(url?.let { NetImages.cache.get(it) }) }
-    LaunchedEffect(url) {
-        if (url == null || img != null) return@LaunchedEffect
-        img = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching {
-                val c = java.net.URI(url).toURL().openConnection().apply { connectTimeout = 6000; readTimeout = 10000; setRequestProperty("User-Agent", "TahoeTV") }
-                val data = try { c.getInputStream().use { it.readBytes() } } finally { (c as? java.net.HttpURLConnection)?.disconnect() }
-                val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, o)
-                var sample = 1
-                while (maxOf(o.outWidth, o.outHeight) / (sample * 2) >= 200) sample *= 2
-                o.inJustDecodeBounds = false
-                o.inSampleSize = sample
-                o.inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
-                android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, o)?.let { b ->
-                    // logos only need ~200 px: keep memory small
-                    val s = minOf(1f, 200f / maxOf(b.width, b.height))
-                    val scaled = if (s < 1f) android.graphics.Bitmap.createScaledBitmap(b, (b.width * s).toInt().coerceAtLeast(1), (b.height * s).toInt().coerceAtLeast(1), true) else b
-                    if (scaled !== b) b.recycle()
-                    scaled
-                }?.asImageBitmap()
-            }.getOrNull()?.also { b: androidx.compose.ui.graphics.ImageBitmap -> NetImages.cache.put(url, b) }
-        }
+fun rememberNetImage(url: String?, maxPx: Int = 200): androidx.compose.ui.graphics.ImageBitmap? {
+    val ctx = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val key = url?.let { "$maxPx|$it" }
+    var img by remember(key) { mutableStateOf(key?.let { NetImages.cache.get(it) }) }
+    LaunchedEffect(key) {
+        if (url == null || key == null || img != null) return@LaunchedEffect
+        img = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { NetImages.load(ctx, url, maxPx) }
+            ?.also { NetImages.cache.put(key, it) }
     }
     return img
 }
 
 object NetImages {
-    val cache = object : android.util.LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(8 * 1024 * 1024) {
+    val cache = object : android.util.LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(16 * 1024 * 1024) {
         override fun sizeOf(key: String, value: androidx.compose.ui.graphics.ImageBitmap): Int =
             (value.width * value.height * 4).coerceAtLeast(1)
+    }
+    private const val DISK_MAX = 48L * 1024 * 1024
+    private var writes = 0
+
+    private fun dir(ctx: android.content.Context) = java.io.File(ctx.cacheDir, "img").apply { mkdirs() }
+    private fun name(url: String) = java.security.MessageDigest.getInstance("SHA-1").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
+
+    /** Blocking; call off the main thread. Null when it can't be fetched or decoded. */
+    fun load(ctx: android.content.Context, url: String, maxPx: Int): androidx.compose.ui.graphics.ImageBitmap? = runCatching {
+        val f = java.io.File(dir(ctx), name(url))
+        val data = if (f.isFile && f.length() > 0) f.readBytes() else {
+            val c = java.net.URI(url).toURL().openConnection().apply { connectTimeout = 6000; readTimeout = 10000; setRequestProperty("User-Agent", "TahoeTV") }
+            val bytes = try { c.getInputStream().use { it.readNBytes(6_000_000) } } finally { (c as? java.net.HttpURLConnection)?.disconnect() }
+            if (bytes.isNotEmpty()) { f.writeBytes(bytes); if (++writes % 25 == 0) trim(ctx) }
+            bytes
+        }
+        decode(data, maxPx)
+    }.getOrNull()
+
+    private fun decode(data: ByteArray, maxPx: Int): androidx.compose.ui.graphics.ImageBitmap? {
+        val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, o)
+        var sample = 1
+        while (maxOf(o.outWidth, o.outHeight) / (sample * 2) >= maxPx) sample *= 2
+        o.inJustDecodeBounds = false
+        o.inSampleSize = sample
+        o.inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+        return android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, o)?.let { b ->
+            val s = minOf(1f, maxPx.toFloat() / maxOf(b.width, b.height))
+            val scaled = if (s < 1f) android.graphics.Bitmap.createScaledBitmap(b, (b.width * s).toInt().coerceAtLeast(1), (b.height * s).toInt().coerceAtLeast(1), true) else b
+            if (scaled !== b) b.recycle()
+            scaled
+        }?.asImageBitmap()
+    }
+
+    /** Keeps the disk cache under [DISK_MAX]: oldest files go first. */
+    private fun trim(ctx: android.content.Context) {
+        val files = dir(ctx).listFiles()?.sortedBy { it.lastModified() } ?: return
+        var total = files.sumOf { it.length() }
+        for (f in files) { if (total <= DISK_MAX * 3 / 4) break; total -= f.length(); f.delete() }
     }
 }
 

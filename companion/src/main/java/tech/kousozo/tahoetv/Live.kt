@@ -280,7 +280,7 @@ private fun BrowseSections(list: List<LocalTv.Entry>, now: Instant, onCategory: 
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box(Modifier.size(150.dp, 220.dp).clip(RoundedCornerShape(16.dp))) {
-                            ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.7f)
+                            ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.7f, programme = nowOn(Channels.epg, e, now)?.title)
                             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.6f))))
                             Text(e.category.label(lang).uppercase(), Modifier.align(Alignment.BottomStart).padding(12.dp), color = Color.White, fontSize = 11.sp,
                                 lineHeight = 13.sp, letterSpacing = 1.32.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -297,12 +297,19 @@ private fun BrowseSections(list: List<LocalTv.Entry>, now: Instant, onCategory: 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     pair.forEach { k ->
                         val tint = categoryTint(k)
+                        // a real picture: the latest frame of the first channel in this category that has one
+                        val rep = list.firstOrNull { LocalTv.inCategory(it, k) }
                         Box(Modifier.weight(1f).height(96.dp).clip(RoundedCornerShape(18.dp))
                             .background(Brush.linearGradient(listOf(tint, Color(tech.kousozo.tahoetv.core.Brand.LAKE_DEEP), Tahoe.Stage)))
                             .then(if (ThemePrefs.highContrast) Modifier.border(2.dp, Tahoe.Stroke, RoundedCornerShape(18.dp)) else Modifier)
                             .clickable(role = Role.Button) { onCategory(k) }
                             .semantics(mergeDescendants = true) {}) {
-                            Icon(categoryIcon(k), null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(36.dp))
+                            if (rep != null) {
+                                val snap = rememberSnapshot(rep)
+                                if (snap != null) androidx.compose.foundation.Image(snap, null, Modifier.matchParentSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                                Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.1f to Color.Black.copy(alpha = if (snap != null) 0.15f else 0f), 1f to Color.Black.copy(alpha = 0.7f))))
+                            }
+                            Icon(categoryIcon(k), null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(30.dp))
                             Text(k.label(lang), Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 14.dp, end = 14.dp), color = Color.White,
                                 fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -1157,7 +1164,7 @@ const val TV_LIVE = "tv.clean.home.livetv"
 fun ChannelLogo(e: LocalTv.Entry, modifier: Modifier) = Box(
     modifier.clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center,
 ) {
-    val img = rememberNetImage(e.channel.logo)
+    val img = rememberChannelLogo(e)
     if (img != null) androidx.compose.foundation.Image(img, e.name, Modifier.padding(6.dp).fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
     else Text(e.name.take(3).uppercase(), color = Color(0xFF111114), fontSize = 13.sp, fontWeight = FontWeight.Bold)
 }

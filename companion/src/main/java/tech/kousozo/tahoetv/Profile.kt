@@ -199,7 +199,9 @@ private fun MenuRow(icon: ImageVector, title: String, value: String? = null, tin
             Icon(icon, null, tint = tint ?: Tahoe.Text, modifier = Modifier.size(20.dp))
         }
         Text(title, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-        if (value != null) Text(value, fontSize = 14.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // a long value never squeezes the title into a vertical column of letters: it wraps to two lines inside its own width
+        if (value != null) Text(value, fontSize = 14.sp, lineHeight = 18.sp, color = Tahoe.Dim, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.widthIn(max = 132.dp))
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Faint, modifier = Modifier.size(18.dp))
     }
 }
@@ -259,7 +261,7 @@ fun WatchlistScreen() {
         if (featured != null && filter == 0) item(key = "featured") {
             val prog = nowOn(Channels.epg, featured, now)
             Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(24.dp)).clickable { Nav.play(featured) }) {
-                ChannelArt(featured, Modifier.fillMaxSize(), logoScale = 0.6f, logoTop = 22.dp)
+                ChannelArt(featured, Modifier.fillMaxSize(), logoScale = 0.6f, logoTop = 22.dp, programme = prog?.title)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.78f))))
                 Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -909,7 +911,7 @@ fun SearchPage() {
                 Box(
                     Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(24.dp)).clickable { Nav.play(topHit) },
                 ) {
-                    ChannelArt(topHit, Modifier.fillMaxSize(), logoScale = 0.85f)
+                    ChannelArt(topHit, Modifier.fillMaxSize(), logoScale = 0.85f, programme = topShow)
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.25f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
                     LiveBadge(Modifier.align(Alignment.TopStart).padding(14.dp))
                     Column(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -995,29 +997,20 @@ fun ConnectTvPage() {
     pinFor?.let { h -> PinPairDialog(h) { pinFor = null } }
 
     PageScaffold(I18n.get(lang, "profile.connect_tv"), I18n.get(lang, "connect.searching_wifi")) {
-        // Radar 200 / 140 / 80 concentric stroked rings + 56 dp center phone disc + 3 floating 40 dp TV nodes
-        Box(Modifier.fillMaxWidth().height(220.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
-            listOf(200.dp to 0.15f, 140.dp to 0.27f, 80.dp to 0.39f).forEach { (d, a) ->
-                Box(Modifier.size(d).clip(CircleShape).border(1.5.dp, Tahoe.Accent.copy(alpha = a), CircleShape))
+        // living radar: ripples, sweep, drifting dust; each TV pops in with a beam to it (tap = switch / connect without a code)
+        val nodes = buildList {
+            devState.devices.forEach { d ->
+                add(RadarNode("d" + d.id, d.name.ifBlank { "Tahoe TV" }, true, I18n.get(lang, "connect.active")) {
+                    Sync.saveDevices(c, devState.select(d.id)); Pairing.tick++; Nav.tab = 2; Nav.page = null
+                })
             }
-            Box(Modifier.size(56.dp).clip(CircleShape).background(Tahoe.Accent), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Smartphone, null, tint = Tahoe.OnAccent, modifier = Modifier.size(24.dp))
+            discovered.forEach { f ->
+                add(RadarNode("f" + f.ip, f.name ?: "Tahoe TV", false, I18n.get(lang, "remote.tap_connect")) {
+                    NoCodePair.start(c, f.ip, f.name ?: "Tahoe TV") { pinFor = it }
+                })
             }
-            Box(
-                Modifier.align(Alignment.TopStart).padding(start = 36.dp, top = 26.dp).size(40.dp).clip(CircleShape).background(Tahoe.Good),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Tv, null, tint = Color(0xFF0D0F14), modifier = Modifier.size(20.dp)) }
-            Box(
-                Modifier.align(Alignment.TopEnd).padding(end = 36.dp, top = 54.dp).size(40.dp).clip(CircleShape)
-                    .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.12f) else Tahoe.Glass),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Tv, null, tint = Tahoe.Text, modifier = Modifier.size(20.dp)) }
-            Box(
-                Modifier.align(Alignment.BottomEnd).padding(end = 68.dp, bottom = 14.dp).size(40.dp).clip(CircleShape)
-                    .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.12f) else Tahoe.Glass),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Tv, null, tint = Tahoe.Text, modifier = Modifier.size(20.dp)) }
         }
+        ConnectRadar(nodes, scanning = true)
 
         MenuGroup(I18n.get(lang, "connect.found_eyebrow")) {
             if (devState.devices.isEmpty() && discovered.isEmpty() && Demo.isActive()) {
