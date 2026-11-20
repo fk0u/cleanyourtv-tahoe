@@ -56,6 +56,40 @@ public class Live extends Activity {
 
     float dp(float v) { return Ui.dp(this, v); }
 
+    /** The Figma frame is drawn on 1920 x 1080; everything is scaled from that grid. */
+    float S = 1f;
+    LocalTv.Entry cur; // the channel shown in the detail panel
+    TextView favBtn;
+    int px(float v) { return Math.round(v * S); }
+
+    TextView t(String text, float sizePx, int wght, int color) {
+        TextView v = new TextView(this);
+        v.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, sizePx * S);
+        v.setTypeface(Ui.font(this, wght)); v.setTextColor(color); v.setText(text);
+        v.setSingleLine(); v.setEllipsize(android.text.TextUtils.TruncateAt.END); v.setIncludeFontPadding(false);
+        return v;
+    }
+
+    android.graphics.drawable.GradientDrawable box(int fill, float radiusPx, int stroke, float strokePx) {
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+        g.setColor(fill); g.setCornerRadius(px(radiusPx));
+        if (strokePx > 0) g.setStroke(Math.max(1, px(strokePx)), stroke);
+        return g;
+    }
+
+    /** Pill button of the detail panel: [primary] = white, others glass with a hairline border; cyan ring while focused. */
+    TextView panelButton(String label, boolean primary, Runnable action) {
+        TextView b = t(label, primary ? 25 : 24, 500, primary ? 0xFF0D0F14 : 0xFFF7F8FA);
+        b.setGravity(Gravity.CENTER_VERTICAL);
+        b.setPadding(px(primary ? 31 : 30), px(primary ? 19 : 18), px(primary ? 38 : 36), px(primary ? 19 : 18));
+        b.setBackground(box(primary ? 0xFFF7F8FA : 0x17FFFFFF, 999, 0x33FFFFFF, primary ? 0 : 1.5f));
+        b.setFocusable(true); b.setFocusableInTouchMode(true); b.setClickable(true);
+        b.setOnFocusChangeListener((v, f) -> b.setBackground(f ? box(primary ? 0xFFF7F8FA : 0x40FFFFFF, 999, 0xFF63D1FF, 4)
+                : box(primary ? 0xFFF7F8FA : 0x17FFFFFF, 999, 0x33FFFFFF, primary ? 0 : 1.5f)));
+        b.setOnClickListener(v -> action.run());
+        return b;
+    }
+
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         if (TvGuard.blockIfNotTv(this)) return;
@@ -63,15 +97,16 @@ public class Live extends Activity {
         Viewer vw = TvViewer.get(this);
         String lang = vw.getLanguage();
         hm = DateTimeFormatter.ofPattern("HH.mm").withZone(vw.getZone());
+        S = getResources().getDisplayMetrics().widthPixels / 1920f;
         root = new FrameLayout(this);
-        root.setBackgroundColor(Ui.NIGHT);
+        root.setBackgroundColor(0xFF07080D);
         LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding((int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP), (int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP));
+        page.setPadding(px(112), px(60), px(112), px(60));
         LinearLayout head = new LinearLayout(this); head.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout titles = new LinearLayout(this); titles.setOrientation(LinearLayout.VERTICAL);
-        title = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); title.setText(I18n.get(lang, "tv.guide_title"));
-        sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); sub.setText(I18n.get(lang, "tv.guide_loading"));
-        titles.addView(title); titles.addView(sub);
+        title = t(I18n.get(lang, "tv.guide_title"), 46, 600, 0xFFFFFFFF); title.setLetterSpacing(-0.02f);
+        sub = t(I18n.get(lang, "tv.guide_loading"), 19, 500, 0x99FFFFFF);
+        titles.addView(title); LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(-2, -2); subLp.topMargin = px(6); titles.addView(sub, subLp);
         head.addView(titles, new LinearLayout.LayoutParams(0, -2, 1));
         // search (#181): the TV's own keyboard opens on OK; the list filters as you type
         android.widget.EditText search = new android.widget.EditText(this);
@@ -115,35 +150,45 @@ public class Live extends Activity {
         rows = new LinearLayout(this); rows.setOrientation(LinearLayout.VERTICAL);
         ScrollView cs = new ScrollView(this); cs.addView(cats); cs.setVerticalScrollBarEnabled(false);
         ScrollView rs = new ScrollView(this); rs.addView(rows); rs.setVerticalScrollBarEnabled(false);
-        cols.addView(cs, new LinearLayout.LayoutParams((int) dp(170), -1));
+        LinearLayout.LayoutParams csl = new LinearLayout.LayoutParams(px(240), -1); csl.setMarginEnd(px(28)); cols.addView(cs, csl);
         cols.addView(rs, new LinearLayout.LayoutParams(0, -1, 1));
 
-        // detail panel for the focused channel
+        // detail panel for the focused channel (Figma "Detail panel": 560 wide, glass, radius 32, padding 32)
         LinearLayout d = new LinearLayout(this); d.setOrientation(LinearLayout.VERTICAL);
-        d.setBackground(new GlassDrawable(dp(Ui.R_LARGE), Ui.GLASS, dp(1)));
-        d.setPadding((int) dp(24), (int) dp(20), (int) dp(24), (int) dp(20));
-        dCat = Ui.eyebrow(this, Ui.TEXT_2); dName = Ui.text(this, Ui.TITLE, 700, Ui.TEXT);
-        dNow = Ui.text(this, Ui.HEADLINE, 600, Ui.ACCENT);
-        dDesc = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); dDesc.setSingleLine(false); dDesc.setMaxLines(4);
-        dNext = Ui.text(this, Ui.BODY, 400, Ui.TEXT); dNext.setSingleLine(false); dNext.setMaxLines(6); dNext.setLineSpacing(dp(4), 1);
-        dHint = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); dHint.setText(I18n.get(lang, "tv.guide_ok_hint"));
+        d.setBackground(box(0x0FFFFFFF, 32, 0x1FFFFFFF, 1));
+        d.setPadding(px(32), px(32), px(32), px(32));
+        dCat = t("", 16, 600, 0x99FFFFFF); dCat.setLetterSpacing(0.1f);
+        dName = t("", 46, 600, 0xFFFFFFFF); dName.setLetterSpacing(-0.02f);
+        dNow = t("", 30, 600, 0xFF5CD0FF);
+        dDesc = t("", 24, 400, 0xB3FFFFFF); dDesc.setSingleLine(false); dDesc.setMaxLines(2); dDesc.setLineSpacing(0, 1.1f);
+        dNext = t("", 24, 400, 0xFFFFFFFF); dNext.setSingleLine(false); dNext.setMaxLines(3); dNext.setLineSpacing(px(6), 1);
+        dHint = t("", 1, 400, 0); dHint.setVisibility(View.GONE);
         // live preview (#181): the focused channel plays quietly here once focus rests
         FrameLayout pv = new FrameLayout(this);
-        pv.setBackground(new GlassDrawable(dp(Ui.R_MED), 0x33000000, dp(1)));
-        Ui.clip(pv, dp(Ui.R_MED));
+        pv.setBackground(box(0x33000000, 20, 0, 0));
+        Ui.clip(pv, px(20));
         android.view.TextureView tex = new android.view.TextureView(this);
         pv.addView(tex, new FrameLayout.LayoutParams(-1, -1));
-        TextView badge = Ui.eyebrow(this, Ui.TEXT);
-        badge.setText(I18n.get(lang, "tv.live_preview"));
-        badge.setPadding((int) dp(10), (int) dp(5), (int) dp(10), (int) dp(5));
-        badge.setBackground(new GlassDrawable(dp(12), 0xCC000000, dp(1)));
-        FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START); bl.setMarginStart((int) dp(10)); bl.topMargin = (int) dp(10);
+        TextView badge = t(I18n.get(lang, "tv.mh_live"), 14.3f, 600, 0xFFFFFFFF); badge.setLetterSpacing(0.12f);
+        badge.setPadding(px(13), px(5), px(13), px(5));
+        badge.setBackground(box(0xFFFF453A, 999, 0, 0));
+        FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START); bl.setMarginStart(px(16)); bl.topMargin = px(16);
         pv.addView(badge, bl);
         preview = new LivePreview(this, tex, badge);
-        if (LivePreview.enabled(this)) { LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(-1, (int) dp(186)); pl.bottomMargin = (int) dp(14); d.addView(pv, pl); }
-        d.addView(dCat); d.addView(dName, lp(4)); d.addView(dNow, lp(18)); d.addView(dDesc, lp(6)); d.addView(dNext, lp(18));
-        View spacer = new View(this); d.addView(spacer, new LinearLayout.LayoutParams(0, 0, 1)); d.addView(dHint);
-        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams((int) dp(380), -1); dl.setMarginStart((int) dp(20));
+        if (LivePreview.enabled(this)) { LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(-1, px(279)); pl.bottomMargin = px(18); d.addView(pv, pl); }
+        d.addView(dCat); d.addView(dName, lp(18)); d.addView(dNow, lp(18)); d.addView(dDesc, lp(18)); d.addView(dNext, lp(18));
+        View spacer = new View(this); d.addView(spacer, new LinearLayout.LayoutParams(0, 0, 1));
+        LinearLayout btns = new LinearLayout(this);
+        btns.addView(panelButton(I18n.get(lang, "home.watch"), true, () -> { if (cur != null) watch(cur); }));
+        TextView recB = panelButton(I18n.get(lang, "tv.live_record_btn"), false, () -> { if (cur != null) { if (preview != null) preview.stop();
+            startActivity(new Intent(this, LiveTv.class).putExtra("url", cur.getChannel().getUrl()).putExtra("record", true)); } });
+        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-2, -2); rl.setMarginStart(px(12)); btns.addView(recB, rl);
+        TextView favB = panelButton("☆ " + I18n.get(lang, "tv.fav_short"), false, () -> { if (cur != null) { toggleFav(cur); detail(cur); } });
+        favB.setTag("fav");
+        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(-2, -2); fl.setMarginStart(px(12)); btns.addView(favB, fl);
+        favBtn = favB;
+        d.addView(btns, lp(18));
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(px(560), -1); dl.setMarginStart(px(28));
         cols.addView(d, dl);
 
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-1, 0, 1); cl.topMargin = (int) dp(18);
@@ -152,6 +197,8 @@ public class Live extends Activity {
         Ui.direction(root);
         setContentView(root);
         load();
+        // the search box is the first focusable view: once the list exists, start on the first channel instead
+        root.post(() -> { View f = getCurrentFocus(); if (query.isEmpty() && rows.getChildCount() > 0 && (f == null || f instanceof android.widget.EditText)) rows.getChildAt(0).requestFocus(); });
     }
 
     LinearLayout.LayoutParams lp(float top) { LinearLayout.LayoutParams l = new LinearLayout.LayoutParams(-1, -2); l.topMargin = (int) dp(top); return l; }
@@ -329,28 +376,68 @@ public class Live extends Activity {
         }
         for (Map.Entry<LocalTv.Category, String> item : items) {
             final LocalTv.Category target = item.getKey();
-            TextView t = row(item.getValue(), Ui.BODY, 500);
-            t.setTextColor(target == cat ? Ui.ACCENT : Ui.TEXT);
-            t.setOnFocusChangeListener((v, f) -> v.setBackground(f ? Ui.focusRing(this, dp(Ui.R_SMALL)) : null));
+            boolean sel = target == cat;
+            TextView t = t(item.getValue(), 24, 400, sel ? 0xFF5CD0FF : 0xA6FFFFFF);
+            t.setPadding(px(20), px(14), px(20), px(14));
+            t.setFocusable(true); t.setFocusableInTouchMode(true);
+            t.setBackground(sel ? box(0x1AFFFFFF, 16, 0, 0) : null);
+            t.setOnFocusChangeListener((v, f) -> v.setBackground(f ? Ui.focusRing(this, px(16)) : sel ? box(0x1AFFFFFF, 16, 0, 0) : null));
             t.setOnClickListener(v -> selectCategory(target));
-            cats.addView(t);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.bottomMargin = px(6);
+            cats.addView(t, lp);
         }
     }
 
     void buildRows() {
         rows.removeAllViews();
         Instant now = Instant.now();
+        int n = 0;
         for (LocalTv.Entry e : list) {
+            n++;
             Epg.Programme p = onAir(e, now);
-            TextView t = row(e.getName() + (e.getNear() ? "  •" : "") + (p != null ? "\n" + p.getTitle() : ""), Ui.BODY, 500);
-            t.setSingleLine(false); t.setMaxLines(2); t.setTag(e);
-            t.setOnFocusChangeListener((v, f) -> {
-                v.setBackground(f ? Ui.focusRing(this, dp(Ui.R_SMALL)) : null);
-                if (f) { detail(e); preview.focus(e.getChannel()); }
+            LinearLayout r = new LinearLayout(this); r.setGravity(Gravity.CENTER_VERTICAL);
+            r.setPadding(px(20), px(14), px(20), px(14));
+            r.setBackground(box(0x0AFFFFFF, 18, 0, 0));
+            r.setFocusable(true); r.setFocusableInTouchMode(true); r.setTag(e);
+            TextView num = t(String.format(java.util.Locale.US, "%02d", n), 19, 500, 0x80FFFFFF);
+            r.addView(num, new LinearLayout.LayoutParams(px(30), -2));
+            FrameLayout lb = new FrameLayout(this);
+            int c1 = 0xFF000000 | (e.getName().hashCode() & 0x00FFFFFF);
+            android.graphics.drawable.GradientDrawable lg = new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                    new int[]{Tile.blend(c1, 0xFF0A0B10, 0.55f), Tile.blend(c1, 0xFFFFFFFF, 0.15f)});
+            lg.setCornerRadius(px(10)); lb.setBackground(lg); Ui.clip(lb, px(10));
+            android.widget.ImageView lgo = new android.widget.ImageView(this); lgo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+            TextView lfb = t("", 14, 700, 0xCCFFFFFF); lfb.setGravity(Gravity.CENTER);
+            lb.addView(lfb, new FrameLayout.LayoutParams(-1, -1));
+            FrameLayout.LayoutParams lgl = new FrameLayout.LayoutParams(-1, -1); lgl.setMargins(px(6), px(4), px(6), px(4));
+            lb.addView(lgo, lgl);
+            Ui.bindLogo(e.getChannel().getLogo(), lgo, lfb, e.getName());
+            LinearLayout.LayoutParams lbl = new LinearLayout.LayoutParams(px(64), px(40)); lbl.setMarginStart(px(20)); r.addView(lb, lbl);
+            LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
+            TextView nm = t(e.getName() + (e.getNear() ? "  •" : ""), 24, 400, 0xFFFFFFFF);
+            TextView pr = t(p != null ? p.getTitle() : "", 19, 500, 0xA6FFFFFF);
+            col.addView(nm);
+            LinearLayout.LayoutParams prl = new LinearLayout.LayoutParams(-2, -2); prl.topMargin = px(6); col.addView(pr, prl);
+            LinearLayout.LayoutParams cl2 = new LinearLayout.LayoutParams(0, -2, 1); cl2.setMarginStart(px(20)); r.addView(col, cl2);
+            FrameLayout bar = null;
+            if (p != null) {
+                long total = Math.max(1, p.getStop().getEpochSecond() - p.getStart().getEpochSecond());
+                float f = Math.min(1f, Math.max(0f, (now.getEpochSecond() - p.getStart().getEpochSecond()) / (float) total));
+                bar = new FrameLayout(this); bar.setBackground(box(0x33FFFFFF, 2, 0, 0));
+                View fill = new View(this); fill.setBackground(box(0xFF5CD0FF, 2, 0, 0));
+                bar.addView(fill, new FrameLayout.LayoutParams(Math.max(px(4), (int) (px(160) * f)), px(4)));
+                r.addView(bar, new LinearLayout.LayoutParams(px(160), px(4)));
+            }
+            final TextView fnm = nm, fpr = pr, fnum = num;
+            r.setOnFocusChangeListener((v, f) -> {
+                r.setBackground(f ? box(0xFFFFFFFF, 18, 0, 0) : box(0x0AFFFFFF, 18, 0, 0));
+                fnm.setTextColor(f ? 0xFF0D0D12 : 0xFFFFFFFF); fpr.setTextColor(f ? 0xA60D0D12 : 0xA6FFFFFF); fnum.setTextColor(f ? 0x800D0D12 : 0x80FFFFFF);
+                if (f) { detail(e); preview.focus(previewSources(e)); }
             });
-            t.setOnClickListener(v -> watch(e));
-            t.setOnLongClickListener(v -> { channelDetail(e); return true; });
-            rows.addView(t);
+            r.setOnClickListener(v -> watch(e));
+            r.setOnLongClickListener(v -> { channelDetail(e); return true; });
+            LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-1, -2); rlp.bottomMargin = px(8);
+            rows.addView(r, rlp);
         }
     }
 
@@ -362,10 +449,15 @@ public class Live extends Activity {
     void detail(LocalTv.Entry e) {
         Instant now = Instant.now();
         String lang = TvViewer.get(this).getLanguage();
-        dCat.setText(OnboardingText.INSTANCE.category(lang, e.getCategory())
+        dCat.setText(OnboardingText.INSTANCE.category(lang, e.getCategory()).toUpperCase(java.util.Locale.ROOT)
                 + (e.getNear() ? "  ·  " + I18n.get(lang, "ch.near_badge") : "")
                 + (e.getPartTime() ? "  ·  " + I18n.get(lang, "tv.part_time_badge") : ""));
         dName.setText(e.getName());
+        cur = e;
+        if (favBtn != null) {
+            boolean isFav0 = prefs.getStringSet("fav", new java.util.HashSet<>()).contains(e.getChannel().getUrl());
+            favBtn.setText((isFav0 ? "★ " : "☆ ") + I18n.get(lang, "tv.fav_short"));
+        }
         List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         Epg.Programme p = onAir(e, now);
         dNow.setText(p != null ? p.getTitle() + "   " + hm.format(p.getStart()) + "–" + hm.format(p.getStop())
@@ -379,6 +471,25 @@ public class Live extends Activity {
             if (next.length() > 400) break;
         }
         dNext.setText(next.toString().trim());
+        dDesc.setVisibility(dDesc.getText().length() == 0 ? View.GONE : View.VISIBLE); // no empty gap above "up next"
+        dNext.setVisibility(dNext.getText().length() == 0 ? View.GONE : View.VISIBLE);
+    }
+
+    /** The channel's own source and its backups, healthiest first, minus DRM and DASH (the preview walks them until one plays). */
+    java.util.List<tech.kousozo.tahoetv.core.M3u.Channel> previewSources(LocalTv.Entry e) {
+        java.util.List<tech.kousozo.tahoetv.core.M3u.Channel> raw = new ArrayList<>();
+        raw.add(e.getChannel()); raw.addAll(e.getAlternates());
+        java.util.List<tech.kousozo.tahoetv.core.M3u.Channel> ok = new ArrayList<>();
+        for (tech.kousozo.tahoetv.core.M3u.Channel c : tech.kousozo.tahoetv.core.SourceHealth.order(raw))
+            if (!c.getDrm() && !tech.kousozo.tahoetv.core.Drm.isDash(c.getUrl(), c.getDrmType(), c.getManifestType())) ok.add(c);
+        return ok;
+    }
+
+    void toggleFav(LocalTv.Entry e) {
+        java.util.Set<String> fav = new java.util.HashSet<>(prefs.getStringSet("fav", new java.util.HashSet<>()));
+        String u = e.getChannel().getUrl();
+        if (!fav.remove(u)) fav.add(u);
+        prefs.edit().putStringSet("fav", fav).apply();
     }
 
     /** Channel details (#41): long-press OK or the Info key on a guide row. Watch, and add/remove favourite
