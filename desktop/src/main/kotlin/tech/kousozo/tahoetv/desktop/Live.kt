@@ -212,7 +212,7 @@ fun LiveScreen() {
 
     var selected by remember { mutableStateOf<LocalTv.Entry?>(null) }   // focused card → detail panel
     var status by remember { mutableStateOf<String?>(null) }
-    var viewMode by remember { mutableStateOf(0) } // 0 = List, 1 = Grid, 2 = EPG Timeline
+    var viewMode by remember { mutableStateOf(1) } // 0 = List, 1 = Grid (the Figma default), 2 = EPG Timeline
     val searchFocus = remember { FocusRequester() }
     var searchFocused by remember { mutableStateOf(false) }
     val list by rememberUpdatedState(shown)   // channel up/down follows what's on screen
@@ -258,7 +258,7 @@ fun LiveScreen() {
     }
     fun watch(e: LocalTv.Entry) { selected = e; playing = e.channel; Settings.rememberRecentChannel(e.name) }
 
-    Row(
+    Column(
         Modifier.fillMaxSize().padding(start = 12.dp, end = 20.dp, top = 20.dp, bottom = 20.dp)
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
@@ -281,152 +281,71 @@ fun LiveScreen() {
                     else -> false
                 }
             },
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        // ---------------------------------------------------------------- rail: title, search, status filter, categories
-        Column(Modifier.width(235.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) {
-                    Title(
-                        tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"),
-                        channels?.let {
-                            if (!checkingDone && statusMap.size < it.size) {
-                                tech.kousozo.tahoetv.core.I18n.get(lang, "live.checking_streams", statusMap.size, it.size)
-                            } else {
-                                tech.kousozo.tahoetv.core.I18n.get(lang, "live.live_offline_fmt", liveCount, offlineCount) +
-                                    (province.takeIf { p -> p.isNotBlank() }?.let { p -> " · $p" } ?: "")
-                            }
-                        } ?: error ?: tech.kousozo.tahoetv.core.I18n.get(lang, "live.loading_channels")
-                    )
-                }
-                IconButton({ recheckTick++ }, Modifier.size(34.dp)) {
-                    Icon(Icons.Rounded.Refresh, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.recheck"), tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
-                }
-                if (entries.isNotEmpty() && !WebPlayer.preferred) {
-                    IconButton({ MultiViewWindow.open(shown.ifEmpty { entries }, selected) }, Modifier.size(34.dp)) {
-                        Icon(Icons.Rounded.ViewModule, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.multiview"), tint = Tahoe.Accent, modifier = Modifier.size(18.dp))
-                    }
-                }
+        // ---------------------------------------------------------------- Figma header: title + counts, tools, view switch; then the category chips
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"), fontSize = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
+                Text(
+                    channels?.let {
+                        if (!checkingDone && statusMap.size < it.size) tech.kousozo.tahoetv.core.I18n.get(lang, "live.checking_streams", statusMap.size, it.size)
+                        else tech.kousozo.tahoetv.core.I18n.get(lang, "live.live_offline_fmt", liveCount, offlineCount) + (province.takeIf { p -> p.isNotBlank() }?.let { p -> " · $p" } ?: "")
+                    } ?: error ?: tech.kousozo.tahoetv.core.I18n.get(lang, "live.loading_channels"),
+                    fontSize = 14.sp, color = Tahoe.Dim,
+                )
             }
             Field(
                 query, { query = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"),
-                Modifier.fillMaxWidth().focusRequester(searchFocus).onFocusChanged { searchFocused = it.isFocused },
+                Modifier.width(340.dp).focusRequester(searchFocus).onFocusChanged { searchFocused = it.isFocused },
                 trailing = { Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint) },
             )
-            // View mode switch: List / Grid / EPG Timeline (#49)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(
-                    Triple(0, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.view_list"), Icons.Rounded.Menu),
-                    Triple(1, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.view_grid"), Icons.Rounded.GridView),
-                    Triple(2, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.view_timeline"), Icons.Rounded.Schedule),
-                ).forEach { (mode, lbl, ic) ->
+            IconAction(Icons.Rounded.Refresh, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.recheck"), color = Tahoe.Accent) { recheckTick++ }
+            if (entries.isNotEmpty() && !WebPlayer.preferred) {
+                IconAction(Icons.Rounded.ViewModule, tech.kousozo.tahoetv.core.I18n.get(lang, "desk.multiview"), color = Tahoe.Accent) { MultiViewWindow.open(shown.ifEmpty { entries }, selected) }
+            }
+            // view switch: Daftar / Grid / Timeline (#49), in the Figma pill
+            Row(Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.06f)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(0 to "desk.view_list", 1 to "desk.view_grid", 2 to "desk.view_timeline").forEach { (mode, key) ->
                     val act = viewMode == mode
-                    Row(
-                        Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                            .background(if (act) Tahoe.Accent.copy(alpha = 0.24f) else Tahoe.Glass)
-                            .clickable { viewMode = mode }.padding(vertical = 5.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        Icon(ic, null, tint = if (act) Tahoe.Accent else Tahoe.Dim, modifier = Modifier.size(13.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(lbl, fontSize = 11.sp, fontWeight = if (act) FontWeight.Bold else FontWeight.Normal, color = if (act) Tahoe.Accent else Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-
-            // Status filter chips (All / Live / Offline)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(
-                    null to tech.kousozo.tahoetv.core.I18n.get(lang, "live.all"),
-                    "live" to "Live ($liveCount)",
-                    "offline" to "Offline ($offlineCount)"
-                ).forEach { (stKey, stLabel) ->
-                    val active = statusFilter == stKey
-                    Box(
-                        Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                            .background(if (active) (if (stKey == "offline") Tahoe.Bad.copy(alpha = 0.25f) else Tahoe.Accent.copy(alpha = 0.25f)) else Tahoe.Glass)
-                            .clickable { statusFilter = stKey }.padding(vertical = 5.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            stLabel,
-                            fontSize = 11.sp,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                            color = if (active) (if (stKey == "offline") Tahoe.Bad else Tahoe.Accent) else Tahoe.Dim
-                        )
-                    }
-                }
-            }
-
-            // Sort chips (Popular / A-Z / Z-A)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                LocalTv.SortMode.entries.forEach { mode ->
-                    val active = sortMode == mode
-                    Box(
-                        Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                            .background(if (active) Tahoe.Accent.copy(alpha = 0.22f) else Tahoe.Glass)
-                            .clickable {
-                                sortMode = mode
-                                Settings.viewer = Settings.viewer.copy(sortMode = mode.key)
-                            }.padding(vertical = 5.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            mode.label(lang),
-                            fontSize = 11.sp,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                            color = if (active) Tahoe.Accent else Tahoe.Dim
-                        )
-                    }
-                }
-            }
-
-            if (channels == null && error == null) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
-            if (error != null && channels.isNullOrEmpty()) {
-                GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.retry_load"), Icons.Rounded.Refresh, color = Tahoe.Accent) {
-                    refreshNonce++
-                }
-            }
-
-            // Categories list (Scrollable)
-            val rows = listOf<Triple<String?, String, Int>>(Triple(null, tech.kousozo.tahoetv.core.I18n.get(lang, "live.all"), entries.size)) +
-                cats.map { c -> Triple(c.name, c.label(lang), entries.count { LocalTv.inCategory(it, c) }) } +
-                Triple("★", tech.kousozo.tahoetv.core.I18n.get(lang, "live.favorites_star"), entries.count { it.channel.url in favs })
-
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                rows.forEach { (key, label, n) ->
-                    val on = key == group
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                            .background(if (on) Color.White.copy(alpha = 0.13f) else Color.Transparent)
-                            .clickable { group = key }.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            Modifier.size(28.dp).clip(CircleShape).background(if (on) Tahoe.Accent.copy(alpha = 0.25f) else Tahoe.Glass),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(categoryIcon(key), null, tint = if (on) Tahoe.Accent else Tahoe.Dim, modifier = Modifier.size(15.dp))
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(label, fontSize = 13.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
-                            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.channel_count", n), fontSize = 10.sp, color = Tahoe.Faint)
-                        }
-                    }
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, key),
+                        Modifier.clip(RoundedCornerShape(50)).background(if (act) Tahoe.Text else Color.Transparent).clickable { viewMode = mode }.padding(horizontal = 14.dp, vertical = 7.dp),
+                        fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (act) Color(0xFF0D0F14) else Tahoe.Dim)
                 }
             }
         }
+        if (channels == null && error == null) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Tahoe.Accent, trackColor = Tahoe.Glass)
+        if (error != null && channels.isNullOrEmpty()) {
+            GhostButton(tech.kousozo.tahoetv.core.I18n.get(lang, "live.retry_load"), Icons.Rounded.Refresh, color = Tahoe.Accent) { refreshNonce++ }
+        }
+        // chips: Semua, ★ Favorit, the categories — then the status filter and the sort order
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            @Composable fun chip(label: String, on: Boolean, onClick: () -> Unit) = Text(label,
+                Modifier.clip(RoundedCornerShape(50)).background(if (on) Tahoe.Text else Color.White.copy(alpha = 0.09f))
+                    .border(1.dp, if (on) Color.Transparent else Tahoe.Stroke, RoundedCornerShape(50)).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+                fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (on) Color(0xFF0D0F14) else Tahoe.Dim, maxLines = 1)
+            chip(tech.kousozo.tahoetv.core.I18n.get(lang, "live.all"), group == null) { group = null }
+            chip(tech.kousozo.tahoetv.core.I18n.get(lang, "live.favorites_star"), group == "★") { group = "★" }
+            cats.forEach { c -> chip(c.label(lang), group == c.name) { group = c.name } }
+            Spacer(Modifier.width(12.dp))
+            listOf(null to tech.kousozo.tahoetv.core.I18n.get(lang, "live.all"), "live" to "Live ($liveCount)", "offline" to "Offline ($offlineCount)").forEach { (k, l) ->
+                chip(l, statusFilter == k) { statusFilter = k }
+            }
+            Spacer(Modifier.width(12.dp))
+            LocalTv.SortMode.entries.forEach { mode ->
+                chip(mode.label(lang), sortMode == mode) { sortMode = mode; Settings.viewer = Settings.viewer.copy(sortMode = mode.key) }
+            }
+        }
 
+        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
         // ---------------------------------------------------------------- channel cards (List / Grid / EPG Timeline)
         when (viewMode) {
             1 -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 195.dp),
+                columns = GridCells.Adaptive(minSize = 260.dp),
                 modifier = Modifier.weight(1f).fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp),
             ) {
                 items(shown, key = { it.channel.url }) { e ->
                     val ch = e.channel
@@ -434,34 +353,40 @@ fun LiveScreen() {
                     val on = ch == playing
                     val prog = epg?.schedule(e.name, tick)?.firstOrNull()?.takeIf { it.start <= tick }
                     val live = isChannelLive(e)
-                    val hoverSrc = remember(ch.url) { MutableInteractionSource() }
-                    val hovered by hoverSrc.collectIsHoveredAsState()
+                    val c1 = remember(e.name) { val h = e.name.hashCode(); Color(red = ((h shr 16) and 255) / 255f * 0.5f + 0.1f, green = ((h shr 8) and 255) / 255f * 0.5f + 0.1f, blue = (h and 255) / 255f * 0.5f + 0.2f) }
                     Column(
-                        Modifier.clip(RoundedCornerShape(18.dp))
-                            .hoverable(hoverSrc)
-                            .background(if (focused) Color.White.copy(alpha = 0.14f) else Tahoe.Glass)
-                            .border(if (ThemePrefs.highContrast) 2.dp else 1.dp, if (focused) Tahoe.Accent.copy(alpha = 0.7f) else Tahoe.Stroke, RoundedCornerShape(18.dp))
-                            .combinedClickable(onDoubleClick = { watch(e) }) { if (focused) watch(e) else selected = e }.padding(12.dp), // click = preview, again / double-click = watch (#182)
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        Modifier.alpha(if (on || live != false) 1f else 0.55f)
+                            .combinedClickable(onDoubleClick = { watch(e) }) { if (focused) watch(e) else selected = e }, // click = select, again / double-click = watch (#182)
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Box(Modifier.fillMaxWidth().height(76.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center) {
-                            val rowLogoUrl by produceState(ch.logo, ch.url, e.name) {
+                        // Figma grid card: 305 x 172 picture, 18 radius, white 3 dp ring when selected, LIVE badge, programme progress
+                        Box(
+                            Modifier.fillMaxWidth().aspectRatio(305f / 172f).clip(RoundedCornerShape(18.dp))
+                                .background(Brush.linearGradient(listOf(c1, c1.copy(alpha = 0.35f), Color(0xFF10131A))))
+                                .border(if (focused) 3.dp else 0.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(18.dp)),
+                        ) {
+                            val logoUrl by produceState(ch.logo, ch.url, e.name) {
                                 if (value.isNullOrBlank()) value = withContext(Dispatchers.IO) { MediaScraper.channelLogo(e.name, ch.logo) }
                             }
-                            rememberImage(rowLogoUrl)?.let { Image(it, null, Modifier.padding(8.dp).fillMaxSize(), contentScale = ContentScale.Fit) }
-                                ?: Text(e.name.take(3).uppercase(), color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Text(e.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(prog?.title ?: e.category.label(lang), fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            when {
-                                on -> Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_playing"), Color(0xFF0A84FF), filled = true)
-                                live == true -> Badge("LIVE", Tahoe.Good, filled = true)
-                                live == false -> Badge("OFFLINE", Tahoe.Bad, filled = true)
-                                else -> Badge("•", Tahoe.Dim)
+                            Box(Modifier.align(Alignment.Center).size(width = 120.dp, height = 64.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center) {
+                                rememberImage(logoUrl)?.let { Image(it, null, Modifier.padding(8.dp).fillMaxSize(), contentScale = ContentScale.Fit) }
+                                    ?: Text(e.name.take(3).uppercase(), color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
-                            if (e.channel.drm) Badge("DRM", Color(0xFFFF9F0A))
+                            if (on) Box(Modifier.align(Alignment.TopStart).padding(12.dp)) { Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_playing"), Color(0xFF0A84FF), filled = true) }
+                            else if (live == true) Row(
+                                Modifier.align(Alignment.TopStart).padding(12.dp).clip(RoundedCornerShape(50)).background(Color(0xFFFF453A)).padding(start = 8.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) { Box(Modifier.size(6.dp).clip(CircleShape).background(Color.White)); Text("LIVE", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = 1.3.sp) }
+                            if (prog != null) {
+                                val f = ((tick.epochSecond - prog.start.epochSecond).toFloat() / (prog.stop.epochSecond - prog.start.epochSecond).coerceAtLeast(1)).coerceIn(0.03f, 1f)
+                                Box(Modifier.align(Alignment.BottomStart).padding(12.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.2f))) {
+                                    Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(Tahoe.Accent))
+                                }
+                            }
                         }
+                        Text(e.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(if (live == false) tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_unavailable") else prog?.title ?: e.category.label(lang),
+                            fontSize = 14.sp, color = if (live == false) Tahoe.Faint else Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -543,7 +468,7 @@ fun LiveScreen() {
 
         // ---------------------------------------------------------------- detail panel: the clicked (selected) channel, previewed when live
         val curSelected = selected ?: shown.firstOrNull()
-        Detail(
+        if (viewMode != 1) Detail( // the Figma grid is full width: the detail panel stays for List and Timeline
             curSelected,
             epg,
             tick,
@@ -555,6 +480,7 @@ fun LiveScreen() {
             onStop = { PlayerWindow.stop(); playing = null },
             onRecord = { e, title, start, stop -> Recordings.schedule(e.name, title, listOf(e.channel) + e.alternates, start, stop) }
         )
+        }
     }
 }
 
