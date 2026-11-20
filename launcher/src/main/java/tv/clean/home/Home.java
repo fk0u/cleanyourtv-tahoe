@@ -639,12 +639,14 @@ public class Home extends Activity {
 
     int rows() { return padRows.size(); }
     int rowLen(int r) {
+        if (r == STRIP) return Math.min(5, Live.cached == null ? 0 : Live.cached.size());
         if (r == -2) return chipViews.size();
         if (r == -1) return dock.isEmpty() ? 0 : 1;
         return r == 0 ? dock.size() : r >= 1 && r <= padRows.size() ? padRows.get(r - 1).size() : 0;
     }
 
     void clampFocus() {
+        if (row == STRIP) { col = DockGrid.clampCol(col, rowLen(STRIP)); return; }
         row = DockGrid.clampRow(row, dock.size(), rows());
         col = DockGrid.clampCol(col, rowLen(row));
     }
@@ -662,6 +664,15 @@ public class Home extends Activity {
     }
 
     void move(int dr, int dc) {
+        if (row == STRIP || (dc == 0 && stripAvailable() && ((row == -1 && dr > 0) || (row == 0 && dr < 0)))) {
+            if (row == STRIP) {
+                if (dc != 0) { int n = DockGrid.moveHorizontal(col, dc, rowLen(STRIP)); if (n == col) return; col = n; }
+                else if (dr < 0) { row = -1; col = 0; }
+                else { row = 0; col = Math.min(lastDockCol, dock.size() - 1); }
+            } else { if (row == 0) lastDockCol = col; row = STRIP; col = 0; }
+            render(true);
+            return;
+        }
         if (dc != 0) {
             int nextCol = DockGrid.moveHorizontal(col, dc, rowLen(row));
             if (nextCol == col) return; // ends never wrap or fall through
@@ -780,13 +791,23 @@ public class Home extends Activity {
     // ---------------------------------------------------------------- hero
 
     LiveStrip liveStrip;
+    int ms0() { return Ui.motion(this) > 0 ? Ui.MED : 0; }
+    /** Focus row of the "on now" shelf: sits between the hero button (-1) and the dock (0) but outside DockGrid's numbering. */
+    static final int STRIP = -10;
+
+    /** The shelf exists while the dock's Live TV tile is the selected app. */
+    boolean stripAvailable() {
+        if (dock.isEmpty() || Live.cached == null || Live.cached.isEmpty()) return false;
+        int i = row == 0 ? col : Math.min(lastDockCol, dock.size() - 1);
+        return i < dock.size() && dock.get(i).pkg.equals(LiveTv.PKG);
+    }
 
     final Runnable trendTick = () -> { trendIndex++; renderHero(); };
 
     void renderHero() {
         if (hero == null) return;
         ui.removeCallbacks(trendTick);
-        App a = row == 0 ? focusedApp() : row == -1 && !dock.isEmpty() ? dock.get(Math.min(lastDockCol, dock.size() - 1)) : null;
+        App a = row == 0 ? focusedApp() : (row == -1 || row == STRIP) && !dock.isEmpty() ? dock.get(Math.min(lastDockCol, dock.size() - 1)) : null;
         heroAction.setVisibility(a == null ? View.GONE : View.VISIBLE);
         if (a != null && a.pkg.equals(Trending.YT) && !trending.isEmpty()) {
             hero.stopPreview();
@@ -810,13 +831,14 @@ public class Home extends Activity {
             if (row == 0) ui.postDelayed(trendTick, 7000);
             return;
         }
-        boolean onLive = a != null && a.pkg.equals(LiveTv.PKG) && Live.cached != null && !Live.cached.isEmpty() && row == 0;
+        boolean onLive = a != null && a.pkg.equals(LiveTv.PKG) && Live.cached != null && !Live.cached.isEmpty() && (row == 0 || row == -1 || row == STRIP);
         if (onLive) {
             float cw = Math.min(dp(170), (W - 2 * M - 4 * dp(14)) / 5f), ch = H * 0.11f;
             FrameLayout.LayoutParams sp = (FrameLayout.LayoutParams) liveStrip.getLayoutParams();
             sp.leftMargin = (int) M; sp.topMargin = (int) (H * 0.575f);
             liveStrip.setLayoutParams(sp);
             liveStrip.show(Live.cached, 5, cw, ch, dp(14));
+            liveStrip.setFocusIndex(row == STRIP ? col : -1, ms0());
         } else liveStrip.hide();
         if (a != null) hero.context(a.banner, a.pkg); // the focused app's own artwork fills the background
         else hero.context(null);
@@ -825,6 +847,19 @@ public class Home extends Activity {
             String sub = tech.kousozo.tahoetv.core.CountryCatalog.featuredSubtitle(
                     Live.cached != null ? Live.cached : Collections.emptyList(),
                     TvViewer.get(this).getCountry(), lang);
+            if (row == STRIP && col < Live.cached.size()) { // a channel of the shelf is focused: the hero becomes that channel
+                tech.kousozo.tahoetv.core.LocalTv.Entry en = Live.cached.get(col);
+                hero.text(tech.kousozo.tahoetv.core.OnboardingText.INSTANCE.category(lang, en.getCategory()), en.getName(), sub);
+                java.util.List<tech.kousozo.tahoetv.core.M3u.Channel> raw1 = new java.util.ArrayList<>();
+                raw1.add(en.getChannel()); raw1.addAll(en.getAlternates());
+                java.util.List<tech.kousozo.tahoetv.core.M3u.Channel> one = new java.util.ArrayList<>();
+                for (tech.kousozo.tahoetv.core.M3u.Channel c1 : tech.kousozo.tahoetv.core.SourceHealth.order(raw1))
+                    if (!c1.getDrm() && !tech.kousozo.tahoetv.core.Drm.isDash(c1.getUrl(), c1.getDrmType(), c1.getManifestType())) one.add(c1);
+                String w1 = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_watch_livetv");
+                heroActionIcon.setImageResource(R.drawable.ic_play); heroActionText.setText(w1); heroAction.setContentDescription(en.getName());
+                if (sheet == null && profiles == null && !one.isEmpty()) hero.previewChannels(one); else hero.stopPreview();
+                return;
+            }
             hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_featured_badge"), "Live TV", sub);
             heroActionIcon.setImageResource(R.drawable.ic_play);
             String watchTxt = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_watch_livetv");
@@ -1063,6 +1098,7 @@ public class Home extends Activity {
             pendingCenterKey = false;
             if (fire) {
                 if (row >= 0) { App a = focusedApp(); if (a != null) launch(a); }
+                else if (row == STRIP) { if (col < Live.cached.size()) { hero.stopPreview(); start(new Intent(this, LiveTv.class).putExtra("url", Live.cached.get(col).getChannel().getUrl())); } }
                 else if (row == -1) heroActivate();
                 else if (col < chipActions.size()) chipActions.get(col).run();
             }

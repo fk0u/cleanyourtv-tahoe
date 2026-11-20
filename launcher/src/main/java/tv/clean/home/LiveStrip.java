@@ -57,6 +57,17 @@ final class LiveStrip extends LinearLayout {
         animate().alpha(1f).translationY(0).setDuration(Ui.dur(getContext(), Ui.MED)).setInterpolator(Ui.out()).start();
     }
 
+    /** Rings the focused card ([idx] < 0 = none) and lifts it a little. */
+    void setFocusIndex(int idx, int ms) {
+        Context c = getContext();
+        for (int i = 0; i < getChildCount(); i++) {
+            android.view.View v = getChildAt(i);
+            boolean f = i == idx;
+            v.setBackground(f ? Ui.focusRing(c, Ui.dp(c, 16)) : new GlassDrawable(Ui.dp(c, 16), Ui.GLASS, Ui.dp(c, 1)));
+            v.animate().scaleX(f ? 1.06f : 1f).scaleY(f ? 1.06f : 1f).setDuration(ms).start();
+        }
+    }
+
     void hide() {
         if (!shown) return;
         shown = false;
