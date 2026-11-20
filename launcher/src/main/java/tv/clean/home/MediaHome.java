@@ -77,6 +77,7 @@ final class MediaHome extends FrameLayout {
         addTab(nav, I18n.get(lang, "tv.mh_tab_media"), false, () -> home.start(new Intent(home, LiveTv.class)));
         addTab(nav, I18n.get(lang, "tv.mh_tab_schedule"), false, () -> home.start(new Intent(home, Live.class)));
         addTab(nav, I18n.get(lang, "tv.mh_tab_apps"), false, home::openPad);
+        addTab(nav, I18n.get(lang, "tv.mh_tab_rec"), false, () -> home.openSheet(new Rekaman(home)));
         bar.addView(nav);
         bar.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1));
         LinearLayout right = new LinearLayout(c); right.setGravity(Gravity.CENTER_VERTICAL);
