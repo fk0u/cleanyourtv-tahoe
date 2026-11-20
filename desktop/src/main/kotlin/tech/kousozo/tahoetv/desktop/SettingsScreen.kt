@@ -1,6 +1,7 @@
 package tech.kousozo.tahoetv.desktop
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,9 +29,12 @@ fun SettingsScreen() {
     val lang = Settings.lang
     var city by remember { mutableStateOf(Settings.city) }
     var place by remember { mutableStateOf("${Settings.city} (${"%.3f".format(Settings.lat)}, ${"%.3f".format(Settings.lon)})") }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 12.dp, end = 28.dp, top = 24.dp, bottom = 28.dp).widthIn(max = 720.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Title(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.prefs"), tech.kousozo.tahoetv.core.I18n.get(lang, "settings.subtitle"))
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 12.dp, end = 28.dp, top = 24.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.prefs"), fontSize = 40.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = (-0.8).sp)
+        FigmaSettingsCards()
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.st_advanced"), fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+        Column(Modifier.widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Section(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.profile"))
         Field(Settings.name, { Settings.name = it }, tech.kousozo.tahoetv.core.I18n.get(lang, "settings.name_hint"))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -181,6 +185,7 @@ fun SettingsScreen() {
         Section(tech.kousozo.tahoetv.core.I18n.get(lang, "profile.help_group"))
         SendLog()
     }
+        }
 }
 
 /** "Kirim log": saves the diagnostic report (player events and errors, URLs without their tokens) to Downloads,
@@ -284,3 +289,69 @@ private fun Choice(text: String, selected: Boolean, onClick: () -> Unit) = Text(
         .selectable(selected = selected, onClick = onClick, role = androidx.compose.ui.semantics.Role.RadioButton)
         .padding(horizontal = 14.dp, vertical = 7.dp),
     color = if (selected) androidx.compose.ui.graphics.Color(0xFF0B0B0F) else Tahoe.Text, fontSize = 13.sp)
+
+
+// ---------------------------------------------------------------------------------------------------------------
+// Figma "Desktop / Pengaturan": three summary cards (Tampilan, Pemutaran, Saluran & server) with live controls.
+
+@Composable
+private fun FigmaSettingsCards() {
+    val lang = Settings.lang
+    val i = { k: String -> tech.kousozo.tahoetv.core.I18n.get(lang, k) }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        SettingsCard(i("desk.st_display"), Modifier.weight(1f)) {
+            val modes = tech.kousozo.tahoetv.core.Theme.Mode.entries
+            val names = mapOf(tech.kousozo.tahoetv.core.Theme.Mode.SYSTEM to i("ui.theme_system"), tech.kousozo.tahoetv.core.Theme.Mode.DARK to i("ui.theme_dark"), tech.kousozo.tahoetv.core.Theme.Mode.LIGHT to i("ui.theme_light"))
+            ValueRow(i("desk.st_theme"), names[Settings.themeMode] ?: "") { Settings.themeMode = modes[(modes.indexOf(Settings.themeMode) + 1) % modes.size] }
+            SwitchRow(i("ui.high_contrast"), Settings.highContrast) { Settings.highContrast = !Settings.highContrast }
+            SwitchRow(i("ui.reduce_motion"), Settings.reduceMotion) { Settings.reduceMotion = !Settings.reduceMotion }
+        }
+        SettingsCard(i("desk.st_playback"), Modifier.weight(1f)) {
+            val qs = tech.kousozo.tahoetv.core.PlayPrefs.Quality.entries
+            val ls = tech.kousozo.tahoetv.core.PlayPrefs.Latency.entries
+            ValueRow(i("player.quality"), Settings.quality.label(lang)) { Settings.quality = qs[(qs.indexOf(Settings.quality) + 1) % qs.size] }
+            ValueRow(i("player.latency"), Settings.latency.label(lang)) { Settings.latency = ls[(ls.indexOf(Settings.latency) + 1) % ls.size] }
+        }
+        SettingsCard(i("desk.st_channels"), Modifier.weight(1f)) {
+            ValueRow(i("home.region_language"), "${tech.kousozo.tahoetv.core.Region.flag(Settings.countryCode)} ${tech.kousozo.tahoetv.core.Region.name(Settings.countryCode, lang)}") {
+                PlayerWindow.stop(); DeskNav.regionSetup = true
+            }
+            val cl = Settings.viewer.channelLanguages
+            ValueRow(i("ui.channel_languages"), if (cl.isEmpty()) "—" else cl.joinToString(", ") { java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.forLanguageTag(it)).ifBlank { it } }) {}
+            val running by remember { IptvServer.isRunning }
+            SwitchRow(i("desk.st_iptv"), running) {
+                if (running) IptvServer.stop()
+                else Thread { runCatching { IptvServer.start(Settings.iptvPort) } }.apply { isDaemon = true }.start()
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(title: String, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) = Column(
+    modifier.clip(RoundedCornerShape(24.dp)).background(Tahoe.Card).border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.06f), RoundedCornerShape(24.dp)).padding(20.dp),
+    verticalArrangement = Arrangement.spacedBy(4.dp),
+) {
+    Text(title.uppercase(), fontSize = 11.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = Tahoe.Faint, letterSpacing = 1.3.sp)
+    content()
+}
+
+@Composable
+private fun ValueRow(label: String, value: String, onClick: () -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+) {
+    Text(label, Modifier.weight(1f), fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+    Text(value, fontSize = 14.sp, color = Tahoe.Dim, maxLines = 1)
+}
+
+@Composable
+private fun SwitchRow(label: String, on: Boolean, onToggle: () -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).selectable(on, role = androidx.compose.ui.semantics.Role.Switch) { onToggle() }.padding(vertical = 12.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Text(label, Modifier.weight(1f), fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+    Box(Modifier.size(48.dp, 28.dp).clip(RoundedCornerShape(14.dp)).background(if (on) Tahoe.Accent else androidx.compose.ui.graphics.Color(0xFF4A4D57))) {
+        Box(Modifier.align(if (on) Alignment.CenterEnd else Alignment.CenterStart).padding(3.dp).size(22.dp).clip(androidx.compose.foundation.shape.CircleShape)
+            .background(if (on) androidx.compose.ui.graphics.Color(0xFF0D0F14) else androidx.compose.ui.graphics.Color(0xFFE0E0E4)))
+    }
+}
