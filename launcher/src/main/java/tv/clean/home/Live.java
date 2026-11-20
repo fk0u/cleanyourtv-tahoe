@@ -506,59 +506,102 @@ public class Live extends Activity {
         String url = e.getChannel().getUrl();
         boolean isFav = fav.contains(url);
 
+        // Figma "TV / Detail saluran": full-height dark-to-clear scrim, content column at (140, 160)
         FrameLayout scrim = new FrameLayout(this);
-        scrim.setBackgroundColor(0xB3050508);
+        scrim.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xF208080D, 0x6608080D}));
         scrim.setClickable(true); scrim.setOnClickListener(v -> closeSheet());
-        LinearLayout p = new LinearLayout(this); p.setOrientation(LinearLayout.VERTICAL);
-        p.setPadding((int) dp(28), (int) dp(28), (int) dp(28), (int) dp(28));
-        p.setBackground(new GlassDrawable(dp(Ui.R_LARGE), Ui.GLASS_STRONG, dp(1)));
-        p.setClickable(true);
-        // big logo on white, like the phone's channel page
+        LinearLayout p = new LinearLayout(this); p.setOrientation(LinearLayout.VERTICAL); p.setClipChildren(false);
         FrameLayout logoBox = new FrameLayout(this);
-        logoBox.setBackground(new GlassDrawable(dp(Ui.R_MED), 0xFFFFFFFF, dp(1)));
+        logoBox.setBackground(box(0xFFFFFFFF, 36, 0, 0));
+        Ui.clip(logoBox, px(36));
         android.widget.ImageView logo = new android.widget.ImageView(this); logo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        TextView fb = Ui.text(this, Ui.HEADLINE, 700, 0xFF111114); fb.setShadowLayer(0, 0, 0, 0); fb.setGravity(Gravity.CENTER);
+        TextView fb = t("", 30, 600, 0xFF0D0F14); fb.setGravity(Gravity.CENTER);
         logoBox.addView(fb, new FrameLayout.LayoutParams(-1, -1));
-        FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams(-1, -1); ll.setMargins((int) dp(12), (int) dp(10), (int) dp(12), (int) dp(10));
+        FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams(-1, -1); ll.setMargins(px(18), px(18), px(18), px(18));
         logoBox.addView(logo, ll);
         Ui.bindLogo(e.getChannel().getLogo(), logo, fb, e.getName());
-        p.addView(logoBox, new LinearLayout.LayoutParams((int) dp(132), (int) dp(84)));
-        TextView cat = Ui.eyebrow(this, Ui.TEXT_2); cat.setText(dCat.getText()); p.addView(cat, lp(18));
-        TextView name = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); name.setText(e.getName()); p.addView(name, lp(4));
-        TextView now = Ui.text(this, Ui.HEADLINE, 600, Ui.ACCENT); now.setSingleLine(false); now.setMaxLines(2); now.setText(dNow.getText()); p.addView(now, lp(16));
-        if (dDesc.getText().length() > 0) { TextView ds = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); ds.setSingleLine(false); ds.setMaxLines(3); ds.setText(dDesc.getText()); p.addView(ds, lp(6)); }
-        if (dNext.getText().length() > 0) { TextView nx = Ui.text(this, Ui.BODY, 400, Ui.TEXT); nx.setSingleLine(false); nx.setMaxLines(5); nx.setLineSpacing(dp(4), 1); nx.setText(dNext.getText()); p.addView(nx, lp(18)); }
-        View grow = new View(this); p.addView(grow, new LinearLayout.LayoutParams(0, 0, 1));
-        // large buttons, one row, each with a clear focus ring
-        LinearLayout acts = new LinearLayout(this); acts.setGravity(Gravity.CENTER_VERTICAL);
-        acts.setClipChildren(false); p.setClipChildren(false); // the focus ring and growth must not be cut at the row's edge
-        TextView watchB = sheetButton(I18n.get(lang, "home.watch"), true, () -> { closeSheet(); watch(e); });
+        p.addView(logoBox, new LinearLayout.LayoutParams(px(140), px(140)));
+        TextView name = t(e.getName(), 96, 700, 0xFFF7F8FA); name.setLetterSpacing(-0.02f);
+        p.addView(name, lp(24));
+        LinearLayout meta = new LinearLayout(this); meta.setGravity(Gravity.CENTER_VERTICAL);
+        TextView liveB = t("LIVE", 19.8f, 600, 0xFFFFFFFF); liveB.setLetterSpacing(0.12f);
+        liveB.setPadding(px(18), px(7), px(18), px(7)); liveB.setBackground(box(0xFFFF453A, 999, 0, 0));
+        meta.addView(liveB);
+        int sources = 1 + e.getAlternates().size();
+        TextView mt = t(dCat.getText().toString().replace("  ·  ", " · ") + (sources > 1 ? " · " + I18n.get(lang, "tv.live_sources_fmt", String.valueOf(sources)) : ""), 24, 400, 0xCCF7F8FA);
+        LinearLayout.LayoutParams mtl = new LinearLayout.LayoutParams(-2, -2); mtl.setMarginStart(px(16)); meta.addView(mt, mtl);
+        p.addView(meta, lp(24));
+        TextView now = t(dNow.getText().toString().replace("   ", " · ").replace("–", "–"), 30, 600, 0xFF5CD0FF);
+        p.addView(now, lp(24));
+        if (dDesc.getText().length() > 0) { TextView ds = t(dDesc.getText().toString(), 24, 400, 0xCCF7F8FA); ds.setSingleLine(false); ds.setMaxLines(2); ds.setLineSpacing(0, 1.1f); p.addView(ds, lp(24)); }
+        // up next: label, then time + title per line
+        Instant nowT = Instant.now();
+        List<Epg.Programme> sch = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), nowT, e.getChannel().getTvgId());
+        Epg.Programme onAirNow = onAir(e, nowT);
+        Epg.Programme nextP = null;
+        int shownNext = 0;
+        for (Epg.Programme q : sch) {
+            if (q == onAirNow) continue;
+            if (nextP == null) {
+                nextP = q;
+                TextView lbl = t(I18n.get(lang, "tv.guide_next_lbl").toUpperCase(java.util.Locale.ROOT), 16, 600, 0x9EF7F8FA); lbl.setLetterSpacing(0.1f);
+                p.addView(lbl, lp(24));
+            }
+            LinearLayout line = new LinearLayout(this);
+            line.addView(t(hm.format(q.getStart()), 24, 400, 0xCCF7F8FA));
+            TextView ti = t(q.getTitle(), 24, 400, 0xFFF7F8FA);
+            LinearLayout.LayoutParams til = new LinearLayout.LayoutParams(-2, -2); til.setMarginStart(px(24)); line.addView(ti, til);
+            p.addView(line, lp(12));
+            if (++shownNext >= 2) break;
+        }
+        // buttons: Tonton / Rekam / Favorit / Ingatkan
+        LinearLayout acts = new LinearLayout(this); acts.setGravity(Gravity.CENTER_VERTICAL); acts.setClipChildren(false);
+        TextView watchB = detailButton(I18n.get(lang, "home.watch"), true, R.drawable.ic_play, () -> { closeSheet(); watch(e); });
         acts.addView(watchB);
-        // the main action keeps its label; the others are round icons, and the focused one names itself below the row
-        TextView actHint = Ui.text(this, Ui.BODY, 500, Ui.TEXT_2);
-        acts.addView(sheetIcon(R.drawable.ic_record, I18n.get(lang, "tv.live_record_btn"), actHint, () -> {
+        TextView recB = detailButton(I18n.get(lang, "tv.live_record_btn"), false, R.drawable.ic_record, () -> {
             closeSheet(); if (preview != null) preview.stop();
-            startActivity(new Intent(this, LiveTv.class).putExtra("url", url).putExtra("record", true)); }));
-        acts.addView(sheetIcon(isFav ? R.drawable.ic_heart_filled : R.drawable.ic_heart, I18n.get(lang, isFav ? "tv.fav_remove" : "tv.fav_add"), actHint, () -> {
+            startActivity(new Intent(this, LiveTv.class).putExtra("url", url).putExtra("record", true)); });
+        LinearLayout.LayoutParams rl2 = new LinearLayout.LayoutParams(-2, -2); rl2.setMarginStart(px(20)); acts.addView(recB, rl2);
+        TextView favB = detailButton(I18n.get(lang, "tv.fav_short"), false, isFav ? R.drawable.ic_heart_filled : R.drawable.ic_heart, () -> {
             if (isFav) fav.remove(url); else fav.add(url);
             live.edit().putStringSet("fav", fav).apply();
-            closeSheet(); }));
-        View.OnFocusChangeListener watchFocus = watchB.getOnFocusChangeListener();
-        watchB.setOnFocusChangeListener((v, f) -> { if (watchFocus != null) watchFocus.onFocusChange(v, f); if (f) actHint.setText(""); });
-        LinearLayout.LayoutParams hl = new LinearLayout.LayoutParams(0, -2, 1); hl.setMarginStart((int) dp(6));
-        acts.addView(actHint, hl); // beside the icons, where it can never fall off the panel's bottom
-        p.addView(acts, lp(20));
-        FrameLayout.LayoutParams pl = new FrameLayout.LayoutParams((int) dp(500), -1, Gravity.END);
-        pl.setMargins((int) dp(24), (int) dp(24), (int) dp(24), (int) dp(24));
+            closeSheet(); });
+        LinearLayout.LayoutParams fl2 = new LinearLayout.LayoutParams(-2, -2); fl2.setMarginStart(px(20)); acts.addView(favB, fl2);
+        if (nextP != null) {
+            final Epg.Programme np = nextP;
+            TextView remB = detailButton(I18n.get(lang, "tv.dc_remind"), false, R.drawable.ic_bell, () -> {
+                boolean on = Reminder.toggle(this, url, e.getName(), np.getTitle(), np.getStart().toEpochMilli());
+                android.widget.Toast.makeText(this, I18n.get(lang, on ? "tv.live_reminded" : "tv.live_remind_removed", np.getTitle()), android.widget.Toast.LENGTH_SHORT).show();
+                closeSheet(); });
+            LinearLayout.LayoutParams bl2 = new LinearLayout.LayoutParams(-2, -2); bl2.setMarginStart(px(20)); acts.addView(remB, bl2);
+        }
+        p.addView(acts, lp(24));
+        FrameLayout.LayoutParams pl = new FrameLayout.LayoutParams(px(900), -2, Gravity.TOP | Gravity.START);
+        pl.leftMargin = px(140); pl.topMargin = px(120);
         scrim.addView(p, pl);
         root.addView(scrim, new FrameLayout.LayoutParams(-1, -1));
         sheet = scrim;
-        // slide in from the end edge like a sheet (drawer curve), or just appear with reduced motion
         float m = Math.min(1f, Ui.motion(this));
-        scrim.setAlpha(0f); p.setTranslationX(dp(40));
+        scrim.setAlpha(0f); p.setTranslationX(-dp(40));
         scrim.animate().alpha(1f).setDuration((long) (tech.kousozo.tahoetv.core.Brand.MOTION_MED * m)).start();
         p.animate().translationX(0).setDuration((long) (tech.kousozo.tahoetv.core.Brand.MOTION_SHEET * m)).setInterpolator(Ui.drawer()).start();
         watchB.requestFocus();
+    }
+
+    /** Figma "TV Button": pill, 36 x 22 padding, icon + label; white when primary, glass otherwise, cyan ring when focused. */
+    TextView detailButton(String label, boolean primary, int icon, Runnable action) {
+        TextView b = t(label, 24, 600, primary ? 0xFF0D0F14 : 0xFFF7F8FA);
+        b.setGravity(Gravity.CENTER_VERTICAL);
+        b.setPadding(px(36), px(22), px(36), px(22));
+        android.graphics.drawable.Drawable d = getResources().getDrawable(icon, null).mutate();
+        d.setTint(primary ? 0xFF0D0F14 : 0xFFF7F8FA); d.setBounds(0, 0, px(28), px(28));
+        b.setCompoundDrawables(d, null, null, null); b.setCompoundDrawablePadding(px(14));
+        b.setBackground(box(primary ? 0xFFFFFFFF : 0x24FFFFFF, 999, 0, 0));
+        b.setFocusable(true); b.setFocusableInTouchMode(true); b.setClickable(true);
+        b.setOnFocusChangeListener((v, f) -> b.setBackground(f ? box(primary ? 0xFFFFFFFF : 0x47FFFFFF, 999, Ui.highContrast(this) ? tech.kousozo.tahoetv.core.Brand.HC_FOCUS : 0xFF5CD0FF, 5)
+                : box(primary ? 0xFFFFFFFF : 0x24FFFFFF, 999, 0, 0)));
+        b.setOnClickListener(v -> action.run());
+        return b;
     }
 
     /** A big rounded button for the detail sheet: white when it is the main action, glass otherwise. */
