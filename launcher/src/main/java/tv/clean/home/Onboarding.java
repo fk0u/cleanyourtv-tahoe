@@ -49,6 +49,16 @@ public class Onboarding extends Activity {
     static Onboarding open; // a phone's choices arrive while this is showing
 
     int dp(float v) { return (int) Ui.dp(this, v); }
+    float S = 1f; // Figma 1920 grid
+    int px(float v) { return Math.round(v * S); }
+
+    /** Text from the Figma sizes, a touch larger for the sofa. */
+    TextView otv(float sizePx, int wght, int color) {
+        TextView t = new TextView(this);
+        t.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, sizePx * S * (sizePx >= 40 ? 1.08f : 1.15f));
+        t.setTypeface(Ui.font(this, wght)); t.setTextColor(color); t.setIncludeFontPadding(false);
+        return t;
+    }
     String t(String k) { return OnboardingText.INSTANCE.get(language, k); }
 
     @Override protected void onCreate(Bundle b) {
@@ -62,21 +72,28 @@ public class Onboarding extends Activity {
         }
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Ui.NIGHT);
-        boolean compact = getResources().getConfiguration().screenWidthDp < 600;
-        int sidePad = dp(compact ? 22 : Ui.SAFE_SIDE * 2);
+        S = getResources().getDisplayMetrics().widthPixels / 1920f;
+        // Figma "TV / Onboarding": copy on the left (x140, y200, 720 wide), the choices on the right (x1040, 740 wide)
+        LinearLayout left = new LinearLayout(this); left.setOrientation(LinearLayout.VERTICAL);
+        stepLabel = otv(16, 600, 0xFF5CD0FF); stepLabel.setLetterSpacing(0.1f);
+        left.addView(stepLabel);
+        title = otv(84, 700, 0xFFF7F8FA); title.setSingleLine(false); title.setMaxLines(3); title.setLetterSpacing(-0.02f);
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2); tl.topMargin = px(24); left.addView(title, tl);
+        sub = otv(24, 400, 0xCCF7F8FA); sub.setSingleLine(false); sub.setLineSpacing(0, 1.1f);
+        LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-1, -2); sl.topMargin = px(24); left.addView(sub, sl);
+        FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams(px(720), -2); ll.leftMargin = px(140); ll.topMargin = px(200);
+        root.addView(left, ll);
         LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
-        col.setPadding(sidePad, dp(compact ? 24 : Ui.SAFE_TOP + 10), sidePad, dp(compact ? 24 : Ui.SAFE_TOP));
-        stepLabel = Ui.eyebrow(this, Ui.TEXT_3); col.addView(stepLabel);
-        title = Ui.text(this, Ui.TITLE, 700, Ui.TEXT); title.setSingleLine(false); title.setPadding(0, dp(8), 0, 0); col.addView(title);
-        sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_2); sub.setSingleLine(false); sub.setPadding(0, dp(6), 0, dp(14)); col.addView(sub);
-        scroll = new ScrollView(this); scroll.setClipToPadding(false);
+        scroll = new ScrollView(this); scroll.setClipToPadding(false); scroll.setVerticalScrollBarEnabled(false);
+        scroll.setPadding(px(8), px(8), px(8), px(8)); // room for the focus glow
         list = new LinearLayout(this); list.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(list);
         col.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         footer = new LinearLayout(this); footer.setOrientation(LinearLayout.HORIZONTAL); footer.setGravity(Gravity.END);
-        footer.setPadding(0, dp(14), 0, 0);
+        footer.setPadding(0, px(16), 0, 0);
         col.addView(footer);
-        root.addView(col);
+        FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(px(756), -1); cl.leftMargin = px(1032); cl.topMargin = px(130); cl.bottomMargin = px(60);
+        root.addView(col, cl);
         Ui.direction(root);
         setContentView(root);
         open = this;
@@ -164,7 +181,7 @@ public class Onboarding extends Activity {
     void render() {
         list.removeAllViews(); footer.removeAllViews(); scroll.scrollTo(0, 0);
         if (focusKey == null) query = ""; // a new step: its search box is empty, so is the filter
-        stepLabel.setText(t("step").replace("%s", (step.ordinal() + 1) + "/" + Step.values().length));
+        stepLabel.setText(t("step").replace("%s", (step.ordinal() + 1) + "/" + Step.values().length).toUpperCase(Locale.ROOT));
         String[] ts = keys();
         title.setText(t(ts[0])); sub.setText(t(ts[1]));
         switch (step) {
@@ -443,34 +460,36 @@ public class Onboarding extends Activity {
     TextView row(String text, String icon, boolean selected, Runnable onClick) { return row(text, icon, selected, null, onClick); }
 
     TextView row(String text, String icon, boolean selected, String key, Runnable onClick) {
-        TextView r = Ui.text(this, Ui.BODY + 2, selected ? 600 : 400, Ui.TEXT);
+        TextView r = otv(30, 600, 0xFFF7F8FA);
+        r.setSingleLine(); r.setEllipsize(android.text.TextUtils.TruncateAt.END);
         r.setText((icon == null ? "" : icon + "  ") + text + (selected ? "   ✓" : ""));
-        r.setPadding(dp(20), dp(14), dp(20), dp(14));
+        r.setPadding(px(36), px(28), px(36), px(28));
         r.setFocusable(true); r.setClickable(true); r.setTag(selected);
-        GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(dp(Ui.R_SMALL));
-        bg.setColor(selected ? 0x2664D2FF : Ui.GLASS);
+        GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(px(28));
+        bg.setColor(selected ? 0x2664D2FF : 0x14FFFFFF);
         r.setBackground(bg);
         r.setOnFocusChangeListener((v, f) -> {
             if (f && Ui.highContrast(this)) {
-                r.setBackground(Ui.focusRing(this, dp(Ui.R_SMALL)));
-                r.setTextColor(Ui.TEXT);
+                r.setBackground(Ui.focusRing(this, px(28)));
+                r.setTextColor(0xFFF7F8FA);
             } else {
-                bg.setColor(f ? 0xE6F5F5F7 : selected ? 0x2664D2FF : Ui.GLASS);
-                r.setBackground(bg);
-                r.setTextColor(f ? 0xFF111114 : Ui.TEXT);
+                GradientDrawable g = new GradientDrawable(); g.setCornerRadius(px(28));
+                g.setColor(f ? 0xFFFFFFFF : selected ? 0x2664D2FF : 0x14FFFFFF);
+                if (f) g.setStroke(Math.max(2, px(5)), 0xFF5CD0FF);
+                r.setBackground(g);
+                r.setTextColor(f ? 0xFF0D0F14 : 0xFFF7F8FA);
             }
-            r.setShadowLayer(f ? 0 : dp(10), 0, f ? 0 : dp(1), f ? 0 : 0x66000000);
         });
         r.setOnClickListener(v -> { focusKey = key; onClick.run(); });
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.bottomMargin = dp(8);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.bottomMargin = px(16);
         list.addView(r, lp);
         if (key != null && key.equals(focusKey)) r.post(r::requestFocus);
         return r;
     }
 
     void note(String text) {
-        TextView n = Ui.text(this, Ui.CAPTION + 2, 400, Ui.TEXT_2);
-        n.setSingleLine(false); n.setText(text); n.setPadding(dp(4), dp(8), dp(4), dp(10));
+        TextView n = otv(19, 500, 0xCCF7F8FA);
+        n.setSingleLine(false); n.setText(text); n.setPadding(px(8), px(8), px(8), px(14));
         list.addView(n);
     }
 
@@ -480,10 +499,10 @@ public class Onboarding extends Activity {
     void searchField(String hint, OnText on) { searchField(hint, on, true); }
     void searchField(String hint, OnText on, boolean live) {
         EditText e = new EditText(this);
-        e.setHint("🔍  " + hint); e.setHintTextColor(Ui.TEXT_3); e.setTextColor(Ui.TEXT); e.setTextSize(Ui.BODY + 2);
+        e.setHint("🔍  " + hint); e.setHintTextColor(0x99F7F8FA); e.setTextColor(0xFFF7F8FA); e.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 30 * S * 1.15f); e.setTypeface(Ui.font(this, 600));
         e.setSingleLine(); e.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        e.setPadding(dp(20), dp(12), dp(20), dp(12));
-        GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(dp(Ui.R_SMALL)); bg.setColor(0x33FFFFFF); bg.setStroke(dp(1), 0x40FFFFFF);
+        e.setPadding(px(36), px(22), px(36), px(22));
+        GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(px(999)); bg.setColor(0x1AFFFFFF); bg.setStroke(Math.max(2, px(3)), 0xFF5CD0FF);
         e.setBackground(bg);
         if (live) e.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
@@ -491,25 +510,27 @@ public class Onboarding extends Activity {
             public void afterTextChanged(Editable s) { on.on(s.toString()); }
         });
         else e.setOnEditorActionListener((v, id, ev) -> { on.on(e.getText().toString()); return false; });
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.bottomMargin = dp(12);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.bottomMargin = px(16);
         list.addView(e, list.getChildCount() == 0 ? 0 : list.getChildCount(), lp);
     }
 
     void button(String text, boolean primary, Runnable onClick) {
-        TextView b = Ui.text(this, Ui.BODY + 2, 600, primary ? 0xFF111114 : Ui.TEXT);
+        TextView b = otv(24, 600, primary ? 0xFF0D0F14 : 0xFFF7F8FA);
         b.setText(text); b.setGravity(Gravity.CENTER);
-        b.setPadding(dp(28), dp(12), dp(28), dp(12)); b.setFocusable(true); b.setClickable(true);
-        GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(dp(40));
-        bg.setColor(primary ? Ui.TEXT : Ui.GLASS); b.setBackground(bg);
-        b.setShadowLayer(0, 0, 0, 0);
+        b.setPadding(px(36), px(22), px(36), px(22)); b.setFocusable(true); b.setClickable(true);
+        GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(px(999));
+        bg.setColor(primary ? 0xFFFFFFFF : 0x24FFFFFF); b.setBackground(bg);
         b.setOnFocusChangeListener((v, f) -> {
-            long d = Ui.dur(this, Ui.FAST);
-            v.animate().scaleX(f ? 1.08f : 1f).scaleY(f ? 1.08f : 1f).setDuration(d).setInterpolator(Ui.out()).start();
-            if (f && Ui.highContrast(this)) b.setBackground(Ui.focusRing(this, dp(40)));
-            else { bg.setColor(primary ? Ui.TEXT : (f ? 0x66FFFFFF : Ui.GLASS)); b.setBackground(bg); }
+            if (f && Ui.highContrast(this)) b.setBackground(Ui.focusRing(this, px(999)));
+            else {
+                GradientDrawable g = new GradientDrawable(); g.setCornerRadius(px(999));
+                g.setColor(primary ? 0xFFFFFFFF : f ? 0x47FFFFFF : 0x24FFFFFF);
+                if (f) g.setStroke(Math.max(2, px(5)), 0xFF5CD0FF);
+                b.setBackground(g);
+            }
         });
         b.setOnClickListener(v -> onClick.run());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = dp(12);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); lp.leftMargin = px(20);
         footer.addView(b, lp);
     }
 }
