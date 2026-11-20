@@ -71,7 +71,7 @@ final class HomeDock {
                 }
             }
             Home.App live = new Home.App();
-            live.pkg = LiveTv.PKG; live.label = "Live TV"; live.system = true;
+            live.pkg = LiveTv.PKG; live.label = "Media Center"; live.system = true;
             live.launch = new Intent(h, LiveTv.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             live.banner = LiveTv.banner(h); live.color = Ui.average(live.banner);
             found.put(live.pkg, live);

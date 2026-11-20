@@ -174,7 +174,7 @@ public class LiveTv extends Activity {
         guide = new LinearLayout(this); guide.setOrientation(LinearLayout.VERTICAL);
         guide.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xF20A0B10, 0xE60A0B10, 0x000A0B10}));
         guide.setPadding((int) dp(Ui.SAFE_SIDE), (int) dp(Ui.SAFE_TOP), (int) dp(20), (int) dp(Ui.SAFE_TOP));
-        TextView gt = Ui.text(this, Ui.HEADLINE, 700, Ui.TEXT); gt.setText("Live TV");
+        TextView gt = Ui.text(this, Ui.HEADLINE, 700, Ui.TEXT); gt.setText("Media Center");
         guide.addView(gt);
         TextView gh = Ui.text(this, Ui.CAPTION, 500, Ui.TEXT_3); gh.setText(I18n.get(initLang, "tv.live_guide_hint"));
         guide.addView(gh);
@@ -1274,7 +1274,7 @@ public class LiveTv extends Activity {
         float fps = vf != null && vf.frameRate > 0 ? vf.frameRate : 0f;
         String dec = !statsVideoDecoder.isEmpty() ? statsVideoDecoder : statsAudioDecoder;
         return new tech.kousozo.tahoetv.core.PlayerStats.Snapshot(
-                e != null ? e.getName() : "Live TV",
+                e != null ? e.getName() : "Media Center",
                 source + 1,
                 Math.max(1, order.size()),
                 cur != null ? cur.getUrl() : "",
@@ -1570,7 +1570,7 @@ public class LiveTv extends Activity {
 
     static final String PKG = "tv.clean.home.livetv"; // pseudo package: the dock/grid identify apps by package
 
-    /** 16:9 banner for the built-in app: deep blue → red glass with a TV glyph and "Live TV". */
+    /** 16:9 banner for the built-in app: deep blue → red glass with a TV glyph and "Media Center". */
     static Drawable banner(Context c) {
         Bitmap bm = Bitmap.createBitmap(320, 180, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(bm);
@@ -1583,7 +1583,7 @@ public class LiveTv extends Activity {
         cv.drawLine(144, 30, 160, 44, s); cv.drawLine(176, 30, 160, 44, s);
         Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG); dot.setColor(0xFFFF5252); cv.drawCircle(184, 54, 6, dot);
         Paint tp = new Paint(Paint.ANTI_ALIAS_FLAG); tp.setColor(Color.WHITE); tp.setTextSize(30); tp.setTypeface(Ui.font(c, 700)); tp.setTextAlign(Paint.Align.CENTER);
-        cv.drawText("Live TV", 160, 140, tp);
+        cv.drawText("Media Center", 160, 140, tp);
         return new BitmapDrawable(c.getResources(), bm);
     }
 }

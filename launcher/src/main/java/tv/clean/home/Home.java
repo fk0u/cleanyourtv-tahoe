@@ -860,7 +860,7 @@ public class Home extends Activity {
                 if (sheet == null && profiles == null && !one.isEmpty()) hero.previewChannels(one); else hero.stopPreview();
                 return;
             }
-            hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_featured_badge"), "Live TV", sub);
+            hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_featured_badge"), "Media Center", sub);
             heroActionIcon.setImageResource(R.drawable.ic_play);
             String watchTxt = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_watch_livetv");
             heroActionText.setText(watchTxt); heroAction.setContentDescription(watchTxt);
