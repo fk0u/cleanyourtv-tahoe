@@ -146,10 +146,10 @@ final class MediaHome extends FrameLayout {
         rows.addView(rh);
         scroller = new HorizontalScrollView(c);
         scroller.setHorizontalScrollBarEnabled(false); scroller.setClipChildren(false); scroller.setClipToPadding(false);
-        scroller.setPadding(px(10), px(14), px(10), px(8));
+        scroller.setPadding(px(10), px(40), px(10), px(40)); // room for the focus glow
         cards = new LinearLayout(c); cards.setClipChildren(false);
         scroller.addView(cards);
-        LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(px(1720), -2); sl.topMargin = px(8); sl.setMarginStart(-px(10));
+        LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(px(1720), -2); sl.topMargin = -px(18); sl.setMarginStart(-px(10));
         rows.addView(scroller, sl);
         LayoutParams rl = new LayoutParams(px(1800), -2); rl.leftMargin = px(112); rl.topMargin = px(700);
         addView(rows, rl);
@@ -260,7 +260,16 @@ final class MediaHome extends FrameLayout {
             LayoutParams fp = new LayoutParams(Math.max(px(4), (int) (px(320) * f)), px(4)); fp.leftMargin = px(20); fp.topMargin = px(184);
             thumb.addView(fill, fp);
         }
-        col.addView(thumb, new LinearLayout.LayoutParams(px(360), px(203)));
+        // Figma focus: white ring plus a cyan glow (0 16 48 at 55%) around the card
+        FrameLayout wrap = new FrameLayout(c); wrap.setClipChildren(false);
+        View glow = new View(c);
+        GradientDrawable gg = new GradientDrawable(); gg.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+        gg.setGradientRadius(px(260)); gg.setColors(new int[]{0x8C5CD1FF, 0x005CD1FF});
+        glow.setBackground(gg); glow.setAlpha(0f);
+        LayoutParams glp = new LayoutParams(px(560), px(340)); glp.leftMargin = -px(100); glp.topMargin = -px(70);
+        wrap.addView(glow, glp);
+        wrap.addView(thumb, new LayoutParams(px(360), px(203)));
+        col.addView(wrap, new LinearLayout.LayoutParams(px(360), px(203)));
         String t1 = p != null ? p.getTitle() : OnboardingText.INSTANCE.category(lang, e.getCategory());
         TextView sub1 = tv(t1, 24, 400, Color.WHITE); sub1.setMaxWidth(px(360));
         LinearLayout.LayoutParams s1 = new LinearLayout.LayoutParams(-2, -2); s1.topMargin = px(12);
@@ -274,6 +283,7 @@ final class MediaHome extends FrameLayout {
             GradientDrawable ring = new GradientDrawable(); ring.setCornerRadius(px(20)); ring.setColor(Color.TRANSPARENT);
             if (f) ring.setStroke(px(6), Color.WHITE);
             thumb.setForeground(f ? ring : null);
+            glow.animate().alpha(f ? 1f : 0f).setDuration(Ui.dur(home, Ui.FAST)).start();
             if (f) { showChannel(index, true); scroller.post(() -> scroller.smoothScrollTo(Math.max(0, col.getLeft() - px(10)), 0)); }
         });
         col.setOnClickListener(v -> openChannel(e));
