@@ -94,17 +94,8 @@ fun HomeScreen(onLive: () -> Unit) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 8.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // row 1: hero + side column
-        Row(Modifier.fillMaxWidth().height(360.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            HeroCarousel(heroes, Modifier.weight(2.3f).fillMaxHeight(), onLive)
-            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    StatCard(tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "home.weather"), weather?.let { "${it.tempC}°" } ?: "—", weather?.label ?: Settings.city, Icons.Rounded.Cloud, Modifier.weight(1f).fillMaxHeight())
-                    PrayerCard(next, now, Modifier.weight(1f).fillMaxHeight())
-                }
-                LiveCard(Modifier.weight(1f).fillMaxWidth(), onLive)
-            }
-        }
+        // the Figma Home: hero + channel table on the left, the overview panel on the right
+        FigmaHome(onLive, weather, next, now)
 
         // row 2: watch tiles
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -431,5 +422,162 @@ private fun HeroAurora() {
             drawCircle(Brush.radialGradient(listOf(c, Color.Transparent), androidx.compose.ui.geometry.Offset(cx, cy), r), r, androidx.compose.ui.geometry.Offset(cx, cy))
         glow(size.width * (0.72f + 0.12f * kotlin.math.cos(a)), size.height * (0.3f + 0.15f * kotlin.math.sin(a)), size.width * 0.5f, Tahoe.Accent.copy(alpha = 0.38f))
         glow(size.width * (0.9f - 0.15f * kotlin.math.sin(a)), size.height * (0.85f - 0.12f * kotlin.math.cos(a)), size.width * 0.4f, Color(0xFF8A5CF6).copy(alpha = 0.25f))
+    }
+}
+
+
+// ---------------------------------------------------------------------------------------------------------------
+// Figma "Desktop / Home": hero for the selected channel, the "Sedang tayang" table, and the Ringkasan panel.
+
+private class OnAir(val entry: tech.kousozo.tahoetv.core.LocalTv.Entry, val programme: tech.kousozo.tahoetv.core.Epg.Programme?)
+
+@Composable
+private fun FigmaHome(onLive: () -> Unit, weather: Web.Weather?, next: Pair<String, String>?, now: LocalTime) {
+    val lang = Settings.lang
+    val viewer = Settings.viewer
+    var rows by remember { mutableStateOf<List<OnAir>>(emptyList()) }
+    var counts by remember { mutableStateOf(0 to 0) } // channels, live
+    var selected by remember { mutableStateOf(0) }
+    val hm = remember(viewer.zone) { DateTimeFormatter.ofPattern("HH.mm").withZone(viewer.zone) }
+    LaunchedEffect(Settings.playlist, viewer.countries) {
+        withContext(Dispatchers.IO) {
+            val channels = runCatching { tech.kousozo.tahoetv.core.Sources.loadChannels(Settings.playlist, viewer.countries, viewer.channelLanguages) }.getOrNull().orEmpty()
+            if (channels.isEmpty()) return@withContext
+            val arranged = viewer.arrange(tech.kousozo.tahoetv.core.LocalTv.arrange(channels, Settings.nearProvince, viewer.countries, viewer.sort, viewer.city, viewer.country))
+            val top = arranged.take(4)
+            val live = arranged.count { tech.kousozo.tahoetv.core.SourceHealth.status(it.channel.url)?.live != false }
+            rows = top.map { OnAir(it, null) }
+            counts = arranged.size to live
+            val urls = Settings.epg.ifBlank { null }?.let(::listOf) ?: viewer.countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct()
+            val epg = runCatching { tech.kousozo.tahoetv.core.Epg.loadPriority(urls, top.flatMap { listOfNotNull(it.name, it.channel.tvgId) }.toSet()) }.getOrNull()
+            if (epg != null) {
+                val t = java.time.Instant.now()
+                rows = top.map { e ->
+                    val s = epg.schedule(e.name, t, e.channel.tvgId)
+                    OnAir(e, s.firstOrNull()?.takeIf { !it.start.isAfter(t) })
+                }
+            }
+        }
+    }
+    val cur = rows.getOrNull(selected)
+    Row(Modifier.fillMaxWidth().height(700.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        Column(Modifier.weight(1f)) {
+            // hero
+            Text(cur?.programme?.title ?: cur?.entry?.name ?: "Tahoe TV", fontSize = 56.sp, fontWeight = FontWeight.Bold, lineHeight = 59.sp, letterSpacing = (-1.1).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LivePill()
+                if (cur != null) Text(cur.entry.name + (cur.programme?.let { " · " + hm.format(it.start) + "–" + hm.format(it.stop) } ?: ""),
+                    Modifier.clip(RoundedCornerShape(50)).border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.09f)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Tahoe.Dim)
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.clip(RoundedCornerShape(50)).background(Tahoe.Text).clickable { cur?.let { DeskNav.query = it.entry.name }; onLive() }.padding(start = 20.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Rounded.PlayArrow, null, tint = Color(0xFF0D0F14), modifier = Modifier.size(18.dp))
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.watch"), fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color(0xFF0D0F14))
+                }
+                GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_multi")) { onLive() }
+                GlassPill(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.live_record_btn")) { cur?.let { DeskNav.query = it.entry.name }; onLive() }
+            }
+            Spacer(Modifier.height(48.dp))
+            // table
+            Row(Modifier.fillMaxWidth().padding(bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_on_air"), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.width(10.dp))
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_counts", counts.first, counts.second), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Tahoe.Accent)
+                Spacer(Modifier.weight(1f))
+                Row(Modifier.clip(RoundedCornerShape(50)).border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.09f)).padding(4.dp)) {
+                    listOf("desk.hm_list", "desk.hm_grid", "desk.hm_timeline").forEachIndexed { i, k ->
+                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, k),
+                            Modifier.clip(RoundedCornerShape(50)).background(if (i == 0) Tahoe.Text else Color.Transparent).clickable { if (i > 0) onLive() }.padding(horizontal = 14.dp, vertical = 6.dp),
+                            fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (i == 0) Color(0xFF0D0F14) else Tahoe.Dim)
+                    }
+                }
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.2f)))
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                listOf("desk.hm_no" to 0.5f, "desk.hm_channel" to 2.2f, "desk.hm_programme" to 2.6f, "desk.hm_sources" to 1.4f, "desk.hm_status" to 1.1f).forEach { (k, w) ->
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, k), Modifier.weight(w), fontSize = 12.sp, color = Tahoe.Faint, maxLines = 1)
+                }
+            }
+            rows.forEachIndexed { i, r ->
+                val on = i == selected
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (on) Color.White.copy(alpha = 0.07f) else Color.Transparent)
+                    .combinedClickable(onDoubleClick = { DeskNav.query = r.entry.name; onLive() }, onClick = { if (on) { DeskNav.query = r.entry.name; onLive() } else selected = i })
+                    .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("%02d".format(i + 1), Modifier.weight(0.5f), fontSize = 16.sp, color = Tahoe.Faint, maxLines = 1)
+                    Row(Modifier.weight(2.2f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(Modifier.size(28.dp, 20.dp).clip(RoundedCornerShape(6.dp)).background(Brush.linearGradient(listOf(tint(r.entry.name, 0.45f), tint(r.entry.name, 1f)))))
+                        Text(r.entry.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Text(r.programme?.title ?: "", Modifier.weight(2.6f), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_src_fmt", 1 + r.entry.alternates.size), Modifier.weight(1.4f), fontSize = 16.sp, maxLines = 1)
+                    val alive = tech.kousozo.tahoetv.core.SourceHealth.status(r.entry.channel.url)?.live != false
+                    Box(Modifier.weight(1.1f)) { if (alive) LivePill() else Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_unavailable"), fontSize = 14.sp, color = Tahoe.Faint) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_click"), fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
+        }
+        OverviewPanel(cur, weather, next, now, onLive)
+    }
+}
+
+private fun tint(name: String, f: Float): Color {
+    val h = name.hashCode()
+    return Color(red = (((h shr 16) and 255) / 255f * 0.7f + 0.15f) * f, green = (((h shr 8) and 255) / 255f * 0.7f + 0.15f) * f, blue = ((h and 255) / 255f * 0.7f + 0.2f) * f, alpha = 1f)
+}
+
+@Composable
+private fun LivePill() = Row(
+    Modifier.clip(RoundedCornerShape(50)).background(Color(0xFFFF453A)).padding(start = 8.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+) {
+    Box(Modifier.size(6.dp).clip(CircleShape).background(Color.White))
+    Text("LIVE", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = 1.3.sp)
+}
+
+@Composable
+private fun GlassPill(label: String, onClick: () -> Unit) = Text(
+    label,
+    Modifier.clip(RoundedCornerShape(50)).border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.09f)).clickable(onClick = onClick)
+        .padding(start = 20.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+    fontSize = 16.sp, fontWeight = FontWeight.Medium,
+)
+
+@Composable
+private fun OverviewPanel(cur: OnAir?, weather: Web.Weather?, next: Pair<String, String>?, now: LocalTime, onLive: () -> Unit) {
+    val lang = Settings.lang
+    Column(
+        Modifier.width(376.dp).fillMaxHeight().clip(RoundedCornerShape(28.dp)).background(Tahoe.Card).border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(28.dp)).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_overview"), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Box(Modifier.fillMaxWidth().height(189.dp).clip(RoundedCornerShape(18.dp)).clickable(onClick = onLive)
+            .background(Brush.linearGradient(listOf(tint(cur?.entry?.name ?: "Tahoe", 0.5f), tint(cur?.entry?.name ?: "Tahoe", 1f))))) {
+            Box(Modifier.padding(12.dp)) { LivePill() }
+            Text(cur?.entry?.name ?: "", Modifier.align(Alignment.Center), fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.9f))
+            Box(Modifier.align(Alignment.BottomStart).padding(12.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.2f))) {
+                Box(Modifier.fillMaxWidth(0.4f).fillMaxHeight().background(Tahoe.Accent))
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_channel_name"), fontSize = 12.sp, color = Tahoe.Faint)
+            Text(cur?.entry?.name ?: "—", fontSize = 32.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().height(120.dp)) {
+            StatCard(tech.kousozo.tahoetv.core.I18n.get(lang, "home.weather"), weather?.let { "${it.tempC}°" } ?: "—", weather?.label ?: Settings.city, Icons.Rounded.Cloud, Modifier.weight(1f).fillMaxHeight())
+            StatCard(tech.kousozo.tahoetv.core.I18n.get(lang, "home.prayer_card"), next?.second ?: "—", next?.first.orEmpty(), Icons.Rounded.Bedtime, Modifier.weight(1f).fillMaxHeight())
+        }
+        Column(
+            Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(22.dp)).background(Brush.verticalGradient(listOf(Color(0xFFD91A26), Color(0xFF8C0D1A)))).clickable(onClick = onLive).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom),
+        ) {
+            Text("#1", fontSize = 56.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.35f), letterSpacing = (-1.1).sp)
+            Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_top"), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.8f))
+            Text(cur?.let { (it.programme?.title ?: it.entry.name) + " · " + it.entry.name } ?: "", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
