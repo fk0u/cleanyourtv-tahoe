@@ -25,6 +25,7 @@ final class Hero extends FrameLayout {
     final LivePreview livePreview;
     final TextView eyebrow, title, meta, attribution;
     final LinearLayout block;
+    final List<View> scrims = new ArrayList<>();
     final Handler ui = new Handler(Looper.getMainLooper());
     final List<String> walls = new ArrayList<>();
     final Map<String, String> attributions = new HashMap<>();
@@ -48,13 +49,13 @@ final class Hero extends FrameLayout {
         addView(previewView, new LayoutParams(-1, -1));
         View left = new View(c);
         left.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xCC000000, 0x66000000, 0x00000000}));
-        addView(left, new LayoutParams((int) (width * 0.62f), -1));
+        addView(left, new LayoutParams((int) (width * 0.62f), -1)); scrims.add(left);
         View bottom = new View(c);
         bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, new int[]{0xE6000000, 0x40000000, 0x00000000}));
-        addView(bottom, new LayoutParams(-1, (int) Ui.dp(c, 300), Gravity.BOTTOM));
+        addView(bottom, new LayoutParams(-1, (int) Ui.dp(c, 300), Gravity.BOTTOM)); scrims.add(bottom);
         View top = new View(c);
         top.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x8C000000, 0x00000000}));
-        addView(top, new LayoutParams(-1, (int) Ui.dp(c, 120)));
+        addView(top, new LayoutParams(-1, (int) Ui.dp(c, 120))); scrims.add(top);
 
         previewBadge = Ui.text(c, 11, 700, Ui.TEXT);
         previewBadge.setText("● " + I18n.get(TvViewer.get(c).getLanguage(), "tv.live_preview"));
@@ -92,6 +93,9 @@ final class Hero extends FrameLayout {
         loadWalls();
         maybeRefreshApiWallpaper(false);
     }
+
+    /** The Figma Home draws its own scrim, so the built-in ones step aside. */
+    void setScrims(boolean on) { for (View v : scrims) v.setVisibility(on ? VISIBLE : GONE); previewBadge.setVisibility(on ? VISIBLE : GONE); }
 
     static ImageView img(Context c) { ImageView v = new ImageView(c); v.setScaleType(ImageView.ScaleType.CENTER_CROP); return v; }
 

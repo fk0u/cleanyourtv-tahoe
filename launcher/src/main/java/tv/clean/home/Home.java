@@ -150,6 +150,7 @@ public class Home extends Activity {
         Live.fetch(this, true, l -> {
             warming = false;
             if (!isFinishing() && !isDestroyed() && sheet == null && profiles == null && row <= 0) render(false);
+            if (mediaHome != null) mediaHome.refresh();
         }, e -> { }, () -> warming = false);
     }
 
@@ -226,6 +227,9 @@ public class Home extends Activity {
         applyLayoutMetrics();
         hero = new Hero(this, W, Math.max(1, getResources().getInteger(R.integer.wallpaper_minutes)));
         root.addView(hero, new FrameLayout.LayoutParams(-1, -1));
+        mediaHome = new MediaHome(this, W);
+        hero.setScrims(false);
+        root.addView(mediaHome, new FrameLayout.LayoutParams(-1, -1));
 
         // Top bar: greeting left, chips + clock right.
         greeting = Ui.eyebrow(this, Ui.TEXT_2);
@@ -296,6 +300,8 @@ public class Home extends Activity {
 
         showProfiles(); // boot: "Siapa yang menonton?"
         buildChips();
+        greeting.setVisibility(View.GONE); ((View) chips.getParent()).setVisibility(View.GONE);
+        hero.block.setVisibility(View.GONE); dockLayer.setVisibility(View.GONE); // the Figma Home replaces greeting, chips, hero text and dock
         tick();
         updateFocusBlocking();
     }
@@ -331,6 +337,7 @@ public class Home extends Activity {
         pendingCenterKey = false;
         updateFocusBlocking();
         row = 0; tick(); buildChips(); loadApps(); hero.refreshWallpaperSettings(); render(false);
+        if (mediaHome != null) { mediaHome.refresh(); mediaHome.focusFirst(); }
     }
 
     /** New PIN for the kids profile: type it, type it again. */
@@ -702,6 +709,9 @@ public class Home extends Activity {
 
     void render(boolean animate) {
         if (hero == null) return;
+        boolean wasBlocked = root.getDescendantFocusability() == ViewGroup.FOCUS_BLOCK_DESCENDANTS;
+        updateFocusBlocking();
+        if (mediaHome != null && row < 1 && wasBlocked && sheet == null && profiles == null) mediaHome.focusLast(); // back from the launchpad
         int ms = animate && Ui.motion(this) > 0 ? Ui.MED : 0;
         boolean inPad = row >= 1;
 
@@ -791,6 +801,8 @@ public class Home extends Activity {
     // ---------------------------------------------------------------- hero
 
     LiveStrip liveStrip;
+    MediaHome mediaHome; // the Figma Home (tabs, hero copy, continue-watching cards); native D-pad focus
+    boolean mediaOn() { return mediaHome != null && row < 1 && sheet == null && profiles == null; }
     int ms0() { return Ui.motion(this) > 0 ? Ui.MED : 0; }
     /** Focus row of the "on now" shelf: sits between the hero button (-1) and the dock (0) but outside DockGrid's numbering. */
     static final int STRIP = -10;
@@ -806,6 +818,7 @@ public class Home extends Activity {
 
     void renderHero() {
         if (hero == null) return;
+        if (mediaHome != null && row < 1) return; // the Figma Home drives the hero
         ui.removeCallbacks(trendTick);
         App a = row == 0 ? focusedApp() : (row == -1 || row == STRIP) && !dock.isEmpty() ? dock.get(Math.min(lastDockCol, dock.size() - 1)) : null;
         heroAction.setVisibility(a == null ? View.GONE : View.VISIBLE);
@@ -956,7 +969,7 @@ public class Home extends Activity {
 
     void updateFocusBlocking() {
         if (root == null) return;
-        boolean homeOwnsFocus = sheet == null && profiles == null;
+        boolean homeOwnsFocus = sheet == null && profiles == null && !(mediaHome != null && row < 1);
         root.setDescendantFocusability(homeOwnsFocus ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
         if (homeOwnsFocus) root.clearFocus();
     }
@@ -1069,6 +1082,12 @@ public class Home extends Activity {
             if (k == KeyEvent.KEYCODE_BACK) { finishAndRemoveTask(); return true; }
             return super.onKeyDown(k, e);
         }
+        if (mediaOn()) { // native focus drives the Figma Home; only the hardware shortcuts are ours
+            if (k == KeyEvent.KEYCODE_MENU) { openControl(); return true; }
+            if (k == KeyEvent.KEYCODE_ALL_APPS) { openPad(); return true; }
+            if (k == KeyEvent.KEYCODE_BACK) return true;
+            return super.onKeyDown(k, e);
+        }
         switch (k) {
             case KeyEvent.KEYCODE_DPAD_UP: move(-1, 0); return true;
             case KeyEvent.KEYCODE_DPAD_DOWN: move(1, 0); return true;
@@ -1093,6 +1112,7 @@ public class Home extends Activity {
 
     @Override public boolean onKeyUp(int k, KeyEvent e) {
         if (!TvGuard.isAndroidTv(this)) return super.onKeyUp(k, e);
+        if (mediaOn()) return super.onKeyUp(k, e);
         if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {
             boolean fire = !e.isCanceled() && (pendingCenterKey || e.isTracking() || e.getDownTime() == e.getEventTime()); // synthetic taps also count
             pendingCenterKey = false;
