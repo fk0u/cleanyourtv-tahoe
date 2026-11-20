@@ -82,7 +82,7 @@ final class MediaHome extends FrameLayout {
         LinearLayout right = new LinearLayout(c); right.setGravity(Gravity.CENTER_VERTICAL);
         weatherTxt = chip(right, R.drawable.ic_cloud, "", () -> home.openWeather());
         prayerTxt = chip(right, R.drawable.ic_moon_star, "", () -> home.openPrayer());
-        chip(right, R.drawable.ic_tv, null, () -> home.start(new Intent(home, Live.class))); // search lives in the schedule
+        chip(right, R.drawable.ic_search_cari, null, () -> home.openSheet(new Cari(home)));
         chip(right, R.drawable.ic_settings, null, () -> home.openSheet(new Pengaturan(home)));
         clock = tv("", 30, 600, Color.WHITE); clock.setPadding(px(4), 0, 0, 0);
         right.addView(clock);
