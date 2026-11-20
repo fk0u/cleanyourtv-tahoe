@@ -269,6 +269,9 @@ public class Home extends Activity {
         tooltip.setAlpha(0);
         dockLayer.addView(tooltip, new FrameLayout.LayoutParams(-2, -2));
 
+        liveStrip = new LiveStrip(this);
+        dockLayer.addView(liveStrip, new FrameLayout.LayoutParams(-2, -2));
+
         // Launchpad
         padScrim = new View(this);
         padScrim.setBackgroundColor(0xE6050508); padScrim.setAlpha(0); padScrim.setVisibility(View.GONE);
@@ -776,6 +779,8 @@ public class Home extends Activity {
 
     // ---------------------------------------------------------------- hero
 
+    LiveStrip liveStrip;
+
     final Runnable trendTick = () -> { trendIndex++; renderHero(); };
 
     void renderHero() {
@@ -805,6 +810,14 @@ public class Home extends Activity {
             if (row == 0) ui.postDelayed(trendTick, 7000);
             return;
         }
+        boolean onLive = a != null && a.pkg.equals(LiveTv.PKG) && Live.cached != null && !Live.cached.isEmpty() && row == 0;
+        if (onLive) {
+            float cw = Math.min(dp(170), (W - 2 * M - 4 * dp(14)) / 5f), ch = H * 0.11f;
+            FrameLayout.LayoutParams sp = (FrameLayout.LayoutParams) liveStrip.getLayoutParams();
+            sp.leftMargin = (int) M; sp.topMargin = (int) (H * 0.575f);
+            liveStrip.setLayoutParams(sp);
+            liveStrip.show(Live.cached, 5, cw, ch, dp(14));
+        } else liveStrip.hide();
         if (a != null) hero.context(a.banner, a.pkg); // the focused app's own artwork fills the background
         else hero.context(null);
         if (a != null && a.pkg.equals(LiveTv.PKG)) {
