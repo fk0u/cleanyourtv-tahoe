@@ -175,44 +175,30 @@ public class Lock extends DreamService {
     /** Boot screen: "Siapa yang menonton?" with the owner profile (photo, last app), a guest profile and the kids profile. */
     static class Profiles extends Backdrop {
         interface Pick { void pick(String profile); }
-        static final String[] KEYS = {"main", "guest", Kids.PROFILE};
+        static final String[] KEYS = {"main", Kids.PROFILE, "guest"}; // the Figma order: me, kids, guest
         final LinearLayout[] cards = new LinearLayout[3];
         int sel = 0;
         boolean okDown;
         final Pick onPick;
+        final float S;
 
         Profiles(Context c, String lastApp, android.graphics.drawable.Drawable lastIcon, String current, Pick onPick) {
             super(c, new int[]{0xB3000000, 0x8C000000, 0xB3000000});
             this.onPick = onPick;
-            float d = Ui.dp(c, 1);
-            boolean compact = c.getResources().getConfiguration().screenWidthDp < 600;
-            int av = compact ? 76 : 132;
-            LinearLayout col = new LinearLayout(c); col.setOrientation(LinearLayout.VERTICAL); col.setGravity(Gravity.CENTER_HORIZONTAL);
-            if (compact) col.setPadding((int) (16 * d), 0, (int) (16 * d), 0);
+            S = c.getResources().getDisplayMetrics().widthPixels / 1920f;
             String lang2 = TvViewer.get(c).getLanguage();
-            TextView title = Ui.text(c, compact ? 24 : Ui.TITLE, 700, Ui.TEXT);
-            title.setText(tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_who_title"));
-            TextView sub = Ui.text(c, compact ? 13.5f : Ui.BODY, 400, Ui.TEXT_2);
-            sub.setText(tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_who_sub"));
-            sub.setPadding(0, (int) (10 * d), 0, (int) ((compact ? 24 : 40) * d));
-            title.setGravity(Gravity.CENTER); sub.setGravity(Gravity.CENTER);
-            col.addView(title); col.addView(sub);
-            LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+            LinearLayout col = new LinearLayout(c); col.setOrientation(LinearLayout.VERTICAL); col.setGravity(Gravity.CENTER_HORIZONTAL);
+            TextView title = txt(c, tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_who_title"), 72, 700, 0xFFF7F8FA);
+            title.setLetterSpacing(-0.02f); title.setGravity(Gravity.CENTER);
+            col.addView(title);
+            LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL); row.setClipChildren(false);
             String name = Cfg.s(c, "user_name", R.string.user_name);
-            cards[0] = card(c, Avatar.view(c, av), name.isEmpty() ? tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_me") : name, lastApp, lastIcon);
-            ImageView guest = Avatar.view(c, av, false); // guest never shows the owner's photo
-            int gPad = (int) ((compact ? 18 : 34) * d);
-            guest.setPadding(gPad, gPad, gPad, gPad);
-            cards[1] = card(c, guest, tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_guest"), null, null);
-            ImageView kid = new ImageView(c);
-            kid.setImageResource(R.drawable.ic_lock); kid.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-            kid.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
-            GradientDrawable kb = new GradientDrawable(); kb.setShape(GradientDrawable.OVAL); kb.setColor(0xFF34C759);
-            int kPad = (int) ((compact ? 22 : 40) * d);
-            kid.setBackground(kb); kid.setPadding(kPad, kPad, kPad, kPad);
-            kid.setLayoutParams(new LinearLayout.LayoutParams((int) (av * d), (int) (av * d)));
-            cards[2] = card(c, kid, tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_kids"), null, null);
-            ((TextView) cards[2].getChildAt(2)).setText(tech.kousozo.tahoetv.core.I18n.get(lang2, Kids.hasPin(c) ? "tv.lock_pin_locked" : "tv.lock_kids_badge"));
+            String me = name.isEmpty() ? tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_me") : name;
+            cards[0] = card(c, initials(me), 0xFF5CD1FF, me, null);
+            String kidsLbl = tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_kids");
+            cards[1] = card(c, kidsLbl.isEmpty() ? "A" : kidsLbl.substring(0, 1).toUpperCase(), 0xFF4DE599, kidsLbl,
+                    tech.kousozo.tahoetv.core.I18n.get(lang2, Kids.hasPin(c) ? "tv.lock_pin_locked" : "tv.lock_kids_badge"));
+            cards[2] = card(c, "+", 0xFF9999B2, tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_guest"), null);
             Ui.direction(this);
             for (int i = 0; i < KEYS.length; i++) if (KEYS[i].equals(current)) sel = i;
             for (int i = 0; i < 3; i++) {
@@ -221,42 +207,53 @@ public class Lock extends DreamService {
                 cards[i].setFocusable(false);
                 cards[i].setFocusableInTouchMode(false);
                 cards[i].setOnClickListener(v -> { sel = idx; render(); onPick.pick(KEYS[idx]); });
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int) ((compact ? 104 : 220) * d), -2);
-                if (i > 0) lp.leftMargin = (int) ((compact ? 12 : 48) * d);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+                if (i > 0) lp.leftMargin = Math.round(56 * S);
                 row.addView(cards[i], lp);
             }
-            col.addView(row);
+            LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-2, -2); rl.topMargin = Math.round(118 * S);
+            col.addView(row, rl);
             addView(col, new LayoutParams(-2, -2, Gravity.CENTER));
+            TextView hint = txt(c, tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.pick_hint"), 19, 500, 0x9EF7F8FA);
+            LayoutParams hl = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL); hl.bottomMargin = Math.round(130 * S);
+            addView(hint, hl);
             render();
         }
 
-        LinearLayout card(Context c, ImageView photo, String name, String last, android.graphics.drawable.Drawable icon) {
-            float d = Ui.dp(c, 1);
+        /** Text drawn from the Figma sizes, a touch larger for the sofa. */
+        TextView txt(Context c, String s, float sizePx, int wght, int color) {
+            TextView t = new TextView(c);
+            t.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, sizePx * S * (sizePx >= 40 ? 1.08f : 1.15f));
+            t.setTypeface(Ui.font(c, wght)); t.setTextColor(color); t.setText(s);
+            t.setSingleLine(); t.setIncludeFontPadding(false);
+            return t;
+        }
+
+        static String initials(String n) {
+            String[] w = n.trim().split("\\s+");
+            String a = w.length > 1 ? w[0].substring(0, 1) + w[1].substring(0, 1) : n.trim().substring(0, Math.min(2, n.trim().length()));
+            return a.toUpperCase();
+        }
+
+        /** Figma profile tile: 200 rounded square in the profile's colour with big initials, name under it, optional caption. */
+        LinearLayout card(Context c, String letters, int color, String name, String caption) {
             LinearLayout card = new LinearLayout(c); card.setOrientation(LinearLayout.VERTICAL); card.setGravity(Gravity.CENTER_HORIZONTAL);
             card.setClipChildren(false);
-            GradientDrawable ring = new GradientDrawable(); ring.setShape(GradientDrawable.OVAL); ring.setStroke((int) (3 * d), Color.WHITE);
-            photo.setForeground(ring);
-            card.addView(photo);
-            TextView n = Ui.text(c, 22, 700, Ui.TEXT); n.setText(name); n.setPadding(0, (int) (16 * d), 0, (int) (10 * d));
-            card.addView(n, new LinearLayout.LayoutParams(-2, -2));
-            if (last != null) {
-                LinearLayout pill = new LinearLayout(c); pill.setGravity(Gravity.CENTER_VERTICAL);
-                ImageView ic = new ImageView(c); ic.setImageDrawable(icon); ic.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                Ui.clip(ic, 4 * d);
-                pill.addView(ic, new LinearLayout.LayoutParams((int) (40 * d), (int) (24 * d)));
-                LinearLayout txt = new LinearLayout(c); txt.setOrientation(LinearLayout.VERTICAL); txt.setPadding((int) (8 * d), 0, 0, 0);
-                TextView a = Ui.text(c, 13, 600, Ui.TEXT); a.setText(last);
-                TextView b = Ui.text(c, 11.5f, 400, Ui.TEXT_2); b.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(c).getLanguage(), "tv.lock_last_opened"));
-                txt.addView(a); txt.addView(b);
-                pill.addView(txt);
-                card.addView(pill, new LinearLayout.LayoutParams(-2, -2));
-            } else {
-                TextView pill = Ui.text(c, 12, 600, Ui.TEXT_2); pill.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(c).getLanguage(), "tv.lock_no_history"));
-                pill.setLetterSpacing(0.08f);
-                pill.setPadding((int) (10 * d), (int) (4 * d), (int) (10 * d), (int) (4 * d));
-                pill.setBackground(new GlassDrawable(10 * d, 0x26FFFFFF, d));
-                card.addView(pill, new LinearLayout.LayoutParams(-2, -2));
-            }
+            FrameLayout tile = new FrameLayout(c);
+            GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(56 * S); bg.setColor(color);
+            tile.setBackground(bg);
+            GradientDrawable ring = new GradientDrawable(); ring.setCornerRadius(56 * S); ring.setColor(Color.TRANSPARENT); ring.setStroke(Math.round(6 * S), Color.WHITE);
+            tile.setForeground(ring);
+            TextView l = txt(c, letters, 72, 700, 0xFF0D0F14); l.setLetterSpacing(-0.02f);
+            tile.addView(l, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+            card.addView(tile, new LinearLayout.LayoutParams(Math.round(200 * S), Math.round(200 * S)));
+            TextView n = txt(c, name, 30, 600, 0xFFF7F8FA);
+            LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(-2, -2); nl.topMargin = Math.round(20 * S);
+            card.addView(n, nl);
+            TextView cap = txt(c, caption == null ? "" : caption, 19, 500, 0xCCF7F8FA);
+            LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.topMargin = Math.round(20 * S);
+            cap.setVisibility(caption == null ? View.INVISIBLE : View.VISIBLE); // keeps the three columns level
+            card.addView(cap, cl);
             return card;
         }
 
@@ -265,9 +262,9 @@ public class Lock extends DreamService {
             int ringColor = Ui.highContrast(getContext()) ? tech.kousozo.tahoetv.core.Brand.HC_FOCUS : Color.WHITE;
             for (int i = 0; i < 3; i++) {
                 boolean f = i == sel;
-                cards[i].animate().scaleX(f ? 1f : 0.86f).scaleY(f ? 1f : 0.86f).alpha(f ? 1f : 0.55f).setDuration(d).setInterpolator(Ui.out()).start();
+                cards[i].animate().scaleX(f ? 1f : 0.9f).scaleY(f ? 1f : 0.9f).alpha(f ? 1f : 0.6f).setDuration(d).setInterpolator(Ui.out()).start();
                 View p = cards[i].getChildAt(0);
-                ((GradientDrawable) p.getForeground()).setStroke((int) Ui.dp(getContext(), 3), f ? ringColor : 0x00FFFFFF);
+                ((GradientDrawable) p.getForeground()).setStroke(Math.round(6 * S), f ? ringColor : 0x00FFFFFF);
             }
             CharSequence name = ((TextView) cards[sel].getChildAt(1)).getText();
             if (name != null) cards[sel].announceForAccessibility(name);
