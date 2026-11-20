@@ -147,7 +147,7 @@ final class MediaHome extends FrameLayout {
         addView(rows, rl);
 
         hint = tv(I18n.get(lang, "tv.mh_hint"), 19, 500, 0x73FFFFFF);
-        LayoutParams hl = new LayoutParams(-2, -2); hl.leftMargin = px(1534); hl.topMargin = px(660);
+        LayoutParams hl = new LayoutParams(-2, -2, Gravity.TOP | Gravity.END); hl.rightMargin = px(112); hl.topMargin = px(655);
         addView(hint, hl);
         hint.setAlpha(0f);
 
@@ -357,7 +357,7 @@ final class MediaHome extends FrameLayout {
 
     private TextView tv(String s, float sizePx, int wght, int color) {
         TextView t = new TextView(home);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx * S);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx * S * (sizePx >= 40 ? 1.08f : 1.15f)); // a little larger than the design: this is read from the sofa
         t.setTypeface(Ui.font(home, wght)); t.setTextColor(color); t.setText(s);
         t.setSingleLine(); t.setEllipsize(android.text.TextUtils.TruncateAt.END); t.setIncludeFontPadding(false);
         return t;

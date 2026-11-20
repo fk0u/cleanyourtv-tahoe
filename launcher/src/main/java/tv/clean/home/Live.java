@@ -64,7 +64,7 @@ public class Live extends Activity {
 
     TextView t(String text, float sizePx, int wght, int color) {
         TextView v = new TextView(this);
-        v.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, sizePx * S);
+        v.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, sizePx * S * (sizePx >= 40 ? 1.08f : 1.15f)); // a little larger than the design: this is read from the sofa
         v.setTypeface(Ui.font(this, wght)); v.setTextColor(color); v.setText(text);
         v.setSingleLine(); v.setEllipsize(android.text.TextUtils.TruncateAt.END); v.setIncludeFontPadding(false);
         return v;
@@ -79,9 +79,9 @@ public class Live extends Activity {
 
     /** Pill button of the detail panel: [primary] = white, others glass with a hairline border; cyan ring while focused. */
     TextView panelButton(String label, boolean primary, Runnable action) {
-        TextView b = t(label, primary ? 25 : 24, 500, primary ? 0xFF0D0F14 : 0xFFF7F8FA);
+        TextView b = t(label, 21, 500, primary ? 0xFF0D0F14 : 0xFFF7F8FA); // 21 x the TV boost = the design's 24, and all three buttons fit the panel
         b.setGravity(Gravity.CENTER_VERTICAL);
-        b.setPadding(px(primary ? 31 : 30), px(primary ? 19 : 18), px(primary ? 38 : 36), px(primary ? 19 : 18));
+        b.setPadding(px(24), px(18), px(24), px(18));
         b.setBackground(box(primary ? 0xFFF7F8FA : 0x17FFFFFF, 999, 0x33FFFFFF, primary ? 0 : 1.5f));
         b.setFocusable(true); b.setFocusableInTouchMode(true); b.setClickable(true);
         b.setOnFocusChangeListener((v, f) -> b.setBackground(f ? box(primary ? 0xFFF7F8FA : 0x40FFFFFF, 999, 0xFF63D1FF, 4)
@@ -175,7 +175,7 @@ public class Live extends Activity {
         FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START); bl.setMarginStart(px(16)); bl.topMargin = px(16);
         pv.addView(badge, bl);
         preview = new LivePreview(this, tex, badge);
-        if (LivePreview.enabled(this)) { LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(-1, px(279)); pl.bottomMargin = px(18); d.addView(pv, pl); }
+        if (LivePreview.enabled(this)) { LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(-1, px(240)); pl.bottomMargin = px(16); d.addView(pv, pl); }
         d.addView(dCat); d.addView(dName, lp(18)); d.addView(dNow, lp(18)); d.addView(dDesc, lp(18)); d.addView(dNext, lp(18));
         View spacer = new View(this); d.addView(spacer, new LinearLayout.LayoutParams(0, 0, 1));
         LinearLayout btns = new LinearLayout(this);
