@@ -44,24 +44,26 @@ final class Sheets {
         final List<List<View>> views = new ArrayList<>();
         int r, c;
         final float d;
+        final float S; // Figma 1920 grid
 
         Grid(Home h, int widthDp, int gravity) {
             super(h);
-            home = h; d = Ui.dp(h, 1);
+            home = h; d = Ui.dp(h, 1); S = h.W / 1920f;
             setBackgroundColor(0x80000000);
             panel = new LinearLayout(h); panel.setOrientation(LinearLayout.VERTICAL);
-            panel.setPadding((int) (16 * d), (int) (16 * d), (int) (16 * d), (int) (16 * d));
+            panel.setPadding(Math.round(48 * S), Math.round(48 * S), Math.round(48 * S), Math.round(48 * S));
             setClickable(true);
             setOnClickListener(v -> h.closeSheet());
             scroll = new ScrollView(h);
             scroll.setClickable(true);
             scroll.setVerticalScrollBarEnabled(false); scroll.setFillViewport(false);
-            scroll.setBackground(new GlassDrawable(Ui.dp(h, 34), Ui.GLASS_STRONG, d));
-            Ui.clip(scroll, Ui.dp(h, 34));
+            scroll.setBackground(new GlassDrawable(44 * S, 0xEB14171F, Math.max(1f, S)));
+            Ui.clip(scroll, 44 * S);
             scroll.addView(panel, new ScrollView.LayoutParams(-1, -2));
-            int responsiveW = (int) Math.min(widthDp * d, Math.max(280 * d, h.W - 32 * d));
+            float want = (gravity & Gravity.END) != 0 ? Math.max(widthDp * d, 860 * S) : widthDp * d; // the Control Center is the Figma 860-wide sheet
+            int responsiveW = (int) Math.min(want, Math.max(280 * d, h.W - 32 * d));
             LayoutParams lp = new LayoutParams(responsiveW, -2, gravity);
-            lp.topMargin = lp.bottomMargin = lp.rightMargin = lp.leftMargin = (int) (16 * d);
+            lp.topMargin = lp.bottomMargin = lp.rightMargin = lp.leftMargin = Math.round(48 * S);
             addView(scroll, lp);
         }
 
@@ -110,29 +112,53 @@ final class Sheets {
             render();
         }
 
+        TextView ptv(Context ctx, String text, float sizePx, int wght, int color) {
+            TextView t = new TextView(ctx);
+            t.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, sizePx * S * 1.15f); // a little larger than the design, for the sofa
+            t.setTypeface(Ui.font(ctx, wght)); t.setTextColor(color); t.setText(text);
+            t.setSingleLine(); t.setEllipsize(android.text.TextUtils.TruncateAt.END); t.setIncludeFontPadding(false);
+            return t;
+        }
+
+        /** Figma control tile: 28 radius, 24 padding; icon above title and caption, or (wide / slider) icon beside them. */
         View tile(Item it) {
             Context ctx = getContext();
-            boolean simple = TvViewer.simpleMode(ctx);
-            LinearLayout t = new LinearLayout(ctx); t.setOrientation(LinearLayout.VERTICAL);
-            t.setPadding((int) (14 * d), (int) (11 * d), (int) (14 * d), (int) (11 * d));
+            boolean horizontal = it.wide || it.level >= 0;
+            LinearLayout t = new LinearLayout(ctx);
+            t.setOrientation(horizontal ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+            if (horizontal) t.setGravity(Gravity.CENTER_VERTICAL);
+            int pad = Math.round(24 * S);
+            t.setPadding(horizontal ? Math.round(28 * S) : pad, pad, horizontal ? Math.round(28 * S) : pad, pad);
             t.setContentDescription(it.title + (it.sub != null && !it.sub.isEmpty() ? ", " + it.sub : ""));
-            LinearLayout top = new LinearLayout(ctx); top.setGravity(Gravity.CENTER_VERTICAL);
-            ImageView g = Ui.icon(ctx, it.icon, simple ? 24 : 20, Ui.TEXT); g.setTag("g");
-            TextView ti = Ui.text(ctx, simple ? 19 : 17, 600, Ui.TEXT); ti.setText(it.title); ti.setTag("t");
-            LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1); tl.setMarginStart((int) (12 * d));
-            top.addView(g); top.addView(ti, tl);
-            t.addView(top);
-            if (it.sub != null && !it.sub.isEmpty()) {
-                TextView s = Ui.text(ctx, simple ? 15.5f : 13.5f, 400, Ui.TEXT_2); s.setText(it.sub); s.setTag("s");
-                s.setPaddingRelative((int) (32 * d), (int) (2 * d), 0, 0);
-                t.addView(s);
-            }
+            ImageView g = Ui.icon(ctx, it.icon, 20, Ui.TEXT); g.setTag("g");
+            int gs = Math.round((horizontal ? 32 : 34) * S);
+            t.addView(g, new LinearLayout.LayoutParams(gs, gs));
             if (it.level >= 0) {
                 Slider sl = new Slider(ctx, it.level); sl.setTag("sl");
-                LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, (int) (10 * d)); sp.topMargin = (int) (10 * d);
+                LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(0, Math.max(6, Math.round(12 * S)), 1); sp.setMarginStart(Math.round(20 * S)); sp.setMarginEnd(Math.round(20 * S));
                 t.addView(sl, sp);
+                String pct = it.sub == null ? "" : it.sub.replace("◀ ▶", "").replace("%", "").trim();
+                TextView num = ptv(ctx, pct, 30, 600, Ui.TEXT); num.setTag("t");
+                t.addView(num);
+                return styled(t, it);
             }
-            t.setBackground(new GlassDrawable(Ui.dp(ctx, 20), Ui.cardFill(ctx, it.on ? 0x40FFFFFF : 0x1FFFFFFF), Ui.highContrast(ctx) ? 2 * d : d));
+            LinearLayout col = new LinearLayout(ctx); col.setOrientation(LinearLayout.VERTICAL);
+            TextView ti = ptv(ctx, it.title, 24, 400, Ui.TEXT); ti.setTag("t");
+            col.addView(ti);
+            if (it.sub != null && !it.sub.isEmpty()) {
+                TextView sb = ptv(ctx, it.sub.replace("  ·  ◀ ▶", "").replace("   ◀ ▶", "").replace("◀ ▶", "").trim(), 19, 500, Ui.TEXT_2); sb.setTag("s");
+                LinearLayout.LayoutParams sl2 = new LinearLayout.LayoutParams(-2, -2); sl2.topMargin = Math.round(horizontal ? 4 * S : 14 * S);
+                col.addView(sb, sl2);
+            }
+            LinearLayout.LayoutParams cl = horizontal ? new LinearLayout.LayoutParams(0, -2, 1) : new LinearLayout.LayoutParams(-1, -2);
+            if (horizontal) cl.setMarginStart(Math.round(20 * S)); else cl.topMargin = Math.round(14 * S);
+            t.addView(col, cl);
+            return styled(t, it);
+        }
+
+        private View styled(LinearLayout t, Item it) {
+            Context ctx = getContext();
+            t.setBackground(new GlassDrawable(28 * S, Ui.cardFill(ctx, it.on ? 0x2E5CD1FF : 0x12FFFFFF), Ui.highContrast(ctx) ? 2 * d : 0));
             return t;
         }
 
@@ -142,7 +168,7 @@ final class Sheets {
                 boolean f = i == r && j == c;
                 View v = views.get(i).get(j);
                 Item it = rows.get(i).get(j);
-                ((GlassDrawable) v.getBackground()).fill(f ? Ui.focusFill(v.getContext(), 0xF2F5F5F7) : Ui.cardFill(v.getContext(), it.on ? 0x40FFFFFF : 0x1FFFFFFF));
+                ((GlassDrawable) v.getBackground()).fill(f ? Ui.focusFill(v.getContext(), 0xF2F5F5F7) : Ui.cardFill(v.getContext(), it.on ? 0x2E5CD1FF : 0x12FFFFFF));
                 int col = f ? 0xFF111114 : Ui.TEXT;
                 ImageView ic = v.findViewWithTag("g");
                 if (ic != null) ic.setImageTintList(android.content.res.ColorStateList.valueOf(col));
@@ -224,16 +250,14 @@ final class Sheets {
         }
 
         private void addProfileHeader(Home h, String lang) {
-            String name = Cfg.s(h, "user_name", R.string.user_name);
             LinearLayout who = new LinearLayout(h); who.setGravity(Gravity.CENTER_VERTICAL);
-            who.setPadding((int) (6 * d), 0, 0, (int) (8 * d));
-            who.addView(Avatar.view(h, 44, !h.guest() && !h.kids()));
-            LinearLayout names = new LinearLayout(h); names.setOrientation(LinearLayout.VERTICAL); names.setPadding((int) (14 * d), 0, 0, 0);
-            TextView e = Ui.eyebrow(h, Ui.TEXT_3); e.setText(I18n.get(lang, "tv.control_center"));
-            TextView t = Ui.text(h, Ui.HEADLINE, 600, Ui.TEXT);
-            t.setText(h.kids() ? I18n.get(lang, "tv.lock_kids") : h.guest() ? I18n.get(lang, "tv.lock_guest") : name.isEmpty() ? "Tahoe TV Launcher" : name);
-            names.addView(e); names.addView(t); who.addView(names);
-            panel.addView(who);
+            TextView t = ptv(h, I18n.get(lang, "tv.control_center"), 46, 600, 0xFFF7F8FA); t.setLetterSpacing(-0.02f); t.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 46 * S * 1.08f);
+            who.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
+            java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("HH.mm", java.util.Locale.US); f.setTimeZone(Prayer.tz(h));
+            String prayer = h.chipViews.size() > 1 && h.chipViews.get(1).findViewWithTag("t") != null ? ((TextView) h.chipViews.get(1).findViewWithTag("t")).getText().toString() : "";
+            who.addView(ptv(h, f.format(new java.util.Date()) + (prayer.isEmpty() ? "" : " · " + prayer), 24, 400, 0xCCF7F8FA));
+            LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(-1, -2); wl.bottomMargin = Math.round(8 * S);
+            panel.addView(who, wl);
         }
 
         private void addVolumeAndMediaRows(Home h, String lang) {
