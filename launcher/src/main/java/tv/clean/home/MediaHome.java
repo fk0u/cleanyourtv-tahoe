@@ -43,6 +43,12 @@ final class MediaHome extends FrameLayout {
     private final List<View> cardViews = new ArrayList<>();
     private TextView watchBtn;
     private int shown = -1;
+    private final java.util.Map<String, Runnable> snapBinders = new java.util.HashMap<>();
+
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        LivePreview.snapListener = key -> { Runnable r = snapBinders.get(key); if (r != null) r.run(); };
+    }
 
     MediaHome(Home home, int width) {
         super(home);
@@ -171,7 +177,7 @@ final class MediaHome extends FrameLayout {
         if (same && !cardViews.isEmpty()) { refreshChips(); return; }
         boolean hadFocus = cards.hasFocus();
         entries.clear(); entries.addAll(next);
-        cards.removeAllViews(); cardViews.clear();
+        cards.removeAllViews(); cardViews.clear(); snapBinders.clear();
         Instant now = Instant.now();
         for (int i = 0; i < entries.size(); i++) {
             View card = card(entries.get(i), now, i);
@@ -220,12 +226,24 @@ final class MediaHome extends FrameLayout {
         gd.setCornerRadius(px(20));
         thumb.setBackground(gd);
         Ui.clip(thumb, px(20));
+        ImageView snap = new ImageView(c); snap.setScaleType(ImageView.ScaleType.CENTER_CROP); // a real frame of the channel, when one was captured
+        thumb.addView(snap, new LayoutParams(-1, -1));
         ImageView logo = new ImageView(c); logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         TextView fb = tv("", 40, 700, 0x66FFFFFF); fb.setGravity(Gravity.CENTER);
         thumb.addView(fb, new LayoutParams(-1, -1));
         LayoutParams ll = new LayoutParams(px(150), px(90), Gravity.CENTER_HORIZONTAL); ll.topMargin = px(26);
         thumb.addView(logo, ll);
         Ui.bindLogo(e.getChannel().getLogo(), logo, fb, e.getName());
+        final String key = e.getChannel().getUrl();
+        Runnable bindSnap = () -> {
+            java.io.File f = LivePreview.snapshot(home, key);
+            android.graphics.Bitmap bm = f == null ? null : android.graphics.BitmapFactory.decodeFile(f.getPath());
+            snap.setImageBitmap(bm);
+            logo.setVisibility(bm == null ? View.VISIBLE : View.GONE);
+            if (bm != null) fb.setVisibility(View.INVISIBLE);
+        };
+        snapBinders.put(key, bindSnap);
+        bindSnap.run();
         View shade = new View(c);
         shade.setBackground(grad(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x00000000, 0x00000000, 0xB3000000}, new float[]{0f, 0.4f, 1f}));
         thumb.addView(shade, new LayoutParams(-1, -1));

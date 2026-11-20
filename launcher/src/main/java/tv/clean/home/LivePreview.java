@@ -53,7 +53,49 @@ final class LivePreview {
     private int gen;
     private String currentKey;
     private boolean shown;
-    private Runnable pending, timeout;
+    private Runnable pending, timeout, snapJob;
+
+    /** A picture of [channelUrl] was just saved (UI thread): Home refreshes that card. */
+    static volatile java.util.function.Consumer<String> snapListener;
+
+    private static String sha1(String s) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (byte b : java.security.MessageDigest.getInstance("SHA-1").digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8))) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) { return Integer.toHexString(s.hashCode()); }
+    }
+
+    /** The saved frame of a channel (one real picture per channel, up to a day old), or null. */
+    static java.io.File snapshot(Context c, String channelUrl) {
+        java.io.File f = new java.io.File(new java.io.File(c.getCacheDir(), "snaps"), sha1(channelUrl) + ".jpg");
+        return f.exists() && System.currentTimeMillis() - f.lastModified() < 24L * 3600_000L ? f : null;
+    }
+
+    /** Once the picture has been up for a moment, keep one frame as the channel's thumbnail (skips black frames). */
+    private void scheduleSnapshot(final String key) {
+        if (snapJob != null) ui.removeCallbacks(snapJob);
+        snapJob = () -> {
+            try {
+                if (!shown || !key.equals(currentKey) || !view.isAvailable()) return;
+                android.graphics.Bitmap full = view.getBitmap();
+                if (full == null || full.getWidth() < 2) return;
+                int w = 480, h = Math.max(2, Math.round(480f * full.getHeight() / full.getWidth()));
+                android.graphics.Bitmap bm = android.graphics.Bitmap.createScaledBitmap(full, w, h, true);
+                full.recycle();
+                long sum = 0; int n = 0;
+                for (int y = 0; y < h; y += 12) for (int x = 0; x < w; x += 12) { int p = bm.getPixel(x, y); sum += ((p >> 16) & 255) + ((p >> 8) & 255) + (p & 255); n++; }
+                if (n == 0 || sum / (3.0 * n) < 18) { bm.recycle(); return; } // near black: a fade or a slate
+                java.io.File dir = new java.io.File(c.getCacheDir(), "snaps"); dir.mkdirs();
+                java.io.File out = new java.io.File(dir, sha1(key) + ".jpg");
+                try (java.io.FileOutputStream os = new java.io.FileOutputStream(out)) { bm.compress(android.graphics.Bitmap.CompressFormat.JPEG, 72, os); }
+                bm.recycle();
+                java.util.function.Consumer<String> l = snapListener;
+                if (l != null) l.accept(key);
+            } catch (Throwable ignored) { }
+        };
+        ui.postDelayed(snapJob, 1500);
+    }
 
     LivePreview(Context c, TextureView view, View badge) {
         this.c = c; this.view = view; this.badge = badge;
@@ -150,6 +192,7 @@ final class LivePreview {
 
     private void show() {
         shown = true;
+        if (currentKey != null) scheduleSnapshot(currentKey);
         if (timeout != null) { ui.removeCallbacks(timeout); timeout = null; }
         long d = (long) (Brand.MOTION_MED * Math.min(1f, Ui.motion(c)));
         view.animate().alpha(1f).setDuration(d).start();
@@ -166,6 +209,7 @@ final class LivePreview {
         gen++;
         if (pending != null) ui.removeCallbacks(pending);
         if (timeout != null) ui.removeCallbacks(timeout);
+        if (snapJob != null) { ui.removeCallbacks(snapJob); snapJob = null; }
         pending = null; timeout = null; currentKey = null; shown = false; hide();
         if (player != null) player.stop();
         SourceHealth.yieldToPlayback = false;
