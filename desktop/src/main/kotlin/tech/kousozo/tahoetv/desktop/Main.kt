@@ -37,6 +37,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.TooltipArea
+import androidx.compose.material3.Surface
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -181,69 +184,58 @@ fun App(initial: Screen = Screen.Home, askRegion: Boolean = true) { // askRegion
     }
 }
 
-/** Slim collapsible rail: logo on top, icon or labeled buttons, TV status + version at the bottom (#41). */
+/** Figma rail: 80 wide, logo on top, one 48 px icon button per screen (white when selected, a hover tooltip names it),
+ *  and the home-TV status and version at the bottom. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) {
-    val collapsed = Settings.railCollapsed
     val lang = Settings.lang
-    Column(
-        Modifier.width(if (collapsed) 84.dp else 184.dp).fillMaxHeight().padding(vertical = 18.dp, horizontal = 12.dp),
-        horizontalAlignment = if (collapsed) Alignment.CenterHorizontally else Alignment.Start,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            BrandTile(46.dp)
-            if (!collapsed) Text("Tahoe TV", fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            IconButton({ Settings.railCollapsed = !collapsed }, Modifier.size(30.dp)) {
-                Icon(
-                    if (collapsed) Icons.Rounded.Menu else Icons.AutoMirrored.Rounded.MenuOpen,
-                    tech.kousozo.tahoetv.core.I18n.get(lang, "desk.collapse_rail"),
-                    tint = Tahoe.Dim,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        }
-        Spacer(Modifier.height(22.dp))
+    Row(Modifier.width(80.dp).fillMaxHeight()) {
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.Card).padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            Modifier.weight(1f).fillMaxHeight().background(Color(0xFF07080D).copy(alpha = if (ThemePrefs.dark) 0.9f else 0f)).padding(vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            BrandTile(40.dp)
             Screen.entries.filter { it != Screen.Admin }.forEach { s ->
                 val on = s == selected
                 val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 val hover by src.collectIsHoveredAsState()
-                Row(
-                    Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp))
-                        .background(if (on) Tahoe.Accent else if (hover) Tahoe.CardHi else Color.Transparent)
-                        .hoverable(src)
-                        .selectable(selected = on, role = Role.Tab) { onSelect(s) }
-                        .padding(horizontal = if (collapsed) 0.dp else 12.dp)
-                        .semantics(mergeDescendants = true) { contentDescription = s.label },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = if (collapsed) Arrangement.Center else Arrangement.Start,
+                TooltipArea(
+                    tooltip = {
+                        Surface(shape = RoundedCornerShape(8.dp), color = Tahoe.CardHi, border = BorderStroke(1.dp, Tahoe.Stroke), shadowElevation = 4.dp) {
+                            Text(s.label, Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontSize = 13.sp, color = Tahoe.Text)
+                        }
+                    },
+                    delayMillis = 300,
+                    tooltipPlacement = androidx.compose.foundation.TooltipPlacement.CursorPoint(offset = androidx.compose.ui.unit.DpOffset(16.dp, 0.dp)),
                 ) {
-                    Icon(s.icon, s.label, tint = if (on) Tahoe.OnAccent else Tahoe.Dim, modifier = Modifier.size(20.dp))
-                    if (!collapsed) {
-                        Spacer(Modifier.width(10.dp))
-                        Text(s.label, fontSize = 13.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) Tahoe.OnAccent else Tahoe.Text)
-                    }
+                    Box(
+                        Modifier.size(48.dp).clip(RoundedCornerShape(14.dp))
+                            .background(if (on) Tahoe.Text else if (hover) Tahoe.CardHi else Color.Transparent)
+                            .hoverable(src)
+                            .selectable(selected = on, role = Role.Tab) { onSelect(s) }
+                            .semantics(mergeDescendants = true) { contentDescription = s.label },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(s.icon, null, tint = if (on) Color(0xFF0D0F14) else Tahoe.Dim, modifier = Modifier.size(22.dp)) }
                 }
             }
-        }
-        Spacer(Modifier.weight(1f))
-        val tv = Session.tv
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Tahoe.Card).padding(horizontal = 10.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = if (collapsed) Arrangement.Center else Arrangement.Start,
-        ) {
-            Icon(Icons.Rounded.Cast, if (tv != null) tv.model else tech.kousozo.tahoetv.core.I18n.get(lang, "home.tv_not_connected"), tint = if (tv != null) Tahoe.Good else Tahoe.Faint, modifier = Modifier.size(20.dp))
-            if (!collapsed) {
-                Spacer(Modifier.width(8.dp))
-                Text(tv?.model ?: tech.kousozo.tahoetv.core.I18n.get(lang, "home.tv_not_connected"), fontSize = 11.sp, color = Tahoe.Dim, maxLines = 1)
+            Spacer(Modifier.weight(1f))
+            val tv = Session.tv
+            val tvLabel = if (tv != null) tv.model else tech.kousozo.tahoetv.core.I18n.get(lang, "home.tv_not_connected")
+            TooltipArea(
+                tooltip = {
+                    Surface(shape = RoundedCornerShape(8.dp), color = Tahoe.CardHi, border = BorderStroke(1.dp, Tahoe.Stroke), shadowElevation = 4.dp) {
+                        Text(tvLabel, Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontSize = 13.sp, color = Tahoe.Text)
+                    }
+                },
+                delayMillis = 300,
+            ) {
+                Icon(Icons.Rounded.Cast, tvLabel, tint = if (tv != null) Tahoe.Good else Tahoe.Faint, modifier = Modifier.size(22.dp))
             }
+            Text("v" + (System.getProperty("jpackage.app-version") ?: "dev"), fontSize = 10.sp, color = Tahoe.Faint)
         }
-        Spacer(Modifier.height(8.dp))
-        Text("v" + (System.getProperty("jpackage.app-version") ?: "dev"), fontSize = 10.sp, color = Tahoe.Faint)
+        Box(Modifier.width(1.dp).fillMaxHeight().background(Tahoe.Stroke))
     }
 }
 
