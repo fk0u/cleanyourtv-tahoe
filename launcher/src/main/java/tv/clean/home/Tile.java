@@ -19,9 +19,11 @@ final class Tile extends FrameLayout {
     final Home.App app;
     float scale = 1f;
 
-    Tile(Context c, Home.App app, float w, float h) {
+    Tile(Context c, Home.App app, float w, float h) { this(c, app, w, h, Ui.dp(c, Ui.R_SMALL)); }
+
+    Tile(Context c, Home.App app, float w, float h, float radiusPx) {
         super(c);
-        this.app = app; this.w = w; this.h = h; this.radius = Ui.dp(c, Ui.R_SMALL);
+        this.app = app; this.w = w; this.h = h; this.radius = radiusPx;
         setContentDescription(app.label);
         setClipChildren(false); setClipToPadding(false);
         glow = new View(c);

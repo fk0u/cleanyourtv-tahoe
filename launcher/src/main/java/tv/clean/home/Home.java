@@ -43,11 +43,12 @@ public class Home extends Activity {
     final Handler ui = new Handler(Looper.getMainLooper());
     SharedPreferences prefs;
     int W, H, dockSize, cols, rawCols;
+    float padLeft, padTop;
     float M, tileW, tileH, gap, padTileW, padTileH, padGap, padStep;
     FrameLayout root, dockLayer, pad, padRowsView;
     Hero hero;
     View dockBand, padScrim, transition;
-    TextView greeting, clock, tooltip, padTitle;
+    TextView greeting, clock, tooltip, padTitle, padSub;
     LinearLayout chips;
     final List<LinearLayout> chipViews = new ArrayList<>();
     LinearLayout heroAction; ImageView heroActionIcon; TextView heroActionText;
@@ -292,7 +293,10 @@ public class Home extends Activity {
         root.addView(pad, new FrameLayout.LayoutParams(-1, -1));
         padTitle = Ui.text(this, Ui.HEADLINE, 600, Ui.TEXT);
         padTitle.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_apps_title"));
-        pad.addView(padTitle, at(M, dp(36), -1, -1));
+        pad.addView(padTitle, at(112 * (W / 1920f), 64 * (W / 1920f), -1, -1));
+        padSub = Ui.text(this, 19, 500, 0x9EF7F8FA); padSub.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 19 * (W / 1920f) * 1.15f);
+        padSub.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.apps_hint"));
+        pad.addView(padSub, at(112 * (W / 1920f), 128 * (W / 1920f), -1, -1));
         padRowsView = new FrameLayout(this); padRowsView.setClipChildren(false);
         pad.addView(padRowsView, new FrameLayout.LayoutParams(-1, -1));
         applyLayoutMetrics();
@@ -424,10 +428,13 @@ public class Home extends Activity {
         tileW = dp(simple ? 146 : 118);
         gap = dp(simple ? 18 : 16);
         tileH = tileW * 9 / 16;
-        padGap = dp(22);
-        padTileW = Math.max(dp(84), (W - 2 * M - (cols - 1) * padGap) / Math.max(1, cols));
-        padTileH = padTileW * 9 / 16;
-        padStep = padTileH + dp(simple ? 52 : 46);
+        // the Figma "TV / Aplikasi" grid: 300 x 170 tiles, 32 apart, rows 40 apart, label below, on the 1920 grid
+        float fs = W / 1920f;
+        padGap = 32 * fs;
+        padTileW = 300 * fs;
+        padTileH = 170 * fs;
+        padLeft = 112 * fs; padTop = 200 * fs;
+        padStep = padTileH + 81 * fs;
     }
 
     void applyTextScale() {
@@ -436,7 +443,7 @@ public class Home extends Activity {
         if (clock != null) clock.setTextSize(simple ? 30f : 26f);
         if (heroActionText != null) heroActionText.setTextSize(simple ? 18f : 15f);
         if (tooltip != null) tooltip.setTextSize(simple ? 16f : 13f);
-        if (padTitle != null) padTitle.setTextSize(simple ? 32f : Ui.HEADLINE);
+        if (padTitle != null) padTitle.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 46 * (W / 1920f) * 1.08f);
     }
 
     void applySimpleMode() {
@@ -580,14 +587,9 @@ public class Home extends Activity {
         String lang = TvViewer.get(this).getLanguage();
         List<App> games = new ArrayList<>();
         for (App a : everything) if (a.game) games.add(a);
-        float y = dp(96);
-        if (!games.isEmpty()) {
-            y = addSection(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_games"), y);
-            for (int i = 0; i < games.size(); i += cols) y = addPadRow(games.subList(i, Math.min(games.size(), i + cols)), y);
-            y += dp(10);
-        }
-        y = addSection(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.apps_all"), y);
-        for (int i = 0; i < everything.size(); i += cols) y = addPadRow(everything.subList(i, Math.min(everything.size(), i + cols)), y);
+        float y = padTop;
+        final int perRow = 5; // Figma: five tiles per row
+        for (int i = 0; i < everything.size(); i += perRow) y = addPadRow(everything.subList(i, Math.min(everything.size(), i + perRow)), y);
         padRowsView.getLayoutParams().height = (int) (y + dp(40));
         padRowsView.requestLayout();
 
@@ -614,15 +616,19 @@ public class Home extends Activity {
         for (int i = 0; i < apps.size(); i++) {
             final int colIdx = i;
             App appItem = apps.get(i);
-            Tile t = new Tile(this, appItem, padTileW, padTileH);
+            Tile t = new Tile(this, appItem, padTileW, padTileH, 32 * (W / 1920f));
             t.setClickable(true);
             t.setFocusable(false); t.setFocusableInTouchMode(false);
             t.setOnClickListener(v -> { row = padRowIdx; col = colIdx; render(true); launch(appItem.launch, appItem, t); });
             t.setOnLongClickListener(v -> { row = padRowIdx; col = colIdx; render(true); openAppMenu(); return true; });
-            padRowsView.addView(t, at(M + i * (padTileW + padGap), y, padTileW, padTileH + dp(36)));
-            TextView label = Ui.text(this, TvViewer.simpleMode(this) ? 16 : 13, 500, Ui.TEXT); label.setText(apps.get(i).label);
-            label.setGravity(Gravity.CENTER); label.setAlpha(0); label.setTag("label");
-            FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams((int) padTileW, -2); ll.topMargin = (int) (padTileH + dp(14));
+            padRowsView.addView(t, at(padLeft + i * (padTileW + padGap), y, padTileW, padTileH + 60 * (W / 1920f)));
+            boolean inDock = false;
+            for (App dk : dock) if (dk.pkg.equals(appItem.pkg)) { inDock = true; break; }
+            TextView label = Ui.text(this, 19, 500, 0x9EF7F8FA);
+            label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 19 * (W / 1920f) * 1.15f); label.setShadowLayer(0, 0, 0, 0);
+            label.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), inDock ? "tv.apps_in_dock" : "tv.apps_open"));
+            label.setGravity(Gravity.CENTER); label.setTag("label"); // the app's own name is in its banner; this says where it lives
+            FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams((int) padTileW, -2); ll.topMargin = (int) (padTileH + 16 * (W / 1920f));
             t.addView(label, ll);
             tiles.add(t);
         }
@@ -742,17 +748,17 @@ public class Home extends Activity {
                 t.setPivotY(t.h / 2);
                 t.lift(f ? 1.1f : 1f, f, ms);
                 View label = t.findViewWithTag("label");
-                if (label != null) label.animate().alpha(f ? 1 : 0).translationY(f ? dp(6) : 0).setDuration(ms).start();
+                if (label != null) label.animate().alpha(f ? 1f : 0.85f).setDuration(ms).start();
             }
         }
         focused = ft;
 
         if (inPad) {
-            int vis = Math.max(1, (int) ((H - dp(110)) / padStep));
+            int vis = Math.max(1, (int) ((H - padTop) / padStep));
             if (row < firstPadRow) firstPadRow = row;
             if (row >= firstPadRow + vis) firstPadRow = row - vis + 1;
         }
-        float shift = inPad && firstPadRow > 1 ? -(padRowTop.get(firstPadRow - 1) - dp(96)) : 0;
+        float shift = inPad && firstPadRow > 1 ? -(padRowTop.get(firstPadRow - 1) - padTop) : 0;
         setPadVisible(inPad, ms);
         padRowsView.animate().translationY(inPad ? shift : dp(40)).setDuration(ms).setInterpolator(Ui.out()).start();
         dockLayer.animate().alpha(inPad ? 0 : 1).translationY(inPad ? dp(40) : 0).setDuration(ms).start();
