@@ -35,7 +35,7 @@ final class MediaHome extends FrameLayout {
     private final String lang;
     private final Handler ui = new Handler(Looper.getMainLooper());
 
-    private final TextView greeting, eyebrow, title, desc, clock, weatherTxt, prayerTxt;
+    private final TextView greeting, eyebrow, title, desc, clock;
     private final View liveBadge, hint;
     private final LinearLayout cards;
     private final HorizontalScrollView scroller;
@@ -83,15 +83,11 @@ final class MediaHome extends FrameLayout {
         addTab(nav, I18n.get(lang, "tv.mh_tab_home"), true, null);
         addTab(nav, I18n.get(lang, "tv.mh_tab_media"), false, () -> home.start(new Intent(home, LiveTv.class)));
         addTab(nav, I18n.get(lang, "tv.mh_tab_schedule"), false, () -> home.start(new Intent(home, Live.class)));
-        addTab(nav, I18n.get(lang, "tv.mh_tab_apps"), false, home::openPad);
         addTab(nav, I18n.get(lang, "tv.mh_tab_rec"), false, () -> home.openSheet(new Rekaman(home)));
         bar.addView(nav);
         bar.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1));
         LinearLayout right = new LinearLayout(c); right.setGravity(Gravity.CENTER_VERTICAL);
-        weatherTxt = chip(right, R.drawable.ic_cloud, "", () -> home.openWeather());
-        prayerTxt = chip(right, R.drawable.ic_moon_star, "", () -> home.openPrayer());
         chip(right, R.drawable.ic_search_cari, null, () -> home.openSheet(new Cari(home)));
-        chip(right, R.drawable.ic_settings, null, () -> home.openSheet(new Pengaturan(home)));
         clock = tv("", 46, 700, Color.WHITE); clock.setPadding(px(22), 0, 0, 0); clock.setIncludeFontPadding(false); clock.setLetterSpacing(0f);
         right.addView(clock);
         bar.addView(right);
@@ -187,13 +183,6 @@ final class MediaHome extends FrameLayout {
     void focusFirst() { if (!cardViews.isEmpty()) cardViews.get(0).requestFocus(); }
 
     void refreshChips() {
-        weatherTxt.setText(chipText(0)); prayerTxt.setText(chipText(1));
-    }
-
-    private String chipText(int i) {
-        if (i >= home.chipViews.size()) return "";
-        TextView t = home.chipViews.get(i).findViewWithTag("t");
-        return t == null ? "" : t.getText().toString();
     }
 
     private Epg.Programme onAir(LocalTv.Entry e, Instant now) {

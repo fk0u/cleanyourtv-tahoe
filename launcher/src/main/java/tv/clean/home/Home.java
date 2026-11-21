@@ -304,6 +304,7 @@ public class Home extends Activity {
         applyTextScale();
 
         showProfiles(); // boot: "Siapa yang menonton?"
+        Splash.show(this, root, () -> {}); // animated start-up, once per launch of the launcher
         buildChips();
         tick();
         updateFocusBlocking();
@@ -1129,6 +1130,7 @@ public class Home extends Activity {
     }
 
     @Override public boolean onKeyDown(int k, KeyEvent e) {
+        if (Splash.active) return true;
         if (!TvGuard.isAndroidTv(this)) {
             if (k == KeyEvent.KEYCODE_BACK) { finishAndRemoveTask(); return true; }
             return super.onKeyDown(k, e);
@@ -1162,6 +1164,7 @@ public class Home extends Activity {
     }
 
     @Override public boolean onKeyUp(int k, KeyEvent e) {
+        if (Splash.active) return true;
         if (!TvGuard.isAndroidTv(this)) return super.onKeyUp(k, e);
         if (mediaOn()) return super.onKeyUp(k, e);
         if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {

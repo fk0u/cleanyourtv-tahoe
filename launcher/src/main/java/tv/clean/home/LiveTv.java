@@ -69,6 +69,7 @@ public class LiveTv extends Activity {
     static LiveTv live;
     final Handler ui = new Handler(Looper.getMainLooper());
     ExoPlayer player;
+    androidx.media3.exoplayer.upstream.DefaultBandwidthMeter bwMeter;
     FrameLayout surfaceRoot;
     SurfaceView surface;
     int videoW = 0, videoH = 0;
@@ -200,10 +201,17 @@ public class LiveTv extends Activity {
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(initTuning.getMinBufferMs(), initTuning.getMaxBufferMs(),
                         initTuning.getBufferForPlaybackMs(), initTuning.getBufferForPlaybackAfterRebufferMs())
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .setBackBuffer(initTuning.getMinBufferMs() > 16_000 ? 20_000 : 10_000, true) // pause / rewind without refetching
                 .build();
+        // Remember how fast this TV's connection was: the next channel starts at the right quality straight away (no ramp-up stalls),
+        // and nothing is capped — adaptive quality still goes as high as the stream allows.
+        bwMeter = new androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.Builder(this)
+                .setInitialBitrateEstimate(Math.max(2_000_000L, Math.min(80_000_000L, prefs.getLong("bw_estimate", 8_000_000L)))).build();
         player = new ExoPlayer.Builder(this, new DefaultRenderersFactory(this).setEnableDecoderFallback(true)
                 .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON))
                 .setLoadControl(loadControl)
+                .setBandwidthMeter(bwMeter)
                 .build();
         player.addAnalyticsListener(new AnalyticsListener() {
             @Override public void onAudioDecoderInitialized(EventTime t, String name, long a, long b) {
@@ -789,8 +797,8 @@ public class LiveTv extends Activity {
         o.addView(info, il);
 
         // top right: clock
-        tTime = otv("", 30, 600, 0xFFFFFFFF);
-        FrameLayout.LayoutParams tl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END); tl.rightMargin = px(112); tl.topMargin = px(70);
+        tTime = otv("", 46, 700, 0xFFFFFFFF); tTime.setIncludeFontPadding(false); // the clock matters: bigger than the rest of the player text
+        FrameLayout.LayoutParams tl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END); tl.rightMargin = px(112); tl.topMargin = px(62);
         o.addView(tTime, tl);
 
         // OSD (x112, bottom)
@@ -1559,7 +1567,7 @@ public class LiveTv extends Activity {
 
     @Override protected void onStop() { super.onStop(); if (live == this) live = null; if (player != null) player.pause(); if (Home.live != null) Home.live.pushState(); }
     @Override protected void onStart() { super.onStart(); live = this; if (player != null && index >= 0) player.play(); if (Home.live != null) Home.live.pushState(); }
-    @Override protected void onDestroy() { tech.kousozo.tahoetv.core.SourceHealth.yieldToPlayback = false; if (activeRecorder != null) { activeRecorder.cancel(); activeRecorder = null; } flushRecapSession(); ui.removeCallbacksAndMessages(null); if (player != null) player.release(); player = null; super.onDestroy(); }
+    @Override protected void onDestroy() { tech.kousozo.tahoetv.core.SourceHealth.yieldToPlayback = false; if (activeRecorder != null) { activeRecorder.cancel(); activeRecorder = null; } flushRecapSession(); ui.removeCallbacksAndMessages(null); if (bwMeter != null && bwMeter.getBitrateEstimate() > 0) prefs.edit().putLong("bw_estimate", bwMeter.getBitrateEstimate()).apply(); if (player != null) player.release(); player = null; super.onDestroy(); }
 
     // ------------------------------------------------------------------ app tile
 
