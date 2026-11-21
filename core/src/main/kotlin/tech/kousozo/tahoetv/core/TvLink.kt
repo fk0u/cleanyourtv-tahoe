@@ -9,7 +9,13 @@ import org.json.JSONObject
 
 /** Remote control of a TV running Tahoe over its paired WebSocket (port 8765). Works without ADB, e.g. on TV boxes
  *  where Tahoe was installed from a USB stick. Uses protocol v2 envelopes ([Protocol]) with v1 compatibility. */
-class TvLink(val host: String, private val token: String, private val onState: (Boolean) -> Unit = {}) {
+class TvLink(
+    val host: String,
+    private val token: String,
+    private val onState: (Boolean) -> Unit = {},
+    /** The relay to fall back on when the TV can't be reached on the local network (null: LAN only). */
+    private val tunnelBase: String? = null,
+) {
     /** Latest {"t":"state"} from the TV: volume (0–100), muted, channel, channelId, number, playing, rev. */
     @Volatile var onTvState: (JSONObject) -> Unit = {}
     /** Latest typed [Protocol.SessionState] from the TV (#88). */
@@ -25,12 +31,35 @@ class TvLink(val host: String, private val token: String, private val onState: (
     @Volatile private var lastSessionRev = -1L
     private val seq = AtomicLong(0L)
     private val pending = ConcurrentLinkedQueue<String>()
-    val connected get() = ws?.isOpen == true
+    @Volatile private var tunnel: TunnelClient? = null
+    @Volatile private var tunnelPeerAt = 0L
+    private val viaTunnel get() = tunnel != null && System.currentTimeMillis() - tunnelPeerAt < 45_000L
+    val connected get() = ws?.isOpen == true || viaTunnel
+    /** True when the TV is reached through the relay rather than the local network. */
+    val remote get() = ws?.isOpen != true && viaTunnel
 
     private fun nextId(): String = "c-${seq.incrementAndGet()}"
 
     /** Connects and keeps reconnecting (every 2 s) until [close]: the TV may be asleep, restarting, or Wi-Fi dropped. */
-    fun open() { wanted = true; connect() }
+    fun open() { wanted = true; connect(); openTunnel() }
+
+    private fun openTunnel() {
+        val base = tunnelBase ?: return
+        if (tunnel != null) return
+        val t = TunnelClient(base, token, "ctl", onFrame = { m -> val was = viaTunnel; tunnelPeerAt = System.currentTimeMillis(); if (!was && ws?.isOpen != true) { onState(true); flushPending() }; handle(m) }, onPeer = { hello() })
+        tunnel = t
+        t.open()
+        Thread({
+            while (wanted) { // reachable only through the relay: keep asking so we notice when the TV goes away
+                if (ws?.isOpen != true) { if (!viaTunnel) hello() else tunnel?.send(Protocol.encode(Protocol.Ping(System.currentTimeMillis()), id = nextId()).toString()) }
+                runCatching { Thread.sleep(15_000) }
+            }
+        }, "tahoe-tunnel-keepalive").apply { isDaemon = true }.start()
+    }
+
+    private fun hello() {
+        tunnel?.send(Protocol.encode(Protocol.Hello(proto = Protocol.VERSION, role = "controller", caps = listOf("remote", "connect")), id = nextId()).toString())
+    }
 
     /** Never throws: a bad address or a failing connect just retries, it must not crash the app. */
     private fun connect() {
@@ -63,25 +92,28 @@ class TvLink(val host: String, private val token: String, private val onState: (
                 flushPending()
                 onState(true)
             }
-            override fun onMessage(m: String) {
-                val dec = Protocol.decode(m) ?: return
-                when (val msg = dec.message) {
-                    is Protocol.Welcome -> peerProto = msg.proto
-                    is Protocol.Ping -> sendRaw(Protocol.encode(Protocol.Pong(msg.nonce), id = nextId()).toString())
-                    is Protocol.Pong, is Protocol.Ack -> Unit
-                    is Protocol.Error -> onCommand(JSONObject(dec.envelope.body.toString()).put("t", "error"))
-                    is Protocol.DeviceState -> handleDeviceState(msg)
-                    is Protocol.SessionState -> handleSessionState(msg)
-                    Protocol.SendLog -> onCommand(JSONObject().put("t", "send_log"))
-                    else -> {
-                        val o = runCatching { JSONObject(m) }.getOrNull() ?: JSONObject(dec.envelope.body.toString())
-                        onCommand(o)
-                    }
-                }
-            }
+            override fun onMessage(m: String) = handle(m)
             override fun onClose(code: Int, reason: String, remote: Boolean) { onState(false); retry() }
             override fun onError(e: Exception) {}
         }
+
+    /** One frame from the TV, from either transport. */
+    private fun handle(m: String) {
+        val dec = Protocol.decode(m) ?: return
+        when (val msg = dec.message) {
+            is Protocol.Welcome -> peerProto = msg.proto
+            is Protocol.Ping -> sendRaw(Protocol.encode(Protocol.Pong(msg.nonce), id = nextId()).toString())
+            is Protocol.Pong, is Protocol.Ack -> Unit
+            is Protocol.Error -> onCommand(JSONObject(dec.envelope.body.toString()).put("t", "error"))
+            is Protocol.DeviceState -> handleDeviceState(msg)
+            is Protocol.SessionState -> handleSessionState(msg)
+            Protocol.SendLog -> onCommand(JSONObject().put("t", "send_log"))
+            else -> {
+                val o = runCatching { JSONObject(m) }.getOrNull() ?: JSONObject(dec.envelope.body.toString())
+                onCommand(o)
+            }
+        }
+    }
 
     private fun handleDeviceState(ds: Protocol.DeviceState) {
         val s = ds.session
@@ -109,12 +141,14 @@ class TvLink(val host: String, private val token: String, private val onState: (
         onSessionState(s)
     }
 
-    fun close() { wanted = false; ws?.close(); ws = null }
+    fun close() { wanted = false; ws?.close(); ws = null; tunnel?.close(); tunnel = null }
 
     private fun sendRaw(msg: String): Boolean {
-        val sock = ws ?: return false
-        if (!sock.isOpen) return false
-        return runCatching { sock.send(msg); true }.getOrElse { false }
+        val sock = ws
+        if (sock != null && sock.isOpen) return runCatching { sock.send(msg); true }.getOrElse { false }
+        val t = tunnel
+        if (t != null && viaTunnel) { t.send(msg); return true } // off the local network: through the relay
+        return false
     }
 
     private fun flushPending() {
