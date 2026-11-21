@@ -717,6 +717,7 @@ public class Home extends Activity {
         if (hero == null) return;
         boolean wasBlocked = root.getDescendantFocusability() == ViewGroup.FOCUS_BLOCK_DESCENDANTS;
         updateFocusBlocking();
+        if (mediaHome != null) mediaHome.setVisibility(row >= 1 ? View.INVISIBLE : View.VISIBLE); // the launchpad is a full screen of its own
         if (mediaHome != null && row < 1 && wasBlocked && sheet == null && profiles == null) mediaHome.focusLast(); // back from the launchpad
         int ms = animate && Ui.motion(this) > 0 ? Ui.MED : 0;
         boolean inPad = row >= 1;
@@ -977,6 +978,8 @@ public class Home extends Activity {
         if (root == null) return;
         boolean homeOwnsFocus = sheet == null && profiles == null && !(mediaHome != null && row < 1);
         root.setDescendantFocusability(homeOwnsFocus ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        // the Figma Home underneath must never take focus back (a sheet rebuilding a row used to hand it over)
+        if (mediaHome != null) mediaHome.setDescendantFocusability(sheet == null && profiles == null && row < 1 ? ViewGroup.FOCUS_AFTER_DESCENDANTS : ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         if (homeOwnsFocus) root.clearFocus();
     }
 
@@ -1003,6 +1006,7 @@ public class Home extends Activity {
         sheetView = null; sheet = null;
         updateFocusBlocking();
         s.onClose();
+        if (mediaHome != null && row < 1 && profiles == null) mediaHome.focusLast(); // back to the card or tab that opened it
         long d = Ui.dur(this, Ui.FAST);
         if (d <= 0) {
             root.removeView(v);

@@ -508,7 +508,7 @@ public class Live extends Activity {
 
         // Figma "TV / Detail saluran": full-height dark-to-clear scrim, content column at (140, 160)
         FrameLayout scrim = new FrameLayout(this);
-        scrim.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xF208080D, 0x6608080D}));
+        scrim.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xFA08080D, 0xEB08080D})); // nearly opaque: the schedule underneath must not compete with the text
         scrim.setClickable(true); scrim.setOnClickListener(v -> closeSheet());
         LinearLayout p = new LinearLayout(this); p.setOrientation(LinearLayout.VERTICAL); p.setClipChildren(false);
         FrameLayout logoBox = new FrameLayout(this);
@@ -581,6 +581,7 @@ public class Live extends Activity {
         scrim.addView(p, pl);
         root.addView(scrim, new FrameLayout.LayoutParams(-1, -1));
         sheet = scrim;
+        if (root.getChildCount() > 0) ((android.view.ViewGroup) root.getChildAt(0)).setDescendantFocusability(android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS); // focus stays in the sheet
         float m = Math.min(1f, Ui.motion(this));
         scrim.setAlpha(0f); p.setTranslationX(-dp(40));
         scrim.animate().alpha(1f).setDuration((long) (tech.kousozo.tahoetv.core.Brand.MOTION_MED * m)).start();
@@ -652,6 +653,7 @@ public class Live extends Activity {
     void closeSheet() {
         if (sheet == null) return;
         View s = sheet; sheet = null;
+        if (root.getChildCount() > 0) ((android.view.ViewGroup) root.getChildAt(0)).setDescendantFocusability(android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS);
         s.animate().alpha(0f).setDuration(Ui.dur(this, 200)).withEndAction(() -> root.removeView(s)).start();
         View f = sheetOrigin != null && sheetOrigin.isAttachedToWindow() ? sheetOrigin : rows.getFocusedChild();
         sheetOrigin = null;

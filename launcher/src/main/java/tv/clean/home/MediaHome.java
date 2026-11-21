@@ -151,7 +151,7 @@ final class MediaHome extends FrameLayout {
         scroller.addView(cards);
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(px(1720), -2); sl.topMargin = -px(18); sl.setMarginStart(-px(10));
         rows.addView(scroller, sl);
-        LayoutParams rl = new LayoutParams(px(1800), -2); rl.leftMargin = px(112); rl.topMargin = px(700);
+        LayoutParams rl = new LayoutParams(px(1800), -2); rl.leftMargin = px(112); rl.topMargin = px(672);
         addView(rows, rl);
 
         hint = tv(I18n.get(lang, "tv.mh_hint"), 19, 500, 0x73FFFFFF);
@@ -264,19 +264,19 @@ final class MediaHome extends FrameLayout {
         FrameLayout wrap = new FrameLayout(c); wrap.setClipChildren(false);
         View glow = new View(c);
         GradientDrawable gg = new GradientDrawable(); gg.setGradientType(GradientDrawable.RADIAL_GRADIENT);
-        gg.setGradientRadius(px(260)); gg.setColors(new int[]{0x8C5CD1FF, 0x005CD1FF});
+        gg.setGradientRadius(px(165)); gg.setColors(new int[]{0x665CD1FF, 0x005CD1FF}); // radius = the glow view's half height, so no hard edge
         glow.setBackground(gg); glow.setAlpha(0f);
-        LayoutParams glp = new LayoutParams(px(560), px(340)); glp.leftMargin = -px(100); glp.topMargin = -px(70);
+        LayoutParams glp = new LayoutParams(px(560), px(330)); glp.leftMargin = -px(100); glp.topMargin = -px(64);
         wrap.addView(glow, glp);
         wrap.addView(thumb, new LayoutParams(px(360), px(203)));
         col.addView(wrap, new LinearLayout.LayoutParams(px(360), px(203)));
         String t1 = p != null ? p.getTitle() : OnboardingText.INSTANCE.category(lang, e.getCategory());
         TextView sub1 = tv(t1, 24, 400, Color.WHITE); sub1.setMaxWidth(px(360));
-        LinearLayout.LayoutParams s1 = new LinearLayout.LayoutParams(-2, -2); s1.topMargin = px(12);
+        LinearLayout.LayoutParams s1 = new LinearLayout.LayoutParams(-2, -2); s1.topMargin = px(8);
         col.addView(sub1, s1);
         String t2 = p != null ? I18n.get(lang, "tv.mh_left_min", Math.max(1, (p.getStop().getEpochSecond() - now.getEpochSecond()) / 60)) : I18n.get(lang, "tv.mh_live");
         TextView sub2 = tv(t2, 19, 500, 0x99FFFFFF);
-        LinearLayout.LayoutParams s2 = new LinearLayout.LayoutParams(-2, -2); s2.topMargin = px(12);
+        LinearLayout.LayoutParams s2 = new LinearLayout.LayoutParams(-2, -2); s2.topMargin = px(4);
         col.addView(sub2, s2);
         col.setOnFocusChangeListener((v, f) -> {
             col.setAlpha(f ? 1f : 0.72f);

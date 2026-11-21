@@ -113,6 +113,7 @@ final class Rekaman extends FrameLayout implements Sheet {
         if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU) return false;
         if (e.getAction() != KeyEvent.ACTION_DOWN) return true;
         View f = findFocus();
+        if (f == null) { if (list.getChildCount() > 0) list.getChildAt(0).requestFocus(); return true; }
         int dir = code == KeyEvent.KEYCODE_DPAD_UP ? View.FOCUS_UP : code == KeyEvent.KEYCODE_DPAD_DOWN ? View.FOCUS_DOWN
                 : code == KeyEvent.KEYCODE_DPAD_LEFT ? View.FOCUS_LEFT : code == KeyEvent.KEYCODE_DPAD_RIGHT ? View.FOCUS_RIGHT : 0;
         if (dir != 0 && f != null) { View n = f.focusSearch(dir); if (n != null) n.requestFocus(); return true; }

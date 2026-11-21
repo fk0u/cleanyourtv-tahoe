@@ -111,16 +111,16 @@ final class Pengaturan extends FrameLayout implements Sheet {
         for (int i = 0; i < 3; i++) {
             final String id = ids[i];
             boolean sel = id.equals(cur);
-            LinearLayout c = new LinearLayout(home); c.setOrientation(LinearLayout.VERTICAL); c.setGravity(Gravity.CENTER_HORIZONTAL);
+            LinearLayout c = new LinearLayout(home); c.setOrientation(LinearLayout.VERTICAL); c.setGravity(Gravity.CENTER);
             c.setPadding(px(8), px(28), px(8), px(28));
             TextView a = tv("Aa", aa[i], 600, sel ? 0xFF0D0F14 : 0xFFF7F8FA);
             TextView n = tv(I18n.get(lang, names[i]), 24, 400, sel ? 0xFF0D0F14 : 0xFFF7F8FA);
-            c.addView(a); LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(-2, -2); nl.topMargin = px(12); c.addView(n, nl);
+            LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(-2, -2); c.addView(a, al); LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(-2, -2); nl.topMargin = px(12); c.addView(n, nl);
             c.setBackground(card(sel, false));
             c.setFocusable(true); c.setFocusableInTouchMode(true); c.setClickable(true);
             c.setOnFocusChangeListener((v, f) -> c.setBackground(card(sel, f)));
             c.setOnClickListener(v -> { cfg.edit().putString("text_size", id).apply(); home.closeSheet(); home.recreate(); }); // text scale is read when screens are rebuilt
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1); if (i > 0) lp.setMarginStart(px(16));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, px(190), 1); if (i > 0) lp.setMarginStart(px(16)); // same height for all three
             cards.addView(c, lp);
         }
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-1, -2); cl.topMargin = px(20); panel.addView(cards, cl);
@@ -210,6 +210,7 @@ final class Pengaturan extends FrameLayout implements Sheet {
         if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU) return false; // Home closes the sheet
         if (e.getAction() != KeyEvent.ACTION_DOWN) return true;
         View f = findFocus();
+        if (f == null) { navItems[section].requestFocus(); return true; } // focus was lost (a row rebuilt): take it back
         int dir = code == KeyEvent.KEYCODE_DPAD_UP ? View.FOCUS_UP : code == KeyEvent.KEYCODE_DPAD_DOWN ? View.FOCUS_DOWN
                 : code == KeyEvent.KEYCODE_DPAD_LEFT ? View.FOCUS_LEFT : code == KeyEvent.KEYCODE_DPAD_RIGHT ? View.FOCUS_RIGHT : 0;
         if (dir != 0 && f != null) { View n = f.focusSearch(dir); if (n != null) n.requestFocus(); return true; }
