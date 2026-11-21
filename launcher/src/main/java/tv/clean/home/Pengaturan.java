@@ -97,7 +97,10 @@ final class Pengaturan extends FrameLayout implements Sheet {
                 linkRow(I18n.get(lang, "tv.cc_kids_profile"), "", () -> { home.closeSheet(); home.openSheet(new ParentalSheets.KidsSetup(home)); });
                 linkRow(I18n.get(lang, "recap.title"), "", () -> { home.closeSheet(); home.openSheet(new ParentalSheets.Recap(home)); });
                 break;
-            case 4: linkRow(I18n.get(lang, "tv.home_chip_connect_phone"), "", () -> { home.closeSheet(); home.openPair(); }); break;
+            case 4:
+                linkRow(I18n.get(lang, "tv.home_chip_connect_phone"), "", () -> { home.closeSheet(); home.openPair(); });
+                toggleRow(I18n.get(lang, "tv.st_tunnel"), I18n.get(lang, "tv.st_tunnel_sub"), "@tunnel", true);
+                break;
             default: linkRow(I18n.get(lang, "tv.cc_about"), About.version(home), () -> { home.closeSheet(); home.openSheet(new About(home)); });
         }
         styleNav();
@@ -140,7 +143,8 @@ final class Pengaturan extends FrameLayout implements Sheet {
 
     /** One row: title + caption on the left, a pill switch on the right. [key] null = simple mode. */
     private void toggleRow(String title, String sub, String key, boolean dflt) {
-        boolean on = key == null ? TvViewer.simpleMode(home) : cfg.getBoolean(key, dflt);
+        final boolean tunnel = "@tunnel".equals(key); // lives in the companion's own prefs, not the launcher's
+        boolean on = key == null ? TvViewer.simpleMode(home) : tunnel ? (home.companion == null || home.companion.tunnelOn()) : cfg.getBoolean(key, dflt);
         LinearLayout row = rowBase();
         LinearLayout text = new LinearLayout(home); text.setOrientation(LinearLayout.VERTICAL);
         text.addView(tv(title, 30, 600, 0xFFF7F8FA));
@@ -150,6 +154,7 @@ final class Pengaturan extends FrameLayout implements Sheet {
         row.addView(sw(on), new LinearLayout.LayoutParams(px(96), px(56)));
         row.setOnClickListener(v -> {
             if (key == null) { TvViewer.setSimpleMode(home, !on); home.applySimpleMode(); }
+            else if (tunnel) { if (home.companion != null) home.companion.setTunnelOn(!on); }
             else cfg.edit().putBoolean(key, !on).apply();
             int keepFocus = indexOfFocus();
             fill();
