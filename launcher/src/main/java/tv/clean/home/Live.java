@@ -297,6 +297,8 @@ public class Live extends Activity {
                 if (listOnly) return;
                 String guideUrl = cfg.getString("epg_url", "");
                 List<String> guides = new ArrayList<>();
+                String ottEpg = tech.kousozo.tahoetv.core.OttEngine.INSTANCE.getLastEpgUrl();
+                if (ottEpg != null && !ottEpg.isEmpty() && !guides.contains(ottEpg)) guides.add(ottEpg);
                 for (String cc : vw.getCountries()) for (String g : Region.guides(cc)) if (!guides.contains(g)) guides.add(g);
                 java.util.Set<String> channelNames = new java.util.HashSet<>();
                 if (currentChannels != null) for (LocalTv.Entry entry : currentChannels) {

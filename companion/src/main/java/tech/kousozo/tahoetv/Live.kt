@@ -1101,8 +1101,10 @@ object Channels {
             }
             SourceHealth.probeAll(SourceHealth.streamsOf(list))
             val channelFilter = list.flatMap { listOfNotNull(it.name, it.channel.tvgId) }.toSet()
+            val ottEpg = tech.kousozo.tahoetv.core.OttEngine.lastEpgUrl
+            val guides = (listOfNotNull(ottEpg) + viewer.countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }).distinct()
             val guide = runCatching {
-                Epg.loadPriority(viewer.countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct(), channelFilter)
+                Epg.loadPriority(guides, channelFilter)
             }.getOrNull()
             if (mine == generation) epg = guide
         } } finally { if (mine == generation) loading = false } // also when the screen leaves mid-load: the next one retries

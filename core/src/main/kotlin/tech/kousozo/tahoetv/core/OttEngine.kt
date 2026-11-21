@@ -16,6 +16,7 @@ import java.util.concurrent.Executors
 object OttEngine {
 
     const val DEFAULT_PRIMARY_OTT_URL = "https://plsemar.pages.dev"
+    const val DEFAULT_PRIMARY_EPG_URL = "https://raw.githubusercontent.com/AqFad2811/epg/refs/heads/main/indonesia.xml"
     const val DEFAULT_OTT_UA = "TiviMate/4.7.0"
 
     enum class ServerStatus {
@@ -46,7 +47,7 @@ object OttEngine {
         private set
 
     @Volatile
-    var lastEpgUrl: String? = null
+    var lastEpgUrl: String? = DEFAULT_PRIMARY_EPG_URL
         private set
 
     @Volatile
@@ -65,6 +66,7 @@ object OttEngine {
     fun resetDefault() {
         config = OttConfig()
         status = ServerStatus.STANDBY
+        lastEpgUrl = DEFAULT_PRIMARY_EPG_URL
     }
 
     /** Configures the primary OTT server URL, User-Agent, and optional request headers. */

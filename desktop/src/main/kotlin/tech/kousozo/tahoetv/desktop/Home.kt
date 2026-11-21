@@ -448,7 +448,9 @@ private fun FigmaHome(onLive: () -> Unit, weather: Web.Weather?, next: Pair<Stri
             val live = arranged.count { tech.kousozo.tahoetv.core.SourceHealth.status(it.channel.url)?.live != false }
             rows = top.map { OnAir(it, null) }
             counts = arranged.size to live
-            val urls = Settings.epg.ifBlank { null }?.let(::listOf) ?: viewer.countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct()
+            val ottEpg = tech.kousozo.tahoetv.core.OttEngine.lastEpgUrl
+            val defaultGuides = (listOfNotNull(ottEpg) + viewer.countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }).distinct()
+            val urls = Settings.epg.ifBlank { null }?.let(::listOf) ?: defaultGuides
             val epg = runCatching { tech.kousozo.tahoetv.core.Epg.loadPriority(urls, top.flatMap { listOfNotNull(it.name, it.channel.tvgId) }.toSet()) }.getOrNull()
             if (epg != null) {
                 val t = java.time.Instant.now()

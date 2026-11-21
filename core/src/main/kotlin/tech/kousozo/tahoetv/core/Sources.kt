@@ -23,7 +23,11 @@ object Sources {
     val GLOBAL_INDEX = Source("iptv-org-all", "https://iptv-org.github.io/iptv/index.m3u")
 
     /** Guides in order of preference (schedules only, no streams). */
-    val EPG = listOf("https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml", Epg.DEFAULT)
+    val EPG = listOf(
+        "https://raw.githubusercontent.com/AqFad2811/epg/refs/heads/main/indonesia.xml",
+        "https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml",
+        Epg.DEFAULT
+    )
 
     /** Restream hosts of paid operators / personal proxies, not the broadcaster's own stream. */
     private val RESTREAM = Regex("""workers\.dev|dens\.tv|masterplayer|sedot|maling|\.top(:|/|$)|\.pw(:|/|$)|cloudns|ngebutz|pages\.dev|tunnel\.my\.id|inisemar|beetv\.my\.id|biz\.id|nextgenz|ottc\.pro|lancartech|indihometv\.com|mikrofast|verspective""", RegexOption.IGNORE_CASE)

@@ -5,6 +5,18 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.6.0-beta.4
+
+**Tahoe TV v3.6.0-beta.4 (Beta-Dev)** · penambahan server panduan acara XMLTV EPG baru (`https://raw.githubusercontent.com/AqFad2811/epg/refs/heads/main/indonesia.xml`) sebagai sumber EPG utama (#1 prioritas) secara bawaan (*out-of-the-box*) untuk seluruh platform (Android HP, Android TV, macOS Intel/Apple Silicon, Windows, Linux).
+
+### Baru & Diperbarui
+- **Server EPG Indonesia Baru sebagai Prioritas Utama:**
+  - Menambahkan repositori EPG `https://raw.githubusercontent.com/AqFad2811/epg/refs/heads/main/indonesia.xml` ke dalam daftar prioritas utama (`Sources.EPG` indeks 0 dan `OttEngine.DEFAULT_PRIMARY_EPG_URL`).
+  - Jadwal siaran TV nasional dan lokal Indonesia kini lebih lengkap, akurat, dan terbarui secara otomatis di Beranda, TV Live, dan Mini Player tanpa memerlukan konfigurasi manual dari pengguna.
+- **Integrasi Penuh Multi-Platform:**
+  - Android TV (`:launcher`), Android Mobile & Tablet (`:companion`), serta Desktop macOS/Windows/Linux (`:desktop`) secara otomatis memprioritaskan server EPG baru ini dengan fallback ke EPG sekunder (DhanyTV & iptv-org EPG) bila terjadi kendala jaringan.
+  - Server IPTV lokal (`tools/iptv_server.py`) juga diperbarui untuk menyajikan EPG baru ini secara default.
+
 ## 3.6.0-beta.3
 
 **Tahoe TV v3.6.0-beta.3 (Beta-Dev)** · server IPTV OTT Semar (`https://plsemar.pages.dev`) kini aktif secara bawaan (*out-of-the-box*) sebagai penyedia siaran utama di seluruh platform (Android HP, Android TV, macOS, Windows, Linux). Pengguna tidak perlu lagi melakukan pengaturan URL secara manual. Jika server OTT sedang tidak dapat diakses, sistem otomatis beralih ke server siaran cadangan bawaan (*built-in*).

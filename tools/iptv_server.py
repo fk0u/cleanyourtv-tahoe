@@ -314,7 +314,7 @@ class IptvHandler(SimpleHTTPRequestHandler):
     channels = []
     by_id = {}
     sources = []
-    epg_url = "https://raw.githubusercontent.com/dhasap/dhanytv/main/epg.xml"
+    epg_url = "https://raw.githubusercontent.com/AqFad2811/epg/refs/heads/main/indonesia.xml"
     start_time = time.time()
     health = {}            # cid -> live | replay | stale | dead
     health_at = 0.0

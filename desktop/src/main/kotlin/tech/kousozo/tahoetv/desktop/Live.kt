@@ -88,7 +88,9 @@ fun LiveScreen() {
         epg = withContext(Dispatchers.IO) {
             runCatching {
                 val filter = channels?.flatMap { listOfNotNull(it.name, it.tvgId) }?.toSet()
-                val urls = epgUrl.ifBlank { null }?.let(::listOf) ?: countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }.distinct()
+                val ottEpg = tech.kousozo.tahoetv.core.OttEngine.lastEpgUrl
+                val defaultGuides = (listOfNotNull(ottEpg) + countries.flatMap { tech.kousozo.tahoetv.core.Region.guides(it) }).distinct()
+                val urls = epgUrl.ifBlank { null }?.let(::listOf) ?: defaultGuides
                 Epg.loadPriority(urls, filter) { partial -> scope.launch { epg = partial } }
             }.getOrNull()
         }
