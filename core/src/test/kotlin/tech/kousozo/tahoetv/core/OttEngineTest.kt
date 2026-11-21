@@ -156,31 +156,4 @@ class OttEngineTest {
         assertEquals(2, parsedViaGeneral.size)
         assertEquals("ANTV", parsedViaGeneral[0].name)
     }
-
-    @Test
-    fun livePlsemarFetchesSuccessfullyWithOttEngine() {
-        val reachable = runCatching {
-            val con = java.net.URI("https://plsemar.pages.dev").toURL().openConnection() as java.net.HttpURLConnection
-            con.connectTimeout = 3000
-            con.readTimeout = 3000
-            con.setRequestProperty("User-Agent", "TiviMate/4.7.0")
-            con.responseCode in 200..399
-        }.getOrDefault(false)
-
-        if (!reachable) {
-            // Sandboxed runner or datacenter IP blocked by Cloudflare WAF; skip live test in CI
-            return
-        }
-
-        OttEngine.setPrimaryServer("https://plsemar.pages.dev")
-        val channels = OttEngine.loadChannels()
-        if (channels.isNotEmpty()) {
-            assertEquals(OttEngine.ServerStatus.ONLINE, OttEngine.status)
-            assertNotNull("EPG URL should be extracted", OttEngine.lastEpgUrl)
-            val antv = channels.firstOrNull { it.name.contains("ANTV", ignoreCase = true) }
-            if (antv != null) {
-                assertTrue("ANTV should have DASH or custom headers", antv.isDash || antv.headers.isNotEmpty())
-            }
-        }
-    }
 }
