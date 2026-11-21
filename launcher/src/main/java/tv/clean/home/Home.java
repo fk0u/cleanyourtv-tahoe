@@ -230,7 +230,7 @@ public class Home extends Activity {
         hero = new Hero(this, W, Math.max(1, getResources().getInteger(R.integer.wallpaper_minutes)));
         root.addView(hero, new FrameLayout.LayoutParams(-1, -1));
         mediaHome = new MediaHome(this, W);
-        mediaHome.setVisibility(View.INVISIBLE); // shown only while the Media Center app is open
+        mediaHome.setVisibility(View.INVISIBLE); // shown only while the Tahoe Live app is open
         root.addView(mediaHome, new FrameLayout.LayoutParams(-1, -1));
 
         // Top bar: greeting left, chips + clock right.
@@ -717,7 +717,7 @@ public class Home extends Activity {
         if (hero == null) return;
         boolean wasBlocked = root.getDescendantFocusability() == ViewGroup.FOCUS_BLOCK_DESCENDANTS;
         updateFocusBlocking();
-        if (mediaHome != null) { // the launchpad (and the plain launcher) replace the Media Center home: cross-fade instead of a hard cut
+        if (mediaHome != null) { // the launchpad (and the plain launcher) replace the Tahoe Live home: cross-fade instead of a hard cut
             boolean want = mcOpen && row < 1;
             if (want != (mediaHome.getVisibility() == View.VISIBLE)) {
                 long d = Ui.dur(this, Ui.MED);
@@ -819,11 +819,11 @@ public class Home extends Activity {
     LiveStrip liveStrip;
     MediaHome mediaHome; // the Figma Home (tabs, hero copy, continue-watching cards); native D-pad focus
     boolean mediaOn() { return mc() && row < 1 && sheet == null && profiles == null; }
-    /** The Media Center app is open (the Figma home with tabs, hero and cards); otherwise this is the plain Tahoe launcher. */
+    /** The Tahoe Live app is open (the Figma home with tabs, hero and cards); otherwise this is the plain Tahoe launcher. */
     boolean mcOpen;
     boolean mc() { return mediaHome != null && mcOpen; }
 
-    /** The Tahoe launcher's own chrome (greeting, chips, hero text, dock); the Media Center home replaces it while open. */
+    /** The Tahoe launcher's own chrome (greeting, chips, hero text, dock); the Tahoe Live home replaces it while open. */
     private void launcherChrome(boolean show) {
         int v = show ? View.VISIBLE : View.GONE;
         greeting.setVisibility(v); ((View) chips.getParent()).setVisibility(v);
@@ -921,7 +921,7 @@ public class Home extends Activity {
                 if (sheet == null && profiles == null && !one.isEmpty()) hero.previewChannels(one); else hero.stopPreview();
                 return;
             }
-            hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_featured_badge"), "Media Center", sub);
+            hero.text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_featured_badge"), "Tahoe Live", sub);
             heroActionIcon.setImageResource(R.drawable.ic_play);
             String watchTxt = tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_watch_livetv");
             heroActionText.setText(watchTxt); heroAction.setContentDescription(watchTxt);
@@ -988,7 +988,7 @@ public class Home extends Activity {
                 launchedKidsAtMs = System.currentTimeMillis();
             }
         }
-        if (LiveTv.PKG.equals(a.pkg) && mediaHome != null) { openMediaCenter(); return; } // the Media Center app has its own home
+        if (LiveTv.PKG.equals(a.pkg) && mediaHome != null) { openMediaCenter(); return; } // the Tahoe Live app has its own home
         if (from == null || Ui.motion(this) == 0) { start(intent); return; }
         int[] xy = new int[2]; from.image.getLocationInWindow(xy);
         float sw = from.w * from.scale, sh = from.h * from.scale;

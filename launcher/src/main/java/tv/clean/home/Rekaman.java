@@ -19,7 +19,7 @@ import java.util.Date;
 import java.util.Locale;
 import tech.kousozo.tahoetv.core.I18n;
 
-/** TV "Rekaman" tab: the recordings made from Media Center (files in the app's recordings folder), newest first.
+/** TV "Rekaman" tab: the recordings made from Tahoe Live (files in the app's recordings folder), newest first.
  *  OK plays one in [RecordingPlayer]; each row has a Delete pill. Same look as the other Figma screens. */
 final class Rekaman extends FrameLayout implements Sheet {
     private final Home home;
