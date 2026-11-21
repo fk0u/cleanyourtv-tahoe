@@ -717,7 +717,16 @@ public class Home extends Activity {
         if (hero == null) return;
         boolean wasBlocked = root.getDescendantFocusability() == ViewGroup.FOCUS_BLOCK_DESCENDANTS;
         updateFocusBlocking();
-        if (mediaHome != null) mediaHome.setVisibility(row >= 1 ? View.INVISIBLE : View.VISIBLE); // the launchpad is a full screen of its own
+        if (mediaHome != null) { // the launchpad is a full screen of its own: cross-fade instead of a hard cut
+            boolean want = row < 1;
+            if (want != (mediaHome.getVisibility() == View.VISIBLE)) {
+                long d = Ui.dur(this, Ui.MED);
+                mediaHome.animate().cancel();
+                if (want) { mediaHome.setVisibility(View.VISIBLE); mediaHome.setAlpha(d > 0 ? 0f : 1f); if (d > 0) mediaHome.animate().alpha(1f).setDuration(d).start(); }
+                else if (d > 0) mediaHome.animate().alpha(0f).setDuration(d).withEndAction(() -> { if (row >= 1) mediaHome.setVisibility(View.INVISIBLE); }).start();
+                else mediaHome.setVisibility(View.INVISIBLE);
+            }
+        }
         if (mediaHome != null && row < 1 && wasBlocked && sheet == null && profiles == null) mediaHome.focusLast(); // back from the launchpad
         int ms = animate && Ui.motion(this) > 0 ? Ui.MED : 0;
         boolean inPad = row >= 1;
@@ -967,7 +976,7 @@ public class Home extends Activity {
     }
 
     void start(Intent i) {
-        try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception e) { toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_cannot_open")); }
+        try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); overridePendingTransition(R.anim.page_in, R.anim.page_hold); } catch (Exception e) { toast(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), "tv.home_cannot_open")); }
     }
 
     void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }

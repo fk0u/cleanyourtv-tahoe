@@ -4,5 +4,19 @@
     <style name="HomeTheme" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:windowShowWallpaper">false</item>
+        <item name="android:windowAnimationStyle">@style/PageAnim</item>
+    </style>
+    <!-- Cheap page transitions (alpha + a small scale only; no blur, no shared-element work) for 1 GB TVs. -->
+    <style name="PageAnim" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/page_in</item>
+        <item name="android:activityOpenExitAnimation">@anim/page_hold</item>
+        <item name="android:activityCloseEnterAnimation">@anim/page_back_in</item>
+        <item name="android:activityCloseExitAnimation">@anim/page_out</item>
+        <item name="android:taskOpenEnterAnimation">@anim/page_in</item>
+        <item name="android:taskOpenExitAnimation">@anim/page_hold</item>
+        <item name="android:taskToFrontEnterAnimation">@anim/page_in</item>
+        <item name="android:taskToFrontExitAnimation">@anim/page_hold</item>
+        <item name="android:taskToBackEnterAnimation">@anim/page_back_in</item>
+        <item name="android:taskToBackExitAnimation">@anim/page_out</item>
     </style>
 </resources>
