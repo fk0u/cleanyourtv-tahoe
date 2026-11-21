@@ -1,6 +1,7 @@
 package tv.clean.home;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
@@ -13,6 +14,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import tech.kousozo.tahoetv.core.I18n;
+import tech.kousozo.tahoetv.core.PlayPrefs;
 
 /** The Figma "TV / Pengaturan" screen: section list on the left, the section's panel on the right.
  *  Native D-pad focus inside the sheet (key() forwards the arrows to focusSearch). Display & text is the full design;
@@ -92,6 +94,8 @@ final class Pengaturan extends FrameLayout implements Sheet {
             case 2:
                 linkRow(I18n.get(lang, "ui.channel_languages"), "", () -> { home.closeSheet(); home.openSheet(new Sheets.ChannelLanguages(home)); });
                 toggleRow(I18n.get(lang, "tv.live_preview"), I18n.get(lang, "tv.live_preview_sub"), "live_preview", true);
+                playbackRows();
+                linkRow(I18n.get(lang, "tv.region_language"), "", () -> { home.closeSheet(); home.startActivity(new Intent(home, Onboarding.class)); });
                 break;
             case 3:
                 linkRow(I18n.get(lang, "tv.cc_kids_profile"), "", () -> { home.closeSheet(); home.openSheet(new ParentalSheets.KidsSetup(home)); });
@@ -100,8 +104,14 @@ final class Pengaturan extends FrameLayout implements Sheet {
             case 4:
                 linkRow(I18n.get(lang, "tv.home_chip_connect_phone"), "", () -> { home.closeSheet(); home.openPair(); });
                 toggleRow(I18n.get(lang, "tv.st_tunnel"), I18n.get(lang, "tv.st_tunnel_sub"), "@tunnel", true);
+                linkRow(I18n.get(lang, "tv.cc_assistant"), "", () -> { home.closeSheet(); home.openAssistant(); });
+                linkRow(I18n.get(lang, "tv.cc_smart_home"), "", () -> { home.closeSheet(); home.openSheet(new ConnectSheets.Devices(home)); });
                 break;
-            default: linkRow(I18n.get(lang, "tv.cc_about"), About.version(home), () -> { home.closeSheet(); home.openSheet(new About(home)); });
+            default:
+                linkRow(I18n.get(lang, "tv.cc_about"), About.version(home), () -> { home.closeSheet(); home.openSheet(new About(home)); });
+                linkRow(I18n.get(lang, "device.title"), "", () -> { home.closeSheet(); home.openSheet(new ConnectSheets.DeviceInfo(home)); });
+                linkRow(I18n.get(lang, "tv.cc_send_log"), I18n.get(lang, "tv.cc_send_log_sub"), () -> { home.closeSheet(); home.sendLog(); });
+                linkRow(I18n.get(lang, "tv.st_system"), I18n.get(lang, "tv.st_system_sub"), () -> home.start(new Intent(android.provider.Settings.ACTION_SETTINGS)));
         }
         styleNav();
     }
@@ -160,6 +170,23 @@ final class Pengaturan extends FrameLayout implements Sheet {
             fill();
             if (keepFocus >= 0 && keepFocus < panel.getChildCount()) panel.getChildAt(keepFocus).requestFocus();
         });
+    }
+
+    /** Video quality, stream latency and subtitle size: a row that steps to the next value on OK and shows the current one. */
+    private void playbackRows() {
+        SharedPreferences lp = home.getSharedPreferences("live", Context.MODE_PRIVATE);
+        PlayPrefs.Quality q = PlayPrefs.Quality.of(lp.getString("quality", null));
+        PlayPrefs.Latency lat = PlayPrefs.Latency.of(lp.getString("latency", null));
+        PlayPrefs.SubtitleSize sz = PlayPrefs.SubtitleSize.of(lp.getString("sub_size", null));
+        linkRow(I18n.get(lang, "tv.cc_video_quality"), q.label(lang), () -> { lp.edit().putString("quality", PlayPrefs.next(q, 1).getKey()).apply(); refill(); });
+        linkRow(I18n.get(lang, "tv.cc_stream_latency"), lat.label(lang), () -> { lp.edit().putString("latency", PlayPrefs.next(lat, 1).getKey()).apply(); refill(); });
+        linkRow(I18n.get(lang, "sub.size_label"), sz.label(lang), () -> { lp.edit().putString("sub_size", PlayPrefs.SubtitleSize.next(sz, 1).getKey()).apply(); refill(); });
+    }
+
+    private void refill() {
+        int keepFocus = indexOfFocus();
+        fill();
+        if (keepFocus >= 0 && keepFocus < panel.getChildCount()) panel.getChildAt(keepFocus).requestFocus();
     }
 
     private void linkRow(String title, String sub, Runnable go) {

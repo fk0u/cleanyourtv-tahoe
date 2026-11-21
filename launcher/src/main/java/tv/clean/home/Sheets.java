@@ -244,9 +244,21 @@ final class Sheets {
                 add(switchProfile.wide());
                 return;
             }
-            addQuickRows(h, lang);
-            addLiveAndDeviceRows(h, lang);
-            addFamilyAndSystemRows(h, lang, switchProfile);
+            addEssentials(h, lang, switchProfile);
+        }
+
+        /** The Control Center stays short: the things you reach for while watching. Everything else lives in Settings. */
+        private void addEssentials(Home h, String lang, Item switchProfile) {
+            add(new Item(R.drawable.ic_wifi, I18n.get(lang, "tv.cc_wifi"), ssid(h), () -> h.start(new Intent(Settings.ACTION_WIFI_SETTINGS))),
+                new Item(R.drawable.ic_bluetooth, I18n.get(lang, "tv.cc_bluetooth"),
+                        I18n.get(lang, "tv.cc_bluetooth_sub"), () -> h.start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
+            int left = h.sleepLeft();
+            add(new Item(R.drawable.ic_moon, I18n.get(lang, "tv.cc_sleep_timer"),
+                    (left == 0 ? I18n.get(lang, "tv.cc_off") : I18n.get(lang, "tv.cc_min_left", String.valueOf(left))) + "  ·  ◀ ▶",
+                    () -> h.stepSleep(1)).adjust(h::stepSleep),
+                switchProfile);
+            add(new Item(R.drawable.ic_settings, I18n.get(lang, "tv.cc_all_settings"), I18n.get(lang, "tv.cc_all_settings_sub"),
+                    () -> { h.closeSheet(); h.openSheet(new Pengaturan(h)); }).wide());
         }
 
         private void addProfileHeader(Home h, String lang) {
@@ -271,110 +283,6 @@ final class Sheets {
                         I18n.get(lang, "tv.cc_on_phone", h.phoneMedia.optString("artist")), () -> {
                     h.phoneMediaCommand(playing ? "pause" : "play");
                 }).wide().on(playing).adjust(dir -> h.phoneMediaCommand(dir > 0 ? "next" : "prev")));
-            }
-        }
-
-        private void addQuickRows(Home h, String lang) {
-            add(new Item(R.drawable.ic_wifi, I18n.get(lang, "tv.cc_wifi"), ssid(h), () -> h.start(new Intent(Settings.ACTION_WIFI_SETTINGS))),
-                new Item(R.drawable.ic_bluetooth, I18n.get(lang, "tv.cc_bluetooth"),
-                        I18n.get(lang, "tv.cc_bluetooth_sub"), () -> h.start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))));
-            WallpaperProvider.Theme theme = WallpaperProvider.Theme.fromKey(h.prefs.getString("wall_theme", "nature"));
-            boolean personal = Hero.wallMode(h).equals("personal");
-            add(new Item(R.drawable.ic_image, I18n.get(lang, "tv.cc_wallpaper"),
-                    (h.guest() ? I18n.get(lang, "tv.cc_default_guest")
-                            : I18n.get(lang, personal ? "tv.cc_personal" : "tv.cc_default") + " · " + I18n.get(lang, "wall.theme_" + theme.getKey())) + "  ·  ◀ ▶",
-                    () -> h.hero.nextWall())
-                    .adjust(dir -> {
-                        if (h.guest()) return;
-                        h.prefs.edit().putString("wall_mode", Hero.wallMode(h).equals("personal") ? "default" : "personal").apply();
-                        h.hero.refreshWallpaperSettings();
-                    }),
-                new Item(R.drawable.ic_cloud_sun, I18n.get(lang, "tv.home_chip_weather"),
-                        I18n.get(lang, "tv.cc_hourly_daily"), () -> { h.closeSheet(); h.openWeather(); }));
-            add(new Item(R.drawable.ic_moon_star, I18n.get(lang, "tv.cc_prayer"),
-                    I18n.get(lang, "tv.cc_prayer_sub"), () -> { h.closeSheet(); h.openPrayer(); }),
-                new Item(R.drawable.ic_sparkles, I18n.get(lang, "tv.cc_assistant"),
-                        Assistant.enabled() ? "Gemini" : I18n.get(lang, "tv.cc_unset"), () -> { h.closeSheet(); h.openAssistant(); }));
-            add(new Item(R.drawable.ic_house, I18n.get(lang, "tv.cc_smart_home"),
-                    HomeControl.enabled() ? "Home Assistant" : "Hey Google", () -> { h.closeSheet(); h.openSheet(new ConnectSheets.Devices(h)); }),
-                new Item(R.drawable.ic_smartphone, I18n.get(lang, "tv.cc_phone_lbl"),
-                        h.companion == null || h.companion.pairedCount() == 0
-                                ? I18n.get(lang, "tv.cc_pairing")
-                                : I18n.get(lang, "tv.cc_phones_cnt", String.valueOf(h.companion.pairedCount())),
-                        () -> { h.closeSheet(); h.openPair(); }),
-                new Item(R.drawable.ic_settings, I18n.get(lang, "tv.cc_settings"),
-                        I18n.get(lang, "tv.cc_system"), () -> h.start(new Intent(Settings.ACTION_SETTINGS))));
-        }
-
-        private void addLiveAndDeviceRows(Home h, String lang) {
-            SharedPreferences lp = h.getSharedPreferences("live", Context.MODE_PRIVATE);
-            PlayPrefs.Quality q = PlayPrefs.Quality.of(lp.getString("quality", null));
-            PlayPrefs.Latency lat = PlayPrefs.Latency.of(lp.getString("latency", null));
-            add(new Item(R.drawable.ic_tv, I18n.get(lang, "tv.cc_video_quality"), q.label(lang) + "  ·  ◀ ▶", null)
-                    .adjust(dir -> lp.edit().putString("quality", PlayPrefs.next(q, dir).getKey()).apply()),
-                new Item(R.drawable.ic_clock, I18n.get(lang, "tv.cc_stream_latency"), lat.label(lang) + "  ·  ◀ ▶", null)
-                    .adjust(dir -> lp.edit().putString("latency", PlayPrefs.next(lat, dir).getKey()).apply()));
-            PlayPrefs.SubtitleSize subSz = PlayPrefs.SubtitleSize.of(lp.getString("sub_size", null));
-            DeviceProfile.Profile devProf = DeviceProfiler.current(h);
-            add(new Item(R.drawable.ic_tv, I18n.get(lang, "sub.size_label"), subSz.label(lang) + "  ·  ◀ ▶", null)
-                    .adjust(dir -> lp.edit().putString("sub_size", PlayPrefs.SubtitleSize.next(subSz, dir).getKey()).apply()),
-                new Item(R.drawable.ic_info, I18n.get(lang, "device.title"),
-                    (devProf.getManualOverride() == null
-                            ? I18n.get(lang, "device.tier_auto", devProf.getActiveTier().label(lang))
-                            : devProf.getActiveTier().label(lang)) + " · " + devProf.getSpecs().getRamMb() + " MB",
-                    () -> { h.closeSheet(); h.openSheet(new ConnectSheets.DeviceInfo(h)); }));
-        }
-
-        private void addFamilyAndSystemRows(Home h, String lang, Item switchProfile) {
-            int left = h.sleepLeft();
-            add(new Item(R.drawable.ic_moon, I18n.get(lang, "tv.cc_sleep_timer"),
-                    (left == 0 ? I18n.get(lang, "tv.cc_off") : I18n.get(lang, "tv.cc_min_left", String.valueOf(left))) + "  ·  ◀ ▶",
-                    () -> h.stepSleep(1)).adjust(h::stepSleep),
-                new Item(R.drawable.ic_info, I18n.get(lang, "tv.cc_about"),
-                        I18n.get(lang, "tv.cc_about_sub", About.version(h)), () -> { h.closeSheet(); h.openSheet(new About(h)); }));
-            Viewer vw = TvViewer.get(h);
-            add(new Item(R.drawable.ic_settings, I18n.get(lang, "tv.region_language"), vw.getDone()
-                    ? tech.kousozo.tahoetv.core.Region.flag(vw.getCountry()) + " " + tech.kousozo.tahoetv.core.OnboardingText.INSTANCE.getLANGUAGE_NAMES().get(vw.getLanguage())
-                    : I18n.get(lang, "tv.cc_region_sub"), () -> { h.closeSheet(); h.startActivity(new Intent(h, Onboarding.class)); }),
-                new Item(R.drawable.ic_smartphone, I18n.get(lang, "tv.cc_send_log"),
-                        I18n.get(lang, "tv.cc_send_log_sub"), () -> { h.closeSheet(); h.sendLog(); }));
-            add(new Item(R.drawable.ic_tv, I18n.get(lang, "ui.channel_languages"),
-                    vw.getChannelLanguages().isEmpty() ? I18n.get(lang, "common.off") : String.join(", ", vw.getChannelLanguages()),
-                    () -> { h.closeSheet(); h.openSheet(new ChannelLanguages(h)); }).wide());
-            WatchRecap.Summary recap = WatchRecap.summarize(new File(h.getFilesDir(), "recap"), h.prefs.getString("profile", "main"), WatchRecap.currentMonth(), lang);
-            add(new Item(R.drawable.ic_tv, I18n.get(lang, "recap.title"),
-                    recap.getTotalHoursDecimal(), () -> { h.closeSheet(); h.openSheet(new ParentalSheets.Recap(h)); }).wide());
-            if (h.guest()) add(switchProfile.wide());
-            else add(switchProfile, new Item(R.drawable.ic_lock, I18n.get(lang, "tv.cc_kids_profile"),
-                    Kids.hasPin(h) ? I18n.get(lang, "tv.cc_kids_sub") : I18n.get(lang, "tv.cc_unset"),
-                    () -> { h.closeSheet(); h.openSheet(new ParentalSheets.KidsSetup(h)); }));
-            boolean simple = TvViewer.simpleMode(h);
-            add(new Item(R.drawable.ic_layout_grid, I18n.get(lang, "tv.cc_simple_mode"),
-                    I18n.get(lang, simple ? "tv.cc_simple_on" : "tv.cc_simple_off"), () -> {
-                TvViewer.setSimpleMode(h, !simple);
-                h.applySimpleMode();
-                rebuild();
-            }).wide().on(simple));
-            android.content.SharedPreferences cfg = Cfg.p(h);
-            boolean hc = cfg.getBoolean("high_contrast", false), rm = cfg.getBoolean("reduce_motion", false), cs = cfg.getBoolean("click_sound", false);
-            add(new Item(R.drawable.ic_layout_grid, I18n.get(lang, "ui.high_contrast"), I18n.get(lang, hc ? "common.on" : "common.off"),
-                    () -> { cfg.edit().putBoolean("high_contrast", !hc).apply(); rebuild(); }).on(hc),
-                new Item(R.drawable.ic_layout_grid, I18n.get(lang, "ui.reduce_motion"), I18n.get(lang, "tv.reduce_motion_sub"),
-                    () -> { cfg.edit().putBoolean("reduce_motion", !rm).apply(); rebuild(); }).on(rm));
-            add(new Item(R.drawable.ic_layout_grid, I18n.get(lang, "tv.click_sound"), I18n.get(lang, cs ? "common.on" : "common.off"),
-                    () -> { cfg.edit().putBoolean("click_sound", !cs).apply(); rebuild(); }).on(cs),
-                new Item(R.drawable.ic_tv, I18n.get(lang, "tv.live_preview"), I18n.get(lang, "tv.live_preview_sub"),
-                    () -> { cfg.edit().putBoolean("live_preview", !cfg.getBoolean("live_preview", true)).apply(); rebuild(); }).on(cfg.getBoolean("live_preview", true)));
-            // text size (#181): Normal → Besar → Sangat besar; applies as screens are rebuilt
-            String ts = cfg.getString("text_size", "normal");
-            String tsLabel = I18n.get(lang, "large".equals(ts) ? "tv.text_large" : "xlarge".equals(ts) ? "tv.text_xlarge" : "tv.text_normal");
-            add(new Item(R.drawable.ic_layout_grid, I18n.get(lang, "tv.text_size"), tsLabel + "  ·  ◀ ▶",
-                    () -> { cfg.edit().putString("text_size", "normal".equals(ts) ? "large" : "large".equals(ts) ? "xlarge" : "normal").apply(); h.recreate(); })
-                    .adjust(dir -> { String[] o = {"normal", "large", "xlarge"}; int i = java.util.Arrays.asList(o).indexOf(ts);
-                        cfg.edit().putString("text_size", o[Math.max(0, Math.min(2, i + dir))]).apply(); h.recreate(); }).wide());
-            if (BuildConfig.STANDALONE_MODE) {
-                add(new Item(R.drawable.ic_tv, I18n.get(lang, "tv.standalone_title"),
-                        I18n.get(lang, "tv.standalone_guide"), null).wide());
             }
         }
 

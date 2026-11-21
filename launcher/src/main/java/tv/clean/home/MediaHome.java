@@ -68,9 +68,10 @@ final class MediaHome extends FrameLayout {
         // ---- top bar (x112 y56 w1696 h64)
         LinearLayout bar = new LinearLayout(c); bar.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout brand = new LinearLayout(c); brand.setGravity(Gravity.CENTER_VERTICAL);
-        View logo = new View(c);
-        GradientDrawable lg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xFF1F3BD1, 0xFF63D1FF});
-        lg.setCornerRadius(px(16)); logo.setBackground(lg);
+        android.widget.ImageView logo = new android.widget.ImageView(c);
+        logo.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        logo.setImageResource(R.drawable.tahoe_live_logo);
+        Ui.clip(logo, px(16));
         brand.addView(logo, new LinearLayout.LayoutParams(px(60), px(60)));
         greeting = tv("", 36, 700, Color.WHITE); greeting.setPadding(px(16), 0, 0, 0); greeting.setSingleLine(true);
         greeting.setMinWidth(px(250));

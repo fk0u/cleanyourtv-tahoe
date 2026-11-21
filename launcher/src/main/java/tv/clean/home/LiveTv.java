@@ -1573,20 +1573,11 @@ public class LiveTv extends Activity {
 
     static final String PKG = "tv.clean.home.livetv"; // pseudo package: the dock/grid identify apps by package
 
-    /** 16:9 banner for the built-in app: deep blue → red glass with a TV glyph and "Tahoe Live". */
+    /** The Tahoe Live banner (artwork in res/drawable-nodpi), decoded once at tile size. */
     static Drawable banner(Context c) {
-        Bitmap bm = Bitmap.createBitmap(320, 180, Bitmap.Config.ARGB_8888);
-        Canvas cv = new Canvas(bm);
-        Paint bg = new Paint();
-        bg.setShader(new LinearGradient(0, 0, 320, 180, new int[]{0xFF1A2A80, 0xFF6A1B9A, 0xFFE53935}, null, Shader.TileMode.CLAMP));
-        cv.drawRect(0, 0, 320, 180, bg);
-        Paint s = new Paint(Paint.ANTI_ALIAS_FLAG); s.setStyle(Paint.Style.STROKE); s.setStrokeWidth(7); s.setColor(Color.WHITE);
-        s.setStrokeCap(Paint.Cap.ROUND); s.setStrokeJoin(Paint.Join.ROUND);
-        cv.drawRoundRect(new RectF(126, 44, 194, 96), 9, 9, s);
-        cv.drawLine(144, 30, 160, 44, s); cv.drawLine(176, 30, 160, 44, s);
-        Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG); dot.setColor(0xFFFF5252); cv.drawCircle(184, 54, 6, dot);
-        Paint tp = new Paint(Paint.ANTI_ALIAS_FLAG); tp.setColor(Color.WHITE); tp.setTextSize(30); tp.setTypeface(Ui.font(c, 700)); tp.setTextAlign(Paint.Align.CENTER);
-        cv.drawText("Tahoe Live", 160, 140, tp);
+        android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+        o.inSampleSize = 1; // 960 px wide already: no more than a 1080p tile ever needs
+        Bitmap bm = android.graphics.BitmapFactory.decodeResource(c.getResources(), R.drawable.tahoe_live_banner, o);
         return new BitmapDrawable(c.getResources(), bm);
     }
 }
