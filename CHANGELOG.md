@@ -5,6 +5,10 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.6.0-beta.1
+
+**Tahoe TV v3.6.0-beta.1 (Beta-Dev)** · rilis beta pengembang Redesign 4.0 & Sistem IPTV OTT Engine (`OttEngine`) dengan prioritas server utama dan failover otomatis ke server cadangan. Belum untuk pemakaian sehari-hari; laporkan masalah lewat Profil → Laporkan masalah.
+
 ### Baru
 - **Sistem IPTV OTT Provider & Failover Otomatis (`OttEngine`).** Dukungan server IPTV/OTT eksternal (termasuk server berorientasi OTT Navigator dan header spesifik) sebagai server siaran utama dengan mekanisme failover cerdas:
   - **Prioritas Server Utama & Auto-Fallback:** Aplikasi secara otomatis memprioritaskan server OTT utama yang dikonfigurasi. Bila server utama sedang tidak dapat diakses, offline, atau kosong, sistem secara mulus beralih (*fallback*) ke saluran cadangan bawaan (*built-in*) tanpa menghentikan pengalaman menonton.
