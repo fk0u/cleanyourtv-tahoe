@@ -255,10 +255,17 @@ object Images {
         }
     }
 
+    /** Survives restarts: a relaunch shows logos and thumbnails at once instead of fetching them again. */
+    private val disk by lazy { tech.kousozo.tahoetv.core.DiskCache(java.io.File(System.getProperty("user.home"), ".tahoetv/img-cache"), 64L * 1024 * 1024) }
+
     suspend fun load(url: String): ImageBitmap? = getCached(url) ?: withContext(Dispatchers.IO) {
         runCatching {
-            val c = java.net.URI(url).toURL().openConnection().apply { connectTimeout = 6000; readTimeout = 10000; setRequestProperty("User-Agent", "TahoeTV") }
-            val bytes = try { c.getInputStream().use { it.readBytes() } } finally { (c as? java.net.HttpURLConnection)?.disconnect() }
+            val bytes = disk.get(url) ?: run {
+                val c = java.net.URI(url).toURL().openConnection().apply { connectTimeout = 6000; readTimeout = 10000; setRequestProperty("User-Agent", "TahoeTV") }
+                val b = try { c.getInputStream().use { it.readBytes() } } finally { (c as? java.net.HttpURLConnection)?.disconnect() }
+                val img = org.jetbrains.skia.Image.makeFromEncoded(b) // only keep what decodes
+                img.close(); disk.put(url, b); b
+            }
             org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap()
         }.getOrNull()?.also { putCached(url, it) }
     }
