@@ -1,3 +1,4 @@
+import { createTunnel } from "./tunnel.mjs";
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { URL } from "node:url";
@@ -336,6 +337,10 @@ export function createTahoeServer({
   }, 25_000);
   keepalive.unref();
 
+  const tunnel = createTunnel();
+  const tunnelPing = setInterval(() => tunnel.ping(), 25_000);
+  tunnelPing.unref();
+
   const server = http.createServer(async (req, res) => {
     const cors = corsHeaders(req);
     if (req.method === "OPTIONS") {
@@ -539,6 +544,17 @@ export function createTahoeServer({
           sseClients.delete(client);
         });
         return;
+      }
+
+      // ------------------------------------------------------------- Tunnel relay (opaque, end-to-end encrypted frames)
+      if (method === "GET" && path === "/api/tunnel/stream") {
+        return tunnel.attach(u.searchParams.get("room"), u.searchParams.get("role"), req, res, cors);
+      }
+      if (method === "POST" && path === "/api/tunnel/send") {
+        const chunks = []; let size = 0;
+        for await (const c of req) { size += c.length; if (size > 32 * 1024) return sendJson(res, 413, { error: "too large" }, cors); chunks.push(c); }
+        const r = tunnel.send(u.searchParams.get("room"), u.searchParams.get("role"), Buffer.concat(chunks).toString("utf8"));
+        return sendJson(res, r.status, { delivered: r.delivered || 0 }, cors);
       }
 
       // ------------------------------------------------------------- Admin Authentication
@@ -772,6 +788,7 @@ export function createTahoeServer({
   });
 
   server.closeAll = () => {
+    tunnel.closeAll(); clearInterval(tunnelPing);
     clearInterval(keepalive);
     for (const c of sseClients) {
       try {

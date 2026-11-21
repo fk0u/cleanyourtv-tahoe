@@ -219,3 +219,34 @@ test("web player only gets plain https HLS streams, never DRM, DASH, http or blo
   assert.equal(withPlayableStream(items[0], ["other.org"]).stream, "https://cdn.example/open/index.m3u8");
   assert.equal(withPlayableStream({ name: "x", drm: true, stream: "https://a.example/x.m3u8" }).stream, "");
 });
+
+test("tunnel relays opaque frames between a tv and its controller, rejects bad rooms, never stores", async () => {
+  const srv = await startTestServer();
+  const room = "a".repeat(64);
+  const ac = new AbortController();
+  try {
+    const got = [];
+    const res = await fetch(`${srv.base}/api/tunnel/stream?room=${room}&role=ctl`, { signal: ac.signal });
+    assert.equal(res.status, 200);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    const pump = (async () => { try { for (;;) { const { value, done } = await reader.read(); if (done) break; buf += dec.decode(value); } } catch {} })();
+    await new Promise((r) => setTimeout(r, 100));
+    const ok = await fetch(`${srv.base}/api/tunnel/send?room=${room}&role=tv`, { method: "POST", body: "ciphertext-1" });
+    assert.equal(ok.status, 200);
+    assert.equal((await ok.json()).delivered, 1);
+    await new Promise((r) => setTimeout(r, 100));
+    assert.match(buf, /data: ciphertext-1/);
+    // nobody on the tv side: accepted but not delivered
+    const none = await fetch(`${srv.base}/api/tunnel/send?room=${room}&role=ctl`, { method: "POST", body: "x" });
+    assert.equal(none.status, 202);
+    // bad room id and oversize frames are refused
+    assert.equal((await fetch(`${srv.base}/api/tunnel/stream?room=nope&role=tv`)).status, 400);
+    assert.equal((await fetch(`${srv.base}/api/tunnel/send?room=${room}&role=tv`, { method: "POST", body: "z".repeat(20000) })).status, 413);
+    void got; void pump;
+  } finally {
+    ac.abort();
+    await srv.close();
+  }
+});
