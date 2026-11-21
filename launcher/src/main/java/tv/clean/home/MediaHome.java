@@ -92,7 +92,7 @@ final class MediaHome extends FrameLayout {
         prayerTxt = chip(right, R.drawable.ic_moon_star, "", () -> home.openPrayer());
         chip(right, R.drawable.ic_search_cari, null, () -> home.openSheet(new Cari(home)));
         chip(right, R.drawable.ic_settings, null, () -> home.openSheet(new Pengaturan(home)));
-        clock = tv("", 68, 800, Color.WHITE); clock.setPadding(px(16), 0, 0, 0); clock.setIncludeFontPadding(false); clock.setLetterSpacing(-0.02f);
+        clock = tv("", 46, 700, Color.WHITE); clock.setPadding(px(22), 0, 0, 0); clock.setIncludeFontPadding(false); clock.setLetterSpacing(0f);
         right.addView(clock);
         bar.addView(right);
         LayoutParams bl = new LayoutParams(px(1696), px(92)); bl.leftMargin = px(112); bl.topMargin = px(48);
@@ -323,15 +323,16 @@ final class MediaHome extends FrameLayout {
 
     private TextView chip(LinearLayout parent, int icon, String text, Runnable action) {
         LinearLayout c = new LinearLayout(home); c.setGravity(Gravity.CENTER_VERTICAL);
-        c.setPadding(px(16), px(13), px(16), px(13));
-        c.setBackground(pill(0x1AFFFFFF, 0, 0));
+        final int rest = text == null ? 0x1AFFFFFF : 0; // info chips sit flat, only the round buttons have a fill
+        c.setPadding(px(text == null ? 15 : 14), px(15), px(text == null ? 15 : 14), px(15));
+        c.setBackground(pill(rest, 0, 0));
         c.setFocusable(true); c.setClickable(true);
         c.setOnClickListener(v -> action.run());
-        c.setOnFocusChangeListener((v, f) -> c.setBackground(pill(f ? 0x40FFFFFF : 0x1AFFFFFF, f ? 0xFFFFFFFF : 0, f ? px(3) : 0)));
+        c.setOnFocusChangeListener((v, f) -> c.setBackground(pill(f ? 0x40FFFFFF : rest, f ? 0xFFFFFFFF : 0, f ? px(3) : 0)));
         ImageView i = Ui.icon(home, icon, 20, Color.WHITE);
         c.addView(i, new LinearLayout.LayoutParams(px(26), px(26)));
         TextView t = null;
-        if (text != null) { t = tv(text, 22, 500, Color.WHITE); t.setPadding(px(10), 0, 0, 0); c.addView(t); }
+        if (text != null) { t = tv(text, 22, 500, 0xE6FFFFFF); t.setPadding(px(8), 0, 0, 0); c.addView(t); }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); if (parent.getChildCount() > 0) lp.setMarginStart(px(10));
         parent.addView(c, lp);
         return t == null ? new TextView(home) : t;
