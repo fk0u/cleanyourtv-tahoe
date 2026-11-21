@@ -230,7 +230,7 @@ public class Home extends Activity {
         hero = new Hero(this, W, Math.max(1, getResources().getInteger(R.integer.wallpaper_minutes)));
         root.addView(hero, new FrameLayout.LayoutParams(-1, -1));
         mediaHome = new MediaHome(this, W);
-        hero.setScrims(false);
+        mediaHome.setVisibility(View.INVISIBLE); // shown only while the Media Center app is open
         root.addView(mediaHome, new FrameLayout.LayoutParams(-1, -1));
 
         // Top bar: greeting left, chips + clock right.
@@ -305,8 +305,6 @@ public class Home extends Activity {
 
         showProfiles(); // boot: "Siapa yang menonton?"
         buildChips();
-        greeting.setVisibility(View.GONE); ((View) chips.getParent()).setVisibility(View.GONE);
-        hero.block.setVisibility(View.GONE); dockLayer.setVisibility(View.GONE); // the Figma Home replaces greeting, chips, hero text and dock
         tick();
         updateFocusBlocking();
     }
@@ -342,7 +340,7 @@ public class Home extends Activity {
         pendingCenterKey = false;
         updateFocusBlocking();
         row = 0; tick(); buildChips(); loadApps(); hero.refreshWallpaperSettings(); render(false);
-        if (mediaHome != null) { mediaHome.refresh(); mediaHome.focusFirst(); }
+        if (mc()) { mediaHome.refresh(); mediaHome.focusFirst(); }
     }
 
     /** New PIN for the kids profile: type it, type it again. */
@@ -718,17 +716,17 @@ public class Home extends Activity {
         if (hero == null) return;
         boolean wasBlocked = root.getDescendantFocusability() == ViewGroup.FOCUS_BLOCK_DESCENDANTS;
         updateFocusBlocking();
-        if (mediaHome != null) { // the launchpad is a full screen of its own: cross-fade instead of a hard cut
-            boolean want = row < 1;
+        if (mediaHome != null) { // the launchpad (and the plain launcher) replace the Media Center home: cross-fade instead of a hard cut
+            boolean want = mcOpen && row < 1;
             if (want != (mediaHome.getVisibility() == View.VISIBLE)) {
                 long d = Ui.dur(this, Ui.MED);
                 mediaHome.animate().cancel();
                 if (want) { mediaHome.setVisibility(View.VISIBLE); mediaHome.setAlpha(d > 0 ? 0f : 1f); if (d > 0) mediaHome.animate().alpha(1f).setDuration(d).start(); }
-                else if (d > 0) mediaHome.animate().alpha(0f).setDuration(d).withEndAction(() -> { if (row >= 1) mediaHome.setVisibility(View.INVISIBLE); }).start();
+                else if (d > 0) mediaHome.animate().alpha(0f).setDuration(d).withEndAction(() -> { if (!(mcOpen && row < 1)) mediaHome.setVisibility(View.INVISIBLE); }).start();
                 else mediaHome.setVisibility(View.INVISIBLE);
             }
         }
-        if (mediaHome != null && row < 1 && wasBlocked && sheet == null && profiles == null) mediaHome.focusLast(); // back from the launchpad
+        if (mc() && row < 1 && wasBlocked && sheet == null && profiles == null) mediaHome.focusLast(); // back from the launchpad
         int ms = animate && Ui.motion(this) > 0 ? Ui.MED : 0;
         boolean inPad = row >= 1;
 
@@ -819,7 +817,39 @@ public class Home extends Activity {
 
     LiveStrip liveStrip;
     MediaHome mediaHome; // the Figma Home (tabs, hero copy, continue-watching cards); native D-pad focus
-    boolean mediaOn() { return mediaHome != null && row < 1 && sheet == null && profiles == null; }
+    boolean mediaOn() { return mc() && row < 1 && sheet == null && profiles == null; }
+    /** The Media Center app is open (the Figma home with tabs, hero and cards); otherwise this is the plain Tahoe launcher. */
+    boolean mcOpen;
+    boolean mc() { return mediaHome != null && mcOpen; }
+
+    /** The Tahoe launcher's own chrome (greeting, chips, hero text, dock); the Media Center home replaces it while open. */
+    private void launcherChrome(boolean show) {
+        int v = show ? View.VISIBLE : View.GONE;
+        greeting.setVisibility(v); ((View) chips.getParent()).setVisibility(v);
+        hero.block.setVisibility(v); dockLayer.setVisibility(v);
+        if (!show && liveStrip != null) liveStrip.hide();
+    }
+
+    void openMediaCenter() {
+        if (mediaHome == null || mcOpen) return;
+        if (hero != null) { hero.stopPreview(); hero.setScrims(false); hero.context(null); }
+        launcherChrome(false);
+        mcOpen = true;
+        updateFocusBlocking();
+        mediaHome.refresh();
+        render(false);
+        mediaHome.focusFirst();
+    }
+
+    void closeMediaCenter() {
+        if (!mcOpen) return;
+        mcOpen = false;
+        if (hero != null) { hero.stopPreview(); hero.setScrims(true); }
+        launcherChrome(true);
+        updateFocusBlocking();
+        View f = getCurrentFocus(); if (f != null) f.clearFocus();
+        render(false);
+    }
     int ms0() { return Ui.motion(this) > 0 ? Ui.MED : 0; }
     /** Focus row of the "on now" shelf: sits between the hero button (-1) and the dock (0) but outside DockGrid's numbering. */
     static final int STRIP = -10;
@@ -835,7 +865,7 @@ public class Home extends Activity {
 
     void renderHero() {
         if (hero == null) return;
-        if (mediaHome != null && row < 1) return; // the Figma Home drives the hero
+        if (mc() && row < 1) return; // the Figma Home drives the hero
         ui.removeCallbacks(trendTick);
         App a = row == 0 ? focusedApp() : (row == -1 || row == STRIP) && !dock.isEmpty() ? dock.get(Math.min(lastDockCol, dock.size() - 1)) : null;
         heroAction.setVisibility(a == null ? View.GONE : View.VISIBLE);
@@ -957,6 +987,7 @@ public class Home extends Activity {
                 launchedKidsAtMs = System.currentTimeMillis();
             }
         }
+        if (LiveTv.PKG.equals(a.pkg) && mediaHome != null) { openMediaCenter(); return; } // the Media Center app has its own home
         if (from == null || Ui.motion(this) == 0) { start(intent); return; }
         int[] xy = new int[2]; from.image.getLocationInWindow(xy);
         float sw = from.w * from.scale, sh = from.h * from.scale;
@@ -986,10 +1017,10 @@ public class Home extends Activity {
 
     void updateFocusBlocking() {
         if (root == null) return;
-        boolean homeOwnsFocus = sheet == null && profiles == null && !(mediaHome != null && row < 1);
+        boolean homeOwnsFocus = sheet == null && profiles == null && !(mc() && row < 1);
         root.setDescendantFocusability(homeOwnsFocus ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
         // the Figma Home underneath must never take focus back (a sheet rebuilding a row used to hand it over)
-        if (mediaHome != null) mediaHome.setDescendantFocusability(sheet == null && profiles == null && row < 1 ? ViewGroup.FOCUS_AFTER_DESCENDANTS : ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        if (mediaHome != null) mediaHome.setDescendantFocusability(mc() && sheet == null && profiles == null && row < 1 ? ViewGroup.FOCUS_AFTER_DESCENDANTS : ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         if (homeOwnsFocus) root.clearFocus();
     }
 
@@ -1016,7 +1047,7 @@ public class Home extends Activity {
         sheetView = null; sheet = null;
         updateFocusBlocking();
         s.onClose();
-        if (mediaHome != null && row < 1 && profiles == null) mediaHome.focusLast(); // back to the card or tab that opened it
+        if (mc() && row < 1 && profiles == null) mediaHome.focusLast(); // back to the card or tab that opened it
         long d = Ui.dur(this, Ui.FAST);
         if (d <= 0) {
             root.removeView(v);
@@ -1105,7 +1136,7 @@ public class Home extends Activity {
         if (mediaOn()) { // native focus drives the Figma Home; only the hardware shortcuts are ours
             if (k == KeyEvent.KEYCODE_MENU) { openControl(); return true; }
             if (k == KeyEvent.KEYCODE_ALL_APPS) { openPad(); return true; }
-            if (k == KeyEvent.KEYCODE_BACK) return true;
+            if (k == KeyEvent.KEYCODE_BACK) { closeMediaCenter(); return true; } // back to the Tahoe launcher
             return super.onKeyDown(k, e);
         }
         switch (k) {
@@ -1152,6 +1183,7 @@ public class Home extends Activity {
         if (!TvGuard.isAndroidTv(this)) return;
         updateFocusBlocking();
         closeSheet();
+        closeMediaCenter();
         if (Intent.ACTION_ALL_APPS.equals(i.getAction())) openPad();
         else toDock(); // Home: always back to the dock
     }
