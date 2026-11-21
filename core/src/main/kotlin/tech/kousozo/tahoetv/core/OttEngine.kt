@@ -130,14 +130,12 @@ object OttEngine {
                 lastCheckedAt = System.currentTimeMillis()
                 onPriorityReady?.invoke(primaryChannels)
 
-                // Warm fallback pool in background so failover streams are ready if needed
+                // Combine primary OTT channels with built-in sources (DEFAULT) so all channels
+                // are available and the most stable, low-buffering streams are selected.
                 if (config.fallbackEnabled) {
-                    bgPool.execute {
-                        runCatching {
-                            val fallback = Sources.loadBuiltInFallback(countries, languages)
-                            registerFallbackChannels(fallback)
-                        }
-                    }
+                    val fallback = Sources.loadBuiltInFallback(countries, languages)
+                    registerFallbackChannels(fallback)
+                    return (primaryChannels + fallback).distinctBy { it.url }
                 }
                 return primaryChannels
             } else {

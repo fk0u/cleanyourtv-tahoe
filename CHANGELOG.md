@@ -5,6 +5,21 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.7.0
+
+**Tahoe TV v3.7.0 (Stable)** · rilis stabil resmi dengan arsitektur Hybrid Provider yang mengombinasikan server IPTV OTT Semar (`https://plsemar.pages.dev`) dan server siaran bawaan (`val DEFAULT`: iptv-org, dhanytv, windozalmi, yositapjani), sistem penentuan saluran paling stabil & minim buffering otomatis, serta integrasi penuh panduan acara EPG Indonesia terbaru di seluruh platform (Android HP, Android TV, macOS Intel/Apple Silicon, Windows, Linux).
+
+### Baru & Diperbarui
+- **Kombinasi Sumber Siaran Hybrid (OTT Semar + Built-in DEFAULT):**
+  - Menggabungkan daftar saluran dari server IPTV OTT Semar (`https://plsemar.pages.dev`) dan kumpulan server siaran bawaan (`Sources.DEFAULT`) secara otomatis (*out-of-the-box*).
+  - Menyajikan katalog saluran yang jauh lebih lengkap mencakup siaran nasional, berita, olahraga, hiburan, religi, hingga saluran lokal/daerah tanpa ada yang terlewat.
+- **Seleksi Cerdas Saluran Paling Stabil & Minim Buffering:**
+  - Ketika sebuah saluran tersedia di lebih dari satu server (duplikat antar-sumber), sistem secara cerdas mengevaluasi performa jaringan, latensi, responsivitas CDN edge, dan metrik stabilitas siaran (`StreamSelector` & `SourceHealth`).
+  - Stream yang paling stabil, berlatensi rendah, dan minim buffering otomatis ditetapkan sebagai saluran utama (*primary stream*), sedangkan stream lainnya disimpan sebagai cadangan siaga (*alternates*).
+  - Peralihan otomatis (*seamless failover*) langsung aktif jika stream utama mengalami gangguan.
+- **Server EPG Baru Indonesia Prioritas Utama:**
+  - Sumber panduan acara XMLTV `https://raw.githubusercontent.com/AqFad2811/epg/refs/heads/main/indonesia.xml` aktif sebagai prioritas nomor 1 untuk seluruh platform, menghadirkan jadwal siaran real-time yang akurat.
+
 ## 3.6.0-beta.4
 
 **Tahoe TV v3.6.0-beta.4 (Beta-Dev)** · penambahan server panduan acara XMLTV EPG baru (`https://raw.githubusercontent.com/AqFad2811/epg/refs/heads/main/indonesia.xml`) sebagai sumber EPG utama (#1 prioritas) secara bawaan (*out-of-the-box*) untuk seluruh platform (Android HP, Android TV, macOS Intel/Apple Silicon, Windows, Linux).

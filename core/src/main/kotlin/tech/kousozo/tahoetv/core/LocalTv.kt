@@ -286,6 +286,29 @@ object LocalTv {
         return "202.150.172.59" in u || ("dens.tv" in u && ("/h217" in u || "/h207" in u))
     }
 
+    /** Ranks stream stability: lower return value means higher stability & minimal buffering. */
+    @JvmStatic
+    fun streamStabilityRank(channel: M3u.Channel): Double {
+        val url = channel.url
+        if (SourceHealth.isBanned(url)) return 10_000.0
+        if (isDeprioritizedSource(url)) return 5_000.0
+        val st = SourceHealth.status(url)
+        if (st != null) {
+            if (!st.live) return 8_000.0
+            val scorePenalty = if (st.score > 0.0) (100.0 - st.score) else 50.0
+            val latencyPenalty = (st.ms.coerceIn(1L, 5000L)).toDouble() / 100.0
+            val tightPenalty = if (st.tightWindow) 10.0 else 0.0
+            return scorePenalty + latencyPenalty + tightPenalty
+        }
+        val u = url.lowercase()
+        var base = 200.0
+        if ("cnnindonesia.com" in u || "detik.com" in u || "tvri.go.id" in u || "kompas.tv" in u) base -= 50.0
+        if ("pages.dev" in u || "inisemar" in u) base -= 30.0
+        if (channel.isDash || channel.manifestType.equals("dash", ignoreCase = true)) base -= 20.0
+        if (channel.headers.isNotEmpty()) base -= 10.0
+        return base
+    }
+
     @JvmOverloads
     fun arrange(
         channels: List<M3u.Channel>,
@@ -308,10 +331,9 @@ object LocalTv {
             .values
             .map { dupes ->
                 val sorted = dupes.sortedWith(
-                    compareBy(
-                        { isDeprioritizedSource(it.first.channel.url) },
+                    compareBy<Pair<Entry, String>>(
                         { it.first.partTime },
-                        { it.first.channel.headers.isNotEmpty() },
+                        { streamStabilityRank(it.first.channel) },
                     )
                 )
                 val first = sorted.first()
@@ -410,8 +432,15 @@ object LocalTv {
                 val prev = merged[matchIdx]
                 val combined = (listOf(prev.channel) + prev.alternates + listOf(item.channel) + item.alternates)
                     .distinctBy { it.url }
-                val primary = if (prev.partTime && !item.partTime) item else prev
-                merged[matchIdx] = primary.copy(alternates = combined.filter { it.url != primary.channel.url })
+                val sortedStreams = combined.sortedWith(
+                    compareBy(
+                        { it.name.contains("Not 24/7", ignoreCase = true) },
+                        { streamStabilityRank(it) },
+                    )
+                )
+                val bestStream = sortedStreams.first()
+                val primary = if (bestStream.url == prev.channel.url) prev else item.copy(channel = bestStream)
+                merged[matchIdx] = primary.copy(channel = bestStream, alternates = sortedStreams.drop(1))
             } else {
                 val idx = merged.size
                 merged += item
