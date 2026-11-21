@@ -71,7 +71,7 @@ fun RemoteScreen() {
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
     val link = remember(host, token) {
         if (host.isBlank() || token.isEmpty()) null
-        else TvLink(host, token) { o -> main.post { online = o } }.apply {
+        else TvLink(host, token, { o -> main.post { online = o } }, tech.kousozo.tahoetv.core.ControlPlane.baseUrl).apply {
             onTvState = { s -> main.post { tv = s } }
             // "Kirim log" pressed on the TV: offer the share sheet here (the TV can't share files itself)
             onCommand = { o -> if (o.optString("t") == "send_log") main.post { Report.send(c) { n -> n?.let { android.widget.Toast.makeText(c, it, android.widget.Toast.LENGTH_LONG).show() } } } }
