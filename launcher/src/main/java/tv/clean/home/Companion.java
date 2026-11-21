@@ -50,6 +50,8 @@ final class Companion extends NanoWSD {
     }
 
     final Context ctx;
+    /** The Home that owns us (ctx is the application context, which is never a Home). */
+    private final java.lang.ref.WeakReference<Context> screen;
     final Listener l;
     final Handler ui = new Handler(Looper.getMainLooper());
     final SharedPreferences prefs;
@@ -66,6 +68,7 @@ final class Companion extends NanoWSD {
     Companion(Context c, Listener l) {
         super(PORT);
         ctx = c.getApplicationContext(); this.l = l;
+        screen = new java.lang.ref.WeakReference<>(c);
         prefs = c.getSharedPreferences("companion", Context.MODE_PRIVATE);
     }
 
@@ -111,6 +114,7 @@ final class Companion extends NanoWSD {
         };
         try { ((NsdManager) ctx.getSystemService(Context.NSD_SERVICE)).registerService(si, NsdManager.PROTOCOL_DNS_SD, nsdReg); } catch (Exception ignored) {}
         pingExec = java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+        syncTunnels();
         pingExec.scheduleAtFixedRate(this::heartbeat, PING_INTERVAL_MS, PING_INTERVAL_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
@@ -179,8 +183,9 @@ final class Companion extends NanoWSD {
         JSONObject meta = tokenMeta();
         meta.remove(token);
         prefs.edit().putStringSet("tokens", t).putString("token_meta", meta.toString()).apply();
+        syncTunnels();
     }
-    void forgetAll() { prefs.edit().remove("tokens").remove("token_meta").apply(); synchronized (sockets) { for (Socket s : sockets) try { s.close(WebSocketFrame.CloseCode.NormalClosure, "unpaired", false); } catch (Exception ignored) {} } }
+    void forgetAll() { prefs.edit().remove("tokens").remove("token_meta").apply(); syncTunnels(); synchronized (sockets) { for (Socket s : sockets) try { s.close(WebSocketFrame.CloseCode.NormalClosure, "unpaired", false); } catch (Exception ignored) {} } }
 
     /** Send to every connected phone (e.g. media controls back to the phone app). */
     /** Socket writes off the main thread (Android throws NetworkOnMainThreadException there). */
@@ -191,6 +196,7 @@ final class Companion extends NanoWSD {
     void broadcast(JSONObject msg) {
         String m = msg.toString();
         out.execute(() -> { synchronized (sockets) { for (Socket s : sockets) try { s.send(m); } catch (Exception ignored) {} } });
+        for (tech.kousozo.tahoetv.core.TunnelClient c : tunnels.values()) c.send(m);
     }
 
     /** Sends an event notification (e.g. TV show reminder / playback alert) to every paired phone (#52). */
@@ -277,6 +283,7 @@ final class Companion extends NanoWSD {
                     .put("pairedAt", System.currentTimeMillis()));
         } catch (Exception ignored) {}
         prefs.edit().putStringSet("tokens", t).putString("token_meta", meta.toString()).apply();
+        syncTunnels();
         return token;
     }
 
@@ -290,8 +297,9 @@ final class Companion extends NanoWSD {
         tech.kousozo.tahoetv.core.PairRequests.Request req = requests.request(ip, name, System.currentTimeMillis());
         if (req == null) return json(Response.Status.TOO_MANY_REQUESTS, new JSONObject().put("error", "permintaan lain masih menunggu"));
         tech.kousozo.tahoetv.core.DiagLog.add("pair", "permintaan tanpa kode dari " + ip + " (" + req.getDeviceName() + ")");
-        if (ctx instanceof Home) {
-            Home h = (Home) ctx;
+        Context owner = screen.get();
+        if (owner instanceof Home) {
+            Home h = (Home) owner;
             h.runOnUiThread(() -> h.openSheet(new Sheets.PairApprove(h, this, req.getId(), req.getDeviceName())));
         }
         return json(Response.Status.OK, new JSONObject().put("id", req.getId()).put("expiresIn", 60));
@@ -363,13 +371,6 @@ final class Companion extends NanoWSD {
         volatile long lastSeenMs = System.currentTimeMillis();
         Socket(IHTTPSession s, boolean ok) { super(s); this.ok = ok; }
 
-        private String welcomePayload() {
-            Protocol.Welcome w = new Protocol.Welcome(
-                    Protocol.VERSION, deviceId(), "Tahoe TV", appVersion(),
-                    Arrays.asList("hls", "dash", "ac3", "hevc"));
-            return Protocol.encode(w, "s-" + serverSeq.incrementAndGet(), System.currentTimeMillis(), deviceId(), false).toString();
-        }
-
         private void sendAsync(String payload) {
             out.execute(() -> { try { send(payload); } catch (Exception ignored) {} });
         }
@@ -396,40 +397,54 @@ final class Companion extends NanoWSD {
         @Override protected void onMessage(WebSocketFrame f) {
             if (!ok) return;
             lastSeenMs = System.currentTimeMillis();
-            Protocol.Decoded dec = Protocol.decode(f.getTextPayload());
+            if (!process(f.getTextPayload(), this::sendAsync)) {
+                try { close(WebSocketFrame.CloseCode.PolicyViolation, "please update", false); } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    private String welcomePayload() {
+        Protocol.Welcome w = new Protocol.Welcome(
+                Protocol.VERSION, deviceId(), "Tahoe TV", appVersion(),
+                Arrays.asList("hls", "dash", "ac3", "hevc"));
+        return Protocol.encode(w, "s-" + serverSeq.incrementAndGet(), System.currentTimeMillis(), deviceId(), false).toString();
+    }
+
+    /** One message from a paired controller, from the local socket or the tunnel. Answers go through [reply];
+     *  false means the sender speaks a protocol we can't (a socket then closes). */
+    boolean process(String text, java.util.function.Consumer<String> reply) {
+            Protocol.Decoded dec = Protocol.decode(text);
             if (dec == null) {
-                sendAsync(Protocol.error("", "bad_json", "unrecognized message", "s-" + serverSeq.incrementAndGet()).toString());
-                return;
+                reply.accept(Protocol.error("", "bad_json", "unrecognized message", "s-" + serverSeq.incrementAndGet()).toString());
+                return true;
             }
             Protocol.Envelope env = dec.getEnvelope();
             String msgId = env.getId();
             if (!Protocol.isVersionSupported(env.getV())) {
-                sendAsync(Protocol.error(msgId, "unsupported_version", "please update", "s-" + serverSeq.incrementAndGet()).toString());
-                try { close(WebSocketFrame.CloseCode.PolicyViolation, "please update", false); } catch (Exception ignored) {}
-                return;
+                reply.accept(Protocol.error(msgId, "unsupported_version", "please update", "s-" + serverSeq.incrementAndGet()).toString());
+                return false;
             }
             Protocol.Message msg = dec.getMessage();
             if (msg instanceof Protocol.Hello) {
                 Protocol.Hello hello = (Protocol.Hello) msg;
                 if (!Protocol.isVersionSupported(hello.getProto())) {
-                    sendAsync(Protocol.error(msgId, "unsupported_version", "please update", "s-" + serverSeq.incrementAndGet()).toString());
-                    try { close(WebSocketFrame.CloseCode.PolicyViolation, "please update", false); } catch (Exception ignored) {}
-                    return;
+                    reply.accept(Protocol.error(msgId, "unsupported_version", "please update", "s-" + serverSeq.incrementAndGet()).toString());
+                    return false;
                 }
-                sendAsync(welcomePayload());
-                if (!msgId.isEmpty()) sendAsync(Protocol.ack(msgId, 0L, "s-" + serverSeq.incrementAndGet()).toString());
-                return;
+                reply.accept(welcomePayload());
+                if (!msgId.isEmpty()) reply.accept(Protocol.ack(msgId, 0L, "s-" + serverSeq.incrementAndGet()).toString());
+                return true;
             }
             if (msg instanceof Protocol.Ping) {
-                sendAsync(Protocol.encode(new Protocol.Pong(((Protocol.Ping) msg).getNonce()),
+                reply.accept(Protocol.encode(new Protocol.Pong(((Protocol.Ping) msg).getNonce()),
                         "s-" + serverSeq.incrementAndGet(), System.currentTimeMillis(), deviceId(), false).toString());
-                return;
+                return true;
             }
-            if (msg instanceof Protocol.Pong || msg instanceof Protocol.Ack) return;
+            if (msg instanceof Protocol.Pong || msg instanceof Protocol.Ack) return true;
             if (msg instanceof Protocol.Unknown) {
-                sendAsync(Protocol.error(msgId, "unknown_type", "unsupported type: " + ((Protocol.Unknown) msg).getRawType(),
+                reply.accept(Protocol.error(msgId, "unknown_type", "unsupported type: " + ((Protocol.Unknown) msg).getRawType(),
                         "s-" + serverSeq.incrementAndGet()).toString());
-                return;
+                return true;
             }
             ui.post(() -> {
                 if (msg instanceof Protocol.Key) l.onKey(((Protocol.Key) msg).getKey());
@@ -457,9 +472,37 @@ final class Companion extends NanoWSD {
                 }
                 if (!msgId.isEmpty()) {
                     long rev = l.state().optLong("rev", 0L);
-                    sendAsync(Protocol.ack(msgId, rev, "s-" + serverSeq.incrementAndGet()).toString());
+                    reply.accept(Protocol.ack(msgId, rev, "s-" + serverSeq.incrementAndGet()).toString());
                 }
             });
+            return true;
+    }
+
+    // ------------------------------------------------------------------ tunnel (controllers outside the local network)
+
+    private final java.util.Map<String, tech.kousozo.tahoetv.core.TunnelClient> tunnels = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Whether paired controllers may also reach this TV through the encrypted relay (default on; the relay sees only opaque frames). */
+    boolean tunnelOn() { return prefs.getBoolean("tunnel_on", true); }
+    void setTunnelOn(boolean on) { prefs.edit().putBoolean("tunnel_on", on).apply(); syncTunnels(); }
+
+    /** One relay connection per paired token; follows pairing and unpairing. */
+    synchronized void syncTunnels() {
+        Set<String> want = tunnelOn() ? tokens() : new HashSet<>();
+        for (String t : new ArrayList<>(tunnels.keySet())) if (!want.contains(t)) { tech.kousozo.tahoetv.core.TunnelClient c = tunnels.remove(t); if (c != null) c.close(); }
+        for (String t : want) {
+            if (tunnels.containsKey(t) || tunnels.size() >= 8) continue;
+            final tech.kousozo.tahoetv.core.TunnelClient[] self = new tech.kousozo.tahoetv.core.TunnelClient[1];
+            self[0] = new tech.kousozo.tahoetv.core.TunnelClient(tech.kousozo.tahoetv.core.ControlPlane.INSTANCE.getBaseUrl(), t, "tv",
+                    frame -> { process(frame, plain -> self[0].send(plain)); return kotlin.Unit.INSTANCE; },
+                    () -> { // a controller arrived: introduce ourselves and report the current state
+                        self[0].send(welcomePayload());
+                        ui.post(() -> { String m = l.state().toString(); self[0].send(m); });
+                        return kotlin.Unit.INSTANCE;
+                    },
+                    online -> kotlin.Unit.INSTANCE);
+            tunnels.put(t, self[0]);
+            self[0].open();
         }
     }
 }
