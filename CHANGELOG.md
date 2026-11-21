@@ -5,6 +5,19 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.6.0-beta.3
+
+**Tahoe TV v3.6.0-beta.3 (Beta-Dev)** · server IPTV OTT Semar (`https://plsemar.pages.dev`) kini aktif secara bawaan (*out-of-the-box*) sebagai penyedia siaran utama di seluruh platform (Android HP, Android TV, macOS, Windows, Linux). Pengguna tidak perlu lagi melakukan pengaturan URL secara manual. Jika server OTT sedang tidak dapat diakses, sistem otomatis beralih ke server siaran cadangan bawaan (*built-in*).
+
+### Baru & Diperbarui
+- **Server IPTV OTT Semar Aktif Bawaan (Default Primary Provider):**
+  - Seluruh aplikasi di HP, Android TV, dan Desktop kini langsung menggunakan server `https://plsemar.pages.dev` secara bawaan tanpa perlu memasukkan URL atau menyetel konfigurasi awal.
+  - Pengguna langsung disajikan 1.100+ siaran langsung berkualitas tinggi dan panduan acara XMLTV EPG secara otomatis saat pertama kali membuka aplikasi.
+- **Failover Otomatis Tanpa Gangguan:**
+  - Bila server OTT utama tidak dapat diakses, offline, atau mengalami gangguan jaringan, sistem secara otomatis (*seamlessly*) memutar saluran dari server cadangan bawaan (*built-in* seperti iptv-org, dhanytv, windozalmi, dll.) tanpa layar hitam atau penghentian pemutaran.
+- **Opsi Kustom Tetap Tersedia:**
+  - Pengguna tingkat lanjut tetap dapat memasukkan URL playlist atau server OTT kustom mereka sendiri melalui menu Pengaturan jika diinginkan untuk menggantikan server utama bawaan.
+
 ## 3.6.0-beta.2
 
 **Tahoe TV v3.6.0-beta.2 (Beta-Dev)** · perbaikan dan penyempurnaan menyeluruh mesin IPTV OTT Engine (`OttEngine`) multi-format dan multi-platform (Android HP, Android TV, macOS Intel, Windows, Linux) dengan negosiasi User-Agent bertingkat, parser OTT JSON base64, dukungan manifest DASH/headers untuk server `https://plsemar.pages.dev`, serta penambahan kontrol playlist kustom pada aplikasi HP.

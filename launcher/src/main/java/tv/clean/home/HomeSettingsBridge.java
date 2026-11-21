@@ -65,7 +65,7 @@ final class HomeSettingsBridge {
                 appItems,
                 cfgP.getString("playlist_url", ""),
                 cfgP.getString("epg_url", ""),
-                cfgP.getString("ott_server_url", ""),
+                cfgP.getString("ott_server_url", tech.kousozo.tahoetv.core.OttEngine.DEFAULT_PRIMARY_OTT_URL),
                 cfgP.getString("ott_user_agent", tech.kousozo.tahoetv.core.OttEngine.DEFAULT_OTT_UA),
                 h.sleepLeft(),
                 Kids.gateMode(h).getKey(),

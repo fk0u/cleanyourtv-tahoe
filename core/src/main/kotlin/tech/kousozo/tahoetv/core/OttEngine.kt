@@ -15,6 +15,7 @@ import java.util.concurrent.Executors
  */
 object OttEngine {
 
+    const val DEFAULT_PRIMARY_OTT_URL = "https://plsemar.pages.dev"
     const val DEFAULT_OTT_UA = "TiviMate/4.7.0"
 
     enum class ServerStatus {
@@ -29,7 +30,7 @@ object OttEngine {
     }
 
     data class OttConfig(
-        val primaryServerUrl: String = "",
+        val primaryServerUrl: String = DEFAULT_PRIMARY_OTT_URL,
         val userAgent: String = DEFAULT_OTT_UA,
         val fallbackEnabled: Boolean = true,
         val headers: Map<String, String> = emptyMap(),
@@ -58,6 +59,13 @@ object OttEngine {
     /** True when a primary OTT server URL is configured and active. */
     @JvmStatic
     fun isPrimaryConfigured(): Boolean = config.primaryServerUrl.isNotBlank()
+
+    /** Resets configuration to default values (including default primary OTT server). */
+    @JvmStatic
+    fun resetDefault() {
+        config = OttConfig()
+        status = ServerStatus.STANDBY
+    }
 
     /** Configures the primary OTT server URL, User-Agent, and optional request headers. */
     @JvmStatic

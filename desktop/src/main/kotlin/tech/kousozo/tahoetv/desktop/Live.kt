@@ -124,6 +124,8 @@ fun LiveScreen() {
         checkingDone = false
         if (playlist.isNotBlank()) {
             tech.kousozo.tahoetv.core.OttEngine.setPrimaryServer(playlist)
+        } else {
+            tech.kousozo.tahoetv.core.OttEngine.resetDefault()
         }
 
         // Load channels immediately without blocking behind IptvServer.start() on fresh/Windows launches.

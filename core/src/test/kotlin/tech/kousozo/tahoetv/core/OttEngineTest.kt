@@ -13,7 +13,7 @@ class OttEngineTest {
     @Before
     @After
     fun resetEngine() {
-        OttEngine.setPrimaryServer("")
+        OttEngine.resetDefault()
         OttEngine.setFallbackEnabled(true)
     }
 
@@ -41,8 +41,13 @@ class OttEngineTest {
 
     @Test
     fun primaryServerConfigurationAndFailover() {
-        assertEquals(false, OttEngine.isPrimaryConfigured())
+        assertEquals(true, OttEngine.isPrimaryConfigured())
+        assertEquals(OttEngine.DEFAULT_PRIMARY_OTT_URL, OttEngine.config.primaryServerUrl)
         assertEquals(OttEngine.ServerStatus.STANDBY, OttEngine.status)
+
+        // Set primary server explicitly to empty
+        OttEngine.setPrimaryServer("")
+        assertEquals(false, OttEngine.isPrimaryConfigured())
 
         // Set primary server
         OttEngine.setPrimaryServer("https://plsemar.pages.dev/playlist.m3u")

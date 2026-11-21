@@ -35,7 +35,6 @@ object Sources {
 
     fun free(c: M3u.Channel): Boolean {
         if (FILE.containsMatchIn(c.url)) return false
-        if (OttEngine.isPrimaryConfigured()) return true
         return !c.drm && !RESTREAM.containsMatchIn(c.url) && !PAID.containsMatchIn(c.name)
     }
 
@@ -278,7 +277,7 @@ object Sources {
         val extraUrl = extra?.lines()
             ?.map { it.trim() }
             ?.firstOrNull { (it.startsWith("http://") || it.startsWith("https://")) && !it.startsWith("#") }
-        if (!extraUrl.isNullOrBlank() && !OttEngine.isPrimaryConfigured()) {
+        if (!extraUrl.isNullOrBlank()) {
             OttEngine.setPrimaryServer(extraUrl)
         }
         if (OttEngine.isPrimaryConfigured()) {

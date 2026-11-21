@@ -587,7 +587,8 @@ fun SettingsPage() {
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
     val uiPrefs = remember { c.getSharedPreferences("ui", 0) }
     val setupPrefs = remember { c.getSharedPreferences("setup", 0) }
-    var customPlaylistUrl by remember { mutableStateOf(setupPrefs.getString("custom_playlist_url", "").orEmpty()) }
+    val defaultOtt = tech.kousozo.tahoetv.core.OttEngine.DEFAULT_PRIMARY_OTT_URL
+    var customPlaylistUrl by remember { mutableStateOf(setupPrefs.getString("custom_playlist_url", defaultOtt).orEmpty()) }
     var editPlaylistUrl by remember { mutableStateOf("") }
     var broadcastNotifs by remember { mutableStateOf(uiPrefs.getBoolean("broadcast_notifs", true)) }
     var cacheClearedOnce by remember { mutableStateOf(false) }

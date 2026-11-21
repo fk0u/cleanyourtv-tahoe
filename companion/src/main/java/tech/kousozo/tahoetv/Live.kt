@@ -1064,8 +1064,8 @@ object Channels {
             tech.kousozo.tahoetv.core.Sources.scheduleDailyRefresh { all = null; entries = null }
             val ui = android.os.Handler(android.os.Looper.getMainLooper())
             var showedPriority = false
-            val customPlaylist = setup.getString("custom_playlist_url", "")?.trim()?.takeIf { it.isNotEmpty() }
-            if (customPlaylist != null && !tech.kousozo.tahoetv.core.OttEngine.isPrimaryConfigured()) {
+            val customPlaylist = setup.getString("custom_playlist_url", tech.kousozo.tahoetv.core.OttEngine.DEFAULT_PRIMARY_OTT_URL)?.trim()
+            if (!customPlaylist.isNullOrEmpty()) {
                 tech.kousozo.tahoetv.core.OttEngine.setPrimaryServer(customPlaylist)
             }
             val rawAll = runCatching {
