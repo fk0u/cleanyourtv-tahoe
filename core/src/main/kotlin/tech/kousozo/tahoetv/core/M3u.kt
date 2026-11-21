@@ -10,7 +10,8 @@ object M3u {
     data class Channel(val name: String, val url: String, val logo: String?, val group: String?,
                        val headers: Map<String, String> = emptyMap(), val drm: Boolean = false,
                        val tvgId: String? = null, val drmType: String? = null, val drmKey: String? = null,
-                       val manifestType: String? = null, val countryCode: String? = null) {
+                       val manifestType: String? = null, val countryCode: String? = null,
+                       val catchup: String? = null, val catchupSource: String? = null) {
         /** Stable identifier across stream URL rotations: normalized tvg-id when available, otherwise name slug. */
         val channelId: String
             get() = tvgId?.trim()?.lowercase()?.replace(Regex("[^a-z0-9._-]+"), "-")?.trim('-')?.takeIf { it.isNotEmpty() }
@@ -18,6 +19,24 @@ object M3u {
 
         /** True when this stream points to an MPEG-DASH (`.mpd`) manifest. */
         val isDash: Boolean get() = Drm.isDash(url, drmType, manifestType)
+    }
+
+    /** Metadata parsed from `#EXTM3U` header directives (EPG XMLTV guide URL, catchup mode, auto-refresh interval). */
+    data class PlaylistMetadata(
+        val epgUrl: String? = null,
+        val catchup: String? = null,
+        val refreshMinutes: Int? = null,
+    )
+
+    /** Extracts directives like `url-tvg="http://..."` or `x-tvg-url="..."` from `#EXTM3U` header lines. */
+    @JvmStatic
+    fun parseMetadata(text: String): PlaylistMetadata {
+        val firstHeader = text.lineSequence().map { it.trim() }.firstOrNull { it.startsWith("#EXTM3U", ignoreCase = true) }
+            ?: return PlaylistMetadata()
+        val epg = Regex("""(?:url-tvg|x-tvg-url)="([^"]*)"""", RegexOption.IGNORE_CASE).find(firstHeader)?.groupValues?.get(1)?.trim()
+        val catchup = Regex("""catchup="([^"]*)"""", RegexOption.IGNORE_CASE).find(firstHeader)?.groupValues?.get(1)?.trim()
+        val refresh = Regex("""refresh="?(\d+)"?""", RegexOption.IGNORE_CASE).find(firstHeader)?.groupValues?.get(1)?.toIntOrNull()
+        return PlaylistMetadata(epg?.ifBlank { null }, catchup?.ifBlank { null }, refresh)
     }
 
     /** Public, community-maintained list of freely available Indonesian channels (iptv-org). */
@@ -120,6 +139,8 @@ object M3u {
                     val cleanUrl = line.substringBefore('|').trim()
                     if ('|' in line) applyKeyValues(line.substringAfter('|'), allowDrm = true)
                     val name = curInfo.substringAfterLast(',').trim().ifEmpty { attrs["tvg-name"] ?: cleanUrl }
+                    val catchup = attrs["catchup"]?.takeIf { it.isNotBlank() }
+                    val catchupSource = attrs["catchup-source"]?.takeIf { it.isNotBlank() }
                     out += Channel(
                         name.replace(Regex("""\s*\(\d+[pi]\)"""), ""),
                         cleanUrl,
@@ -130,7 +151,10 @@ object M3u {
                         attrs["tvg-id"]?.takeIf { it.isNotBlank() },
                         drmType,
                         drmKey,
-                        manifestType
+                        manifestType,
+                        countryCode = null,
+                        catchup = catchup,
+                        catchupSource = catchupSource,
                     )
                     resetPending()
                 }

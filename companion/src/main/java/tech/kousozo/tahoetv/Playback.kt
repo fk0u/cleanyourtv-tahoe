@@ -314,7 +314,8 @@ object Playback {
         entry = e; slate = null; autoRetries = 0; retryIn = 0; sawRecording = false
         MobileLivePreview.syncProbeGate()
         Channels.remember(c, e)
-        val raw = listOf(e.channel) + e.alternates
+        val fallbackStream = tech.kousozo.tahoetv.core.OttEngine.findFallbackStream(e.channel)
+        val raw = (listOf(e.channel) + e.alternates + listOfNotNull(fallbackStream)).distinctBy { it.url }
         val app = c.applicationContext
         if (raw.size <= 1) {
             streams = SourceHealth.order(raw)
@@ -354,7 +355,8 @@ object Playback {
     fun retry(c: Context) {
         val e = entry ?: return
         slate = null; retryIn = 0; sawRecording = false
-        val raw = listOf(e.channel) + e.alternates
+        val fallbackStream = tech.kousozo.tahoetv.core.OttEngine.findFallbackStream(e.channel)
+        val raw = (listOf(e.channel) + e.alternates + listOfNotNull(fallbackStream)).distinctBy { it.url }
         val app = c.applicationContext
         if (raw.size <= 1) {
             streams = SourceHealth.order(raw)

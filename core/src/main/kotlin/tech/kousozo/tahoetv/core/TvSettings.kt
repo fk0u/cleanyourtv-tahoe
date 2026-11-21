@@ -50,6 +50,8 @@ object TvSettings {
         val allApps: List<AppItem> = emptyList(),
         val playlistUrl: String = "",
         val epgUrl: String = "",
+        val ottServerUrl: String = "",
+        val ottUserAgent: String = OttEngine.DEFAULT_OTT_UA,
         val sleepMinutes: Int = 0,
         val kidsGateMode: String = "pin",
         val kidsMathDifficulty: String = "easy",
@@ -80,6 +82,8 @@ object TvSettings {
             put("allApps", JSONArray().also { a -> allApps.forEach { a.put(it.toJson()) } })
             put("playlistUrl", playlistUrl)
             put("epgUrl", epgUrl)
+            put("ottServerUrl", ottServerUrl)
+            put("ottUserAgent", ottUserAgent)
             put("sleepMinutes", sleepMinutes.coerceAtLeast(0))
             put("kidsGateMode", kidsGateMode)
             put("kidsMathDifficulty", kidsMathDifficulty)
@@ -126,6 +130,8 @@ object TvSettings {
                     allApps = apps,
                     playlistUrl = o.optString("playlistUrl", ""),
                     epgUrl = o.optString("epgUrl", ""),
+                    ottServerUrl = o.optString("ottServerUrl", ""),
+                    ottUserAgent = o.optString("ottUserAgent", OttEngine.DEFAULT_OTT_UA),
                     sleepMinutes = o.optInt("sleepMinutes", 0).coerceAtLeast(0),
                     kidsGateMode = MathGate.Mode.of(o.optString("kidsGateMode")).key,
                     kidsMathDifficulty = MathGate.Difficulty.of(o.optString("kidsMathDifficulty")).key,

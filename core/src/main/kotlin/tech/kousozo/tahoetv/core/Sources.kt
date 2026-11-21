@@ -33,7 +33,11 @@ object Sources {
     /** Plain video/audio files (trailers, donation clips…), not live channels. */
     private val FILE = Regex("""\.(mp4|mkv|avi|mov|webm|mp3|m4a)(\?|$)""", RegexOption.IGNORE_CASE)
 
-    fun free(c: M3u.Channel) = !c.drm && !RESTREAM.containsMatchIn(c.url) && !PAID.containsMatchIn(c.name) && !FILE.containsMatchIn(c.url)
+    fun free(c: M3u.Channel): Boolean {
+        if (FILE.containsMatchIn(c.url)) return false
+        if (OttEngine.isPrimaryConfigured() && OttEngine.status == OttEngine.ServerStatus.ONLINE) return true
+        return !c.drm && !RESTREAM.containsMatchIn(c.url) && !PAID.containsMatchIn(c.name)
+    }
 
     private const val DAILY_MS = 24 * 60 * 60_000L
     private const val MEM_TTL_MS = 15 * 60_000L
@@ -261,13 +265,32 @@ object Sources {
     ): List<M3u.Channel> = loadChannels(extra, countries, emptyList(), onPriorityReady)
 
     /** [loadCountriesPriority] plus extra channel [languages] (ISO 639-1, see [Region.languagePlaylist]), loaded
-     *  after the countries through the free-TV filter (#71). */
+     *  after the countries through the free-TV filter (#71). If a primary OTT server is configured, routes through
+     *  [OttEngine] with automatic fallback to built-in sources. */
     @JvmStatic
     @JvmOverloads
     fun loadChannels(
         extra: String?,
         countries: List<String>,
         languages: List<String>,
+        onPriorityReady: ((List<M3u.Channel>) -> Unit)? = null,
+    ): List<M3u.Channel> {
+        if (OttEngine.isPrimaryConfigured()) {
+            return OttEngine.loadChannels(extra, countries, languages, onPriorityReady)
+        }
+        return loadBuiltInFallback(countries, languages, extra, onPriorityReady)
+    }
+
+    /**
+     * Loads the built-in channel pool for [countries] and [languages], used as the primary source when no OTT server
+     * is configured, or as the automatic fallback pool when the primary OTT server is offline.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun loadBuiltInFallback(
+        countries: List<String>,
+        languages: List<String> = emptyList(),
+        extra: String? = null,
         onPriorityReady: ((List<M3u.Channel>) -> Unit)? = null,
     ): List<M3u.Channel> {
         val list = countries.mapNotNull { Region.country(it) }.distinct().ifEmpty { listOf(Region.HOME) }

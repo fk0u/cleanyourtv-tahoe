@@ -227,8 +227,10 @@ fun LiveScreen() {
     LaunchedEffect(playing) {
         playing?.let { ch ->
             val e = byUrl[ch.url]
+            val fallback = tech.kousozo.tahoetv.core.OttEngine.findFallbackStream(ch)
+            val streamList = (listOf(ch) + e?.alternates.orEmpty() + listOfNotNull(fallback)).distinctBy { it.url }
             PlayerWindow.play(
-                listOf(ch) + e?.alternates.orEmpty(),
+                streamList,
                 names[ch.url] ?: ch.name,
                 e?.let { en -> epg?.schedule(en.name, Instant.now()) }.orEmpty(),
                 onSwitch = { d ->

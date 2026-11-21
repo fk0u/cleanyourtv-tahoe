@@ -65,6 +65,8 @@ final class HomeSettingsBridge {
                 appItems,
                 cfgP.getString("playlist_url", ""),
                 cfgP.getString("epg_url", ""),
+                cfgP.getString("ott_server_url", ""),
+                cfgP.getString("ott_user_agent", tech.kousozo.tahoetv.core.OttEngine.DEFAULT_OTT_UA),
                 h.sleepLeft(),
                 Kids.gateMode(h).getKey(),
                 Kids.mathDifficulty(h).getKey(),
@@ -136,6 +138,18 @@ final class HomeSettingsBridge {
         }
         if (p.has("playlistUrl")) { ce.putString("playlist_url", p.optString("playlistUrl", "").trim()); Live.cachedAt = 0L; }
         if (p.has("epgUrl")) { ce.putString("epg_url", p.optString("epgUrl", "").trim()); Live.cachedAt = 0L; }
+        if (p.has("ottServerUrl")) {
+            String u = p.optString("ottServerUrl", "").trim();
+            ce.putString("ott_server_url", u);
+            tech.kousozo.tahoetv.core.OttEngine.setPrimaryServer(u);
+            Live.cachedAt = 0L;
+        }
+        if (p.has("ottUserAgent")) {
+            String ua = p.optString("ottUserAgent", "").trim();
+            ce.putString("ott_user_agent", ua);
+            tech.kousozo.tahoetv.core.OttEngine.setPrimaryServer(Cfg.p(h).getString("ott_server_url", ""), ua, null);
+            Live.cachedAt = 0L;
+        }
         if (p.has("sleepMinutes")) h.remote.onSleep(p.optInt("sleepMinutes", 0));
         return reloadApps;
     }

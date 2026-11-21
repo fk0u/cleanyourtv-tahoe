@@ -383,6 +383,8 @@ public class LiveTv extends Activity {
             if (!sch.isEmpty() && !sch.get(0).getStart().isAfter(Instant.now())) activeRecapShow = sch.get(0).getTitle();
         }
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
+        M3u.Channel fallback = tech.kousozo.tahoetv.core.OttEngine.findFallbackStream(e.getChannel());
+        if (fallback != null && !raw.contains(fallback)) raw.add(fallback);
         String url = list.get(index).getChannel().getUrl();
         List<String> rc = recent(); rc.remove(url); rc.add(0, url); while (rc.size() > 10) rc.remove(rc.size() - 1);
         prefs.edit().putString("last", url).putString("recent", android.text.TextUtils.join("\n", rc)).apply();
@@ -1456,6 +1458,8 @@ public class LiveTv extends Activity {
         hideSlate();
         LocalTv.Entry e = list.get(index);
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
+        M3u.Channel fallback = tech.kousozo.tahoetv.core.OttEngine.findFallbackStream(e.getChannel());
+        if (fallback != null && !raw.contains(fallback)) raw.add(fallback);
         bStatus.setVisibility(View.GONE);
         final int seq = ++tuneSeq;
         final long zapGen = tech.kousozo.tahoetv.core.StreamSelector.newZapGeneration();
