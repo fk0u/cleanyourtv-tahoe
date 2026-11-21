@@ -1064,8 +1064,12 @@ object Channels {
             tech.kousozo.tahoetv.core.Sources.scheduleDailyRefresh { all = null; entries = null }
             val ui = android.os.Handler(android.os.Looper.getMainLooper())
             var showedPriority = false
+            val customPlaylist = setup.getString("custom_playlist_url", "")?.trim()?.takeIf { it.isNotEmpty() }
+            if (customPlaylist != null && !tech.kousozo.tahoetv.core.OttEngine.isPrimaryConfigured()) {
+                tech.kousozo.tahoetv.core.OttEngine.setPrimaryServer(customPlaylist)
+            }
             val rawAll = runCatching {
-                Sources.loadChannels(null, viewer.countries, viewer.channelLanguages) { priorityRaw ->
+                Sources.loadChannels(customPlaylist, viewer.countries, viewer.channelLanguages) { priorityRaw ->
                     if (mine != generation || priorityRaw.isEmpty()) return@loadChannels
                     val priorityList = LocalTv.arrange(priorityRaw, province, viewer.countries, viewer.sort, viewer.city, viewer.country)
                     if (priorityList.isNotEmpty()) {

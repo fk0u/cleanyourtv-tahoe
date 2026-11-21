@@ -101,4 +101,72 @@ class OttEngineTest {
         assertEquals("https://plsemar.pages.dev", restored.ottServerUrl)
         assertEquals("OTTNavigator/Custom", restored.ottUserAgent)
     }
+
+    @Test
+    fun parseOttJsonBase64DecodesCorrectly() {
+        val json = """
+        {
+          "categories": {
+            "cat1": { "name": "U2FsdXJhbiBOYXNpb25hbA==" }
+          },
+          "provider": {
+            "epg": "https://raw.githubusercontent.com/AqFad2811/epg/refs/heads/main/indonesia.xml"
+          },
+          "channels": [
+            {
+              "category": "Y2F0MQ==",
+              "name": "QU5UVg==",
+              "icon": "aHR0cHM6Ly9pLmltZ3VyLmNvbS9XajZxdTZNLnBuZw==",
+              "url": "aHR0cHM6Ly92aWRzZW1hci5wYWdlcy5kZXYvdGVycmFsdW5hMy83ODIubXBk",
+              "source_format": "ZGFzaA==",
+              "user_agent": "TW96aWxsYS81LjA="
+            },
+            {
+              "category": "Y2F0MQ==",
+              "name": "R1RW",
+              "url": "aHR0cHM6Ly9ycGx1cy5pbmlzZW1hci5teS5pZC9ndHYubTN1OA==",
+              "user_agent": "YW5kcm9pZC1SKw==",
+              "referrer": "aHR0cHM6Ly93d3cucmN0aXBsdXMuY29tLw=="
+            }
+          ]
+        }
+        """.trimIndent()
+
+        assertTrue(M3u.isOttJson(json))
+        val (meta, channels) = M3u.parseOttJson(json)
+        assertEquals("https://raw.githubusercontent.com/AqFad2811/epg/refs/heads/main/indonesia.xml", meta.epgUrl)
+        assertEquals(2, channels.size)
+
+        val antv = channels[0]
+        assertEquals("ANTV", antv.name)
+        assertEquals("https://vidsemar.pages.dev/terraluna3/782.mpd", antv.url)
+        assertEquals("Saluran Nasional", antv.group)
+        assertEquals("https://i.imgur.com/Wj6qu6M.png", antv.logo)
+        assertEquals("dash", antv.manifestType)
+        assertEquals("Mozilla/5.0", antv.headers["User-Agent"])
+
+        val gtv = channels[1]
+        assertEquals("GTV", gtv.name)
+        assertEquals("https://rplus.inisemar.my.id/gtv.m3u8", gtv.url)
+        assertEquals("android-R+", gtv.headers["User-Agent"])
+        assertEquals("https://www.rctiplus.com/", gtv.headers["Referer"])
+
+        // Also ensure M3u.parse routes it directly
+        val parsedViaGeneral = M3u.parse(json)
+        assertEquals(2, parsedViaGeneral.size)
+        assertEquals("ANTV", parsedViaGeneral[0].name)
+    }
+
+    @Test
+    fun livePlsemarFetchesSuccessfullyWithOttEngine() {
+        OttEngine.setPrimaryServer("https://plsemar.pages.dev")
+        val channels = OttEngine.loadChannels()
+        assertTrue("Live fetch from https://plsemar.pages.dev should produce channels", channels.isNotEmpty())
+        assertEquals(OttEngine.ServerStatus.ONLINE, OttEngine.status)
+        assertNotNull("EPG URL should be extracted", OttEngine.lastEpgUrl)
+
+        val antv = channels.firstOrNull { it.name.contains("ANTV", ignoreCase = true) }
+        assertNotNull("Should find ANTV in plsemar channels", antv)
+        assertTrue("ANTV should have DASH or custom headers", antv?.isDash == true || antv?.headers?.isNotEmpty() == true)
+    }
 }

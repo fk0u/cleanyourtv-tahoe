@@ -31,12 +31,98 @@ object M3u {
     /** Extracts directives like `url-tvg="http://..."` or `x-tvg-url="..."` from `#EXTM3U` header lines. */
     @JvmStatic
     fun parseMetadata(text: String): PlaylistMetadata {
+        if (isOttJson(text)) return parseOttJson(text).first
         val firstHeader = text.lineSequence().map { it.trim() }.firstOrNull { it.startsWith("#EXTM3U", ignoreCase = true) }
             ?: return PlaylistMetadata()
         val epg = Regex("""(?:url-tvg|x-tvg-url)="([^"]*)"""", RegexOption.IGNORE_CASE).find(firstHeader)?.groupValues?.get(1)?.trim()
         val catchup = Regex("""catchup="([^"]*)"""", RegexOption.IGNORE_CASE).find(firstHeader)?.groupValues?.get(1)?.trim()
         val refresh = Regex("""refresh="?(\d+)"?""", RegexOption.IGNORE_CASE).find(firstHeader)?.groupValues?.get(1)?.toIntOrNull()
         return PlaylistMetadata(epg?.ifBlank { null }, catchup?.ifBlank { null }, refresh)
+    }
+
+    @JvmStatic
+    fun isOttJson(text: String): Boolean {
+        val trimmed = text.trimStart()
+        return trimmed.startsWith("{") && trimmed.contains("\"channels\"")
+    }
+
+    private fun decodeBase64Safe(v: String?): String? {
+        if (v == null || v.isBlank()) return null
+        val trimmed = v.trim()
+        return runCatching {
+            String(java.util.Base64.getDecoder().decode(trimmed), Charsets.UTF_8).trim()
+        }.recoverCatching {
+            String(java.util.Base64.getUrlDecoder().decode(trimmed), Charsets.UTF_8).trim()
+        }.getOrNull()?.ifEmpty { null }
+    }
+
+    /** Parses custom JSON channel payloads returned by OTT servers (e.g. plsemar, OTT Navigator schema). */
+    @JvmStatic
+    fun parseOttJson(text: String): Pair<PlaylistMetadata, List<Channel>> {
+        val root = runCatching { JSONObject(text) }.getOrNull() ?: return PlaylistMetadata() to emptyList()
+        val providerObj = root.optJSONObject("provider")
+        val epgUrl = providerObj?.optString("epg")?.takeIf { it.isNotBlank() }
+        val meta = PlaylistMetadata(epgUrl = epgUrl)
+
+        val catMap = mutableMapOf<String, String>()
+        root.optJSONObject("categories")?.let { cats ->
+            cats.keys().forEach { k ->
+                val catObj = cats.optJSONObject(k)
+                val catName = catObj?.optString("name")?.let { decodeBase64Safe(it) ?: it }
+                if (!catName.isNullOrBlank()) catMap[k] = catName
+            }
+        }
+
+        val channelsArr = root.optJSONArray("channels") ?: return meta to emptyList()
+        val out = mutableListOf<Channel>()
+        for (i in 0 until channelsArr.length()) {
+            val chObj = channelsArr.optJSONObject(i) ?: continue
+            val rawName = chObj.optString("name", "")
+            val rawUrl = chObj.optString("url", "")
+            val name = (decodeBase64Safe(rawName) ?: rawName).trim()
+            val url = (decodeBase64Safe(rawUrl) ?: rawUrl).trim()
+            if (url.isBlank() || name.isBlank()) continue
+
+            val rawCategory = chObj.optString("category", "")
+            val decodedCat = decodeBase64Safe(rawCategory) ?: rawCategory
+            val group = catMap[decodedCat] ?: catMap[rawCategory] ?: decodedCat.takeIf { it.isNotBlank() }
+
+            val rawIcon = chObj.optString("icon", "")
+            val icon = decodeBase64Safe(rawIcon) ?: rawIcon.takeIf { it.isNotBlank() }
+
+            val rawUa = chObj.optString("user_agent", "")
+            val ua = decodeBase64Safe(rawUa) ?: rawUa.takeIf { it.isNotBlank() }
+
+            val rawRef = chObj.optString("referrer", "").ifEmpty { chObj.optString("referer", "") }
+            val ref = decodeBase64Safe(rawRef) ?: rawRef.takeIf { it.isNotBlank() }
+
+            val rawFormat = chObj.optString("source_format", "")
+            val format = (decodeBase64Safe(rawFormat) ?: rawFormat).lowercase().takeIf { it.isNotBlank() }
+
+            val headers = mutableMapOf<String, String>()
+            if (!ua.isNullOrBlank()) headers["User-Agent"] = ua
+            if (!ref.isNullOrBlank()) headers["Referer"] = ref
+
+            val isDash = format == "dash" || url.contains(".mpd", ignoreCase = true)
+            val manifestType = if (isDash) "dash" else null
+
+            out += Channel(
+                name = name.replace(Regex("""\s*\(\d+[pi]\)"""), ""),
+                url = url,
+                logo = icon?.takeIf { it.isNotBlank() },
+                group = group?.takeIf { it.isNotBlank() },
+                headers = headers,
+                drm = false,
+                tvgId = null,
+                drmType = null,
+                drmKey = null,
+                manifestType = manifestType,
+                countryCode = null,
+                catchup = null,
+                catchupSource = null,
+            )
+        }
+        return meta to out.distinctBy { it.url }
     }
 
     /** Public, community-maintained list of freely available Indonesian channels (iptv-org). */
@@ -59,6 +145,7 @@ object M3u {
     }
 
     fun parse(text: String): List<Channel> {
+        if (isOttJson(text)) return parseOttJson(text).second
         val out = mutableListOf<Channel>()
         var info: String? = null
         val headers = LinkedHashMap<String, String>()
@@ -165,7 +252,16 @@ object M3u {
     }
 
     /** URL, or a local file path (playlists people share as .m3u/.txt files). */
-    fun load(source: String) = parse(
-        if (source.startsWith("http://") || source.startsWith("https://")) Web.get(source, 30_000)
-        else java.io.File(source.removePrefix("file://")).readText())
+    fun load(source: String): List<Channel> {
+        val text = if (source.startsWith("http://") || source.startsWith("https://")) {
+            runCatching {
+                Web.get(source, 30_000, headers = mapOf("User-Agent" to OttEngine.DEFAULT_OTT_UA))
+            }.recoverCatching {
+                Web.get(source, 30_000)
+            }.getOrDefault("")
+        } else {
+            runCatching { java.io.File(source.removePrefix("file://")).readText() }.getOrDefault("")
+        }
+        return parse(text)
+    }
 }

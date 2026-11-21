@@ -15,7 +15,7 @@ import java.util.concurrent.Executors
  */
 object OttEngine {
 
-    const val DEFAULT_OTT_UA = "OTTNavigator/1.7.5.1 (Linux; Android 14)"
+    const val DEFAULT_OTT_UA = "TiviMate/4.7.0"
 
     enum class ServerStatus {
         /** Initial unverified state */
@@ -150,30 +150,49 @@ object OttEngine {
 
     /** Fetches and parses playlist from the primary OTT server. */
     private fun fetchFromPrimary(url: String): List<M3u.Channel> {
-        val reqHeaders = LinkedHashMap<String, String>().apply {
-            put("User-Agent", config.userAgent)
-            putAll(config.headers)
-        }
-        val text = Web.get(url, timeoutMs = config.timeoutMs, headers = reqHeaders)
-        if (text.isBlank()) return emptyList()
+        val candidates = listOf(config.userAgent, "TiviMate/4.7.0", "OTT Navigator/1.7.5.1")
+            .filter { it.isNotBlank() }
+            .distinct()
 
-        // Extract metadata (#EXTM3U url-tvg, catchup, etc.)
-        val meta = M3u.parseMetadata(text)
-        if (!meta.epgUrl.isNullOrBlank()) {
-            lastEpgUrl = meta.epgUrl
-        }
+        for (ua in candidates) {
+            val reqHeaders = LinkedHashMap<String, String>().apply {
+                put("User-Agent", ua)
+                putAll(config.headers)
+            }
+            val text = runCatching { Web.get(url, timeoutMs = config.timeoutMs, headers = reqHeaders) }.getOrNull()
+            if (text.isNullOrBlank()) continue
 
-        val parsed = M3u.parse(text)
-        if (parsed.isEmpty()) return emptyList()
+            val trimmed = text.trim()
+            val lower = trimmed.lowercase()
+            // Cloudflare worker / server redirect landing page protection ("Akses Channel lewat OTT Navigator yak")
+            if (lower.startsWith("<!doctype html") || lower.startsWith("<html")) continue
 
-        // Attach default OTT provider User-Agent to channels that don't have their own User-Agent
-        return parsed.map { ch ->
-            if (!ch.headers.containsKey("User-Agent") && config.userAgent.isNotEmpty()) {
-                val updatedHeaders = ch.headers + ("User-Agent" to config.userAgent)
-                ch.copy(headers = updatedHeaders)
-            } else {
-                ch
+            if (M3u.isOttJson(trimmed)) {
+                val (meta, channels) = M3u.parseOttJson(trimmed)
+                if (channels.isNotEmpty()) {
+                    if (!meta.epgUrl.isNullOrBlank()) lastEpgUrl = meta.epgUrl
+                    return channels.map { ch ->
+                        if (!ch.headers.containsKey("User-Agent") && ua.isNotEmpty()) {
+                            ch.copy(headers = ch.headers + ("User-Agent" to ua))
+                        } else ch
+                    }
+                }
+            }
+
+            val meta = M3u.parseMetadata(trimmed)
+            if (!meta.epgUrl.isNullOrBlank()) {
+                lastEpgUrl = meta.epgUrl
+            }
+
+            val parsed = M3u.parse(trimmed)
+            if (parsed.isNotEmpty()) {
+                return parsed.map { ch ->
+                    if (!ch.headers.containsKey("User-Agent") && ua.isNotEmpty()) {
+                        ch.copy(headers = ch.headers + ("User-Agent" to ua))
+                    } else ch
+                }
             }
         }
+        return emptyList()
     }
 }

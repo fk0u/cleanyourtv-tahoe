@@ -122,6 +122,9 @@ fun LiveScreen() {
         channels = null; error = null
         statusMap = emptyMap()
         checkingDone = false
+        if (playlist.isNotBlank()) {
+            tech.kousozo.tahoetv.core.OttEngine.setPrimaryServer(playlist)
+        }
 
         // Load channels immediately without blocking behind IptvServer.start() on fresh/Windows launches.
         withContext(Dispatchers.IO) {

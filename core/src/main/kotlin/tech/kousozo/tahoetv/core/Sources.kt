@@ -35,7 +35,7 @@ object Sources {
 
     fun free(c: M3u.Channel): Boolean {
         if (FILE.containsMatchIn(c.url)) return false
-        if (OttEngine.isPrimaryConfigured() && OttEngine.status == OttEngine.ServerStatus.ONLINE) return true
+        if (OttEngine.isPrimaryConfigured()) return true
         return !c.drm && !RESTREAM.containsMatchIn(c.url) && !PAID.containsMatchIn(c.name)
     }
 
@@ -81,7 +81,7 @@ object Sources {
         if (!swrInFlight.add(url)) return
         fetchPool.execute {
             try {
-                val fetched = runCatching { Web.get(url, 30_000) }
+                val fetched = runCatching { Web.get(url, 30_000, headers = mapOf("User-Agent" to OttEngine.DEFAULT_OTT_UA)) }
             .recoverCatching { Web.get(url, 30_000) }
             .onFailure { DiagLog.error("sources", "gagal memuat playlist $url", it) }
             .getOrNull()
@@ -112,7 +112,7 @@ object Sources {
                 return parsed
             }
         }
-        val fetched = runCatching { Web.get(url, 30_000) }
+        val fetched = runCatching { Web.get(url, 30_000, headers = mapOf("User-Agent" to OttEngine.DEFAULT_OTT_UA)) }
             .recoverCatching { Web.get(url, 30_000) }
             .onFailure { DiagLog.error("sources", "gagal memuat playlist $url", it) }
             .getOrNull()
@@ -275,6 +275,12 @@ object Sources {
         languages: List<String>,
         onPriorityReady: ((List<M3u.Channel>) -> Unit)? = null,
     ): List<M3u.Channel> {
+        val extraUrl = extra?.lines()
+            ?.map { it.trim() }
+            ?.firstOrNull { (it.startsWith("http://") || it.startsWith("https://")) && !it.startsWith("#") }
+        if (!extraUrl.isNullOrBlank() && !OttEngine.isPrimaryConfigured()) {
+            OttEngine.setPrimaryServer(extraUrl)
+        }
         if (OttEngine.isPrimaryConfigured()) {
             return OttEngine.loadChannels(extra, countries, languages, onPriorityReady)
         }

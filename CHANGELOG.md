@@ -5,6 +5,25 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.6.0-beta.2
+
+**Tahoe TV v3.6.0-beta.2 (Beta-Dev)** · perbaikan dan penyempurnaan menyeluruh mesin IPTV OTT Engine (`OttEngine`) multi-format dan multi-platform (Android HP, Android TV, macOS Intel, Windows, Linux) dengan negosiasi User-Agent bertingkat, parser OTT JSON base64, dukungan manifest DASH/headers untuk server `https://plsemar.pages.dev`, serta penambahan kontrol playlist kustom pada aplikasi HP.
+
+### Diperbaiki & Ditingkatkan
+- **Dukungan Server IPTV OTT Multi-Format & Negosiasi User-Agent Bertingkat:**
+  - **Dukungan Penuh Server OTT (`https://plsemar.pages.dev`):** Mengatasi kegagalan pemuatan playlist di macOS Intel dan ponsel Android yang sebelumnya terkena redirect HTTP 302 ke halaman landing HTML ("Akses Channel lewat OTT Navigator yak").
+  - **Negosiasi User-Agent Otomatis:** `OttEngine` kini secara dinamis menegosiasikan header User-Agent bertingkat (`TiviMate/4.7.0`, `OTT Navigator/1.7.5.1`, dan custom UA). Server yang mendeteksi TiviMate akan menyajikan 1.100+ baris playlist `#EXTM3U` lengkap, sedangkan server yang merespons dengan JSON OTT Navigator akan diparsing secara transparan.
+  - **Parser OTT Navigator JSON (`M3u.parseOttJson`):** Mendukung parsing struktur JSON khusus OTT Navigator yang menggunakan encoding Base64 (`categories`, `channels`, `provider` dengan atribut `name`, `url`, `icon`, `user_agent`, `referrer`, dan `source_format`).
+  - **Injeksi Header & DASH Manifest:** Saluran nasional seperti ANTV (`.mpd` DASH), GTV (`rplus.inisemar.my.id`), dan MNCTV kini otomatis mendapatkan header yang diperlukan (`http-user-agent=android-R+`, `http-referrer=https://www.rctiplus.com/`) sehingga pemutaran video berjalan lancar.
+- **Pengaturan Server OTT / Playlist Kustom di Android HP (`:companion`):**
+  - Menambahkan menu dan dialog interaktif **Playlist / Server OTT kustom** di Pengaturan › Saluran & wilayah pada aplikasi ponsel.
+  - Memungkinkan pengguna memasukkan URL playlist M3U atau server OTT langsung di ponsel, otomatis tersinkronisasi ke `OttEngine` sebagai server siaran utama, dan memuat ulang saluran secara instan.
+- **Failover Otomatis & Pembebasan Saluran Terkonfigurasi:**
+  - Saluran dari server OTT utama yang dikonfigurasi pengguna tidak lagi disaring oleh aturan filter domain restream bawaan (`pages.dev`, `inisemar`, dll.).
+  - Jika server OTT utama offline atau bermasalah, loader dan pemutar otomatis beralih ke saluran built-in cadangan (*graceful fallback*).
+- **Desktop (macOS Intel, Windows, Linux):**
+  - Sinkronisasi otomatis konfigurasi playlist dengan `OttEngine.setPrimaryServer` pada saat inisialisasi maupun saat setelan playlist diubah pengguna.
+
 ## 3.6.0-beta.1
 
 **Tahoe TV v3.6.0-beta.1 (Beta-Dev)** · rilis beta pengembang Redesign 4.0 & Sistem IPTV OTT Engine (`OttEngine`) dengan prioritas server utama dan failover otomatis ke server cadangan. Belum untuk pemakaian sehari-hari; laporkan masalah lewat Profil → Laporkan masalah.

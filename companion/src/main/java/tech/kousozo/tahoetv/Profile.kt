@@ -575,16 +575,20 @@ fun HistoryPage() {
     }
 }
 
-private enum class SettingsDialog { Theme, Quality, Latency, SubtitleSize, Language, ChannelLanguages }
+private enum class SettingsDialog { Theme, Quality, Latency, SubtitleSize, Language, ChannelLanguages, CustomPlaylist }
 
 /** Pengaturan (#179, Figma 19:511): search, Disarankan highlight, and 4 grouped sections with dialogs. */
 @Composable
 fun SettingsPage() {
     val c = LocalContext.current
+    val scope = rememberCoroutineScope()
     val lang = PhoneRegion.language
     var query by remember { mutableStateOf("") }
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
     val uiPrefs = remember { c.getSharedPreferences("ui", 0) }
+    val setupPrefs = remember { c.getSharedPreferences("setup", 0) }
+    var customPlaylistUrl by remember { mutableStateOf(setupPrefs.getString("custom_playlist_url", "").orEmpty()) }
+    var editPlaylistUrl by remember { mutableStateOf("") }
     var broadcastNotifs by remember { mutableStateOf(uiPrefs.getBoolean("broadcast_notifs", true)) }
     var cacheClearedOnce by remember { mutableStateOf(false) }
 
@@ -692,6 +696,51 @@ fun SettingsPage() {
             confirmButton = { TextButton({ dialog = null }) { Text(I18n.get(lang, "common.done"), color = Tahoe.Accent) } },
             containerColor = Tahoe.Surface,
         )
+        SettingsDialog.CustomPlaylist -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(I18n.get(lang, "settings.custom_playlist")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        I18n.get(lang, "tvset.playlist_help"),
+                        fontSize = 13.sp,
+                        color = Tahoe.Dim
+                    )
+                    OutlinedTextField(
+                        value = editPlaylistUrl,
+                        onValueChange = { editPlaylistUrl = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = false,
+                        maxLines = 3,
+                        placeholder = { Text("https://example.com/playlist.m3u", color = Tahoe.Faint) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Tahoe.Accent,
+                            unfocusedBorderColor = Tahoe.Stroke,
+                            focusedTextColor = Tahoe.Text,
+                            unfocusedTextColor = Tahoe.Text,
+                            cursorColor = Tahoe.Accent,
+                        ),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton({
+                    val clean = editPlaylistUrl.trim()
+                    customPlaylistUrl = clean
+                    setupPrefs.edit().putString("custom_playlist_url", clean).apply()
+                    tech.kousozo.tahoetv.core.OttEngine.setPrimaryServer(clean)
+                    Channels.reload(c)
+                    scope.launch { Channels.load(c) }
+                    dialog = null
+                }) {
+                    Text(I18n.get(lang, "common.save"), color = Tahoe.Accent)
+                }
+            },
+            dismissButton = {
+                TextButton({ dialog = null }) { Text(I18n.get(lang, "common.cancel")) }
+            },
+            containerColor = Tahoe.Surface,
+        )
         null -> Unit
     }
 
@@ -738,7 +787,7 @@ fun SettingsPage() {
             MenuRow(Icons.Rounded.Speed, I18n.get(lang, "player.latency"), Playback.latency.label(lang)) { dialog = SettingsDialog.Latency }
             MenuRow(Icons.Rounded.Subtitles, I18n.get(lang, "sub.size_label"), Playback.subtitleSize.label(lang)) { dialog = SettingsDialog.SubtitleSize }
         }
-        val showChannels = matches(I18n.get(lang, "settings.group_channels"), I18n.get(lang, "settings.app_language"), I18n.get(lang, "settings.region_city"), I18n.get(lang, "settings.prayer_adhan"), I18n.get(lang, "ui.channel_languages"))
+        val showChannels = matches(I18n.get(lang, "settings.group_channels"), I18n.get(lang, "settings.app_language"), I18n.get(lang, "settings.region_city"), I18n.get(lang, "settings.prayer_adhan"), I18n.get(lang, "ui.channel_languages"), I18n.get(lang, "settings.custom_playlist"))
         if (showChannels) MenuGroup(I18n.get(lang, "settings.group_channels")) {
             MenuRow(Icons.Rounded.Translate, I18n.get(lang, "settings.app_language"), OnboardingText.LANGUAGE_NAMES[lang] ?: lang) { dialog = SettingsDialog.Language }
             val citySuffix = PhoneRegion.viewer.city.takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty()
@@ -752,6 +801,12 @@ fun SettingsPage() {
             }
             MenuRow(Icons.Rounded.Language, I18n.get(lang, "ui.channel_languages"), chLangSummary) {
                 dialog = SettingsDialog.ChannelLanguages
+            }
+            val playlistSummary = customPlaylistUrl.takeIf { it.isNotBlank() }
+                ?.let { it.substringAfter("://").take(24) + if (it.length > 27) "…" else "" }
+            MenuRow(Icons.Rounded.LiveTv, I18n.get(lang, "settings.custom_playlist"), playlistSummary) {
+                editPlaylistUrl = customPlaylistUrl
+                dialog = SettingsDialog.CustomPlaylist
             }
             SwitchMenuRow(Icons.Rounded.Schedule, I18n.get(lang, "settings.prayer_adhan"), PhoneRegion.viewer.prayer) {
                 PhoneRegion.save(c, PhoneRegion.viewer.copy(prayer = it))
