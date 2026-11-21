@@ -265,6 +265,7 @@ final class Hero extends FrameLayout {
         String k = "app:" + key;
         contextual = k;
         updateAttributionView();
+        if (LiveTv.PKG.equals(key)) { sharpTahoeLive(k); return; } // its own artwork is meant to be seen, not blurred
         decoder.execute(() -> {
             tech.kousozo.tahoetv.core.DeviceProfile.Profile prof = DeviceProfiler.current(getContext());
             int sw = prof.getEnableHeroBlur() ? 160 : 240;
@@ -284,6 +285,28 @@ final class Hero extends FrameLayout {
             for (int w = b.getWidth() * 2; w <= target; w *= 2) b = Bitmap.createScaledBitmap(b, w, w * 9 / 16, true);
             Bitmap out = Bitmap.createScaledBitmap(b, target, target * H / Math.max(1, W), true);
             new android.graphics.Canvas(out).drawColor(0x40000000);
+            ui.post(() -> { if (k.equals(contextual)) crossfade(out, k, true); });
+        });
+    }
+
+    /** Tahoe Live's picture, sharp: the artwork (mountains and glass screens) on the right, fading into the launcher's dark on the left
+     *  where the hero text sits. Drawn once at 1280x720 in RGB_565, so it costs under 2 MB. */
+    private void sharpTahoeLive(String k) {
+        decoder.execute(() -> {
+            Bitmap art = BitmapFactory.decodeResource(getResources(), R.drawable.tahoe_live_hero);
+            if (art == null) return;
+            int ow = 1280, oh = 720;
+            Bitmap out = Bitmap.createBitmap(ow, oh, Bitmap.Config.RGB_565);
+            android.graphics.Canvas c = new android.graphics.Canvas(out);
+            c.drawColor(0xFF08080D);
+            int aw = art.getWidth() * oh / art.getHeight();
+            android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
+            c.drawBitmap(art, null, new android.graphics.Rect(ow - aw, 0, ow, oh), p);
+            android.graphics.Paint fade = new android.graphics.Paint();
+            fade.setShader(new android.graphics.LinearGradient(ow - aw, 0, ow - aw + aw * 0.55f, 0, 0xFF08080D, 0x0008080D, android.graphics.Shader.TileMode.CLAMP));
+            c.drawRect(ow - aw, 0, ow, oh, fade);
+            c.drawColor(0x26000000);
+            art.recycle();
             ui.post(() -> { if (k.equals(contextual)) crossfade(out, k, true); });
         });
     }
