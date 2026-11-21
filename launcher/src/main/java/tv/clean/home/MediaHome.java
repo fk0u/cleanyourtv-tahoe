@@ -35,8 +35,8 @@ final class MediaHome extends FrameLayout {
     private final String lang;
     private final Handler ui = new Handler(Looper.getMainLooper());
 
-    private final TextView eyebrow, title, desc, previewText, clock, weatherTxt, prayerTxt;
-    private final View previewPill, liveBadge, hint;
+    private final TextView greeting, eyebrow, title, desc, clock, weatherTxt, prayerTxt;
+    private final View liveBadge, hint;
     private final LinearLayout cards;
     private final HorizontalScrollView scroller;
     private final List<LocalTv.Entry> entries = new ArrayList<>();
@@ -70,10 +70,11 @@ final class MediaHome extends FrameLayout {
         LinearLayout brand = new LinearLayout(c); brand.setGravity(Gravity.CENTER_VERTICAL);
         View logo = new View(c);
         GradientDrawable lg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xFF1F3BD1, 0xFF63D1FF});
-        lg.setCornerRadius(px(12)); logo.setBackground(lg);
-        brand.addView(logo, new LinearLayout.LayoutParams(px(44), px(44)));
-        TextView name = tv("Tahoe TV", 30, 600, Color.WHITE); name.setPadding(px(12), 0, 0, 0);
-        brand.addView(name);
+        lg.setCornerRadius(px(16)); logo.setBackground(lg);
+        brand.addView(logo, new LinearLayout.LayoutParams(px(60), px(60)));
+        greeting = tv("", 36, 700, Color.WHITE); greeting.setPadding(px(16), 0, 0, 0); greeting.setSingleLine(true);
+        greeting.setMinWidth(px(250));
+        brand.addView(greeting);
         bar.addView(brand);
         bar.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1));
         LinearLayout nav = new LinearLayout(c); nav.setGravity(Gravity.CENTER_VERTICAL);
@@ -91,10 +92,10 @@ final class MediaHome extends FrameLayout {
         prayerTxt = chip(right, R.drawable.ic_moon_star, "", () -> home.openPrayer());
         chip(right, R.drawable.ic_search_cari, null, () -> home.openSheet(new Cari(home)));
         chip(right, R.drawable.ic_settings, null, () -> home.openSheet(new Pengaturan(home)));
-        clock = tv("", 30, 600, Color.WHITE); clock.setPadding(px(4), 0, 0, 0);
+        clock = tv("", 68, 800, Color.WHITE); clock.setPadding(px(16), 0, 0, 0); clock.setIncludeFontPadding(false); clock.setLetterSpacing(-0.02f);
         right.addView(clock);
         bar.addView(right);
-        LayoutParams bl = new LayoutParams(px(1696), px(64)); bl.leftMargin = px(112); bl.topMargin = px(56);
+        LayoutParams bl = new LayoutParams(px(1696), px(92)); bl.leftMargin = px(112); bl.topMargin = px(48);
         addView(bar, bl);
 
         // ---- hero copy (x112 y250)
@@ -111,20 +112,8 @@ final class MediaHome extends FrameLayout {
         eyebrow = tv("", 16, 600, 0xCCFFFFFF); eyebrow.setLetterSpacing(0.1f); eyebrow.setPadding(px(12), 0, 0, 0);
         line1.addView(eyebrow);
         copy.addView(line1);
-        LinearLayout pp = new LinearLayout(c); pp.setGravity(Gravity.CENTER_VERTICAL);
-        pp.setPadding(px(16), px(8), px(16), px(8)); pp.setBackground(pill(0x1FFFFFFF, 0, 0));
-        LinearLayout eq = new LinearLayout(c); eq.setGravity(Gravity.BOTTOM);
-        int[] hs = {10, 18, 13, 20};
-        for (int i = 0; i < 4; i++) { View b = new View(c); GradientDrawable bg = new GradientDrawable(); bg.setColor(0xFF63D1FF); bg.setCornerRadius(px(2)); b.setBackground(bg);
-            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(px(4), px(hs[i])); if (i > 0) bp.setMarginStart(px(3)); eq.addView(b, bp); }
-        pp.addView(eq);
-        previewText = tv("", 19, 500, 0xD9FFFFFF); previewText.setPadding(px(10), 0, 0, 0);
-        pp.addView(previewText);
-        previewPill = pp;
-        LinearLayout.LayoutParams ppl = new LinearLayout.LayoutParams(-2, -2); ppl.topMargin = px(20);
-        copy.addView(pp, ppl);
         title = tv("", 96, 700, Color.WHITE); title.setLetterSpacing(-0.02f); title.setIncludeFontPadding(false);
-        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-2, -2); tl.topMargin = px(20);
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-2, -2); tl.topMargin = px(22);
         copy.addView(title, tl);
         desc = tv("", 24, 400, 0xBFFFFFFF); desc.setSingleLine(false); desc.setMaxLines(2); desc.setLineSpacing(0, 1.15f);
         LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(px(860), -2); dl.topMargin = px(20);
@@ -137,7 +126,7 @@ final class MediaHome extends FrameLayout {
         btns.addView(detail, dbl);
         LinearLayout.LayoutParams bpl = new LinearLayout.LayoutParams(-2, -2); bpl.topMargin = px(20);
         copy.addView(btns, bpl);
-        LayoutParams cl = new LayoutParams(px(1500), -2); cl.leftMargin = px(112); cl.topMargin = px(250);
+        LayoutParams cl = new LayoutParams(px(1500), -2); cl.leftMargin = px(112); cl.topMargin = px(262);
         addView(copy, cl);
 
         // ---- row (x112 y700)
@@ -160,6 +149,7 @@ final class MediaHome extends FrameLayout {
         hint.setAlpha(0f);
 
         tickClock();
+        startGreeting();
     }
 
     // ------------------------------------------------------------------ data
@@ -300,7 +290,6 @@ final class MediaHome extends FrameLayout {
         title.setText(p != null ? p.getTitle() : e.getName());
         String d = p != null && p.getDesc() != null && !p.getDesc().isEmpty() ? p.getDesc() : OnboardingText.INSTANCE.category(lang, e.getCategory());
         desc.setText(d);
-        previewText.setText(I18n.get(lang, "tv.mh_preview", e.getName()));
         hint.animate().alpha(1f).setDuration(Ui.dur(home, Ui.MED)).start();
         if (!preview) return;
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
@@ -319,7 +308,7 @@ final class MediaHome extends FrameLayout {
 
     private void addTab(LinearLayout nav, String label, boolean active, Runnable action) {
         TextView t = tv(label, 19, 500, active ? 0xFF0D0D12 : 0xBFFFFFFF);
-        t.setPadding(px(22), px(10), px(22), px(10));
+        t.setPadding(px(20), px(13), px(20), px(13));
         t.setBackground(pill(active ? 0xFFFFFFFF : 0, 0, 0));
         t.setFocusable(true); t.setClickable(true);
         t.setOnFocusChangeListener((v, f) -> {
@@ -334,16 +323,16 @@ final class MediaHome extends FrameLayout {
 
     private TextView chip(LinearLayout parent, int icon, String text, Runnable action) {
         LinearLayout c = new LinearLayout(home); c.setGravity(Gravity.CENTER_VERTICAL);
-        c.setPadding(px(16), px(10), px(text == null ? 16 : 16), px(10));
+        c.setPadding(px(16), px(13), px(16), px(13));
         c.setBackground(pill(0x1AFFFFFF, 0, 0));
         c.setFocusable(true); c.setClickable(true);
         c.setOnClickListener(v -> action.run());
         c.setOnFocusChangeListener((v, f) -> c.setBackground(pill(f ? 0x40FFFFFF : 0x1AFFFFFF, f ? 0xFFFFFFFF : 0, f ? px(3) : 0)));
         ImageView i = Ui.icon(home, icon, 20, Color.WHITE);
-        c.addView(i, new LinearLayout.LayoutParams(px(20), px(20)));
+        c.addView(i, new LinearLayout.LayoutParams(px(26), px(26)));
         TextView t = null;
-        if (text != null) { t = tv(text, 19, 500, Color.WHITE); t.setPadding(px(8), 0, 0, 0); c.addView(t); }
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); if (parent.getChildCount() > 0) lp.setMarginStart(px(12));
+        if (text != null) { t = tv(text, 22, 500, Color.WHITE); t.setPadding(px(10), 0, 0, 0); c.addView(t); }
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2); if (parent.getChildCount() > 0) lp.setMarginStart(px(10));
         parent.addView(c, lp);
         return t == null ? new TextView(home) : t;
     }
@@ -379,7 +368,34 @@ final class MediaHome extends FrameLayout {
         ui.postDelayed(clockTick, 20_000);
     }
 
-    @Override protected void onDetachedFromWindow() { ui.removeCallbacks(clockTick); super.onDetachedFromWindow(); }
+    // ------------------------------------------------------------------ greeting (typewriter, replaces the old "Tahoe TV" label)
+
+    private String[] greetLines = new String[0];
+    private int greetLine, greetChar;
+    private final Runnable greetTick = this::greetStep;
+
+    private void startGreeting() {
+        java.util.Calendar cal = java.util.Calendar.getInstance(Prayer.tz(home));
+        int h = cal.get(java.util.Calendar.HOUR_OF_DAY);
+        String k = h < 11 ? "greet.morning" : h < 15 ? "greet.day" : h < 18 ? "greet.evening" : "greet.night";
+        if (h >= 18 && h < 19) k = "greet.evening";
+        greetLines = new String[]{I18n.get(lang, k), "Tahoe TV"};
+        greetLine = 0; greetChar = 0;
+        if (Ui.dur(home, Ui.MED) == 0) { greeting.setText(greetLines[0]); return; } // reduced motion: static
+        ui.removeCallbacks(greetTick); ui.post(greetTick);
+    }
+
+    private void greetStep() {
+        String full = greetLines[greetLine];
+        greeting.setText(full.substring(0, greetChar));
+        if (greetChar < full.length()) { greetChar++; ui.postDelayed(greetTick, 75); return; }
+        // fully typed: hold, fade out, start the next line
+        greetLine = (greetLine + 1) % greetLines.length; greetChar = 0;
+        ui.postDelayed(() -> greeting.animate().alpha(0f).setDuration(260).withEndAction(() -> {
+            greeting.setAlpha(1f); greeting.setText(""); ui.postDelayed(greetTick, 120); }).start(), 5200);
+    }
+
+    @Override protected void onDetachedFromWindow() { ui.removeCallbacks(clockTick); ui.removeCallbacks(greetTick); greeting.animate().cancel(); super.onDetachedFromWindow(); }
 
     // ------------------------------------------------------------------ helpers
 

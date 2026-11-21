@@ -61,7 +61,7 @@ final class Hero extends FrameLayout {
         previewBadge.setText("● " + I18n.get(TvViewer.get(c).getLanguage(), "tv.live_preview"));
         previewBadge.setPadding((int) Ui.dp(c, 10), (int) Ui.dp(c, 5), (int) Ui.dp(c, 10), (int) Ui.dp(c, 5));
         previewBadge.setBackground(new GlassDrawable(Ui.dp(c, 14), 0xB307080D, Ui.dp(c, 1)));
-        previewBadge.setAlpha(0f);
+        previewBadge.setAlpha(0f); previewBadge.setVisibility(GONE); // the "Live preview" label is gone for good
         LayoutParams pbl = new LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
         pbl.rightMargin = (int) Ui.dp(c, Ui.SAFE_SIDE);
         pbl.topMargin = (int) Ui.dp(c, Ui.SAFE_TOP + 54);
@@ -95,7 +95,7 @@ final class Hero extends FrameLayout {
     }
 
     /** The Figma Home draws its own scrim, so the built-in ones step aside. */
-    void setScrims(boolean on) { for (View v : scrims) v.setVisibility(on ? VISIBLE : GONE); previewBadge.setVisibility(on ? VISIBLE : GONE); }
+    void setScrims(boolean on) { for (View v : scrims) v.setVisibility(on ? VISIBLE : GONE); }
 
     static ImageView img(Context c) { ImageView v = new ImageView(c); v.setScaleType(ImageView.ScaleType.CENTER_CROP); return v; }
 
