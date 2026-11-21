@@ -248,6 +248,7 @@ public class Live extends Activity {
         Handler main = new Handler(Looper.getMainLooper());
         SourceHealth.init(new java.io.File(c.getCacheDir(), "source-health.tsv"), new java.io.File(c.getFilesDir(), "source-banned.txt")); // bans: durable
         Sources.initCache(c.getCacheDir());
+        Logos.init(c.getCacheDir());
         tech.kousozo.tahoetv.core.MediaScraper.initCache(c.getCacheDir());
         Sources.scheduleDailyRefresh(() -> cachedAt = 0);
         boolean fresh = cached != null && System.currentTimeMillis() - cachedAt < 6 * 3600_000L;

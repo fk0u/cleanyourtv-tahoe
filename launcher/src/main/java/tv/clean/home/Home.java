@@ -77,6 +77,7 @@ public class Home extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Logos.init(getCacheDir());
         bootStartMs = android.os.SystemClock.elapsedRealtime();
         if (TvGuard.blockIfNotTv(this)) return;
         Diag.install(this);
