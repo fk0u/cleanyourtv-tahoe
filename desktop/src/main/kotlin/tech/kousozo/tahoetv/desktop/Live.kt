@@ -257,6 +257,9 @@ fun LiveScreen() {
         }
     }
     fun watch(e: LocalTv.Entry) { selected = e; playing = e.channel; Settings.rememberRecentChannel(e.name) }
+    LaunchedEffect(shown.size, statusMap.size) {
+        if (DeskNav.autoplay) shown.firstOrNull { isChannelLive(it) == true }?.let { DeskNav.autoplay = false; watch(it) }
+    }
 
     Column(
         Modifier.fillMaxSize().padding(start = 12.dp, end = 20.dp, top = 20.dp, bottom = 20.dp)

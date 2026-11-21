@@ -72,6 +72,10 @@ object PlayerWindow {
         showLabel.text = cur?.title ?: titleLabel.text
         titleLabel.isVisible = cur != null; titleLabel.isManaged = cur != null
         val sec = cur?.let { now.epochSecond - it.start.epochSecond } ?: 0
+        if (::progFill.isInitialized) {
+            val f = cur?.let { (now.epochSecond - it.start.epochSecond).toDouble() / (it.stop.epochSecond - it.start.epochSecond).coerceAtLeast(1) }?.coerceIn(0.02, 1.0) ?: 0.0
+            progFill.prefWidth = progTrack.width * f
+        }
         elapsedLabel.text = if (cur != null) "%02d:%02d:%02d  /  %s".format(sec / 3600, sec % 3600 / 60, sec % 60, hmFmt().format(cur.stop)) else ""
         timeLabel.text = hmFmt().format(now) + (if (weather.isNotEmpty()) "    $weather" else "")
         pauseBtn.text = if (player?.status == MediaPlayer.Status.PAUSED) "▶" else "⏸"
@@ -250,6 +254,8 @@ object PlayerWindow {
     private lateinit var drawerList: javafx.scene.control.ListView<String>
     private lateinit var digitBadge: Label
     private lateinit var bar: BorderPane
+    private lateinit var progTrack: StackPane
+    private lateinit var progFill: Region
     private lateinit var hint: Label
     private lateinit var nextBtn: Button
     private var catalogEntries: List<Pair<String, String>> = emptyList() // (channelName, showTitle)
@@ -642,6 +648,13 @@ object PlayerWindow {
         setOnAction { action() }
     }
 
+    /** Figma control: no plate, just the glyph; a soft round highlight on hover. */
+    private fun bare(b: Button, size: Int = 22): Button = b.apply {
+        val base = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: ${size}px; -fx-background-radius: 22; -fx-padding: 6 10;"
+        style = base
+        setOnMouseEntered { style = base.replace("transparent", "rgba(255,255,255,0.14)") }; setOnMouseExited { style = base }
+    }
+
     private val hideControls = PauseTransition(Duration.seconds(3.0))
 
     /** Show the controls and the cursor; they fade away again after 3 s without mouse movement. */
@@ -659,9 +672,9 @@ object PlayerWindow {
 
     private fun ensureStage(): Stage = stage ?: Stage().also { st ->
         view = MediaView().apply { isPreserveRatio = true }
-        titleLabel = Label().apply { style = "-fx-text-fill: rgba(255,255,255,0.75); -fx-font-size: 14px;" }
-        showLabel = Label().apply { style = "-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;" }
-        liveBadge = Label("LIVE").apply { style = "-fx-background-color: #FF453A; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 2 8; -fx-background-radius: 5;" }
+        titleLabel = Label().apply { style = "-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 14px;" }
+        showLabel = Label().apply { style = "-fx-text-fill: white; -fx-font-size: 20px; -fx-font-weight: bold;" }
+        liveBadge = Label("●  LIVE").apply { style = "-fx-background-color: #FF453A; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 4 10 4 8; -fx-background-radius: 999;" }
         timeLabel = Label().apply { style = "-fx-text-fill: white; -fx-font-size: 16px;" }
         elapsedLabel = Label().apply { style = "-fx-text-fill: rgba(255,255,255,0.85); -fx-font-size: 15px; -fx-font-family: monospace;" }
         statusLabel = Label().apply {
@@ -696,9 +709,17 @@ object PlayerWindow {
         val prevTopBtn = button("⏮") { onSwitch(-1) }.apply { accessibleText = "Saluran sebelumnya" }
         val nextTopBtn = button("⏭") { onSwitch(1) }.apply { accessibleText = "Saluran berikutnya" }
         val closeTopBtn = button("✕") { st.close() }.apply { accessibleText = "Tutup pemutar" }
-        val left = VBox(4.0, HBox(8.0, liveBadge).apply { alignment = Pos.CENTER_LEFT }, showLabel, titleLabel, elapsedLabel).apply { alignment = Pos.BOTTOM_LEFT }
-        val mid = HBox(12.0, prevTopBtn, pauseBtn, muteBtn, subBtn, nextTopBtn).apply { alignment = Pos.CENTER }
-        val right = HBox(10.0, flagBtn, infoBtn, drawerBtn, miniBtn, fullBtn, closeTopBtn).apply { alignment = Pos.BOTTOM_RIGHT }
+        // Figma "Desktop / Player": back + title + LIVE on top; progress, then plain glyph controls along the bottom
+        val backBtn = button("‹") { st.close() }.apply {
+            accessibleText = "Tutup pemutar"
+            style = "-fx-background-color: rgba(255,255,255,0.14); -fx-text-fill: white; -fx-font-size: 24px; -fx-background-radius: 999; -fx-min-width: 44; -fx-min-height: 44; -fx-padding: 0 0 3 0;"
+        }
+        listOf(prevTopBtn, nextTopBtn, pauseBtn, muteBtn).forEach { bare(it, 22) }
+        listOf(flagBtn, subBtn, infoBtn, drawerBtn, miniBtn, fullBtn).forEach { bare(it, 15) }
+        progFill = Region().apply { style = "-fx-background-color: #5CD0FF; -fx-background-radius: 2;"; prefHeight = 4.0; maxWidth = Region.USE_PREF_SIZE; prefWidth = 0.0; StackPane.setAlignment(this, Pos.CENTER_LEFT) }
+        progTrack = StackPane(progFill).apply { style = "-fx-background-color: rgba(255,255,255,0.2); -fx-background-radius: 2;"; prefHeight = 4.0; maxHeight = 4.0; alignment = Pos.CENTER_LEFT }
+        val titles = VBox(2.0, showLabel, titleLabel).apply { alignment = Pos.CENTER_LEFT }
+        val controls = HBox(14.0, pauseBtn, prevTopBtn, nextTopBtn, muteBtn, Region().also { HBox.setHgrow(it, Priority.ALWAYS) }, elapsedLabel, flagBtn, subBtn, infoBtn, drawerBtn, miniBtn, fullBtn).apply { alignment = Pos.CENTER }
 
         drawerList = javafx.scene.control.ListView<String>().apply {
             style = "-fx-control-inner-background: rgba(14,18,26,0.92); -fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 13px;"
@@ -770,16 +791,15 @@ object PlayerWindow {
         StackPane.setMargin(statsCard, Insets(24.0))
         val spacer = Region().also { HBox.setHgrow(it, Priority.ALWAYS) }
         bar = BorderPane().apply {
-            top = HBox(16.0, spacer, timeLabel).apply { alignment = Pos.CENTER_RIGHT }
-            bottom = HBox(10.0, left, Region().also { HBox.setHgrow(it, Priority.ALWAYS) }, mid, Region().also { HBox.setHgrow(it, Priority.ALWAYS) }, right)
-                .apply { alignment = Pos.BOTTOM_CENTER; padding = Insets(12.0, 0.0, 0.0, 0.0) }
-            padding = Insets(18.0, 22.0, 18.0, 22.0)
-            style = "-fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent 30%, transparent 70%, rgba(0,0,0,0.7));"
+            top = HBox(16.0, backBtn, titles, liveBadge, spacer, timeLabel).apply { alignment = Pos.CENTER_LEFT }
+            bottom = VBox(16.0, progTrack, controls).apply { alignment = Pos.BOTTOM_CENTER }
+            padding = Insets(32.0, 40.0, 32.0, 40.0)
+            style = "-fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 25%, transparent 65%, rgba(0,0,0,0.9) 100%);"
             isPickOnBounds = false
         }
         hint = Label("▲▼ ganti saluran  ·  0-9 nomor  ·  L saluran  ·  P mini-player  ·  F layar penuh  ·  M bisu  ·  I stats  ·  Spasi jeda").apply {
             style = "-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12px;"; StackPane.setAlignment(this, Pos.BOTTOM_CENTER)
-            StackPane.setMargin(this, Insets(0.0, 0.0, 70.0, 0.0))
+            StackPane.setMargin(this, Insets(0.0, 0.0, 110.0, 0.0))
         }
         digitBadge = Label("").apply {
             style = "-fx-background-color: rgba(14,18,26,0.92); -fx-text-fill: #64D2FF; -fx-font-size: 24px; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 14; -fx-border-color: rgba(100,210,255,0.5); -fx-border-radius: 14;"

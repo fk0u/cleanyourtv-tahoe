@@ -68,6 +68,7 @@ object Session {
 private var startScreen = Screen.Home
 
 fun main(args: Array<String>) {
+    if ("--autoplay" in args) DeskNav.autoplay = true
     args.firstOrNull { it.startsWith("--screen=") }?.substringAfter('=')?.let { n -> Screen.entries.firstOrNull { it.name.equals(n, true) }?.let { startScreen = it } }
     tech.kousozo.tahoetv.core.DiagLog.install(java.io.File(System.getProperty("user.home"), ".tahoetv/diag.log"))
     args.firstOrNull { it == "--demo" || it.startsWith("--demo=") }?.let { flag ->
@@ -145,6 +146,8 @@ private fun app() = application {
 object DeskNav {
     var screen by mutableStateOf(Screen.Home)
     var query by mutableStateOf("")
+    /** `--autoplay`: the Live screen starts the first channel that is live (support and screenshots). */
+    var autoplay by mutableStateOf(false)
     /** Settings → Wilayah & bahasa → Ubah: the first-run setup again (the saved country stays preselected). */
     var regionSetup by mutableStateOf(false)
 }
