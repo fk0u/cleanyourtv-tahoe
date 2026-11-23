@@ -9,16 +9,16 @@ import kotlin.math.sin
  *  play [REPEATS] cycles and stop as soon as the channel comes back. Clearly audible, never a harsh beep. */
 object SlateTone {
     const val RATE = 22_050
-    /** How many cycles a player loops (about 30 seconds in all), then it stays quiet. */
-    const val REPEATS = 3
+    /** How many cycles a player loops (about a minute in all), then it stays quiet. */
+    const val REPEATS = 5
     private const val PEAK = 0.62
 
     private class Note(val hz: Double, val start: Double, val length: Double, val gain: Double, val bell: Boolean)
     private val CYCLE = listOf(
         Note(880.0, 0.00, 0.30, 0.9, true), Note(659.25, 0.20, 0.34, 0.9, true), Note(440.0, 0.42, 0.70, 1.0, true),
-        Note(1000.0, 1.30, 5.20, 0.8, false),            // the long test tone
+        Note(1000.0, 1.30, 7.00, 0.8, false),            // the long test tone
     )
-    private const val CYCLE_SECONDS = 9.0                 // the rest is silence before the next round
+    private const val CYCLE_SECONDS = 11.0                 // the rest is silence before the next round
 
     /** Signed 16-bit mono samples of ONE cycle. Deterministic. */
     @JvmStatic fun pcm(): ShortArray {
