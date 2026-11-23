@@ -1453,7 +1453,7 @@ public class LiveTv extends Activity {
                 + "  ·  " + when);
     }
 
-    void hideSlate() { slateGen++; if (slate != null) slate.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
+    void hideSlate() { Chime.stop(); slateGen++; if (slate != null) slate.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
 
     /** Every source of this channel again, best first (OK on the slate, or the background retry). */
     void retryChannel() {
@@ -1575,7 +1575,8 @@ public class LiveTv extends Activity {
 
     @Override protected void onStop() { super.onStop(); if (live == this) live = null; if (player != null) player.pause(); if (Home.live != null) Home.live.pushState(); }
     @Override protected void onStart() { super.onStart(); live = this; if (player != null && index >= 0) player.play(); if (Home.live != null) Home.live.pushState(); }
-    @Override protected void onDestroy() { tech.kousozo.tahoetv.core.SourceHealth.yieldToPlayback = false; if (activeRecorder != null) { activeRecorder.cancel(); activeRecorder = null; } flushRecapSession(); ui.removeCallbacksAndMessages(null); if (bwMeter != null && bwMeter.getBitrateEstimate() > 0) prefs.edit().putLong("bw_estimate", bwMeter.getBitrateEstimate()).apply(); if (player != null) player.release(); player = null; super.onDestroy(); }
+    @Override protected void onDestroy() {
+        Chime.stop(); tech.kousozo.tahoetv.core.SourceHealth.yieldToPlayback = false; if (activeRecorder != null) { activeRecorder.cancel(); activeRecorder = null; } flushRecapSession(); ui.removeCallbacksAndMessages(null); if (bwMeter != null && bwMeter.getBitrateEstimate() > 0) prefs.edit().putLong("bw_estimate", bwMeter.getBitrateEstimate()).apply(); if (player != null) player.release(); player = null; super.onDestroy(); }
 
     // ------------------------------------------------------------------ app tile
 

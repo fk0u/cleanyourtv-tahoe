@@ -10,6 +10,9 @@ final class Chime {
     private static AudioTrack track;
     private Chime() {}
 
+    /** The channel came back, or the viewer left: stop at once. */
+    static synchronized void stop() { try { if (track != null) { track.stop(); track.release(); } } catch (Exception ignored) {} track = null; }
+
     private static String lastKey = ""; private static long lastAt;
 
     /** [key] names the channel: the same one keeps quiet for 10 minutes, so its background retries don't beep over and over. */
@@ -25,6 +28,7 @@ final class Chime {
                     .setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(SlateTone.RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                     .setBufferSizeInBytes(pcm.length * 2).setTransferMode(AudioTrack.MODE_STATIC).build();
             t.write(pcm, 0, pcm.length);
+            t.setLoopPoints(0, pcm.length, SlateTone.REPEATS - 1); // the whole cycle, three rounds, then quiet
             t.play();
             track = t;
         } catch (Exception ignored) { /* no sound is better than a crash */ }
