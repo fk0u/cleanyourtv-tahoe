@@ -5,6 +5,21 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.8.1
+
+**Tahoe TV v3.8.1 (Stable)** · perbaikan cepat untuk aplikasi HP, ditambah Handoff (lanjutkan tontonan di perangkat lain).
+
+### Perbaikan
+- **HP: crash setelah data aplikasi direset.** Di langkah terakhir onboarding, aplikasi langsung tertutup sendiri pada instalasi baru karena daftar saluran masih kosong. Sekarang layar itu menunggu saluran termuat.
+- **HP:** dialog pembaruan menampilkan catatan rilis sebagai teks biasa, tidak lagi dengan tanda Markdown mentah.
+- **HP:** baris Akun selalu tampil, sehingga build tanpa alamat server tertanam tetap bisa mengisi alamatnya.
+
+### Baru
+- **Lanjutkan di perangkat lain (Handoff):** saat masuk ke akun Tahoe, TV menawarkan "Lanjutkan: <saluran>" untuk apa yang tadi ditonton di HP, dan HP menawarkan kebalikannya. Ada sakelar untuk mematikannya. Data tersimpan terenkripsi di server dan kedaluwarsa setelah 6 jam.
+- **TV:** Pengaturan → Network & phone menampilkan daftar HP yang terhubung; OK pada satu HP langsung mencabut aksesnya.
+- **Desktop:** Cmd/Ctrl+, membuka Pengaturan dan Cmd/Ctrl+F menuju pencarian saluran.
+- **Pengemasan:** penandatanganan macOS dan Windows aktif otomatis begitu secret tersedia, ditambah manifest Homebrew dan winget (`packaging/`).
+
 ## 3.8.0
 
 **Tahoe TV v3.8.0 (Stable) · Reaching The New Era of Tahoe TV v4** · rilis besar: Tahoe Live (Media Center) yang imersif, tunnel bawaan agar semua perangkat selalu sinkron, akun Tahoe pribadi, cache dan transisi yang jauh lebih mulus, layar siaran tidak tersedia yang baru, serta pembaruan yang lebih aman, di Android TV, HP, dan desktop.
