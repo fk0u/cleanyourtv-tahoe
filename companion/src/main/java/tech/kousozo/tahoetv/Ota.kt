@@ -38,9 +38,7 @@ fun UpdateModalDialog() {
     val (current, currentCode) = remember { PushHelper.appVersion(c) }
     val hasRemoteApk = r != null && r.hasAnyAsset(APK_CANDIDATES)
     val newerAvailable = r != null && Updates.newer(r.version, current)
-    val mandatory = (pol.minVersionCode > 0 && currentCode < pol.minVersionCode) ||
-        (pol.forceModal && newerAvailable) ||
-        (r?.forceModal == true && newerAvailable)
+    val mandatory = tech.kousozo.tahoetv.core.ControlPlane.isMandatory(current, currentCode, r) // incl. fix releases (3.8.0 → 3.8.1)
 
     var status by remember(r?.version) { mutableStateOf("") }
     var progress by remember { mutableStateOf<Int?>(null) }

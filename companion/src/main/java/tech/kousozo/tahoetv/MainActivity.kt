@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
             TahoeTheme {
                 val darkBars = ThemePrefs.dark
                 LaunchedEffect(darkBars) { applySystemBars(darkBars) }
-                if (PhoneRegion.needsSetup) { Box(Modifier.fillMaxSize()) { Backdrop(null); WelcomeScreen() }; return@TahoeTheme }
+                if (PhoneRegion.needsSetup) { Box(Modifier.fillMaxSize()) { Backdrop(null); WelcomeScreen(); UpdateModalDialog() /* a fix release is asked for even before onboarding is done */ }; return@TahoeTheme }
                 val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
                 val lang0 = PhoneRegion.language
                 val tabs = listOf(

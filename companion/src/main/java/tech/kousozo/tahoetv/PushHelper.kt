@@ -178,8 +178,7 @@ object PushHelper {
         val ver = latestRelease?.version.orEmpty()
         val pol = policy
         val (curVer, curCode) = appVersion(c)
-        val mandatory = (pol.minVersionCode > 0 && curCode < pol.minVersionCode) ||
-            (pol.forceModal && latestRelease?.let { Updates.newer(it.version, curVer) } == true)
+        val mandatory = ControlPlane.isMandatory(curVer, curCode, latestRelease)
         if (mandatory) return
         if (ver.isNotBlank()) ControlPlane.markUpdateModalDismissed(c.filesDir, ver)
         showUpdateModal = false
