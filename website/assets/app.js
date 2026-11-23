@@ -1,5 +1,5 @@
 (function () {
-  const REPO = "fk0u/cleanyourtv-tahoe";
+  const REPO = "fk0u/tahoe-tv";
   const BLOB = "https://github.com/" + REPO + "/blob/main/";
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
