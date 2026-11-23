@@ -150,7 +150,7 @@ public class Live extends Activity {
         rows = new LinearLayout(this); rows.setOrientation(LinearLayout.VERTICAL);
         ScrollView cs = new ScrollView(this); cs.addView(cats); cs.setVerticalScrollBarEnabled(false);
         ScrollView rs = new ScrollView(this); rs.addView(rows); rs.setVerticalScrollBarEnabled(false);
-        LinearLayout.LayoutParams csl = new LinearLayout.LayoutParams(px(240), -1); csl.setMarginEnd(px(28)); cols.addView(cs, csl);
+        LinearLayout.LayoutParams csl = new LinearLayout.LayoutParams(px(300), -1); csl.setMarginEnd(px(28)); cols.addView(cs, csl);
         cols.addView(rs, new LinearLayout.LayoutParams(0, -1, 1));
 
         // detail panel for the focused channel (Figma "Detail panel": 560 wide, glass, radius 32, padding 32)
@@ -418,7 +418,7 @@ public class Live extends Activity {
             LinearLayout.LayoutParams lbl = new LinearLayout.LayoutParams(px(64), px(40)); lbl.setMarginStart(px(20)); r.addView(lb, lbl);
             LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
             TextView nm = t(e.getName() + (e.getNear() ? "  •" : ""), 24, 400, 0xFFFFFFFF);
-            TextView pr = t(p != null ? p.getTitle() : "", 19, 500, 0xA6FFFFFF);
+            TextView pr = t(p != null ? p.getTitle() : OnboardingText.INSTANCE.category(TvViewer.get(this).getLanguage(), e.getCategory()), 21, 500, 0xA6FFFFFF); // no guide data: the channel's category instead of an empty line
             col.addView(nm);
             LinearLayout.LayoutParams prl = new LinearLayout.LayoutParams(-2, -2); prl.topMargin = px(6); col.addView(pr, prl);
             LinearLayout.LayoutParams cl2 = new LinearLayout.LayoutParams(0, -2, 1); cl2.setMarginStart(px(20)); r.addView(col, cl2);
