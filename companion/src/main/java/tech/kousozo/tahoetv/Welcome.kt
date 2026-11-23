@@ -467,8 +467,10 @@ private fun ReadyMosaicHero(v: Viewer) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     for (col in 0 until 3) {
-                        val e = entries[(row * 3 + col) % entries.size]
-                        ChannelArt(e, Modifier.width(126.dp).height(82.dp).clip(RoundedCornerShape(18.dp)), logoScale = 0.78f)
+                        // fresh install: the channels are not loaded yet, so draw empty tiles (never index an empty list)
+                        val tile = Modifier.width(126.dp).height(82.dp).clip(RoundedCornerShape(18.dp))
+                        if (entries.isEmpty()) Box(tile.background(Tahoe.Glass))
+                        else ChannelArt(entries[(row * 3 + col) % entries.size], tile, logoScale = 0.78f)
                     }
                 }
             }
