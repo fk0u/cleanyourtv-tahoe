@@ -68,6 +68,12 @@ class ProtocolTest {
         assertEquals("""{"city":"Jakarta"}""", viewerDecoded.json)
     }
 
+    @Test fun accountLinkRoundTrips() {
+        val enc = Protocol.encode(Protocol.AccountLink("https://tv.example", "tt_abc", "a@b.cc"), id = "c-11", withLegacy = false)
+        val dec = assertIs<Protocol.AccountLink>(Protocol.decode(enc.toString())!!.message)
+        assertEquals("https://tv.example", dec.url); assertEquals("tt_abc", dec.token); assertEquals("a@b.cc", dec.email)
+    }
+
     @Test fun sessionLoadControlAckErrorAndVersionCheck() {
         val loadRaw = Protocol.encode(
             Protocol.SessionLoad(channelId = "kompastv.id", url = "https://example.com/live.m3u8", name = "Kompas TV", startAt = 0L),

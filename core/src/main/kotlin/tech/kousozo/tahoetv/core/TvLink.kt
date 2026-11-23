@@ -181,6 +181,8 @@ class TvLink(
     fun key(k: String) = sendProtocol(Protocol.Key(k))
     /** The phone's onboarding choices ([Viewer] JSON): the TV takes them and skips its own onboarding (#77). */
     fun viewer(json: String) = sendProtocol(Protocol.ViewerSync(json))
+    /** Signs the TV in to the same account (see [Protocol.AccountLink]); an empty [token] signs it out. */
+    fun account(url: String, token: String, email: String = "") = sendProtocol(Protocol.AccountLink(url, token, email), withLegacy = false)
     /** Delta or region sync patch ([Viewer.diff]) sent over an ordered link queue (#111). */
     fun viewerPatch(patch: JSONObject) = sendProtocol(Protocol.ViewerPatch(patch))
     fun launch(pkg: String) = sendProtocol(Protocol.Launch(pkg))

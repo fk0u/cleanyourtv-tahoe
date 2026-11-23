@@ -43,6 +43,8 @@ object Protocol {
 
     data class Key(val key: String) : Message("remote.key")
     data class ViewerSync(val json: String) : Message("remote.viewer")
+    /** The phone hands the TV its account session (server address + sign-in token) over the paired, authenticated link; "" token = sign out. */
+    data class AccountLink(val url: String, val token: String, val email: String = "") : Message("remote.account")
     data class ViewerPatch(val patch: JSONObject) : Message("remote.viewer_patch")
     data class Launch(val pkg: String) : Message("remote.launch")
     data class OpenUrl(val url: String) : Message("remote.url")
@@ -109,6 +111,7 @@ object Protocol {
         is Pong -> JSONObject().put("nonce", msg.nonce)
         is Key -> JSONObject().put("k", msg.key)
         is ViewerSync -> JSONObject().put("v", msg.json)
+        is AccountLink -> JSONObject().put("url", msg.url).put("token", msg.token).put("email", msg.email)
         is ViewerPatch -> JSONObject(msg.patch.toString())
         is Launch -> JSONObject().put("pkg", msg.pkg)
         is OpenUrl -> JSONObject().put("u", msg.url)
@@ -276,6 +279,7 @@ object Protocol {
         "pong" -> Pong(nonce = body.optLong("nonce", 0L))
         "remote.key", "key" -> Key(body.optString("k", body.optString("key", "")))
         "remote.viewer", "viewer" -> ViewerSync(body.optString("v", body.optString("json", "")))
+        "remote.account" -> AccountLink(body.optString("url", ""), body.optString("token", ""), body.optString("email", ""))
         "remote.viewer_patch", "viewer_patch" -> ViewerPatch(body)
         "remote.launch", "launch" -> Launch(body.optString("pkg", ""))
         "remote.url", "url" -> OpenUrl(body.optString("u", body.optString("url", "")))
