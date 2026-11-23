@@ -443,7 +443,8 @@ fun ProfileScreen() {
                 MenuRow(Icons.Rounded.Tv, I18n.get(lang, "profile.connect_tv"), if (tvCount > 0) "$tvCount" else null) { Nav.page = "connect" }
                 MenuRow(Icons.Rounded.Download, I18n.get(lang, "tv.install_on_tv")) { Nav.page = "setup" }
             }
-            if (Account.available(c)) MenuGroup(tech.kousozo.tahoetv.core.AccountText.get(lang, "title")) {
+            // always shown: in a public build (no address compiled in) the Account screen is where the owner types the server address
+            MenuGroup(tech.kousozo.tahoetv.core.AccountText.get(lang, "title")) {
                 MenuRow(Icons.Rounded.AccountCircle, tech.kousozo.tahoetv.core.AccountText.get(lang, if (Account.signedIn) "display" else "signin"),
                     if (Account.signedIn) Account.email else null) { Nav.page = "account" }
             }
