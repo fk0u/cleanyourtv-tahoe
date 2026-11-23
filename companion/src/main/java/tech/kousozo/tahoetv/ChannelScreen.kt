@@ -145,6 +145,7 @@ fun ChannelScreen(e: LocalTv.Entry, onBack: () -> Unit) {
                         RoundGlass(Icons.Rounded.Cast, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "connect.play_on_tv")) {
                             tech.kousozo.tahoetv.core.TvLink.shared(activeDev.host, activeDev.token)
                                 .sessionLoad(e.channel.channelId, e.channel.url, e.name)
+                            Channels.remember(c, e, tech.kousozo.tahoetv.core.WatchHistory.TV)
                         }
                     }
                 }

@@ -375,6 +375,7 @@ private fun NowPlayingInfo(e: LocalTv.Entry, epg: Epg?, now: Instant) {
                 RoundGlass(Icons.Rounded.Cast, tech.kousozo.tahoetv.core.I18n.get(lang, "connect.play_on_tv")) {
                     tech.kousozo.tahoetv.core.TvLink.shared(activeDev.host, activeDev.token)
                         .sessionLoad(e.channel.channelId, e.channel.url, e.name)
+                    Channels.remember(c, e, tech.kousozo.tahoetv.core.WatchHistory.TV)
                 }
             }
         }
@@ -1031,25 +1032,12 @@ object Channels {
     /** Bumped on a country change: a load still running for the old country throws its result away. */
     private var generation = 0
 
-    /** Synchronously populates demo channels/EPG when Demo mode is active (used by debug intent jumps). */
-    fun loadDemoSync() {
-        if (!tech.kousozo.tahoetv.core.Demo.isActive()) return
-        val list = LocalTv.arrange(tech.kousozo.tahoetv.core.Demo.channels(), null, PhoneRegion.viewer.countries, PhoneRegion.viewer.sort, PhoneRegion.viewer.city, PhoneRegion.viewer.country)
-        if (favs.isEmpty()) favs = list.take(2).map { it.channel.url }.toSet()
-        all = list; entries = PhoneRegion.viewer.arrange(list); epg = tech.kousozo.tahoetv.core.Demo.epg(); failed = false; loading = false
-    }
-
     /** Country changed: forget the list; the next screen that shows loads the new one. */
     fun reload(@Suppress("UNUSED_PARAMETER") c: android.content.Context) { generation++; loading = false; entries = null; all = null; epg = null; failed = false; debugOffline = false }
 
     suspend fun load(c: android.content.Context) {
         if (entries != null || loading) return
         loading = true
-        if (tech.kousozo.tahoetv.core.Demo.isActive()) { // sample channels and guide, no network (screenshots)
-            val list = LocalTv.arrange(tech.kousozo.tahoetv.core.Demo.channels(), null, PhoneRegion.viewer.countries, PhoneRegion.viewer.sort, PhoneRegion.viewer.city, PhoneRegion.viewer.country)
-            if (favs.isEmpty()) favs = list.take(2).map { it.channel.url }.toSet() // demo: two saved channels, in memory only
-            all = list; entries = PhoneRegion.viewer.arrange(list); epg = tech.kousozo.tahoetv.core.Demo.epg(); loading = false; return
-        }
         val mine = generation
         try { withContext(Dispatchers.IO) {
             val setup = c.getSharedPreferences("setup", 0)
@@ -1135,10 +1123,22 @@ object Channels {
         rearrange() // the new favourite moves to the front now
     }
 
-    fun remember(c: android.content.Context, e: LocalTv.Entry) {
+    /** [device] is where it plays: this phone, or the paired TV it was sent to. Feeds "recent" (Continue watching) and the real watch history. */
+    fun remember(c: android.content.Context, e: LocalTv.Entry, device: String = tech.kousozo.tahoetv.core.WatchHistory.PHONE) {
         val p = c.getSharedPreferences("live", 0)
         val urls = listOf(e.channel.url) + p.getString("recent", "").orEmpty().split('\n').filter { it.isNotBlank() && it != e.channel.url }
-        p.edit().putString("recent", urls.take(10).joinToString("\n")).apply()
+        val log = tech.kousozo.tahoetv.core.WatchHistory.add(
+            tech.kousozo.tahoetv.core.WatchHistory.parse(p.getString("history", "").orEmpty()),
+            tech.kousozo.tahoetv.core.WatchHistory.Item(System.currentTimeMillis(), device, e.channel.url),
+        )
+        p.edit().putString("recent", urls.take(10).joinToString("\n")).putString("history", tech.kousozo.tahoetv.core.WatchHistory.serialize(log)).apply()
+    }
+
+    /** Real history, newest first: when and where each channel was started. Only channels that are still in the loaded list. */
+    fun history(c: android.content.Context): List<Pair<LocalTv.Entry, tech.kousozo.tahoetv.core.WatchHistory.Item>> {
+        val all = entries ?: return emptyList()
+        return tech.kousozo.tahoetv.core.WatchHistory.parse(c.getSharedPreferences("live", 0).getString("history", "").orEmpty())
+            .mapNotNull { h -> all.firstOrNull { it.channel.url == h.url }?.let { it to h } }
     }
 }
 

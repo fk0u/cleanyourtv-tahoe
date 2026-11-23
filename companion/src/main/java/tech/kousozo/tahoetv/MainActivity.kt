@@ -104,10 +104,6 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra("open_update_modal", false) == true) {
             PushHelper.openUpdateModal(this)
         }
-        // Demo mode for screenshots (debug builds only): `adb shell am start -n <pkg>/.MainActivity --es demo id`
-        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-            intent?.getStringExtra("demo")?.let { tech.kousozo.tahoetv.core.Demo.enable(it.ifBlank { "en" }) }
-        }
         Channels.loadFavs(this)
         Playback.loadPrefs(this)
         tech.kousozo.tahoetv.core.Sources.initCache(cacheDir)
@@ -272,14 +268,9 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra("open_update_modal", false)) PushHelper.openUpdateModal(this)
     }
 
-    /** Debug-only intent extras so adb can launch demo mode, themes, tabs, and sub-pages on a real device. */
+    /** Debug-only intent extras so adb can jump to themes, tabs, and sub-pages on a real device (real data only). */
     private fun applyDebugExtras(i: Intent?) {
         if (i == null || (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0) return
-        i.getStringExtra("demo")?.let {
-            tech.kousozo.tahoetv.core.Demo.enable(it.ifBlank { "en" })
-            PhoneRegion.load(this)
-            Channels.loadDemoSync()
-        }
         i.getStringExtra("theme")?.let { th ->
             when (th.lowercase()) {
                 "light" -> { ThemePrefs.mode = tech.kousozo.tahoetv.core.Theme.Mode.LIGHT; ThemePrefs.highContrast = false }
@@ -300,17 +291,14 @@ class MainActivity : ComponentActivity() {
                 "onboarding3" -> WelcomeDebug.step = 3
                 "offline" -> { Channels.debugOffline = true; Nav.tab = 1; Nav.page = null }
                 "channel" -> {
-                    Channels.loadDemoSync()
                     Nav.detail = Channels.entries?.firstOrNull()
                     Nav.page = null
                 }
                 "player_portrait" -> {
-                    Channels.loadDemoSync()
                     Nav.tab = 1; Nav.page = null; Nav.full = false
                     Channels.entries?.firstOrNull()?.let { Nav.playUrl = it.channel.url; Playback.play(this, it) }
                 }
                 "player_landscape" -> {
-                    Channels.loadDemoSync()
                     Nav.tab = 1; Nav.page = null; Nav.full = true
                     Channels.entries?.firstOrNull()?.let { Nav.playUrl = it.channel.url; Playback.play(this, it) }
                 }

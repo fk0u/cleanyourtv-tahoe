@@ -36,27 +36,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
-import tech.kousozo.tahoetv.core.Demo
 import tech.kousozo.tahoetv.core.I18n
 import tech.kousozo.tahoetv.core.WatchRecap
 
 internal fun loadRecapSummary(dir: File, lang: String): WatchRecap.Summary {
     val real = WatchRecap.summarize(dir, "main", WatchRecap.currentMonth(), lang)
-    if (real.totalMinutes > 0 || !Demo.isActive()) return real
-    val demoNames = Demo.channels().take(3).map { it.name }
-    return WatchRecap.Summary(
-        month = real.month,
-        totalMinutes = 760,
-        sessionCount = 18,
-        topChannels = listOf(
-            WatchRecap.RankedItem(demoNames.getOrElse(0) { "Tahoe News" }, 252, 7),
-            WatchRecap.RankedItem(demoNames.getOrElse(1) { "Alpine Earth" }, 185, 5),
-            WatchRecap.RankedItem(demoNames.getOrElse(2) { "Arena Sport" }, 108, 4),
-        ),
-        topShows = emptyList(),
-        peakHour = 19,
-        tagline = I18n.get(lang, "recap.tag_channel", demoNames.firstOrNull() ?: "Tahoe News"),
-    )
+    return real
 }
 
 /** Full-screen Monthly Recap page matching Figma Mobile / Rekap bulanan (30:761). */

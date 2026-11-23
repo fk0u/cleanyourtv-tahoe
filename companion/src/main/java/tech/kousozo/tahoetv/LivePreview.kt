@@ -25,7 +25,6 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import tech.kousozo.tahoetv.core.Brand
-import tech.kousozo.tahoetv.core.Demo
 import tech.kousozo.tahoetv.core.Drm
 import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.M3u
@@ -76,7 +75,6 @@ object MobileLivePreview {
     fun canPreview(entry: LocalTv.Entry?): Boolean =
         entry != null &&
             enabled &&
-            !Demo.isActive() &&
             !Channels.debugOffline &&
             !ThemePrefs.reduceMotion &&
             Playback.entry == null &&

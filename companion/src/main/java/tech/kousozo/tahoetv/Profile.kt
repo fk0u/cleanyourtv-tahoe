@@ -71,7 +71,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import tech.kousozo.tahoetv.core.Brand
-import tech.kousozo.tahoetv.core.Demo
 import tech.kousozo.tahoetv.core.I18n
 import tech.kousozo.tahoetv.core.LocalTv
 import tech.kousozo.tahoetv.core.OnboardingText
@@ -336,7 +335,7 @@ fun ProfileScreen() {
     val lang = PhoneRegion.language
     var name by remember(lang) {
         val saved = c.getSharedPreferences("setup", 0).getString("name", "").orEmpty()
-        mutableStateOf(saved.ifBlank { if (Demo.isActive()) Demo.profileName(lang) else "" })
+        mutableStateOf(saved)
     }
     var editNameOpen by remember { mutableStateOf(false) }
     var draftName by remember { mutableStateOf(name) }
@@ -353,7 +352,7 @@ fun ProfileScreen() {
             TextButton({
                 val trimmed = draftName.trim()
                 name = trimmed
-                if (!Demo.isActive()) c.getSharedPreferences("setup", 0).edit().putString("name", trimmed).apply()
+                c.getSharedPreferences("setup", 0).edit().putString("name", trimmed).apply()
                 editNameOpen = false
             }) { Text(I18n.get(lang, "common.save"), color = Tahoe.Accent) }
         },
@@ -493,16 +492,9 @@ private fun PageScaffold(title: String, sub: String? = null, trailing: @Composab
     }
 }
 
-private fun demoEntries(): List<LocalTv.Entry> {
-    val cats = listOf(LocalTv.Category.News, LocalTv.Category.Documentary, LocalTv.Category.Sports, LocalTv.Category.Kids)
-    return Demo.channels().mapIndexed { i, ch ->
-        LocalTv.Entry(ch, ch.name, cats.getOrElse(i) { LocalTv.Category.News }, near = false, partTime = false, geoBlocked = false, rank = i)
-    }
-}
-
 private enum class HistoryFilter { All, Phone, Tv }
 
-/** Riwayat tontonan (#179, Figma 23:459): device filters, Today/Yesterday grouping, progress bars, clear. */
+/** Riwayat tontonan: what was really started, when, and where — this phone, or the TV it was sent to. */
 @Composable
 fun HistoryPage() {
     val c = LocalContext.current
@@ -510,18 +502,20 @@ fun HistoryPage() {
     LaunchedEffect(Unit) { Channels.load(c) }
     var filter by remember { mutableStateOf(HistoryFilter.All) }
     var cleared by remember { mutableStateOf(false) }
-    val recentReal = Channels.recent(c)
     val now = remember { Instant.now() }
-    val entries = remember(recentReal, cleared, lang) {
-        if (cleared) emptyList()
-        else if (recentReal.isNotEmpty()) recentReal.mapIndexed { i, e -> Triple(e, if (i % 3 == 2) HistoryFilter.Tv else HistoryFilter.Phone, i < 2) }
-        else if (Demo.isActive()) demoEntries().mapIndexed { i, e ->
-            Triple(e, if (i % 2 == 0) HistoryFilter.Phone else HistoryFilter.Tv, i < 2)
-        } else emptyList()
+    val hm = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+    val dayFmt = remember { java.text.SimpleDateFormat("d MMM", java.util.Locale.getDefault()) }
+    val entries = remember(Channels.entries, cleared) { if (cleared) emptyList() else Channels.history(c) }
+    val shown = entries.filter {
+        filter == HistoryFilter.All ||
+            (filter == HistoryFilter.Phone && it.second.device == tech.kousozo.tahoetv.core.WatchHistory.PHONE) ||
+            (filter == HistoryFilter.Tv && it.second.device == tech.kousozo.tahoetv.core.WatchHistory.TV)
     }
-    val shown = entries.filter { filter == HistoryFilter.All || it.second == filter }
-    val todayItems = shown.filter { it.third }
-    val yesterdayItems = shown.filter { !it.third }
+    val groups = listOf(
+        I18n.get(lang, "push.today") to tech.kousozo.tahoetv.core.WatchHistory.Day.TODAY,
+        I18n.get(lang, "history.yesterday") to tech.kousozo.tahoetv.core.WatchHistory.Day.YESTERDAY,
+        I18n.get(lang, "push.earlier") to tech.kousozo.tahoetv.core.WatchHistory.Day.EARLIER,
+    )
 
     PageScaffold(I18n.get(lang, "profile.history")) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -532,36 +526,31 @@ fun HistoryPage() {
         if (shown.isEmpty()) {
             Note(I18n.get(lang, "profile.history_empty"), Icons.Rounded.History)
         } else {
-            listOf(
-                I18n.get(lang, "push.today") to todayItems,
-                I18n.get(lang, "history.yesterday") to yesterdayItems,
-            ).forEach { (label, group) ->
+            groups.forEach { (label, day) ->
+                val group = shown.filter { tech.kousozo.tahoetv.core.WatchHistory.dayOf(it.second, now) == day }
                 if (group.isEmpty()) return@forEach
                 Text(label.uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.32.sp, modifier = Modifier.padding(start = 4.dp))
-                group.forEachIndexed { idx, (e, srcType, _) ->
-                    val frac = (0.78f - idx * 0.17f).coerceIn(0.2f, 0.92f)
-                    val prog = nowOn(Channels.epg, e, now)?.title
-                    val deviceLabel = I18n.get(lang, if (srcType == HistoryFilter.Tv) "history.filter_tv" else "history.filter_phone")
+                group.forEach { (e, item) ->
+                    val deviceLabel = I18n.get(lang, if (item.device == tech.kousozo.tahoetv.core.WatchHistory.TV) "history.filter_tv" else "history.filter_phone")
+                    val whenText = hm.format(java.util.Date(item.atMs)) + if (day == tech.kousozo.tahoetv.core.WatchHistory.Day.EARLIER) " · " + dayFmt.format(java.util.Date(item.atMs)) else ""
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).clickable { Nav.play(e) }.padding(vertical = 4.dp),
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(18.dp)).clickable { Nav.play(e) }.padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Box(Modifier.size(112.dp, 64.dp).clip(RoundedCornerShape(14.dp))) {
                             ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.8f)
-                            ProgressBar(frac, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp))
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(prog ?: e.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${e.name} · ${25 + idx * 14} ${I18n.get(lang, "profile.unit_min")} · $deviceLabel",
-                                fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(e.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("$whenText · $deviceLabel", fontSize = 12.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
             }
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(14.dp)).clickable {
-                    c.getSharedPreferences("live", 0).edit().remove("recent").apply()
+                    c.getSharedPreferences("live", 0).edit().remove("recent").remove("history").apply()
                     cleared = true
                     Toast.makeText(c, I18n.get(lang, "history.cleared"), Toast.LENGTH_SHORT).show()
                 }.padding(horizontal = 4.dp, vertical = 10.dp),
@@ -837,41 +826,7 @@ fun NotificationsPage() {
     val day = remember { java.text.SimpleDateFormat("d MMM", java.util.Locale.getDefault()) }
     val startOfDay = remember { java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() }
     val items = remember(PushHelper.inbox, lang) {
-        if (PushHelper.inbox.isNotEmpty() || !Demo.isActive()) PushHelper.inbox
-        else {
-            val nowMs = System.currentTimeMillis()
-            val demoNames = Demo.channels().map { it.name }
-            listOf(
-                tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
-                    id = 1L,
-                    title = demoNames.firstOrNull() ?: "Tahoe News",
-                    body = I18n.get(lang, "home.on_now_fmt", demoNames.firstOrNull() ?: "Tahoe News"),
-                    kind = "reminder",
-                    createdAt = nowMs - 300_000L,
-                ),
-                tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
-                    id = 2L,
-                    title = demoNames.getOrNull(1) ?: "Alpine Earth",
-                    body = I18n.get(lang, "push.channel_desc"),
-                    kind = "info",
-                    createdAt = nowMs - 3_600_000L,
-                ),
-                tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
-                    id = 3L,
-                    title = "Tahoe TV ${PushHelper.appVersion(c).first}",
-                    body = I18n.get(lang, "update.up_to_date", PushHelper.appVersion(c).first),
-                    kind = "update",
-                    createdAt = startOfDay - 86_400_000L,
-                ),
-                tech.kousozo.tahoetv.core.ControlPlane.PushNotification(
-                    id = 4L,
-                    title = "Living Room TV",
-                    body = I18n.get(lang, "pair.connected"),
-                    kind = "info",
-                    createdAt = startOfDay - 172_800_000L,
-                ),
-            )
-        }
+        PushHelper.inbox
     }
     PageScaffold(I18n.get(lang, "push.inbox_title")) {
         if (items.isEmpty()) Note(I18n.get(lang, "push.inbox_empty"), Icons.Rounded.NotificationsNone)
@@ -935,9 +890,9 @@ fun SearchPage() {
     LaunchedEffect(Unit) { Channels.load(c) }
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(SearchFilter.All) }
-    val all = Channels.entries ?: if (Demo.isActive()) demoEntries() else emptyList()
+    val all = Channels.entries ?: emptyList()
     val now = remember { Instant.now() }
-    val effectiveQuery = query.trim().ifEmpty { if (Demo.isActive()) "Tahoe" else "" }.lowercase()
+    val effectiveQuery = query.trim().lowercase()
 
     PageScaffold(I18n.get(lang, "search.title")) {
         SearchPill(query, { query = it }, I18n.get(lang, "home.search_hint"), active = true)
@@ -1069,10 +1024,6 @@ fun ConnectTvPage() {
         ConnectRadar(nodes, scanning = true)
 
         MenuGroup(I18n.get(lang, "connect.found_eyebrow")) {
-            if (devState.devices.isEmpty() && discovered.isEmpty() && Demo.isActive()) {
-                MenuRow(Icons.Rounded.Tv, "Living Room TV", I18n.get(lang, "connect.active"), Tahoe.Good) { Nav.tab = 2; Nav.page = null }
-                MenuRow(Icons.Rounded.Tv, "Bedroom TV", I18n.get(lang, "remote.tap_connect")) { Nav.tab = 2; Nav.page = null }
-            }
             devState.devices.forEach { d ->
                 MenuRow(Icons.Rounded.Tv, d.name.ifBlank { "Tahoe TV" }, I18n.get(lang, "connect.active"), Tahoe.Good) {
                     Sync.saveDevices(c, devState.select(d.id)); Pairing.tick++; Nav.tab = 2; Nav.page = null
@@ -1113,7 +1064,7 @@ fun ReportPage() {
         I18n.get(lang, "report.type_other"),
     )
     var selectedType by remember { mutableIntStateOf(0) }
-    val allEntries = Channels.entries ?: if (Demo.isActive()) demoEntries() else emptyList()
+    val allEntries = Channels.entries ?: emptyList()
     var pickedEntry by remember { mutableStateOf<LocalTv.Entry?>(allEntries.firstOrNull()) }
     var channelDialogOpen by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf("") }

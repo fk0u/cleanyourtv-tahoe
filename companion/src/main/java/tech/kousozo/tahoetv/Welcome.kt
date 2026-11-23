@@ -74,7 +74,6 @@ object PhoneRegion {
     val language get() = viewer.language
 
     fun load(c: Context) {
-        if (tech.kousozo.tahoetv.core.Demo.isActive()) { viewer = tech.kousozo.tahoetv.core.Demo.viewer(); return } // never saved
         val saved = p(c).getString("viewer", null)
         viewer = if (saved != null) Viewer.fromJson(saved) else {
             // from the earlier two-step setup (country + language only)
@@ -451,14 +450,7 @@ private fun CountryAndCityStep(v: Viewer, suggestedCountry: String, t: (String) 
 @Composable
 private fun ReadyMosaicHero(v: Viewer) {
     val entries = remember(v.country) {
-        val loaded = Channels.entries?.takeIf { it.isNotEmpty() }
-        if (loaded != null) loaded
-        else {
-            val cats = listOf(LocalTv.Category.News, LocalTv.Category.Documentary, LocalTv.Category.Sports, LocalTv.Category.Kids)
-            tech.kousozo.tahoetv.core.Demo.channels().mapIndexed { i, ch ->
-                LocalTv.Entry(ch, ch.name, cats.getOrElse(i) { LocalTv.Category.News }, near = false, partTime = false, geoBlocked = false, rank = i)
-            }
-        }
+        Channels.entries?.takeIf { it.isNotEmpty() }.orEmpty() // the real channels once loaded; empty tiles until then
     }
     Box(Modifier.fillMaxWidth().height(256.dp)) {
         Column(
