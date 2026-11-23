@@ -99,14 +99,14 @@ final class MediaHome extends FrameLayout {
         LinearLayout copy = new LinearLayout(c); copy.setOrientation(LinearLayout.VERTICAL); copy.setClipChildren(false);
         LinearLayout line1 = new LinearLayout(c); line1.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout live = new LinearLayout(c); live.setGravity(Gravity.CENTER_VERTICAL);
-        live.setPadding(px(12), px(6), px(15), px(6)); live.setBackground(pill(0xFFFF453A, 0, 0));
+        live.setPadding(px(12), px(6), px(15), px(6)); live.setBackground(pill(0xFFD92D20, 0, 0));
         View dot = new View(c); GradientDrawable dd = new GradientDrawable(); dd.setShape(GradientDrawable.OVAL); dd.setColor(Color.WHITE); dot.setBackground(dd);
         live.addView(dot, new LinearLayout.LayoutParams(px(9), px(9)));
         TextView lt = tv(I18n.get(lang, "tv.mh_live"), 16.5f, 600, Color.WHITE); lt.setLetterSpacing(0.12f); lt.setPadding(px(9), 0, 0, 0);
         live.addView(lt);
         liveBadge = live;
         line1.addView(live);
-        eyebrow = tv("", 16, 600, 0xCCFFFFFF); eyebrow.setLetterSpacing(0.1f); eyebrow.setPadding(px(12), 0, 0, 0);
+        eyebrow = tv("", 21, 600, 0xCCFFFFFF); eyebrow.setLetterSpacing(0.1f); eyebrow.setPadding(px(12), 0, 0, 0);
         line1.addView(eyebrow);
         copy.addView(line1);
         title = tv("", 96, 700, Color.WHITE); title.setLetterSpacing(-0.02f); title.setIncludeFontPadding(false);
@@ -297,7 +297,7 @@ final class MediaHome extends FrameLayout {
     }
 
     private void addTab(LinearLayout nav, String label, boolean active, Runnable action) {
-        TextView t = tv(label, 19, 500, active ? 0xFF0D0D12 : 0xBFFFFFFF);
+        TextView t = tv(label, 21, 500, active ? 0xFF0D0D12 : 0xBFFFFFFF);
         t.setPadding(px(20), px(13), px(20), px(13));
         t.setBackground(pill(active ? 0xFFFFFFFF : 0, 0, 0));
         t.setFocusable(true); t.setClickable(true);

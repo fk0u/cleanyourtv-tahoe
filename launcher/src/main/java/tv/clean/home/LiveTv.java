@@ -757,7 +757,7 @@ public class LiveTv extends Activity {
 
     /** Control pill under the progress bar: white when [primary], otherwise glass. Touch works; the remote keeps its own keys. */
     TextView controlPill(String label, boolean primary, Runnable action) {
-        TextView t = otv(label, 19, 500, primary ? 0xFF0D0D12 : 0xFFFFFFFF);
+        TextView t = otv(label, 21, 500, primary ? 0xFF0D0D12 : 0xFFFFFFFF);
         t.setPadding(px(24), px(14), px(24), px(14));
         t.setBackground(obox(primary ? 0xFFFFFFFF : 0x1FFFFFFF, 999));
         t.setClickable(true); t.setFocusable(false); t.setFocusableInTouchMode(false);
@@ -786,14 +786,14 @@ public class LiveTv extends Activity {
         info.addView(bNum);
         LinearLayout names = new LinearLayout(this); names.setOrientation(LinearLayout.VERTICAL);
         bName = otv("", 46, 600, 0xFFFFFFFF); bName.setLetterSpacing(-0.02f);
-        bMeta = otv("", 19, 500, 0xB3FFFFFF);
-        bStatus = otv("", 19, 600, 0xFFFF8A80); bStatus.setVisibility(View.GONE);
+        bMeta = otv("", 21, 500, 0xB3FFFFFF);
+        bStatus = otv("", 21, 600, 0xFFFF8A80); bStatus.setVisibility(View.GONE);
         names.addView(bName);
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-2, -2); ml.topMargin = px(4); names.addView(bMeta, ml);
         names.addView(bStatus);
         LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(-2, -2); nl.setMarginStart(px(20)); info.addView(names, nl);
-        bLive = otv("LIVE", 17.6f, 600, 0xFFFFFFFF); bLive.setLetterSpacing(0.12f);
-        bLive.setPadding(px(16), px(7), px(16), px(7)); bLive.setBackground(obox(0xFFFF453A, 999));
+        bLive = otv("LIVE", 21, 600, 0xFFFFFFFF); bLive.setLetterSpacing(0.12f);
+        bLive.setPadding(px(16), px(7), px(16), px(7)); bLive.setBackground(obox(0xFFD92D20, 999));
         LinearLayout.LayoutParams ll0 = new LinearLayout.LayoutParams(-2, -2); ll0.setMarginStart(px(20)); info.addView(bLive, ll0);
         FrameLayout.LayoutParams il = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START); il.leftMargin = px(112); il.topMargin = px(64);
         o.addView(info, il);
@@ -806,12 +806,12 @@ public class LiveTv extends Activity {
         // OSD (x112, bottom)
         LinearLayout band = new LinearLayout(this); band.setOrientation(LinearLayout.VERTICAL);
         LinearLayout line = new LinearLayout(this); line.setGravity(Gravity.CENTER_VERTICAL);
-        bClock = otv("", 19, 500, 0xFFFFFFFF);
+        bClock = otv("", 21, 500, 0xFFFFFFFF);
         line.addView(bClock);
         String hint = "▲▼ " + I18n.get(lang, "tv.live_key_switch") + "   ·   OK " + I18n.get(lang, "tv.live_key_guide") + "   ·   ⏪⏩ " + I18n.get(lang, "tv.live_key_seek");
-        TextView hintTv = otv(hint, 19, 500, 0x8CFFFFFF); hintTv.setGravity(Gravity.CENTER);
+        TextView hintTv = otv(hint, 21, 500, 0x8CFFFFFF); hintTv.setGravity(Gravity.CENTER);
         line.addView(hintTv, new LinearLayout.LayoutParams(0, -2, 1));
-        bOffset = otv("", 19, 500, 0xCCFFFFFF);
+        bOffset = otv("", 21, 500, 0xCCFFFFFF);
         line.addView(bOffset);
         band.addView(line);
         progressTrack = new FrameLayout(this);
@@ -842,12 +842,12 @@ public class LiveTv extends Activity {
 
         // views other code still writes to (schedule rows, category, weather, logo): kept, but not shown in this design
         LinearLayout hidden = new LinearLayout(this); hidden.setOrientation(LinearLayout.VERTICAL); hidden.setVisibility(View.GONE);
-        bNowTime = otv("", 19, 600, 0xFFFFFFFF); bNow = otv("", 19, 700, 0xFFFFFFFF);
-        bNextTime = otv("", 18, 500, 0xFFFFFFFF); bNext = otv("", 18, 500, 0xFFFFFFFF);
+        bNowTime = otv("", 21, 600, 0xFFFFFFFF); bNow = otv("", 21, 700, 0xFFFFFFFF);
+        bNextTime = otv("", 21, 500, 0xFFFFFFFF); bNext = otv("", 21, 500, 0xFFFFFFFF);
         hidden.addView(scheduleRow(bNowTime, bNow)); hidden.addView(scheduleRow(bNextTime, bNext));
-        bCat = otv("", 19, 500, 0xFFFFFFFF); tTemp = otv("", 19, 500, 0xFFFFFFFF); tCond = otv("", 19, 500, 0xFFFFFFFF); tDay = otv("", 19, 500, 0xFFFFFFFF);
+        bCat = otv("", 21, 500, 0xFFFFFFFF); tTemp = otv("", 21, 500, 0xFFFFFFFF); tCond = otv("", 21, 500, 0xFFFFFFFF); tDay = otv("", 21, 500, 0xFFFFFFFF);
         hidden.addView(bCat); hidden.addView(tTemp); hidden.addView(tCond); hidden.addView(tDay);
-        logo = new android.widget.ImageView(this); logoText = otv("", 19, 700, 0xFF111114);
+        logo = new android.widget.ImageView(this); logoText = otv("", 21, 700, 0xFF111114);
         hidden.addView(logo, new LinearLayout.LayoutParams(px(10), px(10))); hidden.addView(logoText);
         o.addView(hidden, new FrameLayout.LayoutParams(-2, -2));
         tick();
@@ -871,13 +871,13 @@ public class LiveTv extends Activity {
                     new int[]{Tile.blend(c1, 0xFF0A0B10, 0.55f), Tile.blend(c1, 0xFFFFFFFF, 0.15f)});
             g.setCornerRadius(px(10)); th.setBackground(g); Ui.clip(th, px(10));
             android.widget.ImageView lg = new android.widget.ImageView(this); lg.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-            TextView fb = otv("", 14, 700, 0xCCFFFFFF); fb.setGravity(Gravity.CENTER);
+            TextView fb = otv("", 21, 700, 0xCCFFFFFF); fb.setGravity(Gravity.CENTER);
             th.addView(fb, new FrameLayout.LayoutParams(-1, -1));
             FrameLayout.LayoutParams lgl = new FrameLayout.LayoutParams(-1, -1); lgl.setMargins(px(8), px(5), px(8), px(5)); th.addView(lg, lgl);
             Ui.bindLogo(e.getChannel().getLogo(), lg, fb, e.getName());
             item.addView(th, new LinearLayout.LayoutParams(px(96), px(54)));
             LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
-            col.addView(otv(String.format(java.util.Locale.ROOT, "%02d  %s", i + 1, e.getName()), 19, 500, 0xFFFFFFFF));
+            col.addView(otv(String.format(java.util.Locale.ROOT, "%02d  %s", i + 1, e.getName()), 21, 500, 0xFFFFFFFF));
             LinearLayout.LayoutParams hl = new LinearLayout.LayoutParams(-2, -2); hl.topMargin = px(2);
             col.addView(otv(I18n.get(lang, "tv.po_switch"), 19, 500, 0x80FFFFFF), hl);
             LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2); cl.setMarginStart(px(12)); item.addView(col, cl);

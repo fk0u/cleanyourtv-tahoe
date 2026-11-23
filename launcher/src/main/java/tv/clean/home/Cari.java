@@ -80,7 +80,7 @@ final class Cari extends FrameLayout implements Sheet {
 
         // results (x1000 y160)
         LinearLayout right = new LinearLayout(h); right.setOrientation(LinearLayout.VERTICAL);
-        header = tv("", 16, 600, 0x9EF7F8FA); header.setLetterSpacing(0.1f);
+        header = tv("", 21, 600, 0x9EF7F8FA); header.setLetterSpacing(0.1f);
         right.addView(header);
         results = new LinearLayout(h); results.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-2, -2); rl.topMargin = px(18);

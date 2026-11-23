@@ -159,7 +159,7 @@ final class Pengaturan extends FrameLayout implements Sheet {
         LinearLayout text = new LinearLayout(home); text.setOrientation(LinearLayout.VERTICAL);
         text.addView(tv(title, 30, 600, 0xFFF7F8FA));
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-2, -2); sl.topMargin = px(4);
-        text.addView(tv(sub, 19, 500, 0xCCF7F8FA), sl);
+        text.addView(tv(sub, 21, 500, 0xCCF7F8FA), sl);
         row.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
         row.addView(sw(on), new LinearLayout.LayoutParams(px(96), px(56)));
         row.setOnClickListener(v -> {
@@ -193,7 +193,7 @@ final class Pengaturan extends FrameLayout implements Sheet {
         LinearLayout row = rowBase();
         LinearLayout text = new LinearLayout(home); text.setOrientation(LinearLayout.VERTICAL);
         text.addView(tv(title, 30, 600, 0xFFF7F8FA));
-        if (!sub.isEmpty()) { LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-2, -2); sl.topMargin = px(4); text.addView(tv(sub, 19, 500, 0xCCF7F8FA), sl); }
+        if (!sub.isEmpty()) { LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-2, -2); sl.topMargin = px(4); text.addView(tv(sub, 21, 500, 0xCCF7F8FA), sl); }
         row.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
         row.addView(tv("›", 40, 400, 0xCCF7F8FA));
         row.setOnClickListener(v -> go.run());

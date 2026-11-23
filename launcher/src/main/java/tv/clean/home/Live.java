@@ -157,7 +157,7 @@ public class Live extends Activity {
         LinearLayout d = new LinearLayout(this); d.setOrientation(LinearLayout.VERTICAL);
         d.setBackground(box(0x0FFFFFFF, 32, 0x1FFFFFFF, 1));
         d.setPadding(px(32), px(32), px(32), px(32));
-        dCat = t("", 16, 600, 0x99FFFFFF); dCat.setLetterSpacing(0.1f);
+        dCat = t("", 21, 600, 0x99FFFFFF); dCat.setLetterSpacing(0.1f);
         dName = t("", 46, 600, 0xFFFFFFFF); dName.setLetterSpacing(-0.02f);
         dNow = t("", 30, 600, 0xFF5CD0FF);
         dDesc = t("", 24, 400, 0xB3FFFFFF); dDesc.setSingleLine(false); dDesc.setMaxLines(2); dDesc.setLineSpacing(0, 1.1f);
@@ -171,7 +171,7 @@ public class Live extends Activity {
         pv.addView(tex, new FrameLayout.LayoutParams(-1, -1));
         TextView badge = t(I18n.get(lang, "tv.mh_live"), 14.3f, 600, 0xFFFFFFFF); badge.setLetterSpacing(0.12f);
         badge.setPadding(px(13), px(5), px(13), px(5));
-        badge.setBackground(box(0xFFFF453A, 999, 0, 0));
+        badge.setBackground(box(0xFFD92D20, 999, 0, 0));
         FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START); bl.setMarginStart(px(16)); bl.topMargin = px(16);
         pv.addView(badge, bl);
         preview = new LivePreview(this, tex, badge);
@@ -402,7 +402,7 @@ public class Live extends Activity {
             r.setPadding(px(20), px(14), px(20), px(14));
             r.setBackground(box(0x0AFFFFFF, 18, 0, 0));
             r.setFocusable(true); r.setFocusableInTouchMode(true); r.setTag(e);
-            TextView num = t(String.format(java.util.Locale.US, "%02d", n), 19, 500, 0x80FFFFFF);
+            TextView num = t(String.format(java.util.Locale.US, "%02d", n), 21, 500, 0x80FFFFFF);
             r.addView(num, new LinearLayout.LayoutParams(px(30), -2));
             FrameLayout lb = new FrameLayout(this);
             int c1 = 0xFF000000 | (e.getName().hashCode() & 0x00FFFFFF);
@@ -410,7 +410,7 @@ public class Live extends Activity {
                     new int[]{Tile.blend(c1, 0xFF0A0B10, 0.55f), Tile.blend(c1, 0xFFFFFFFF, 0.15f)});
             lg.setCornerRadius(px(10)); lb.setBackground(lg); Ui.clip(lb, px(10));
             android.widget.ImageView lgo = new android.widget.ImageView(this); lgo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-            TextView lfb = t("", 14, 700, 0xCCFFFFFF); lfb.setGravity(Gravity.CENTER);
+            TextView lfb = t("", 21, 700, 0xCCFFFFFF); lfb.setGravity(Gravity.CENTER);
             lb.addView(lfb, new FrameLayout.LayoutParams(-1, -1));
             FrameLayout.LayoutParams lgl = new FrameLayout.LayoutParams(-1, -1); lgl.setMargins(px(6), px(4), px(6), px(4));
             lb.addView(lgo, lgl);
@@ -527,8 +527,8 @@ public class Live extends Activity {
         TextView name = t(e.getName(), 96, 700, 0xFFF7F8FA); name.setLetterSpacing(-0.02f);
         p.addView(name, lp(24));
         LinearLayout meta = new LinearLayout(this); meta.setGravity(Gravity.CENTER_VERTICAL);
-        TextView liveB = t("LIVE", 19.8f, 600, 0xFFFFFFFF); liveB.setLetterSpacing(0.12f);
-        liveB.setPadding(px(18), px(7), px(18), px(7)); liveB.setBackground(box(0xFFFF453A, 999, 0, 0));
+        TextView liveB = t("LIVE", 21, 600, 0xFFFFFFFF); liveB.setLetterSpacing(0.12f);
+        liveB.setPadding(px(18), px(7), px(18), px(7)); liveB.setBackground(box(0xFFD92D20, 999, 0, 0));
         meta.addView(liveB);
         int sources = 1 + e.getAlternates().size();
         TextView mt = t(dCat.getText().toString().replace("  ·  ", " · ") + (sources > 1 ? " · " + I18n.get(lang, "tv.live_sources_fmt", String.valueOf(sources)) : ""), 24, 400, 0xCCF7F8FA);
