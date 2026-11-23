@@ -25,6 +25,7 @@ public class Config extends BroadcastReceiver {
             for (String k : KEYS) if (i.hasExtra(k)) { e.putString(k, i.getStringExtra(k)); n++; }
             e.apply();
             if (i.hasExtra("avatar_url")) Avatar.reset(c);
+            if (i.hasExtra("account_url")) Acct.link(c, i.getStringExtra("account_url"), i.getStringExtra("account_token"), i.getStringExtra("account_email"));
             if (i.hasExtra("dock")) // "pkg1,pkg2,…" for the owner profile
                 c.getSharedPreferences("home", Context.MODE_PRIVATE).edit().putString("dock", i.getStringExtra("dock")).putBoolean("dock_v2", true).apply();
             if (i.hasExtra("latitude") || i.hasExtra("city")) // new place: refetch weather/prayer

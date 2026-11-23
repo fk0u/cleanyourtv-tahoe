@@ -90,6 +90,7 @@ final class MediaHome extends FrameLayout {
         LinearLayout right = new LinearLayout(c); right.setGravity(Gravity.CENTER_VERTICAL);
         chip(right, R.drawable.ic_search_cari, null, () -> home.openSheet(new Cari(home)));
         clock = tv("", 46, 700, Color.WHITE); clock.setPadding(px(22), 0, 0, 0); clock.setIncludeFontPadding(false); clock.setLetterSpacing(0f);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_PX, clock.getTextSize() * Acct.clockScale(home));
         right.addView(clock);
         bar.addView(right);
         LayoutParams bl = new LayoutParams(px(1696), px(92)); bl.leftMargin = px(112); bl.topMargin = px(48);
@@ -351,12 +352,12 @@ final class MediaHome extends FrameLayout {
     private final Runnable clockTick = this::tickClock;
 
     private void tickClock() {
-        SimpleDateFormat f = new SimpleDateFormat("HH.mm", Locale.US);
+        SimpleDateFormat f = new SimpleDateFormat(Acct.clockPattern(home), Locale.US);
         f.setTimeZone(Prayer.tz(home));
         clock.setText(f.format(new Date()));
         refreshChips();
         ui.removeCallbacks(clockTick);
-        ui.postDelayed(clockTick, 20_000);
+        ui.postDelayed(clockTick, Acct.clockTickMs(home));
     }
 
     // ------------------------------------------------------------------ greeting (typewriter, replaces the old "Tahoe TV" label)
@@ -366,6 +367,7 @@ final class MediaHome extends FrameLayout {
     private final Runnable greetTick = this::greetStep;
 
     private void startGreeting() {
+        if (!Acct.greeting(home)) { greeting.setText(""); return; }
         java.util.Calendar cal = java.util.Calendar.getInstance(Prayer.tz(home));
         int h = cal.get(java.util.Calendar.HOUR_OF_DAY);
         String k = h < 11 ? "greet.morning" : h < 15 ? "greet.day" : h < 18 ? "greet.evening" : "greet.night";

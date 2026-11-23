@@ -1,5 +1,6 @@
 package tv.clean.home;
 
+import tech.kousozo.tahoetv.core.AccountText;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -98,6 +99,7 @@ final class Pengaturan extends FrameLayout implements Sheet {
                 linkRow(I18n.get(lang, "tv.region_language"), "", () -> { home.closeSheet(); home.startActivity(new Intent(home, Onboarding.class)); });
                 break;
             case 3:
+                accountRow();
                 linkRow(I18n.get(lang, "tv.cc_kids_profile"), "", () -> { home.closeSheet(); home.openSheet(new ParentalSheets.KidsSetup(home)); });
                 linkRow(I18n.get(lang, "recap.title"), "", () -> { home.closeSheet(); home.openSheet(new ParentalSheets.Recap(home)); });
                 break;
@@ -115,6 +117,8 @@ final class Pengaturan extends FrameLayout implements Sheet {
         }
         styleNav();
     }
+
+    private static final java.util.Set<String> SYNCED = new java.util.HashSet<>(java.util.Arrays.asList("clock24", "clock_seconds", "greeting_on", "reduce_motion"));
 
     private void display() {
         LinearLayout cards = new LinearLayout(home);
@@ -142,6 +146,20 @@ final class Pengaturan extends FrameLayout implements Sheet {
         toggleRow(I18n.get(lang, "ui.high_contrast"), I18n.get(lang, "tv.st_contrast_sub"), "high_contrast", false);
         toggleRow(I18n.get(lang, "ui.reduce_motion"), I18n.get(lang, "tv.reduce_motion_sub"), "reduce_motion", false);
         toggleRow(I18n.get(lang, "tv.click_sound"), I18n.get(lang, "tv.st_click_sub"), "click_sound", false);
+        toggleRow(AccountText.get(lang, "clock24"), "", "clock24", true);
+        toggleRow(AccountText.get(lang, "seconds"), "", "clock_seconds", false);
+        toggleRow(AccountText.get(lang, "greeting"), "", "greeting_on", true);
+        String size = Acct.clockSize(home);
+        linkRow(AccountText.get(lang, "clock_size"), AccountText.get(lang, size), () -> {
+            cfg.edit().putString("clock_size", size.equals("s") ? "m" : size.equals("m") ? "l" : "s").apply();
+            Acct.push(home); home.recreate();
+        });
+    }
+
+    /** Account status: signed in (OK signs out) or how to sign in. Signing in happens on the phone. */
+    private void accountRow() {
+        if (Acct.linked(home)) linkRow(AccountText.get(lang, "title"), AccountText.get(lang, "signed_as", Acct.email(home)) + " · " + AccountText.get(lang, "signout"), () -> { Acct.unlink(home, true); refill(); });
+        else linkRow(AccountText.get(lang, "title"), AccountText.get(lang, "to_tv"), () -> { home.closeSheet(); home.openPair(); });
     }
 
     private GradientDrawable card(boolean selected, boolean focused) {
@@ -154,18 +172,17 @@ final class Pengaturan extends FrameLayout implements Sheet {
     /** One row: title + caption on the left, a pill switch on the right. [key] null = simple mode. */
     private void toggleRow(String title, String sub, String key, boolean dflt) {
         final boolean tunnel = "@tunnel".equals(key); // lives in the companion's own prefs, not the launcher's
-        boolean on = key == null ? TvViewer.simpleMode(home) : tunnel ? (home.companion == null || home.companion.tunnelOn()) : cfg.getBoolean(key, dflt);
+        boolean on = key == null ? TvViewer.simpleMode(home) : tunnel ? (home.companion == null || home.companion.tunnelOn()) : "clock24".equals(key) ? Acct.clock24(home) : cfg.getBoolean(key, dflt);
         LinearLayout row = rowBase();
         LinearLayout text = new LinearLayout(home); text.setOrientation(LinearLayout.VERTICAL);
         text.addView(tv(title, 30, 600, 0xFFF7F8FA));
-        LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-2, -2); sl.topMargin = px(4);
-        text.addView(tv(sub, 21, 500, 0xCCF7F8FA), sl);
+        if (!sub.isEmpty()) { LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-2, -2); sl.topMargin = px(4); text.addView(tv(sub, 21, 500, 0xCCF7F8FA), sl); }
         row.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
         row.addView(sw(on), new LinearLayout.LayoutParams(px(96), px(56)));
         row.setOnClickListener(v -> {
             if (key == null) { TvViewer.setSimpleMode(home, !on); home.applySimpleMode(); }
             else if (tunnel) { if (home.companion != null) home.companion.setTunnelOn(!on); }
-            else cfg.edit().putBoolean(key, !on).apply();
+            else { cfg.edit().putBoolean(key, !on).apply(); if (SYNCED.contains(key)) { Acct.push(home); if (!"reduce_motion".equals(key)) home.recreate(); } }
             int keepFocus = indexOfFocus();
             fill();
             if (keepFocus >= 0 && keepFocus < panel.getChildCount()) panel.getChildAt(keepFocus).requestFocus();

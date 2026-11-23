@@ -709,7 +709,7 @@ public class LiveTv extends Activity {
         java.util.Date d = new java.util.Date();
         java.text.SimpleDateFormat dfDay = new java.text.SimpleDateFormat("EEEE", loc);
         dfDay.setTimeZone(tz);
-        java.text.SimpleDateFormat dfTime = new java.text.SimpleDateFormat("HH.mm", loc);
+        java.text.SimpleDateFormat dfTime = new java.text.SimpleDateFormat(Acct.clockPattern(this, false), loc);
         dfTime.setTimeZone(tz);
         tDay.setText(dfDay.format(d));
         tTime.setText(dfTime.format(d));
@@ -800,7 +800,7 @@ public class LiveTv extends Activity {
         o.addView(info, il);
 
         // top right: clock
-        tTime = otv("", 46, 700, 0xFFFFFFFF); tTime.setIncludeFontPadding(false); // the clock matters: bigger than the rest of the player text
+        tTime = otv("", 46, 700, 0xFFFFFFFF); tTime.setIncludeFontPadding(false); tTime.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, tTime.getTextSize() * Acct.clockScale(this)); // the clock matters: bigger than the rest of the player text
         FrameLayout.LayoutParams tl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END); tl.rightMargin = px(112); tl.topMargin = px(62);
         o.addView(tTime, tl);
 

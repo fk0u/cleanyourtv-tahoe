@@ -492,7 +492,7 @@ public class Home extends Activity {
     void applyTextScale() {
         boolean simple = TvViewer.simpleMode(this);
         if (greeting != null) greeting.setTextSize(simple ? 15f : 12f);
-        if (clock != null) clock.setTextSize(simple ? 30f : 26f);
+        if (clock != null) clock.setTextSize((simple ? 30f : 26f) * Acct.clockScale(this));
         if (heroActionText != null) heroActionText.setTextSize(simple ? 18f : 15f);
         if (tooltip != null) tooltip.setTextSize(simple ? 16f : 13f);
         if (padTitle != null) padTitle.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 46 * (W / 1920f) * 1.08f);
@@ -589,19 +589,28 @@ public class Home extends Activity {
         Netflix.refresh(this, () -> { netflix = Netflix.cached(this); renderHero(); }, ui);
     }
 
+    /** With seconds on, the clock redraws every second (only the clock: tick() does much more). */
+    private final Runnable secondTick = new Runnable() { @Override public void run() { drawClock(); ui.postDelayed(this, 1000); } };
+
+    private void drawClock() {
+        if (clock == null) return;
+        SimpleDateFormat cf = new SimpleDateFormat(Acct.clockPattern(this), Locale.forLanguageTag(TvViewer.get(this).getLanguage()));
+        cf.setTimeZone(Prayer.tz(this));
+        clock.setText(cf.format(new Date()));
+    }
+
     void tick() {
         if (clock == null) return;
         String lang = TvViewer.get(this).getLanguage();
         Date now = new Date();
-        boolean h24 = android.text.format.DateFormat.is24HourFormat(this);
         java.util.TimeZone tz = Prayer.tz(this);
-        SimpleDateFormat cf = new SimpleDateFormat(h24 ? "HH.mm" : "h.mm", Locale.forLanguageTag(lang));
-        cf.setTimeZone(tz);
-        clock.setText(cf.format(now));
+        drawClock();
+        ui.removeCallbacks(secondTick);
+        if (Acct.clockSeconds(this)) ui.postDelayed(secondTick, 1000);
         int h = Calendar.getInstance(tz).get(Calendar.HOUR_OF_DAY);
         String g = tech.kousozo.tahoetv.core.I18n.greeting(lang, h);
         String name = guest() || kids() ? "" : Cfg.s(this, "user_name", R.string.user_name);
-        greeting.setText(name.isEmpty() ? g : g + ", " + name);
+        greeting.setText(!Acct.greeting(this) ? "" : name.isEmpty() ? g : g + ", " + name);
         updateChips();
         if (row != 0 || focusedApp() == null) renderHero();
         if (!Prayer.today(this).equals(prefs.getString("prayer2_date", ""))) Prayer.fetchIfStale(this, this::updateChips, ui);

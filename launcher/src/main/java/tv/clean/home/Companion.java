@@ -450,6 +450,7 @@ final class Companion extends NanoWSD {
                 if (msg instanceof Protocol.Key) l.onKey(((Protocol.Key) msg).getKey());
                 else if (msg instanceof Protocol.ViewerSync) Onboarding.fromPhone(ctx, ((Protocol.ViewerSync) msg).getJson());
                 else if (msg instanceof Protocol.ViewerPatch) Onboarding.fromPhone(ctx, ((Protocol.ViewerPatch) msg).getPatch().toString());
+                else if (msg instanceof Protocol.AccountLink) { Protocol.AccountLink al = (Protocol.AccountLink) msg; Acct.link(ctx, al.getUrl(), al.getToken(), al.getEmail()); }
                 else if (msg instanceof Protocol.Launch) l.onLaunch(((Protocol.Launch) msg).getPkg());
                 else if (msg instanceof Protocol.OpenUrl) l.onUrl(((Protocol.OpenUrl) msg).getUrl());
                 else if (msg instanceof Protocol.Ask) l.onAsk(((Protocol.Ask) msg).getQuery());
