@@ -142,4 +142,17 @@ class UpdatesTest {
         assertEquals(props.getProperty("tahoe.versionCode").toInt(), TahoeVersion.VERSION_CODE)
         assertEquals("TahoeTV/${TahoeVersion.VERSION}", Web.STREAM_UA)
     }
+
+    @Test fun fixReleasesAreRecognised() {
+        assertTrue(Updates.isPatchFix("3.8.1", "3.8.0"))
+        assertTrue(Updates.isPatchFix("v3.8.2", "3.8.0"))
+        assertTrue(Updates.isPatchFix("3.8.1", "3.8.0-dev"))
+        assertFalse(Updates.isPatchFix("3.8.0", "3.8.0"))
+        assertFalse(Updates.isPatchFix("3.8.0", "3.8.0-dev"))   // a dev build is not forced onto the same number
+        assertFalse(Updates.isPatchFix("3.9.0", "3.8.0"))       // a new minor is optional
+        assertFalse(Updates.isPatchFix("4.0.0", "3.8.5"))
+        assertFalse(Updates.isPatchFix("3.8.1-beta.1", "3.8.0")) // pre-releases never force
+        assertFalse(Updates.isPatchFix("3.8.0", "3.8.1"))       // older candidate
+        assertFalse(Updates.isPatchFix("garbage", "3.8.0"))
+    }
 }

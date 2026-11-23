@@ -135,6 +135,21 @@ object Updates {
     /** True when [candidate] is a later version than [current]. */
     @JvmStatic fun newer(candidate: String, current: String): Boolean = compare(candidate, current) > 0
 
+    /** A fix release: [candidate] is a stable version with the same major.minor as [current] and a higher patch (3.8.0 → 3.8.1).
+     *  Those are bug fixes, so every device below them is asked to update, even in the middle of onboarding. A pre-release
+     *  or a dev build (3.8.0-dev) never counts, and neither does a jump to a new minor or major version. */
+    @JvmStatic fun isPatchFix(candidate: String, current: String): Boolean {
+        fun parts(v: String): List<Int>? {
+            val clean = v.trim().removePrefix("v").substringBefore('+')
+            if (clean.contains('-')) return null // pre-release
+            val p = clean.split('.').map { it.toIntOrNull() ?: return null }
+            return if (p.size >= 3) p else null
+        }
+        val c = parts(candidate) ?: return false
+        val k = parts(current.trim().removePrefix("v").substringBefore('+').substringBefore('-').ifEmpty { current }) ?: return false
+        return c[0] == k[0] && c[1] == k[1] && c[2] > k[2]
+    }
+
     /** Downloads [url] to [out] (follows redirects), reporting 0–100. Blocks. */
     @JvmStatic @JvmOverloads fun download(
         url: String,

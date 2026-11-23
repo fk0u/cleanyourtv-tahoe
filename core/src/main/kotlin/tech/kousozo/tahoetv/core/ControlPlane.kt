@@ -177,12 +177,24 @@ object ControlPlane {
         val belowMinCode = policy.minVersionCode > 0 && currentVersionCode < policy.minVersionCode
         val mandatory = belowMinCode ||
             (policy.forceModal && (newerAvailable || (policy.minVersion.isNotBlank() && Updates.newer(policy.minVersion, currentVersion)))) ||
-            (release.forceModal && newerAvailable)
+            (release.forceModal && newerAvailable) ||
+            Updates.isPatchFix(release.version, currentVersion) // a fix release (3.8.0 → 3.8.1) is never optional
         if (mandatory) return true
         if (!newerAvailable) return false
         val dir = storageDir ?: defaultStorageDir()
         val dismissed = runCatching { File(dir, "dismissed_modal_version").readText().trim() }.getOrDefault("")
         return dismissed != release.version
+    }
+
+    /** True when [release] must be installed before carrying on: below the server's minimum, forced by policy or release, or a fix release. */
+    @JvmStatic
+    fun isMandatory(currentVersion: String, currentVersionCode: Int, release: Updates.Release?): Boolean {
+        if (release == null) return false
+        val policy = currentPolicy
+        val newerAvailable = Updates.newer(release.version, currentVersion)
+        return (policy.minVersionCode > 0 && currentVersionCode < policy.minVersionCode) ||
+            (policy.forceModal && newerAvailable) || (release.forceModal && newerAvailable) ||
+            Updates.isPatchFix(release.version, currentVersion)
     }
 
     @JvmStatic
