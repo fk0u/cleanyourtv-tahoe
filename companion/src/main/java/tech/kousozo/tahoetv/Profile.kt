@@ -229,7 +229,7 @@ private fun open(c: android.content.Context, url: String) {
     runCatching { c.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
-private const val REPO = "https://github.com/fk0u/cleanyourtv-tahoe"
+private const val REPO = "https://github.com/fk0u/tahoe-tv"
 
 // ============================================================================ Watchlist
 

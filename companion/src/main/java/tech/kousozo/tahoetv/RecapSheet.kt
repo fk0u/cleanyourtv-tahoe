@@ -280,7 +280,7 @@ private fun shareRecapStoryImage(ctx: Context, s: WatchRecap.Summary, lang: Stri
         color = 0x88FFFFFF.toInt()
         textSize = 26f
     }
-    cv.drawText("Tahoe TV · github.com/fk0u/cleanyourtv-tahoe", 72f, h - 90f, pFoot)
+    cv.drawText("Tahoe TV · github.com/fk0u/tahoe-tv", 72f, h - 90f, pFoot)
 
     val outDir = File(ctx.cacheDir, "recap").apply { mkdirs() }
     val outFile = File(outDir, "tahoe-recap.png")
@@ -291,7 +291,7 @@ private fun shareRecapStoryImage(ctx: Context, s: WatchRecap.Summary, lang: Stri
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "image/png"
         putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_TEXT, "${s.tagline}\nhttps://github.com/fk0u/cleanyourtv-tahoe")
+        putExtra(Intent.EXTRA_TEXT, "${s.tagline}\nhttps://github.com/fk0u/tahoe-tv")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     runCatching {
