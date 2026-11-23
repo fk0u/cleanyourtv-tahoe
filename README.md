@@ -174,6 +174,7 @@ PRs in English, Bahasa Indonesia or 中文 are all fine. Every kind of help coun
 - 🐞 **Report bugs:** use **Send log** in the app, then open a [new issue](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose).
 - 💡 **Pick an issue:** [`good first issue`](https://github.com/fk0u/cleanyourtv-tahoe/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/cleanyourtv-tahoe/labels/help%20wanted).
 - 💬 **Ask or discuss** in [Discussions](https://github.com/fk0u/cleanyourtv-tahoe/discussions).
+- 📣 **Service news:** follow the [TahoeTV OFFICIAL channel on WhatsApp](https://whatsapp.com/channel/0029VbE4YqRBvvsozUIyJ42n).
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). Security issues go to [SECURITY.md](SECURITY.md), never to public issues.
 
