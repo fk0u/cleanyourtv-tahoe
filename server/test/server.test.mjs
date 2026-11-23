@@ -390,3 +390,25 @@ test("accounts: sealing detects tampering and wrong owner; images are sniffed", 
   assert.equal(sniffImage(PNG), "image/png");
   assert.equal(sniffImage(Buffer.from("GIF89a-not-allowed-here")), null);
 });
+
+test("accounts: handoff passes what you watch to your other devices, sealed, private and short-lived", async () => {
+  const s = await startAccountServer();
+  try {
+    const reg = async (email) => (await s.call("/api/account/register", { method: "POST", body: { email, password: "long enough pw", invite: "let-me-in-please" } })).json.token;
+    const a = await reg("h1@example.com"); const b = await reg("h2@example.com");
+    assert.equal((await s.call("/api/account/handoff", { token: a })).json.handoff, null);
+    assert.equal((await s.call("/api/account/handoff", { method: "PUT", token: a, body: {} })).status, 400);
+    assert.equal((await s.call("/api/account/handoff", { method: "PUT", token: a, body: { url: "javascript:alert(1)" } })).status, 400);
+    const put = await s.call("/api/account/handoff", { method: "PUT", token: a, body: { channelId: "rcti.id", name: "RCTI", device: "Pixel", kind: "phone", posMs: 1234 } });
+    assert.equal(put.status, 200);
+    const got = (await s.call("/api/account/handoff", { token: a })).json.handoff;
+    assert.equal(got.name, "RCTI"); assert.equal(got.kind, "phone"); assert.equal(got.channelId, "rcti.id");
+    assert.equal((await s.call("/api/account/handoff", { token: b })).json.handoff, null, "someone else's account");
+    assert.equal(Buffer.from(s.db.prepare("SELECT blob FROM user_handoff").get().blob).includes("RCTI"), false, "sealed at rest");
+    s.db.prepare("UPDATE user_handoff SET updated_at = ?").run(Date.now() - 7 * 3600_000);
+    assert.equal((await s.call("/api/account/handoff", { token: a })).json.handoff, null, "stale after six hours");
+    await s.call("/api/account/handoff", { method: "PUT", token: a, body: { url: "https://x.example/live.m3u8" } });
+    assert.equal((await s.call("/api/account/handoff", { method: "DELETE", token: a })).status, 200);
+    assert.equal((await s.call("/api/account/handoff", { token: a })).json.handoff, null);
+  } finally { await s.close(); }
+});

@@ -15,6 +15,7 @@ const scrypt = promisify(scryptCb);
 const SCRYPT = { N: 32768, r: 8, p: 1, keylen: 64, maxmem: 128 * 1024 * 1024 };
 const SESSION_TTL_MS = 30 * 24 * 3600_000;
 const MAX_SESSIONS = 20;
+const HANDOFF_TTL_MS = 6 * 3600_000;
 const MAX_PROFILE_BYTES = 64 * 1024;
 const FILE_LIMITS = { avatar: 2 * 1024 * 1024, wallpaper: 8 * 1024 * 1024 };
 const MAX_FILES = 40;
@@ -111,6 +112,9 @@ function ensureSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id);
     CREATE TABLE IF NOT EXISTS user_profiles (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, blob BLOB NOT NULL, rev INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS user_handoff (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, blob BLOB NOT NULL, updated_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS user_files (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -280,6 +284,26 @@ export function createAccounts({ db, dataDir, dataKey, inviteCode = "", registra
             .run(me.id, seal(key, Buffer.from(text), profileAad(me.id)), rev, Date.now());
           return json(res, 200, { rev }), true;
         }
+      }
+
+      // Handoff: what this account is watching right now, so another device can pick it up. Sealed like the profile; stale after 6 h.
+      if (path === "/api/account/handoff") {
+        if (method === "GET") {
+          const row = db.prepare("SELECT blob, updated_at FROM user_handoff WHERE user_id = ?").get(me.id);
+          if (!row || Date.now() - row.updated_at > HANDOFF_TTL_MS) return json(res, 200, { handoff: null }), true;
+          return json(res, 200, { handoff: JSON.parse(open(key, Buffer.from(row.blob), `handoff:${me.id}`).toString("utf8")), at: row.updated_at }), true;
+        }
+        if (method === "PUT") {
+          const b = await readJson(req, 4 * 1024);
+          const clean = (v, n) => String(v ?? "").slice(0, n);
+          const h = { channelId: clean(b.channelId, 300), url: clean(b.url, 1000), name: clean(b.name, 120), device: clean(b.device, 60), kind: ["tv", "phone", "desktop"].includes(b.kind) ? b.kind : "phone", posMs: Math.max(0, Math.min(Number(b.posMs) || 0, 86_400_000)) };
+          if (!h.channelId && !h.url) return fail(res, 400, "channelId or url is required."), true;
+          if (h.url && !/^https?:\/\//i.test(h.url)) return fail(res, 400, "url must be http(s)."), true;
+          db.prepare("INSERT INTO user_handoff (user_id, blob, updated_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at")
+            .run(me.id, seal(key, Buffer.from(JSON.stringify(h)), `handoff:${me.id}`), Date.now());
+          return json(res, 200, { ok: true }), true;
+        }
+        if (method === "DELETE") { db.prepare("DELETE FROM user_handoff WHERE user_id = ?").run(me.id); return json(res, 200, { ok: true }), true; }
       }
 
       if (path === "/api/account/files") {
