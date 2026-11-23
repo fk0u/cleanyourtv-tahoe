@@ -343,9 +343,28 @@ public class Home extends Activity {
         row = 0; tick(); buildChips(); loadApps(); hero.refreshWallpaperSettings(); render(false);
         if (mc()) { mediaHome.refresh(); mediaHome.focusFirst(); }
         maybeWhatsNew();
+        maybeCheckUpdate();
     }
 
     private boolean whatsNewChecked;
+
+    boolean updateAvailable() { return tech.kousozo.tahoetv.core.UpdateSchedule.available(prefs.getString("upd_latest", ""), About.version(this)); }
+
+    /** Asks for the latest release at most once a day; a newer one puts an Update chip on Home. Quiet on any failure. */
+    void maybeCheckUpdate() {
+        if (kids()) return;
+        final long now = System.currentTimeMillis();
+        if (!tech.kousozo.tahoetv.core.UpdateSchedule.due(prefs.getLong("upd_checked", 0L), now)) return;
+        final String cur = About.version(this);
+        Net.bg.execute(() -> {
+            try {
+                tech.kousozo.tahoetv.core.Updates.Release r = tech.kousozo.tahoetv.core.Updates.latest();
+                boolean nu = tech.kousozo.tahoetv.core.Updates.newer(r.getVersion(), cur) && r.hasAnyAsset(tech.kousozo.tahoetv.core.Updates.LAUNCHER_ASSETS);
+                prefs.edit().putLong("upd_checked", now).putString("upd_latest", nu ? r.getVersion() : "").apply();
+                runOnUiThread(() -> { if (row != -2 && sheet == null && profiles == null) buildChips(); }); // not while the chip row is being navigated
+            } catch (Exception offline) { /* asked again at the next start */ }
+        });
+    }
 
     /** After the launcher was updated, show the new version's release notes once (a fresh install just records its version). */
     void maybeWhatsNew() {
@@ -491,6 +510,8 @@ public class Home extends Activity {
             addChip(R.drawable.ic_sparkles, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_ask"), this::openAssistant);
             addChip(R.drawable.ic_smartphone, null, this::openPair).setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_connect_phone"));
         }
+        if (!kids() && updateAvailable()) // a newer release was found by the daily check: one tap opens About, where OK installs it
+            addChip(R.drawable.ic_download, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_update"), () -> openSheet(new About(this)));
         // Profile photo chip opens Control Center.
         LinearLayout av = new LinearLayout(this);
         av.setPadding((int) dp(3), (int) dp(3), (int) dp(3), (int) dp(3));
