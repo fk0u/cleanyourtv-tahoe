@@ -38,6 +38,8 @@ object Settings {
     var viewer: tech.kousozo.tahoetv.core.Viewer
         get() = if (tech.kousozo.tahoetv.core.Demo.isActive()) (demoViewer.value ?: tech.kousozo.tahoetv.core.Demo.viewer())
             else pref("viewer").state.value.takeIf { it.isNotBlank() }?.let { tech.kousozo.tahoetv.core.Viewer.fromJson(it) }
+                // a city saved by the older settings screen (before it updated the viewer too) still counts: one source of truth
+                ?.let { v -> if (v.lat == null && v.lon == null && lat != 0.0 && lon != 0.0 && city.isNotBlank()) v.copy(city = city, lat = lat, lon = lon, region = province) else v }
             ?: pref("country").state.value.let { old -> // from the earlier two-step setup
                 tech.kousozo.tahoetv.core.Region.country(old)?.let {
                     // keep what the older settings already had: city, coordinates, province, favourites
@@ -54,6 +56,7 @@ object Settings {
             pref("viewer").set(v.toJson()); pref("country").set(v.country); pref("language").set(v.language)
             val la = v.lat; val lo = v.lon
             if (la != null && lo != null) { city = v.city; lat = la; lon = lo; province = v.region }
+            else { city = ""; pref("lat").set(""); pref("lon").set(""); province = "" } // no city chosen: nothing left behind to come back later
             pref("fav").set(v.favorites.joinToString("\n"))
         }
     val country get() = viewer.country
@@ -95,7 +98,6 @@ object Settings {
 
     var iptvPort get() = pref("iptv_port", "8088").state.value.toIntOrNull() ?: 8088; set(v) = pref("iptv_port").set("$v")
     var iptvAutoStart get() = pref("iptv_autostart", "false").state.value == "true"; set(v) = pref("iptv_autostart").set("$v")
-    var railCollapsed get() = pref("rail_collapsed", "false").state.value == "true"; set(v) = pref("rail_collapsed").set("$v")
 
     val recentChannels: List<String>
         get() = pref("recent_ch", "").state.value.split('\n').filter { it.isNotBlank() }

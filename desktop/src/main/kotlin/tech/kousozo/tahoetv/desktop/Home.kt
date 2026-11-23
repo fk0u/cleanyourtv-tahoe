@@ -76,8 +76,8 @@ fun HomeScreen(onLive: () -> Unit) {
     var weather by remember { mutableStateOf<Web.Weather?>(null) }
     var prayer by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var heroes by remember { mutableStateOf<List<Web.Hero>>(emptyList()) }
-    val lat = Settings.lat; val lon = Settings.lon
     val viewer = Settings.viewer
+    val lat = viewer.lat ?: Settings.lat; val lon = viewer.lon ?: Settings.lon
     // after onboarding: no city = no weather/prayer; prayer only when switched on, with the chosen method and time zone
     val hasCity = !viewer.done || viewer.lat != null
     val lang = Settings.lang
@@ -557,12 +557,36 @@ private fun OverviewPanel(cur: OnAir?, weather: Web.Weather?, next: Pair<String,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(tech.kousozo.tahoetv.core.I18n.get(lang, "desk.hm_overview"), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        // a real picture of what is on: the programme's own image from the web (Wikipedia / image search), the channel's colours until it loads
+        val shotUrl by produceState<String?>(null, cur?.entry?.name, cur?.programme?.title) {
+            val title = cur?.programme?.title
+            value = if (title.isNullOrBlank() || cur == null) null
+            else withContext(Dispatchers.IO) { runCatching { tech.kousozo.tahoetv.core.MediaScraper.programmeThumbnail(title, cur.entry.name) }.getOrNull() }
+        }
+        val shot = rememberImage(shotUrl)
+        val logoUrl by produceState(cur?.entry?.channel?.logo, cur?.entry?.name) {
+            val e = cur?.entry
+            if (e != null && value.isNullOrBlank()) value = withContext(Dispatchers.IO) { runCatching { tech.kousozo.tahoetv.core.MediaScraper.channelLogo(e.name, e.channel.logo) }.getOrNull() }
+        }
+        val logo = rememberImage(logoUrl)
+        val airFrac = cur?.programme?.let { p ->
+            val span = (p.stop.epochSecond - p.start.epochSecond).coerceAtLeast(1)
+            ((java.time.Instant.now().epochSecond - p.start.epochSecond).toFloat() / span).coerceIn(0f, 1f)
+        }
         Box(Modifier.fillMaxWidth().height(189.dp).clip(RoundedCornerShape(18.dp)).clickable(onClick = onLive)
             .background(Brush.linearGradient(listOf(tint(cur?.entry?.name ?: "Tahoe", 0.5f), tint(cur?.entry?.name ?: "Tahoe", 1f))))) {
+            if (shot != null) {
+                Image(shot, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)))))
+            }
             Box(Modifier.padding(12.dp)) { LivePill() }
-            Text(cur?.entry?.name ?: "", Modifier.align(Alignment.Center), fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.9f))
-            Box(Modifier.align(Alignment.BottomStart).padding(12.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.2f))) {
-                Box(Modifier.fillMaxWidth(0.4f).fillMaxHeight().background(Tahoe.Accent))
+            if (shot == null) {
+                if (logo != null) Box(Modifier.align(Alignment.Center).size(width = 140.dp, height = 76.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.92f)), contentAlignment = Alignment.Center) {
+                    Image(logo, null, Modifier.padding(10.dp).fillMaxSize(), contentScale = ContentScale.Fit)
+                } else Text(cur?.entry?.name ?: "", Modifier.align(Alignment.Center), fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.9f))
+            }
+            if (airFrac != null) Box(Modifier.align(Alignment.BottomStart).padding(12.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.2f))) {
+                Box(Modifier.fillMaxWidth(airFrac.coerceAtLeast(0.02f)).fillMaxHeight().background(Tahoe.Accent))
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -571,7 +595,10 @@ private fun OverviewPanel(cur: OnAir?, weather: Web.Weather?, next: Pair<String,
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().height(120.dp)) {
             StatCard(tech.kousozo.tahoetv.core.I18n.get(lang, "home.weather"), weather?.let { "${it.tempC}°" } ?: "—", weather?.label ?: Settings.city, Icons.Rounded.Cloud, Modifier.weight(1f).fillMaxHeight())
-            StatCard(tech.kousozo.tahoetv.core.I18n.get(lang, "home.prayer_card"), next?.second ?: "—", next?.first.orEmpty(), Icons.Rounded.Bedtime, Modifier.weight(1f).fillMaxHeight())
+            run {
+                val prayerOn = Settings.viewer.let { !it.done || it.prayer } // switched off in onboarding: say so instead of a dash
+                StatCard(tech.kousozo.tahoetv.core.I18n.get(lang, "home.prayer_card"), next?.second ?: tech.kousozo.tahoetv.core.I18n.get(lang, if (prayerOn) "home.prayer_loading" else "common.off"), next?.first.orEmpty(), Icons.Rounded.Bedtime, Modifier.weight(1f).fillMaxHeight())
+            }
         }
         Column(
             Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(22.dp)).background(Brush.verticalGradient(listOf(Color(0xFFD91A26), Color(0xFF8C0D1A)))).clickable(onClick = onLive).padding(20.dp),

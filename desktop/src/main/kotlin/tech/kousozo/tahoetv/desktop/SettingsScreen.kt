@@ -104,18 +104,6 @@ fun SettingsScreen() {
             }
         }
 
-        Section(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.appearance"))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(tech.kousozo.tahoetv.core.Theme.Mode.SYSTEM to "ui.theme_system", tech.kousozo.tahoetv.core.Theme.Mode.DARK to "ui.theme_dark",
-                tech.kousozo.tahoetv.core.Theme.Mode.LIGHT to "ui.theme_light").forEach { (m, k) ->
-                Choice(tech.kousozo.tahoetv.core.I18n.get(lang, k), Settings.themeMode == m) { Settings.themeMode = m }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Choice(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.high_contrast"), Settings.highContrast) { Settings.highContrast = !Settings.highContrast }
-            Choice(tech.kousozo.tahoetv.core.I18n.get(lang, "ui.reduce_motion"), Settings.reduceMotion) { Settings.reduceMotion = !Settings.reduceMotion }
-        }
-
         Section(tech.kousozo.tahoetv.core.I18n.get(lang, "settings.updates_section"))
         AboutUpdates()
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -317,7 +305,7 @@ private fun FigmaSettingsCards() {
                 PlayerWindow.stop(); DeskNav.regionSetup = true
             }
             val cl = Settings.viewer.channelLanguages
-            ValueRow(i("ui.channel_languages"), if (cl.isEmpty()) "—" else cl.joinToString(", ") { java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.forLanguageTag(it)).ifBlank { it } }) {}
+            InfoRow(i("ui.channel_languages"), if (cl.isEmpty()) "—" else cl.joinToString(", ") { java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.forLanguageTag(it)).ifBlank { it } })
             val running by remember { IptvServer.isRunning }
             SwitchRow(i("desk.st_iptv"), running) {
                 if (running) IptvServer.stop()
@@ -334,6 +322,13 @@ private fun SettingsCard(title: String, modifier: Modifier, content: @Composable
 ) {
     Text(title.uppercase(), fontSize = 11.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = Tahoe.Faint, letterSpacing = 1.3.sp)
     content()
+}
+
+/** A value that is only shown (it is changed in the section below), so it does not look clickable. */
+@Composable
+private fun InfoRow(label: String, value: String) = Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Text(label, Modifier.weight(1f), fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+    Text(value, fontSize = 14.sp, color = Tahoe.Dim, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
 }
 
 @Composable
