@@ -1,0 +1,9 @@
+# TLS + the X-Forwarded-Proto header the account routes require. Replace the host with your own (do not commit it).
+your-server.example {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3140 {
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-For {remote_host}
+		flush_interval -1   # the tunnel and push streams must not be buffered
+	}
+}

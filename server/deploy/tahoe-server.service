@@ -1,0 +1,23 @@
+[Unit]
+Description=Tahoe TV server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tahoe
+Group=tahoe
+WorkingDirectory=/opt/tahoe/server
+EnvironmentFile=/etc/tahoe-server.env
+ExecStart=/usr/bin/node --no-warnings src/index.mjs
+Restart=on-failure
+RestartSec=3
+# the server only writes to its data folder
+StateDirectory=tahoe-server
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/tahoe-server
+
+[Install]
+WantedBy=multi-user.target
