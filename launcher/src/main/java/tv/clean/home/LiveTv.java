@@ -362,6 +362,7 @@ public class LiveTv extends Activity {
         }
         if (index >= 0) previous = index;
         index = ((i % list.size()) + list.size()) % list.size();
+        { LocalTv.Entry now = list.get(index); Acct.publishNowPlaying(this, now.getChannel().getChannelId(), now.getChannel().getUrl(), now.getName()); }
         source = 0;
         sawRecording = false;
         videoW = 0; videoH = 0; videoPar = 1f;

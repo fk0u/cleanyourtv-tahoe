@@ -119,7 +119,7 @@ final class Pengaturan extends FrameLayout implements Sheet {
         styleNav();
     }
 
-    private static final java.util.Set<String> SYNCED = new java.util.HashSet<>(java.util.Arrays.asList("clock24", "clock_seconds", "greeting_on", "reduce_motion"));
+    private static final java.util.Set<String> SYNCED = new java.util.HashSet<>(java.util.Arrays.asList("clock24", "clock_seconds", "greeting_on", "reduce_motion", "handoff_on"));
 
     private void display() {
         LinearLayout cards = new LinearLayout(home);
@@ -150,6 +150,7 @@ final class Pengaturan extends FrameLayout implements Sheet {
         toggleRow(AccountText.get(lang, "clock24"), "", "clock24", true);
         toggleRow(AccountText.get(lang, "seconds"), "", "clock_seconds", false);
         toggleRow(AccountText.get(lang, "greeting"), "", "greeting_on", true);
+        toggleRow(AccountText.get(lang, "handoff_on"), AccountText.get(lang, "handoff_sub"), "handoff_on", true);
         String size = Acct.clockSize(home);
         linkRow(AccountText.get(lang, "clock_size"), AccountText.get(lang, size), () -> {
             cfg.edit().putString("clock_size", size.equals("s") ? "m" : size.equals("m") ? "l" : "s").apply();

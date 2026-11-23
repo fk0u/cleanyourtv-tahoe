@@ -140,6 +140,46 @@ final class Acct {
 
     private static File wallDir(Context c) { File d = c.getExternalFilesDir("wallpapers"); if (d != null) d.mkdirs(); return d; }
 
+    // ---- handoff: continue on this TV what another device of the account was watching
+    /** Set by [checkHandoff] when another device (phone, desktop) was playing something recently; null otherwise. */
+    static volatile tech.kousozo.tahoetv.core.Handoff pending;
+    private static String lastPublished = "";
+
+    static boolean handoffOn(Context c) { return Cfg.p(c).getBoolean("handoff_on", true); }
+
+    /** Looks at the account for something to carry on; [changed] runs on the main thread when the answer is new. */
+    static void checkHandoff(Context c, Runnable changed) {
+        if (!linked(c) || !handoffOn(c)) { if (pending != null) { pending = null; if (changed != null) changed.run(); } return; }
+        Context app = c.getApplicationContext();
+        android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
+        Net.bg.execute(() -> {
+            AccountApi a = api(app);
+            if (a == null) return;
+            try {
+                tech.kousozo.tahoetv.core.Handoff h = a.handoff();
+                if (h != null && "tv".equals(h.getKind()) && android.os.Build.MODEL.equals(h.getDevice())) h = null; // this TV's own
+                String was = pending == null ? "" : pending.getChannelId() + pending.getUrl(), now = h == null ? "" : h.getChannelId() + h.getUrl();
+                pending = h;
+                if (!was.equals(now) && changed != null) ui.post(changed);
+            } catch (Exception ex) { tech.kousozo.tahoetv.core.DiagLog.add("account", "handoff check failed (" + ex.getClass().getSimpleName() + ")"); }
+        });
+    }
+
+    /** Tells the account this TV is now playing [name], so the phone and the Mac can offer to continue it. */
+    static void publishNowPlaying(Context c, String channelId, String url, String name) {
+        if (!linked(c) || !handoffOn(c)) return;
+        String key = channelId + "|" + url;
+        if (key.equals(lastPublished)) return;
+        lastPublished = key;
+        Context app = c.getApplicationContext();
+        Net.bg.execute(() -> {
+            AccountApi a = api(app);
+            if (a == null) return;
+            try { a.setHandoff(new tech.kousozo.tahoetv.core.Handoff(channelId == null ? "" : channelId, url == null ? "" : url, name == null ? "" : name, android.os.Build.MODEL, "tv", 0, 0)); }
+            catch (Exception ex) { tech.kousozo.tahoetv.core.DiagLog.add("account", "handoff publish failed (" + ex.getClass().getSimpleName() + ")"); }
+        });
+    }
+
     /** Sends what was changed on the TV up to the account (keeps the picture ids and anything else the server has). */
     static void push(Context c) {
         if (!linked(c)) return;

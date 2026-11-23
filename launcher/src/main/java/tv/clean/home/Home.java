@@ -166,6 +166,7 @@ public class Home extends Activity {
         resumed = true;
         if (!TvGuard.isAndroidTv(this)) return;
         updateFocusBlocking();
+        Acct.checkHandoff(this, this::buildChips);
         // first run (#77): onboarding until it's done, also after Home was pressed in the middle of it
         if (!TvViewer.done(this) && Onboarding.open == null) startActivity(new android.content.Intent(this, Onboarding.class));
         if (hero == null) return;
@@ -243,6 +244,7 @@ public class Home extends Activity {
 
         // Top bar: greeting left, chips + clock right.
         greeting = Ui.eyebrow(this, Ui.TEXT_2);
+        greeting.setMaxLines(1); greeting.setEllipsize(android.text.TextUtils.TruncateAt.END);
         root.addView(greeting, at(M, dp(Ui.SAFE_TOP + 12), W * 0.4f, -1));
         chips = new LinearLayout(this); chips.setGravity(Gravity.CENTER_VERTICAL);
         clock = Ui.text(this, 26, 300, Ui.TEXT);
@@ -517,6 +519,19 @@ public class Home extends Activity {
         if (!kids()) { // no assistant or phone pairing in the kids profile
             addChip(R.drawable.ic_sparkles, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_ask"), this::openAssistant);
             addChip(R.drawable.ic_smartphone, null, this::openPair).setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_connect_phone"));
+        }
+        { // another device of the account was watching something: offer to carry on here
+            tech.kousozo.tahoetv.core.Handoff h = kids() || guest() ? null : Acct.pending;
+            if (h != null) {
+                String nm = h.getName().length() > 16 ? h.getName().substring(0, 15) + "…" : h.getName(); // short: the chip row is tight
+                LinearLayout cc = addChip(R.drawable.ic_play, nm, () -> { // just the name: "Continue" is in the description, the row has no room for more
+                    android.content.Intent li = new android.content.Intent(this, LiveTv.class);
+                    if (!h.getChannelId().isEmpty()) li.putExtra("channelId", h.getChannelId());
+                    if (!h.getUrl().isEmpty()) li.putExtra("url", h.getUrl());
+                    start(li);
+                });
+                if (!h.getDevice().isEmpty()) cc.setContentDescription(tech.kousozo.tahoetv.core.AccountText.get(lang, "continue_here", h.getName()) + ", " + tech.kousozo.tahoetv.core.AccountText.get(lang, "continue_from", h.getDevice()));
+            }
         }
         if (!kids() && updateAvailable()) // a newer release was found by the daily check: one tap opens About, where OK installs it
             addChip(R.drawable.ic_download, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_update"), () -> openSheet(new About(this)));
