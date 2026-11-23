@@ -165,7 +165,7 @@ fun App(initial: Screen = Screen.Home, askRegion: Boolean = true) { // askRegion
         Row(Modifier.fillMaxSize()) {
             Rail(DeskNav.screen) { DeskNav.screen = it }
             Column(Modifier.weight(1f)) {
-                TopBar()
+                TopBar(DeskNav.screen)
                 AnimatedContent(
                     DeskNav.screen,
                     transitionSpec = {
@@ -244,7 +244,7 @@ private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) {
             ) {
                 Icon(Icons.Rounded.Cast, tvLabel, tint = if (tv != null) Tahoe.Good else Tahoe.Faint, modifier = Modifier.size(22.dp))
             }
-            Text("v" + (System.getProperty("jpackage.app-version") ?: "dev"), fontSize = 10.sp, color = Tahoe.Faint)
+            Text("v" + (System.getProperty("jpackage.app-version") ?: "dev"), fontSize = 11.sp, color = Tahoe.Faint)
         }
         Box(Modifier.width(1.dp).fillMaxHeight().background(Tahoe.Stroke))
     }
@@ -252,18 +252,20 @@ private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) {
 
 /** Greeting + search pill + clock + quick "Tonton Live" button. Search jumps to TV Live with the query. */
 @Composable
-private fun TopBar() {
+private fun TopBar(screen: Screen) {
     var now by remember { mutableStateOf(java.time.LocalTime.now(Settings.viewer.zone)) }
     LaunchedEffect(Settings.viewer.zone) { while (true) { now = java.time.LocalTime.now(Settings.viewer.zone); kotlinx.coroutines.delay(15_000) } }
     var q by remember { mutableStateOf("") }
     val lang = Settings.lang
     val hello = tech.kousozo.tahoetv.core.I18n.greeting(lang, now.hour)
-    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 24.dp, top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
+    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 28.dp, top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        // the greeting belongs to Home; every other screen has its own title, so the bar keeps only the tools (one header, not two)
+        if (screen == Screen.Home) Column(Modifier.weight(1f)) {
             Text(tech.kousozo.tahoetv.core.I18n.get(lang, "greet.hello", Settings.name.ifBlank { "Tahoe" }), fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text(tech.kousozo.tahoetv.core.I18n.get(lang, "greet.subtitle", hello), fontSize = 13.sp, color = Tahoe.Dim)
-        }
-        Row(Modifier.width(340.dp).height(44.dp).clip(RoundedCornerShape(50)).background(Tahoe.Card)
+        } else Spacer(Modifier.weight(1f))
+        // TV Live has its own search box: no second, identical one above it
+        if (screen != Screen.Live) Row(Modifier.width(340.dp).height(44.dp).clip(RoundedCornerShape(50)).background(Tahoe.Card)
             .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(50)).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Search, null, tint = Tahoe.Faint, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(10.dp))
@@ -273,7 +275,7 @@ private fun TopBar() {
                 modifier = Modifier.weight(1f).onEnter { DeskNav.query = q.trim(); DeskNav.screen = Screen.Live },
                 decorationBox = { inner -> Box { if (q.isEmpty()) Text(tech.kousozo.tahoetv.core.I18n.get(lang, "home.search_hint"), color = Tahoe.Faint, fontSize = 14.sp); inner() } })
         }
-        Spacer(Modifier.width(12.dp))
+        if (screen != Screen.Live) Spacer(Modifier.width(12.dp))
         val rel = DesktopPush.latestRelease
         val (curVer, _) = remember { DesktopPush.appVersion() }
         if (rel != null && tech.kousozo.tahoetv.core.Updates.newer(rel.version, curVer)) {

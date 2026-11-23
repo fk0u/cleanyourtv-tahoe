@@ -92,7 +92,7 @@ fun HomeScreen(onLive: () -> Unit) {
     }
     val next = prayer.firstOrNull { LocalTime.parse(it.second) > now } ?: prayer.firstOrNull()
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 8.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 12.dp, end = 28.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // the Figma Home: hero + channel table on the left, the overview panel on the right
         FigmaHome(onLive, weather, next, now)
@@ -126,7 +126,7 @@ fun HomeScreen(onLive: () -> Unit) {
                                 .clickable { browse(hItem.url) }.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            Text(hItem.source, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Tahoe.Accent)
+                            Text(hItem.source, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Tahoe.Accent)
                             Text(hItem.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(hItem.sub, fontSize = 11.sp, color = Tahoe.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -348,7 +348,7 @@ private fun LiveCard(modifier: Modifier, onLive: () -> Unit) = Box(
     Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         chips.forEach {
             Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White).border(2.dp, Tahoe.Accent, CircleShape), contentAlignment = Alignment.Center) {
-                Text(short(it).take(5), fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFF111114))
+                Text(short(it).take(5), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF111114))
             }
         }
     }
@@ -534,7 +534,7 @@ private fun tint(name: String, f: Float): Color {
 
 @Composable
 private fun LivePill() = Row(
-    Modifier.clip(RoundedCornerShape(50)).background(Color(0xFFFF453A)).padding(start = 8.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+    Modifier.clip(RoundedCornerShape(50)).background(LiveFill).padding(start = 8.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
 ) {
     Box(Modifier.size(6.dp).clip(CircleShape).background(Color.White))

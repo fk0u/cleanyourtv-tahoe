@@ -298,21 +298,21 @@ private fun Choice(text: String, selected: Boolean, onClick: () -> Unit) = Text(
 private fun FigmaSettingsCards() {
     val lang = Settings.lang
     val i = { k: String -> tech.kousozo.tahoetv.core.I18n.get(lang, k) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        SettingsCard(i("desk.st_display"), Modifier.weight(1f)) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        SettingsCard(i("desk.st_display"), Modifier.weight(1f).fillMaxHeight()) {
             val modes = tech.kousozo.tahoetv.core.Theme.Mode.entries
             val names = mapOf(tech.kousozo.tahoetv.core.Theme.Mode.SYSTEM to i("ui.theme_system"), tech.kousozo.tahoetv.core.Theme.Mode.DARK to i("ui.theme_dark"), tech.kousozo.tahoetv.core.Theme.Mode.LIGHT to i("ui.theme_light"))
             ValueRow(i("desk.st_theme"), names[Settings.themeMode] ?: "") { Settings.themeMode = modes[(modes.indexOf(Settings.themeMode) + 1) % modes.size] }
             SwitchRow(i("ui.high_contrast"), Settings.highContrast) { Settings.highContrast = !Settings.highContrast }
             SwitchRow(i("ui.reduce_motion"), Settings.reduceMotion) { Settings.reduceMotion = !Settings.reduceMotion }
         }
-        SettingsCard(i("desk.st_playback"), Modifier.weight(1f)) {
+        SettingsCard(i("desk.st_playback"), Modifier.weight(1f).fillMaxHeight()) {
             val qs = tech.kousozo.tahoetv.core.PlayPrefs.Quality.entries
             val ls = tech.kousozo.tahoetv.core.PlayPrefs.Latency.entries
             ValueRow(i("player.quality"), Settings.quality.label(lang)) { Settings.quality = qs[(qs.indexOf(Settings.quality) + 1) % qs.size] }
             ValueRow(i("player.latency"), Settings.latency.label(lang)) { Settings.latency = ls[(ls.indexOf(Settings.latency) + 1) % ls.size] }
         }
-        SettingsCard(i("desk.st_channels"), Modifier.weight(1f)) {
+        SettingsCard(i("desk.st_channels"), Modifier.weight(1f).fillMaxHeight()) {
             ValueRow(i("home.region_language"), "${tech.kousozo.tahoetv.core.Region.flag(Settings.countryCode)} ${tech.kousozo.tahoetv.core.Region.name(Settings.countryCode, lang)}") {
                 PlayerWindow.stop(); DeskNav.regionSetup = true
             }

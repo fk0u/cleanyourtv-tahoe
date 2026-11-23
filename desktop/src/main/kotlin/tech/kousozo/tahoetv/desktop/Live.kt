@@ -271,7 +271,7 @@ fun LiveScreen() {
     }
 
     Column(
-        Modifier.fillMaxSize().padding(start = 12.dp, end = 20.dp, top = 20.dp, bottom = 20.dp)
+        Modifier.fillMaxSize().padding(start = 12.dp, end = 28.dp, top = 20.dp, bottom = 20.dp)
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (ev.key) {
@@ -366,16 +366,18 @@ fun LiveScreen() {
                     val prog = epg?.schedule(e.name, tick)?.firstOrNull()?.takeIf { it.start <= tick }
                     val live = isChannelLive(e)
                     val c1 = remember(e.name) { val h = e.name.hashCode(); Color(red = ((h shr 16) and 255) / 255f * 0.5f + 0.1f, green = ((h shr 8) and 255) / 255f * 0.5f + 0.1f, blue = (h and 255) / 255f * 0.5f + 0.2f) }
+                    val cardSrc = remember(ch.url) { MutableInteractionSource() }
+                    val cardHover by cardSrc.collectIsHoveredAsState()
                     Column(
-                        Modifier.alpha(if (on || live != false) 1f else 0.55f)
-                            .combinedClickable(onDoubleClick = { watch(e) }) { if (focused) watch(e) else selected = e }, // click = select, again / double-click = watch (#182)
+                        Modifier.alpha(if (on || live != false) 1f else 0.55f).hoverable(cardSrc)
+                            .combinedClickable(interactionSource = cardSrc, indication = null, onDoubleClick = { watch(e) }) { if (focused) watch(e) else selected = e }, // click = select, again / double-click = watch (#182)
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         // Figma grid card: 305 x 172 picture, 18 radius, white 3 dp ring when selected, LIVE badge, programme progress
                         Box(
                             Modifier.fillMaxWidth().aspectRatio(305f / 172f).clip(RoundedCornerShape(18.dp))
                                 .background(Brush.linearGradient(listOf(c1, c1.copy(alpha = 0.35f), Color(0xFF10131A))))
-                                .border(if (focused) 3.dp else 0.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(18.dp)),
+                                .border(if (focused) 3.dp else if (cardHover) 2.dp else 0.dp, if (focused) Color.White else if (cardHover) Color.White.copy(alpha = 0.45f) else Color.Transparent, RoundedCornerShape(18.dp)),
                         ) {
                             val logoUrl by produceState(ch.logo, ch.url, e.name) {
                                 if (value.isNullOrBlank()) value = withContext(Dispatchers.IO) { MediaScraper.channelLogo(e.name, ch.logo) }
@@ -386,7 +388,7 @@ fun LiveScreen() {
                             }
                             if (on) Box(Modifier.align(Alignment.TopStart).padding(12.dp)) { Badge(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_playing"), Color(0xFF0A84FF), filled = true) }
                             else if (live == true) Row(
-                                Modifier.align(Alignment.TopStart).padding(12.dp).clip(RoundedCornerShape(50)).background(Color(0xFFFF453A)).padding(start = 8.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+                                Modifier.align(Alignment.TopStart).padding(12.dp).clip(RoundedCornerShape(50)).background(LiveFill).padding(start = 8.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) { Box(Modifier.size(6.dp).clip(CircleShape).background(Color.White)); Text("LIVE", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = 1.3.sp) }
                             if (prog != null) {
@@ -642,7 +644,7 @@ private fun categoryIcon(key: String?) = when (key) {
 @Composable
 private fun Badge(text: String, color: Color, filled: Boolean = false) = Text(text, Modifier.clip(RoundedCornerShape(5.dp))
     .background(if (filled) color else color.copy(alpha = 0.14f)).padding(horizontal = 6.dp, vertical = 2.dp),
-    color = if (filled) Color.White else color, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, letterSpacing = 0.4.sp)
+    color = if (filled) contrastOn(color) else color, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, letterSpacing = 0.4.sp)
 
 /** Hourly scrollable EPG timeline grid across channels (#49). */
 @Composable
@@ -735,7 +737,7 @@ private fun EpgTimelinePane(
                                     ) {
                                         Column {
                                             Text(p.title, fontSize = 12.sp, fontWeight = if (airing) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text("${hm.format(p.start)}–${hm.format(p.stop)}", fontSize = 10.sp, color = Tahoe.Dim)
+                                            Text("${hm.format(p.start)}–${hm.format(p.stop)}", fontSize = 11.sp, color = Tahoe.Dim)
                                         }
                                     }
                                 }
