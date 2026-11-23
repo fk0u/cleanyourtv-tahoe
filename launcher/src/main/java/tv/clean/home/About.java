@@ -128,6 +128,7 @@ final class About extends FrameLayout implements Sheet {
 
     /** Hands the APK to Android's installer; [Done] opens the confirmation screen it asks for. */
     static void install(Context c, File apk) throws Exception {
+        ApkCheck.requireGenuineUpdate(c, apk, tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(c).getLanguage(), "update.untrusted"));
         PackageInstaller pi = c.getPackageManager().getPackageInstaller();
         int id = pi.createSession(new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL));
         try (PackageInstaller.Session s = pi.openSession(id)) {
