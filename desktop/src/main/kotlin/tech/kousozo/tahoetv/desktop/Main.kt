@@ -198,11 +198,11 @@ fun App(initial: Screen = Screen.Home, askRegion: Boolean = true) { // askRegion
 @Composable
 private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) {
     val lang = Settings.lang
-    Row(Modifier.width(80.dp).fillMaxHeight()) {
+    Row(Modifier.width(92.dp).fillMaxHeight()) {
         Column(
-            Modifier.weight(1f).fillMaxHeight().background(Color(0xFF07080D).copy(alpha = if (ThemePrefs.dark) 0.9f else 0f)).padding(vertical = 28.dp),
+            Modifier.weight(1f).fillMaxHeight().background(Color(0xFF07080D).copy(alpha = if (ThemePrefs.dark) 0.9f else 0f)).padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             BrandTile(40.dp)
             Screen.entries.filter { it != Screen.Admin }.forEach { s ->
@@ -218,14 +218,19 @@ private fun Rail(selected: Screen, onSelect: (Screen) -> Unit) {
                     delayMillis = 300,
                     tooltipPlacement = androidx.compose.foundation.TooltipPlacement.CursorPoint(offset = androidx.compose.ui.unit.DpOffset(16.dp, 0.dp)),
                 ) {
-                    Box(
-                        Modifier.size(48.dp).clip(RoundedCornerShape(14.dp))
-                            .background(if (on) Tahoe.Text else if (hover) Tahoe.CardHi else Color.Transparent)
-                            .hoverable(src)
+                    Column(
+                        Modifier.width(80.dp).clip(RoundedCornerShape(14.dp)).hoverable(src)
                             .selectable(selected = on, role = Role.Tab) { onSelect(s) }
-                            .semantics(mergeDescendants = true) { contentDescription = s.label },
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(s.icon, null, tint = if (on) Color(0xFF0D0F14) else Tahoe.Dim, modifier = Modifier.size(22.dp)) }
+                            .semantics(mergeDescendants = true) { contentDescription = s.label }.padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(if (on) Tahoe.Text else if (hover) Tahoe.CardHi else Color.Transparent), contentAlignment = Alignment.Center) {
+                            Icon(s.icon, null, tint = if (on) Color(0xFF0D0F14) else Tahoe.Dim, modifier = Modifier.size(22.dp))
+                        }
+                        // the name under the icon: nobody has to hover to learn what a button does
+                        Text(s.label, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            color = if (on) Tahoe.Text else Tahoe.Dim, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium)
+                    }
                 }
             }
             Spacer(Modifier.weight(1f))
