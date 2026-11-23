@@ -200,6 +200,11 @@ private fun SendLog() {
             runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
                 .onFailure { saved = tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.browser_fail", url) }
         }
+        GhostButton(tech.kousozo.tahoetv.core.Slate.follow(lang), Icons.Rounded.Chat) {
+            val url = tech.kousozo.tahoetv.core.Brand.WHATSAPP_CHANNEL
+            runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
+                .onFailure { saved = tech.kousozo.tahoetv.core.I18n.get(lang, "desktop.browser_fail", url) }
+        }
     }
     saved?.let { Text(it, color = Tahoe.Dim, fontSize = 13.sp) }
 }

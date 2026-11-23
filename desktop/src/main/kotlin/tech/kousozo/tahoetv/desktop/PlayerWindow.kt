@@ -446,7 +446,7 @@ object PlayerWindow {
 
     /** Playing: hide the loader and any error. Only real failures ever reach the app window (no "loading…" chatter). */
     private fun playingNow() {
-        slateRetries = 0; slateTimer?.stop()
+        slateRetries = 0; slateTimer?.stop(); Chime.stop()
         tech.kousozo.tahoetv.core.DiagLog.add("live", "gambar tampil")
         loading(false); statusLabel.isVisible = false; nextBtn.isVisible = false; nextBtn.isManaged = false; webBtn.isVisible = false; webBtn.isManaged = false
         restoreBtn.isVisible = false; restoreBtn.isManaged = false
@@ -458,7 +458,6 @@ object PlayerWindow {
      *  first), the reason, a countdown to the next background retry, and the buttons. */
     private fun slate(gen: Int) {
         val lang = Settings.lang
-        val order = tech.kousozo.tahoetv.core.Slate.order(lang)
         val reason = failSlateReason ?: tech.kousozo.tahoetv.core.Slate.Reason.Offline
         if (gen != webFallbackTriedGen && (probedLiveInSession || reason == tech.kousozo.tahoetv.core.Slate.Reason.Unsupported) &&
             channelStreams.isNotEmpty()) {
@@ -481,7 +480,9 @@ object PlayerWindow {
             }, "tahoe-web-fallback").apply { isDaemon = true }.start()
             return
         }
-        val head = order.joinToString("\n\n") { tech.kousozo.tahoetv.core.Slate.message(it) } + "\n\n" + tech.kousozo.tahoetv.core.Slate.reason(order[0], reason)
+        val head = "Tahoe TV\n\n" + tech.kousozo.tahoetv.core.Slate.headline(lang, slateRetries) + "\n\n" + tech.kousozo.tahoetv.core.Slate.reason(lang, reason) +
+            "\n\n" + tech.kousozo.tahoetv.core.Slate.follow(lang) + "\n" + tech.kousozo.tahoetv.core.Brand.WHATSAPP_CHANNEL
+        Chime.noSignal(titleLabel.text)
         fail(head)
         retryBtn.text = tech.kousozo.tahoetv.core.Slate.label(lang, "retry") + " ↻"; retryBtn.isVisible = true; retryBtn.isManaged = true
         slateTimer?.stop()
@@ -509,6 +510,7 @@ object PlayerWindow {
     /** Drops the old player without letting it hold up the next channel: dispose() can block while a live stream is
      *  buffering, which froze the window so no other channel could be opened. */
     private fun release() {
+        Chime.stop()
         val p = player ?: return
         player = null; view.mediaPlayer = null
         Thread({ runCatching { p.dispose() }.onFailure { Platform.runLater { runCatching { p.dispose() } } } }, "tahoe-dispose").apply { isDaemon = true }.start()
