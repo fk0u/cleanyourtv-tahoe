@@ -11,6 +11,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -376,6 +378,48 @@ fun DesktopNotificationDialog() {
         dismissButton = {
             TextButton({ DesktopPush.showInbox = false }) { Text(I18n.get(lang, "desktop.close"), color = Tahoe.Dim) }
         },
+    )
+}
+
+/** After the app was updated: the new version's release notes, once. A fresh install only records its version.
+ *  `--whatsnew-from=<version>` (test aid) pretends the previously seen version was that one. */
+@Composable
+fun DesktopWhatsNew(pretendSeen: String? = null) {
+    val lang = Settings.lang
+    val (current, _) = remember { DesktopPush.appVersion() }
+    val seenFile = remember { File(System.getProperty("user.home"), ".tahoetv/whatsnew_seen") }
+    var release by remember { mutableStateOf<Updates.Release?>(null) }
+    fun markSeen() { runCatching { seenFile.parentFile.mkdirs(); seenFile.writeText(current) } }
+    LaunchedEffect(current) {
+        val seen = pretendSeen ?: runCatching { seenFile.readText().trim() }.getOrNull()
+        when (tech.kousozo.tahoetv.core.WhatsNew.decide(seen, current)) {
+            tech.kousozo.tahoetv.core.WhatsNew.Decision.RECORD_ONLY -> markSeen()
+            tech.kousozo.tahoetv.core.WhatsNew.Decision.NOTHING -> {}
+            tech.kousozo.tahoetv.core.WhatsNew.Decision.SHOW -> {
+                val r = withContext(Dispatchers.IO) { runCatching { Updates.latest() }.getOrNull() } ?: return@LaunchedEffect // offline: next start
+                if (tech.kousozo.tahoetv.core.WhatsNew.notesApply(r.version, current)) release = r else markSeen()
+            }
+        }
+    }
+    val r = release ?: return
+    AlertDialog(
+        onDismissRequest = { markSeen(); release = null },
+        containerColor = Tahoe.Surface,
+        titleContentColor = Tahoe.Text,
+        textContentColor = Tahoe.Text,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Rounded.SystemUpdate, null, tint = Tahoe.Accent)
+                Text(I18n.get(lang, "tv.about_updated", r.version), fontWeight = FontWeight.Bold, fontSize = 19.sp)
+            }
+        },
+        text = {
+            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (r.date.isNotBlank()) Text(r.date, color = Tahoe.Dim, fontSize = 12.sp)
+                Text(tech.kousozo.tahoetv.core.WhatsNew.plainNotes(r.notes), color = Tahoe.Dim, fontSize = 13.sp)
+            }
+        },
+        confirmButton = { PrimaryButton(I18n.get(lang, "common.close"), Icons.Rounded.Check) { markSeen(); release = null } },
     )
 }
 
