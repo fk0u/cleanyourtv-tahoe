@@ -234,6 +234,16 @@
     if (findUrl("TahoeTV-linux-amd64.deb") && $("#dl-linux")) $("#dl-linux").href = findUrl("TahoeTV-linux-amd64.deb");
   }
 
+  // ---------------------------------------------------------------- real catalogue size (shown only when the server could count it)
+  fetch("/api/public/catalog").then(r => r.ok ? r.json() : Promise.reject()).then(c => {
+    if (!c.channels || !c.countries) return;
+    $("#stat-channels").textContent = Number(c.channels).toLocaleString();
+    $("#stat-countries").textContent = Number(c.countries).toLocaleString();
+    $("#hero-stat-channels").hidden = false;
+    $("#hero-stat-countries").hidden = false;
+    const wc = $("#world-count"); if (wc) { wc.removeAttribute("data-i18n"); wc.textContent = Number(c.countries).toLocaleString(); }
+  }).catch(() => {});
+
   // ---------------------------------------------------------------- API stats & release
   fetch("/api/public/stats").then(r => r.ok ? r.json() : Promise.reject()).then(s => {
     $("#stat-installed").textContent = Number(s.total_installed || 0).toLocaleString();

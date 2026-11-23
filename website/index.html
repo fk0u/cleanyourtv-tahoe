@@ -67,8 +67,8 @@
     </div>
     <p class="works"><span data-i18n="hero.works">Works on</span> <b>Android TV</b><b>Android</b><b>macOS</b><b>Windows</b><b>Linux</b></p>
     <ul class="stats">
-      <li><b>1,000+</b><span data-i18n="stats.channels">channels indexed</span></li>
-      <li><b>200+</b><span data-i18n="stats.countries">countries</span></li>
+      <li id="hero-stat-channels" hidden><b id="stat-channels">…</b><span data-i18n="stats.channels">channels indexed</span></li>
+      <li id="hero-stat-countries" hidden><b id="stat-countries">…</b><span data-i18n="stats.countries">countries</span></li>
       <li><b>1 GB</b><span data-i18n="stats.ram">RAM is enough</span></li>
       <li><b>0</b><span data-i18n="stats.ads">ads, no root</span></li>
     </ul>
@@ -85,7 +85,7 @@
 </section>
 
 <section class="section world-section">
-  <h2 class="reveal" data-i18n="world.title">Channels from 200+ countries</h2>
+  <h2 class="reveal" data-i18n="world.title">Channels from around the world</h2>
   <p class="sub reveal" data-i18n="world.sub">Public broadcasts sorted by region, language, and category — ready on TV, phone, desktop, and browser.</p>
   <div class="world-grid reveal">
     <a class="world-card wc-news" href="watch">
@@ -101,7 +101,7 @@
       <div><h3 data-i18n="world.c3.t">Kids & Family</h3><p data-i18n="world.c3.d">Safe channels with PIN-locked Kids profile on TV.</p></div>
     </a>
     <a class="world-card wc-culture" href="watch">
-      <span class="wc-tag" data-i18n="world.global_tag">200+</span>
+      <span class="wc-tag" id="world-count" data-i18n="world.global_tag">🌍</span>
       <div><h3 data-i18n="world.c4.t">Movies & Culture</h3><p data-i18n="world.c4.d">Documentaries, cinema, music, and local community TV.</p></div>
     </a>
   </div>
