@@ -18,6 +18,7 @@ object AccountText {
         "to_tv" to "Use this account on my TV", "tv_sent" to "Sent to your TV", "tv_fail" to "Couldn't reach the TV",
         "err_upload" to "Upload failed: %s", "err_generic" to "Something went wrong", "confirm_delete" to "Delete my account",
         "storage" to "Your files are stored encrypted on your private Tahoe server.", "server" to "Server address", "server_hint" to "https://your-server",
+        "phones" to "Paired phones", "phones_sub" to "Press OK on a phone to remove its access", "phones_none" to "No phone is paired yet", "phones_paired" to "Paired %s", "revoke_all" to "Remove all phones", "revoked" to "Access removed",
     )
     private val ID = mapOf(
         "title" to "Akun", "sub" to "Masuk agar profil, foto, dan wallpaper tersimpan di semua perangkat.",
@@ -35,6 +36,7 @@ object AccountText {
         "to_tv" to "Pakai akun ini di TV saya", "tv_sent" to "Terkirim ke TV", "tv_fail" to "TV tidak terjangkau",
         "err_upload" to "Unggah gagal: %s", "err_generic" to "Terjadi kesalahan", "confirm_delete" to "Hapus akun saya",
         "storage" to "Filemu tersimpan terenkripsi di server Tahoe pribadi.", "server" to "Alamat server", "server_hint" to "https://servermu",
+        "phones" to "HP yang terhubung", "phones_sub" to "Tekan OK pada HP untuk mencabut aksesnya", "phones_none" to "Belum ada HP yang terhubung", "phones_paired" to "Terhubung %s", "revoke_all" to "Cabut semua HP", "revoked" to "Akses dicabut",
     )
     @JvmStatic val tables: Map<String, Map<String, String>> = mapOf("en" to EN, "id" to ID)
 
