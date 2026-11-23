@@ -72,7 +72,7 @@ fun UpdateModalDialog() {
                     Text(pol.modalMessage, fontSize = 14.sp, color = Tahoe.Text)
                 }
                 if (r != null && r.notes.isNotBlank()) {
-                    Text(r.notes.take(400), fontSize = 13.sp, color = Tahoe.Dim)
+                    Text(tech.kousozo.tahoetv.core.WhatsNew.plainNotes(r.notes).take(600), fontSize = 13.sp, color = Tahoe.Dim) // the notes are Markdown: show plain text
                 } else if (r == null) {
                     Text(tech.kousozo.tahoetv.core.I18n.get(lang, "update.checking_server"), fontSize = 13.sp, color = Tahoe.Dim)
                 }
