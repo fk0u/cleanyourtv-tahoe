@@ -193,6 +193,7 @@ class MainActivity : ComponentActivity() {
                     }
                     PushBannerBar(onOpenInbox = { Nav.page = "notifications" }, modifier = Modifier.align(Alignment.TopCenter))
                     UpdateModalDialog()
+                    WhatsNewDialog()
                     NoCodePairDialog()
                 }
                 if (twoPane) {

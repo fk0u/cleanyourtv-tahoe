@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.*
@@ -125,6 +127,46 @@ fun UpdateModalDialog() {
                 TextButton({ PushHelper.dismissUpdateModal(c) }) {
                     Text(tech.kousozo.tahoetv.core.I18n.get(lang, "common.later"), color = Tahoe.Dim)
                 }
+            }
+        },
+    )
+}
+
+/** After the app was updated: the new version's release notes, once. A fresh install only records its version. */
+@Composable
+fun WhatsNewDialog() {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    val (current, _) = remember { PushHelper.appVersion(c) }
+    val prefs = remember { c.getSharedPreferences("whatsnew", Context.MODE_PRIVATE) }
+    var release by remember { mutableStateOf<Updates.Release?>(null) }
+    LaunchedEffect(current) {
+        when (tech.kousozo.tahoetv.core.WhatsNew.decide(prefs.getString("seen", null), current)) {
+            tech.kousozo.tahoetv.core.WhatsNew.Decision.RECORD_ONLY -> prefs.edit().putString("seen", current).apply()
+            tech.kousozo.tahoetv.core.WhatsNew.Decision.NOTHING -> {}
+            tech.kousozo.tahoetv.core.WhatsNew.Decision.SHOW -> {
+                val r = withContext(Dispatchers.IO) { runCatching { Updates.latest() }.getOrNull() } ?: return@LaunchedEffect // offline: next start
+                if (tech.kousozo.tahoetv.core.WhatsNew.notesApply(r.version, current)) release = r
+                else prefs.edit().putString("seen", current).apply() // no notes for this build
+            }
+        }
+    }
+    val r = release ?: return
+    AlertDialog(
+        onDismissRequest = { prefs.edit().putString("seen", current).apply(); release = null },
+        containerColor = Tahoe.Surface,
+        titleContentColor = Tahoe.Text,
+        textContentColor = Tahoe.Text,
+        title = { Text(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_updated", r.version), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (r.date.isNotBlank()) Text(r.date, fontSize = 12.sp, color = Tahoe.Dim, fontFamily = Mono)
+                Text(tech.kousozo.tahoetv.core.WhatsNew.plainNotes(r.notes), fontSize = 13.sp, color = Tahoe.Dim)
+            }
+        },
+        confirmButton = {
+            TextButton({ prefs.edit().putString("seen", current).apply(); release = null }) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, "common.close"), color = Tahoe.Accent)
             }
         },
     )
