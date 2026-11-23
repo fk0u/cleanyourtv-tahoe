@@ -55,4 +55,32 @@ class SlateTest {
         assertEquals(2, state.secondsLeft)
         assertFalse(state.isWaiting)
     }
+
+    @Test fun headlineIsInTheViewersLanguageAndVaries() {
+        for (l in listOf("en", "id", "zh", "ar")) {
+            val all = (0 until 4).map { Slate.headline(l, it) }
+            assertEquals(4, all.toSet().size, l)
+            assertEquals(all[0], Slate.headline(l, 4)) // wraps around
+        }
+        assertTrue(Slate.headline("id", 0).contains("Siaran"))
+        assertEquals(Slate.headline("en", 1), Slate.headline("fr", 1)) // unknown language: English
+        assertTrue(Slate.follow("id").contains("TahoeTV OFFICIAL"))
+        assertEquals("حاول مجددًا", Slate.label("ar", "retry"))
+        assertTrue(Slate.reason("ar", Slate.Reason.Offline).isNotBlank())
+    }
+
+    @Test fun toneIsQuietShortAndAValidWav() {
+        val p = SlateTone.pcm()
+        assertTrue(p.size in SlateTone.RATE / 2..SlateTone.RATE * 2)
+        val peak = p.maxOf { kotlin.math.abs(it.toInt()) }
+        assertTrue(peak in 8_000..18_000, "peak $peak")            // audible but never loud
+        assertTrue(p.last().toInt() == 0 || kotlin.math.abs(p.last().toInt()) < 200) // ends silent: no click
+        assertTrue(SlateTone.pcm().contentEquals(p))
+        val w = SlateTone.wav()
+        assertEquals("RIFF", String(w, 0, 4)); assertEquals("WAVE", String(w, 8, 4)); assertEquals(44 + p.size * 2, w.size)
+    }
+
+    @Test fun whatsappChannelLink() {
+        assertTrue(Brand.WHATSAPP_CHANNEL.startsWith("https://whatsapp.com/channel/"))
+    }
 }

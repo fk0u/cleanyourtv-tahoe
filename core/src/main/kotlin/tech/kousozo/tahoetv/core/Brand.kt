@@ -10,6 +10,9 @@ package tech.kousozo.tahoetv.core
  * Colours are ARGB ints so every platform can use them without a UI dependency.
  */
 object Brand {
+    /** The official TahoeTV channel on WhatsApp (service news). */
+    const val WHATSAPP_CHANNEL = "https://whatsapp.com/channel/0029VbE4YqRBvvsozUIyJ42n"
+
     // ----------------------------------------------------------------- core palette
     /** Primary accent: focus, links, progress, the "light" of the brand. */
     const val CYAN = 0xFF5CD0FF.toInt()

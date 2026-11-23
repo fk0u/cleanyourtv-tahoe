@@ -68,19 +68,43 @@ object Slate {
     )
 
     private val REASON = mapOf(
-        Reason.Offline to mapOf("id" to "Server saluran tidak menjawab.", "en" to "The channel's server isn't responding.", "zh" to "频道服务器无响应。"),
-        Reason.Recording to mapOf("id" to "Sumber yang ada hanya rekaman, bukan siaran langsung.", "en" to "The available sources are recordings, not live.", "zh" to "现有信号源为录像，并非直播。"),
-        Reason.Unsupported to mapOf("id" to "Format siaran ini belum didukung di perangkat ini.", "en" to "This stream's format isn't supported on this device yet.", "zh" to "此设备暂不支持该直播格式。"),
+        Reason.Offline to mapOf("id" to "Server saluran tidak menjawab.", "en" to "The channel's server isn't responding.", "zh" to "频道服务器无响应。", "ar" to "خادم القناة لا يستجيب."),
+        Reason.Recording to mapOf("id" to "Sumber yang ada hanya rekaman, bukan siaran langsung.", "en" to "The available sources are recordings, not live.", "zh" to "现有信号源为录像，并非直播。", "ar" to "المصادر المتاحة تسجيلات وليست بثًا مباشرًا."),
+        Reason.Unsupported to mapOf("id" to "Format siaran ini belum didukung di perangkat ini.", "en" to "This stream's format isn't supported on this device yet.", "zh" to "此设备暂不支持该直播格式。", "ar" to "صيغة هذا البث غير مدعومة على هذا الجهاز بعد."),
     )
 
     private val LABEL = mapOf(
-        "retry" to mapOf("id" to "Coba lagi", "en" to "Try again", "zh" to "重试"),
-        "next" to mapOf("id" to "Saluran berikutnya", "en" to "Next channel", "zh" to "下一个频道"),
-        "report" to mapOf("id" to "Laporkan saluran", "en" to "Report channel", "zh" to "报告频道"),
-        "retrying" to mapOf("id" to "Mencoba lagi dalam %s detik", "en" to "Trying again in %s s", "zh" to "%s 秒后重试"),
-        "trying" to mapOf("id" to "Mencoba lagi otomatis…", "en" to "Trying automatically…", "zh" to "自动重试中…"),
-        "waiting" to mapOf("id" to "Tekan Coba lagi kapan saja.", "en" to "Press Try again any time.", "zh" to "随时可按重试。"),
+        "retry" to mapOf("id" to "Coba lagi", "en" to "Try again", "zh" to "重试", "ar" to "حاول مجددًا"),
+        "next" to mapOf("id" to "Saluran berikutnya", "en" to "Next channel", "zh" to "下一个频道", "ar" to "القناة التالية"),
+        "report" to mapOf("id" to "Laporkan saluran", "en" to "Report channel", "zh" to "报告频道", "ar" to "أبلغ عن القناة"),
+        "retrying" to mapOf("id" to "Mencoba lagi dalam %s detik", "en" to "Trying again in %s s", "zh" to "%s 秒后重试", "ar" to "إعادة المحاولة خلال %s ث"),
+        "trying" to mapOf("id" to "Mencoba lagi otomatis…", "en" to "Trying automatically…", "zh" to "自动重试中…", "ar" to "نعيد المحاولة تلقائيًا…"),
+        "waiting" to mapOf("id" to "Tekan Coba lagi kapan saja.", "en" to "Press Try again any time.", "zh" to "随时可按重试。", "ar" to "اضغط حاول مجددًا في أي وقت."),
     )
+
+    /** Several ways to say it, per language, so a channel that stays down doesn't repeat one sentence. */
+    private val HEADLINES = mapOf(
+        "en" to listOf("This channel is taking a break. We're trying other sources for you.", "No signal right now. Tahoe TV keeps searching for a working source.",
+            "This broadcast can't be reached at the moment. Hang tight, we'll reconnect automatically.", "Sorry, this channel isn't available. We're retrying in the background."),
+        "id" to listOf("Siaran ini sedang istirahat sebentar. Kami mencoba sumber lain untukmu.", "Belum ada sinyal. Tahoe TV terus mencari sumber yang berfungsi.",
+            "Siaran ini belum bisa dijangkau. Tunggu sebentar, kami sambungkan otomatis.", "Mohon maaf, saluran ini sedang tidak tersedia. Kami mencoba lagi di latar belakang."),
+        "zh" to listOf("该频道暂时休息，我们正在为你尝试其他信号源。", "目前没有信号，Tahoe TV 会持续寻找可用的信号源。",
+            "暂时无法连接此直播，请稍候，我们会自动重新连接。", "抱歉，该频道暂时不可用，我们正在后台重试。"),
+        "ar" to listOf("هذه القناة في استراحة قصيرة. نجرّب مصادر أخرى لك.", "لا توجد إشارة الآن. يواصل Tahoe TV البحث عن مصدر يعمل.",
+            "تعذّر الوصول إلى هذا البث حاليًا. انتظر قليلًا وسنعيد الاتصال تلقائيًا.", "عذرًا، هذه القناة غير متاحة حاليًا. نعيد المحاولة في الخلفية."),
+    )
+    private val FOLLOW = mapOf(
+        "en" to "Follow TahoeTV OFFICIAL on WhatsApp for service updates", "id" to "Ikuti saluran TahoeTV OFFICIAL di WhatsApp untuk kabar layanan",
+        "zh" to "在 WhatsApp 关注 TahoeTV OFFICIAL 频道获取服务动态", "ar" to "تابع قناة TahoeTV OFFICIAL على واتساب لأخبار الخدمة",
+    )
+
+    /** The announcement in the viewer's language only; [n] (the retry count, say) picks the wording so it changes between tries. */
+    @JvmStatic fun headline(viewerLanguage: String?, n: Int): String {
+        val l = HEADLINES.getValue(Region.language(viewerLanguage).takeIf { it in HEADLINES } ?: "en")
+        return l[Math.floorMod(n, l.size)]
+    }
+    /** "Follow our WhatsApp channel" in the viewer's language; the link itself is [Brand.WHATSAPP_CHANNEL]. */
+    @JvmStatic fun follow(viewerLanguage: String?): String = FOLLOW.getValue(Region.language(viewerLanguage).takeIf { it in FOLLOW } ?: "en")
 
     /** Languages in display order: the viewer's (if it's one of the three) first. */
     @JvmStatic fun order(viewerLanguage: String?): List<String> {
