@@ -128,6 +128,8 @@ private fun app() = application {
                     !ev.isShiftPressed && ev.key == Key.Four -> { DeskNav.screen = Screen.Tv; true }
                     !ev.isShiftPressed && ev.key == Key.Five -> { DeskNav.screen = Screen.Remote; true }
                     !ev.isShiftPressed && ev.key == Key.Six -> { DeskNav.screen = Screen.Prefs; true }
+                    !ev.isShiftPressed && ev.key == Key.Comma -> { DeskNav.screen = Screen.Prefs; true } // the macOS "Settings…" shortcut
+                    !ev.isShiftPressed && ev.key == Key.F -> { DeskNav.screen = Screen.Live; true }      // find a channel: Live has the search box
                     else -> false
                 }
             } else false
