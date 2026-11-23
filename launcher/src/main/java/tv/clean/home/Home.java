@@ -280,7 +280,7 @@ public class Home extends Activity {
 
         // Launchpad
         padScrim = new View(this);
-        padScrim.setBackgroundColor(0xE6050508); padScrim.setAlpha(0); padScrim.setVisibility(View.GONE);
+        padScrim.setBackgroundColor(0xFA050508); // near-solid: the launcher home must not show through the Apps screen padScrim.setAlpha(0); padScrim.setVisibility(View.GONE);
         padScrim.setClickable(true);
         padScrim.setFocusable(false); padScrim.setFocusableInTouchMode(false);
         padScrim.setOnClickListener(v -> {
@@ -670,10 +670,12 @@ public class Home extends Activity {
             padRowsView.addView(t, at(padLeft + i * (padTileW + padGap), y, padTileW, padTileH + 60 * (W / 1920f)));
             boolean inDock = false;
             for (App dk : dock) if (dk.pkg.equals(appItem.pkg)) { inDock = true; break; }
-            TextView label = Ui.text(this, 19, 500, 0x9EF7F8FA);
-            label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 19 * (W / 1920f) * 1.15f); label.setShadowLayer(0, 0, 0, 0);
-            label.setText(tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(this).getLanguage(), inDock ? "tv.apps_in_dock" : "tv.apps_open"));
-            label.setGravity(Gravity.CENTER); label.setTag("label"); // the app's own name is in its banner; this says where it lives
+            TextView label = Ui.text(this, 21, 500, 0xCCF7F8FA);
+            label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 21 * (W / 1920f) * 1.15f); label.setShadowLayer(0, 0, 0, 0);
+            label.setSingleLine(); label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            // the app's real name (banners are not always lettered); a pin icon marks the ones in the Dock
+            label.setText(inDock ? Ui.iconText(label, R.drawable.ic_pin, 0xCCF7F8FA, appItem.label) : appItem.label);
+            label.setGravity(Gravity.CENTER); label.setTag("label");
             FrameLayout.LayoutParams ll = new FrameLayout.LayoutParams((int) padTileW, -2); ll.topMargin = (int) (padTileH + 16 * (W / 1920f));
             t.addView(label, ll);
             tiles.add(t);
@@ -776,6 +778,10 @@ public class Home extends Activity {
         if (mc() && row < 1 && wasBlocked && sheet == null && profiles == null) mediaHome.focusLast(); // back from the launchpad
         int ms = animate && Ui.motion(this) > 0 ? Ui.MED : 0;
         boolean inPad = row >= 1;
+        if (!mcOpen) { // the Apps screen is a screen of its own: the launcher's greeting, chips, hero text and dock step out of sight, not just under a scrim
+            int vis = inPad ? View.INVISIBLE : View.VISIBLE;
+            greeting.setVisibility(vis); ((View) chips.getParent()).setVisibility(vis); hero.block.setVisibility(vis); dockLayer.setVisibility(vis);
+        }
 
         // Chips and the hero action: tvOS focus = bright fill, dark content, slight lift.
         for (int i = 0; i < chipViews.size(); i++) focusPill(chipViews.get(i), row == -2 && col == i, ms);
