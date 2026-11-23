@@ -91,7 +91,7 @@ object MultiViewWindow {
         val hint = Label(I18n.get(lang, "desk.multiview_focus_audio")).apply {
             style = "-fx-text-fill: rgba(255,255,255,0.72); -fx-font-size: 12px;"
         }
-        val closeBtn = Button("✕").apply {
+        val closeBtn = Button("").apply { graphic = FxIcon.node("x", 16.0)
             setOnAction { disposeAll(); st.close(); stage = null }
         }
         val topBar = HBox(10.0,
@@ -112,7 +112,7 @@ object MultiViewWindow {
                 maxWidth = 190.0
                 style = "-fx-background-color: rgba(20,24,34,0.85); -fx-text-fill: white; -fx-font-size: 11px;"
             }
-            val audioBtn = Button(if (i == 0) "🔊" else "🔇").apply {
+            val audioBtn = Button("").apply { graphic = FxIcon.node(if (i == 0) "volume" else "mute", 16.0)
                 style = "-fx-background-color: rgba(20,24,34,0.85); -fx-text-fill: white; -fx-font-size: 12px; -fx-cursor: hand;"
             }
             val status = Label().apply {
@@ -234,7 +234,7 @@ object MultiViewWindow {
         audioTile = idx
         tiles.forEach { t ->
             t.player?.isMute = t.index != audioTile
-            t.audioBtn.text = if (t.index == audioTile) "🔊" else "🔇"
+            t.audioBtn.graphic = FxIcon.node(if (t.index == audioTile) "volume" else "mute", 16.0)
             t.box.style = tileStyle(t.index == audioTile)
         }
     }

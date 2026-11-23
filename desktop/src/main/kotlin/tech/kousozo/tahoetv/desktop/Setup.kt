@@ -17,6 +17,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.Computer
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -169,7 +173,7 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
     }
     Field(query, { query = it }, tech.kousozo.tahoetv.core.I18n.get(v.language, "onboarding.city_subdistrict_hint"))
     Spacer(Modifier.height(10.dp))
-    if (v.lat != null) Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", ") + "  ✕", "📍", true) {
+    if (v.lat != null) Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", "), Icons.Rounded.Place, true, clearable = true) {
         onChange(v.copy(city = "", lat = null, lon = null, region = "", timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(v.country))); query = "" // tap again to clear: weather and prayer stay hidden
     }
     else if (results == null) {
@@ -178,7 +182,7 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
             Spacer(Modifier.height(8.dp))
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(suggested) { s ->
-                    Option(s.label(), "📍", false) {
+                    Option(s.label(), Icons.Rounded.Place, false) {
                         onChange(v.copy(city = s.city, lat = s.lat, lon = s.lon, region = s.region, timeZone = s.zoneId))
                         query = s.city; results = null
                     }
@@ -190,7 +194,7 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
         if (list.isEmpty()) Text(t("city.empty"), color = Tahoe.Faint, fontSize = 12.sp)
         LazyColumn(Modifier.weight(1f).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(list) { city ->
-                Option(city.label, "📍", false) {
+                Option(city.label, Icons.Rounded.Place, false) {
                     onChange(v.copy(city = city.name, lat = city.lat, lon = city.lon, region = city.region, timeZone = city.timeZone.ifBlank { v.timeZone }))
                     query = city.name; results = null
                 }
@@ -206,10 +210,10 @@ private fun TimeZoneStep(v: Viewer, t: (String) -> String, onPick: (String) -> U
     var query by remember { mutableStateOf("") }
     val zones = remember { (listOf("UTC") + java.time.ZoneId.getAvailableZoneIds().filter { '/' in it && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }.sorted()) }
     val picked = v.timeZone.ifBlank { defZone }
-    Option("${defZone.replace('_', ' ')}  ${offset(defZone)}", "🌐", picked == defZone) { onPick(defZone) }
+    Option("${defZone.replace('_', ' ')}  ${offset(defZone)}", Icons.Rounded.Public, picked == defZone) { onPick(defZone) }
     if (device != defZone) {
         Spacer(Modifier.height(6.dp))
-        Option(t("tz.device").replace("%s", device), "💻", v.timeZone == device) { onPick(device) }
+        Option(t("tz.device").replace("%s", device), Icons.Rounded.Computer, v.timeZone == device) { onPick(device) }
     }
     Spacer(Modifier.height(6.dp))
     Field(query, { query = it }, t("search"))
@@ -304,6 +308,21 @@ private fun Summary(v: Viewer, t: (String) -> String) = Column(Modifier.vertical
             Text(value, color = Tahoe.Text, fontSize = 15.sp)
         }
     }
+}
+
+/** An option with a vector icon in front (replaces emoji); [clearable] shows a close mark instead of the check (tap clears it). */
+@Composable
+private fun Option(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, clearable: Boolean = false, onClick: () -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+        .background(if (selected) Tahoe.Accent.copy(alpha = .18f) else Tahoe.Glass)
+        .border(1.dp, if (selected) Tahoe.Accent else Tahoe.Stroke, RoundedCornerShape(14.dp))
+        .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Icon(icon, null, tint = Tahoe.Dim, modifier = Modifier.padding(end = 12.dp).size(22.dp))
+    Text(text, color = Tahoe.Text, fontSize = 15.sp, modifier = Modifier.weight(1f))
+    if (clearable) Icon(Icons.Rounded.Close, null, tint = Tahoe.Accent)
+    else if (selected) Icon(Icons.Rounded.Check, null, tint = Tahoe.Accent)
 }
 
 @Composable

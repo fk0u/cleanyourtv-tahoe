@@ -78,7 +78,7 @@ object PlayerWindow {
         }
         elapsedLabel.text = if (cur != null) "%02d:%02d:%02d  /  %s".format(sec / 3600, sec % 3600 / 60, sec % 60, hmFmt().format(cur.stop)) else ""
         timeLabel.text = hmFmt().format(now) + (if (weather.isNotEmpty()) "    $weather" else "")
-        pauseBtn.text = if (player?.status == MediaPlayer.Status.PAUSED) "▶" else "⏸"
+        pauseBtn.graphic = FxIcon.node(if (player?.status == MediaPlayer.Status.PAUSED) "play" else "pause", 24.0)
         refreshSubtitle()
         if (::statsCard.isInitialized && statsCard.isVisible) refreshStats()
     }
@@ -294,7 +294,7 @@ object PlayerWindow {
             st.height = 248.0
             st.x = vb.maxX - 424.0
             st.y = vb.maxY - 272.0
-            if (::miniBtn.isInitialized) miniBtn.text = "❐"
+            if (::miniBtn.isInitialized) miniBtn.text = ""
             if (::drawerBox.isInitialized) { drawerBox.isVisible = false; drawerBox.isManaged = false }
             if (::drawerBtn.isInitialized) { drawerBtn.isVisible = false; drawerBtn.isManaged = false }
             if (::muteBtn.isInitialized) { muteBtn.isVisible = false; muteBtn.isManaged = false }
@@ -310,7 +310,7 @@ object PlayerWindow {
             st.height = savedBounds[1].takeIf { it > 260.0 } ?: 540.0
             if (!savedBounds[2].isNaN()) st.x = savedBounds[2]
             if (!savedBounds[3].isNaN()) st.y = savedBounds[3]
-            if (::miniBtn.isInitialized) miniBtn.text = "❐ Mini"
+            if (::miniBtn.isInitialized) miniBtn.text = "Mini"
             if (::drawerBtn.isInitialized) { drawerBtn.isVisible = true; drawerBtn.isManaged = true }
             if (::muteBtn.isInitialized) { muteBtn.isVisible = true; muteBtn.isManaged = true }
             if (::subBtn.isInitialized) { subBtn.isVisible = true; subBtn.isManaged = true }
@@ -354,7 +354,7 @@ object PlayerWindow {
     private fun toggleMute() {
         player?.let { p ->
             p.isMute = !p.isMute
-            if (::muteBtn.isInitialized) muteBtn.text = if (p.isMute) "🔇" else "🔊"
+            if (::muteBtn.isInitialized) muteBtn.graphic = FxIcon.node(if (p.isMute) "mute" else "volume", 22.0)
         }
     }
 
@@ -688,27 +688,27 @@ object PlayerWindow {
             SourceHealth.unbanAll(channelStreams); start(SourceHealth.order(channelStreams), 0, ++generation)
         }.apply { accessibleText = "Pulihkan sumber yang ditandai"; isVisible = false; isManaged = false }
         val lang = Settings.lang
-        flagBtn = button("⚑ Bukan live") { reportRecording() }.apply { accessibleText = "Tandai bukan live"; tooltip = javafx.scene.control.Tooltip("Sumber ini memutar rekaman / siaran lama: lewati dan jangan dipakai lagi") }
+        flagBtn = button("Bukan live") { reportRecording() }.apply { graphic = FxIcon.node("flag", 16.0); accessibleText = "Tandai bukan live"; tooltip = javafx.scene.control.Tooltip("Sumber ini memutar rekaman / siaran lama: lewati dan jangan dipakai lagi") }
         infoBtn = button("ⓘ ${tech.kousozo.tahoetv.core.I18n.get(lang, "stats.btn_info")}") { toggleStats() }.apply {
             accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "stats.btn_info")
         }
-        miniBtn = button("❐ Mini") { toggleMiniPlayer() }.apply {
+        miniBtn = button("Mini") { toggleMiniPlayer() }.apply { graphic = FxIcon.node("pip", 18.0);
             accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "desk.mini_player")
         }
-        drawerBtn = button("☰") { toggleDrawer() }.apply {
+        drawerBtn = button("") { toggleDrawer() }.apply { graphic = FxIcon.node("menu", 22.0);
             accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "desk.channel_drawer")
         }
-        muteBtn = button("🔊") { toggleMute() }.apply {
+        muteBtn = button("") { toggleMute() }.apply { graphic = FxIcon.node("volume", 22.0);
             accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "desk.mute_toggle")
         }
         subBtn = button("CC") { pickOrToggleSubtitle() }.apply {
             accessibleText = tech.kousozo.tahoetv.core.I18n.get(lang, "sub.ass_styled")
         }
         fullBtn = button("⤢  Layar penuh") { toggleFull() }.apply { accessibleText = "Alihkan layar penuh" }
-        pauseBtn = button("⏸") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }.apply { accessibleText = "Jeda atau putar" }
-        val prevTopBtn = button("⏮") { onSwitch(-1) }.apply { accessibleText = "Saluran sebelumnya" }
-        val nextTopBtn = button("⏭") { onSwitch(1) }.apply { accessibleText = "Saluran berikutnya" }
-        val closeTopBtn = button("✕") { st.close() }.apply { accessibleText = "Tutup pemutar" }
+        pauseBtn = button("") { player?.let { p -> if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play() }; refreshInfo() }.apply { graphic = FxIcon.node("pause", 24.0); accessibleText = "Jeda atau putar" }
+        val prevTopBtn = button("") { onSwitch(-1) }.apply { graphic = FxIcon.node("prev", 22.0); accessibleText = "Saluran sebelumnya" }
+        val nextTopBtn = button("") { onSwitch(1) }.apply { graphic = FxIcon.node("next", 22.0); accessibleText = "Saluran berikutnya" }
+        val closeTopBtn = button("") { st.close() }.apply { graphic = FxIcon.node("x", 20.0); accessibleText = "Tutup pemutar" }
         // Figma "Desktop / Player": back + title + LIVE on top; progress, then plain glyph controls along the bottom
         val backBtn = button("‹") { st.close() }.apply {
             accessibleText = "Tutup pemutar"
@@ -731,11 +731,11 @@ object PlayerWindow {
             }
         }
         val drawerHeader = HBox(8.0,
-            Label("☰ ${tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live")}").apply {
+            Label(tech.kousozo.tahoetv.core.I18n.get(lang, "nav.live"), FxIcon.node("menu", 18.0)).apply {
                 style = "-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;"
                 HBox.setHgrow(this, Priority.ALWAYS); maxWidth = Double.MAX_VALUE
             },
-            button("✕") { toggleDrawer(false) }
+            button("") { toggleDrawer(false) }.apply { graphic = FxIcon.node("x", 18.0) }
         ).apply { alignment = Pos.CENTER_LEFT }
         drawerBox = VBox(8.0, drawerHeader, drawerList).apply {
             style = "-fx-background-color: rgba(14, 18, 26, 0.94); -fx-background-radius: 14; -fx-padding: 12 14; -fx-border-color: rgba(255,255,255,0.16); -fx-border-radius: 14;"
@@ -771,7 +771,7 @@ object PlayerWindow {
                 statsFeedback.isVisible = true; statsFeedback.isManaged = true
             }
         }
-        val statsCloseBtn = button("✕") { toggleStats(false) }
+        val statsCloseBtn = button("") { toggleStats(false) }.apply { graphic = FxIcon.node("x", 18.0) }
         val statsHeader = HBox(8.0,
             Label("ⓘ ${tech.kousozo.tahoetv.core.I18n.get(lang, "stats.btn_info")}").apply {
                 style = "-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px;"

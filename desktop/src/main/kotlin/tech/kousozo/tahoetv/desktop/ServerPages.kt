@@ -125,9 +125,9 @@ internal object ServerPages {
     <div style="font-size: 13px; color: var(--dim); margin-top: 4px;">$total saluran siap ditonton · Sumber: ${IptvServer.esc(sources.joinToString(", "))}</div>
   </div>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-    <button class="btn primary" data-copy-text="$base/playlist.m3u" data-copy-msg="Playlist Master disalin!">📋 Salin M3U Master</button>
-    <a href="$base/playlist.m3u" class="btn" target="_blank" rel="noopener">⬇️ Download</a>
-    <button class="btn" data-copy-text="$base/epg.xml" data-copy-msg="EPG disalin!">📅 Salin EPG</button>
+    <button class="btn primary" data-copy-text="$base/playlist.m3u" data-copy-msg="Playlist Master disalin!">Salin M3U Master</button>
+    <a href="$base/playlist.m3u" class="btn" target="_blank" rel="noopener">Download</a>
+    <button class="btn" data-copy-text="$base/epg.xml" data-copy-msg="EPG disalin!">Salin EPG</button>
   </div>
 </header>
 <div class="layout">
@@ -148,7 +148,7 @@ internal object ServerPages {
       <p id="pSub" style="font-size: 12px; color: var(--dim); margin-top: 4px;">Klik salah satu saluran di sebelah kiri.</p>
       <div id="drmBox" style="display:none; margin-top:10px; font-size:12px; background:rgba(255,255,255,0.06); padding:8px 10px; border-radius:8px;"></div>
       <div style="margin-top: 14px; display: flex; gap: 8px;">
-        <button id="copyBtn" class="btn" style="display: none;">🔗 Salin Link Stream Ini</button>
+        <button id="copyBtn" class="btn" style="display: none;">Salin Link Stream Ini</button>
       </div>
     </div>
   </div>
@@ -297,7 +297,7 @@ internal object ServerPages {
   <button class="btn" id="ccBtn" title="Subtitle / CC (C)" aria-label="Ganti subtitle">CC</button><button class="btn" id="audBtn" title="Trek Audio (A)" aria-label="Ganti trek audio">Audio</button>
   <span id="fmt"></span></div>
 <div id="veil"><div class="spin" id="spin"></div><div id="msg">Memuat __TITLE__…</div></div>
-<button id="sound">🔊 Klik untuk menyalakan suara</button>
+<button id="sound">Klik untuk menyalakan suara</button>
 <script nonce="__NONCE__">
 const v = document.getElementById('v'), veil = document.getElementById('veil'), msg = document.getElementById('msg'), spin = document.getElementById('spin');
 const SLATE = __SLATE__;
