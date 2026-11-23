@@ -168,7 +168,7 @@ public class Home extends Activity {
         updateFocusBlocking();
         Acct.checkHandoff(this, this::buildChips);
         // first run (#77): onboarding until it's done, also after Home was pressed in the middle of it
-        if (!TvViewer.done(this) && Onboarding.open == null) startActivity(new android.content.Intent(this, Onboarding.class));
+        if (!TvViewer.done(this) && Onboarding.open == null && !prefs.getBoolean("must_update", false)) startActivity(new android.content.Intent(this, Onboarding.class)); // a pending fix release comes first
         if (hero == null) return;
         HomeDock.flushKidsAppUsage(this);
         tick(); checkGamepad(); markRunning();
@@ -362,16 +362,25 @@ public class Home extends Activity {
 
     /** Asks for the latest release at most once a day; a newer one puts an Update chip on Home. Quiet on any failure. */
     void maybeCheckUpdate() {
-        if (kids()) return;
+        final boolean must = prefs.getBoolean("must_update", false); // a fix release was found earlier: ask again at every start until it is installed
+        if (kids() && !must) return;
         final long now = System.currentTimeMillis();
-        if (!tech.kousozo.tahoetv.core.UpdateSchedule.due(prefs.getLong("upd_checked", 0L), now)) return;
+        if (!must && !tech.kousozo.tahoetv.core.UpdateSchedule.due(prefs.getLong("upd_checked", 0L), now)) return;
         final String cur = About.version(this);
         Net.bg.execute(() -> {
             try {
                 tech.kousozo.tahoetv.core.Updates.Release r = tech.kousozo.tahoetv.core.Updates.latest();
                 boolean nu = tech.kousozo.tahoetv.core.Updates.newer(r.getVersion(), cur) && r.hasAnyAsset(tech.kousozo.tahoetv.core.Updates.LAUNCHER_ASSETS);
-                prefs.edit().putLong("upd_checked", now).putString("upd_latest", nu ? r.getVersion() : "").apply();
-                runOnUiThread(() -> { if (row != -2 && sheet == null && profiles == null) buildChips(); }); // not while the chip row is being navigated
+                // a fix release (3.8.0 → 3.8.1) is never optional, not even in the middle of onboarding
+                boolean force = nu && tech.kousozo.tahoetv.core.ControlPlane.isMandatory(cur, tech.kousozo.tahoetv.core.TahoeVersion.VERSION_CODE, r);
+                prefs.edit().putLong("upd_checked", now).putString("upd_latest", nu ? r.getVersion() : "").putBoolean("must_update", force).apply();
+                runOnUiThread(() -> {
+                    if (isFinishing()) return;
+                    if (force) {
+                        if (Onboarding.open != null) Onboarding.open.finish();
+                        if (sheet == null) openSheet(new About.UpdateModal(this, r, true));
+                    } else if (row != -2 && sheet == null && profiles == null) buildChips(); // not while the chip row is being navigated
+                });
             } catch (Exception offline) { /* asked again at the next start */ }
         });
     }

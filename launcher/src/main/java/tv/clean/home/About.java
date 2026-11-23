@@ -174,9 +174,7 @@ final class About extends FrameLayout implements Sheet {
                 Updates.Release r = Updates.latest();
                 p.edit().putLong("checked", System.currentTimeMillis()).apply();
                 if (r.hasAnyAsset(Updates.LAUNCHER_ASSETS) && ControlPlane.shouldShowUpdateModal(h.getFilesDir(), now, TahoeVersion.VERSION_CODE, r)) {
-                    boolean mandatory = ControlPlane.INSTANCE.getCurrentPolicy().getForceModal()
-                            || r.getForceModal()
-                            || (ControlPlane.INSTANCE.getCurrentPolicy().getMinVersionCode() > TahoeVersion.VERSION_CODE);
+                    boolean mandatory = ControlPlane.isMandatory(now, TahoeVersion.VERSION_CODE, r); // incl. fix releases (3.8.0 → 3.8.1)
                     h.runOnUiThread(() -> {
                         if (!h.isFinishing() && h.sheet == null) {
                             h.openSheet(new UpdateModal(h, r, mandatory));
