@@ -15,7 +15,7 @@ async function startTestServer() {
       version: "3.4.0",
       tag_name: "v3.4.0",
       notes: "Test notes",
-      page: "https://github.com/fk0u/cleanyourtv-tahoe/releases/tag/v3.4.0",
+      page: "https://github.com/fk0u/tahoe-tv/releases/tag/v3.4.0",
       date: "2026-11-15",
       assets: [
         {

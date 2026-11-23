@@ -35,7 +35,7 @@ const ALLOWED_PLATFORMS = new Set([
   "linux",
 ]);
 const ALLOWED_KINDS = new Set(["info", "update", "warning", "urgent"]);
-const GITHUB_REPO = "fk0u/cleanyourtv-tahoe";
+const GITHUB_REPO = "fk0u/tahoe-tv";
 const MAX_BODY_BYTES = 64 * 1024;
 const DEFAULT_PLAYLIST_URL = "https://iptv-org.github.io/iptv/countries/id.m3u";
 const DHANY_PLAYLIST_URL = "https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv.m3u";
