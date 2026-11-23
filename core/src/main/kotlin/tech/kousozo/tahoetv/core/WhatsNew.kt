@@ -15,4 +15,8 @@ object WhatsNew {
     /** The notes belong to the installed version only when the release's version matches it (a newer release isn't what was just installed). */
     @JvmStatic fun notesApply(releaseVersion: String, currentVersion: String): Boolean =
         Updates.compare(releaseVersion, currentVersion) == 0
+
+    /** GitHub release notes are Markdown; show them as plain text (no headings marks, bold, or dash bullets). */
+    @JvmStatic fun plainNotes(md: String): String =
+        md.replace(Regex("(?m)^#+\\s*"), "").replace("**", "").replace(Regex("(?m)^\\s*[-*]\\s+"), "•  ").trim()
 }

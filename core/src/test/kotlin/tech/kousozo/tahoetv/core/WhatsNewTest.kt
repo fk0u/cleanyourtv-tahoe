@@ -25,4 +25,8 @@ class WhatsNewTest {
         assertTrue(WhatsNew.notesApply("v3.6.0".removePrefix("v"), "3.6.0"))
         assertFalse(WhatsNew.notesApply("3.7.0", "3.6.0")) // a newer release isn't what was just installed
     }
+
+    @Test fun markdownBecomesPlainText() {
+        assertEquals("Tahoe TV v3.7.0\n•  Fast\n•  Safe", WhatsNew.plainNotes("## Tahoe TV **v3.7.0**\n- Fast\n* Safe\n"))
+    }
 }
