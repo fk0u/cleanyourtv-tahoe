@@ -242,11 +242,32 @@ function sendJson(res, status, data, extraHeaders = {}) {
 /**
  * Creates the Tahoe Control Plane HTTP + SSE server.
  */
+/** Counts the real catalogue from iptv-org's stream index: a channel id looks like "RCTI.id", the suffix is its country. */
+export function summarizeCatalog(streams) {
+  const channels = new Set();
+  const countries = new Set();
+  for (const st of Array.isArray(streams) ? streams : []) {
+    const id = typeof st?.channel === "string" ? st.channel : "";
+    if (!id) continue;
+    channels.add(id.split("@")[0]);
+    const cc = id.split("@")[0].split(".").pop();
+    if (/^[a-z]{2}$/i.test(cc)) countries.add(cc.toLowerCase());
+  }
+  return { channels: channels.size, countries: countries.size };
+}
+
+async function defaultFetchCatalog() {
+  const res = await fetch("https://iptv-org.github.io/api/streams.json", { headers: { "User-Agent": "TahoeTV-ControlPlane" }, signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error("streams index " + res.status);
+  return summarizeCatalog(await res.json());
+}
+
 export function createTahoeServer({
   db,
   sessionSecret,
   fetchRelease = defaultFetchRelease,
   fetchChannelPreview = defaultFetchChannelPreview,
+  fetchCatalog = defaultFetchCatalog,
   releaseTtlMs = 5 * 60_000,
   channelsTtlMs = 15 * 60_000,
   secureCookies = true,
@@ -286,6 +307,20 @@ export function createTahoeServer({
       return fresh;
     } catch {
       return releaseCache.value || null;
+    }
+  }
+
+  let catalogCache = { at: 0, value: null };
+  const catalogTtlMs = 6 * 3600_000;
+  async function getCachedCatalog() {
+    const now = Date.now();
+    if (catalogCache.value && now - catalogCache.at < catalogTtlMs) return catalogCache.value;
+    try {
+      const fresh = await fetchCatalog();
+      catalogCache = { at: now, value: { ...fresh, updated_at: new Date(now).toISOString() } };
+      return catalogCache.value;
+    } catch {
+      return catalogCache.value; // stale numbers beat none; null when never fetched
     }
   }
 
@@ -395,6 +430,12 @@ export function createTahoeServer({
           },
           cors
         );
+      }
+
+      if (method === "GET" && path === "/api/public/catalog") {
+        const c = await getCachedCatalog();
+        if (!c) return sendJson(res, 503, { error: "Catalogue unavailable" }, cors);
+        return sendJson(res, 200, c, cors);
       }
 
       if (method === "GET" && path === "/api/public/channels/preview") {

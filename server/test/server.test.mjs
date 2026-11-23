@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { openDb } from "../src/db.mjs";
 import { ensureBootstrapAdmin } from "../src/auth.mjs";
-import { createTahoeServer, parseM3uSummary, withPlayableStream } from "../src/app.mjs";
+import { createTahoeServer, parseM3uSummary, withPlayableStream, summarizeCatalog } from "../src/app.mjs";
 
 async function startTestServer() {
   const db = openDb(":memory:");
@@ -26,6 +26,7 @@ async function startTestServer() {
         },
       ],
     }),
+    fetchCatalog: async () => ({ channels: 3, countries: 2 }),
     fetchChannelPreview: async () => [
       { name: "TVRI Nasional", group: "Nasional", logo: "", format: "HLS", drm: false, source: "test", stream: "https://tvri.example/live.m3u8" },
       { name: "RCTI", group: "Entertainment", logo: "", format: "DASH", drm: true, source: "test" },
@@ -249,4 +250,18 @@ test("tunnel relays opaque frames between a tv and its controller, rejects bad r
     ac.abort();
     await srv.close();
   }
+});
+
+test("catalogue counts are real: unique channels and the countries in their ids, served from the fetched index", async () => {
+  assert.deepEqual(summarizeCatalog([{ channel: "RCTI.id" }, { channel: "RCTI.id@HD" }, { channel: "BBCOne.uk" }, { channel: null }, {}]), { channels: 2, countries: 2 });
+  assert.deepEqual(summarizeCatalog(null), { channels: 0, countries: 0 });
+  const srv = await startTestServer();
+  try {
+    const r = await fetch(`${srv.base}/api/public/catalog`);
+    assert.equal(r.status, 200);
+    const j = await r.json();
+    assert.equal(j.channels, 3);
+    assert.equal(j.countries, 2);
+    assert.ok(j.updated_at);
+  } finally { await srv.close(); }
 });
