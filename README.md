@@ -99,6 +99,14 @@ Updates and announcements work in real time: TV, phone and desktop apps check bo
 
 ## Features
 
+### ✨ New across all devices
+- **Tahoe Live (Media Center):** an immersive home inside the launcher: channel rows, a live guide and a full-screen player with a big, clear clock. The classic Tahoe home stays as it was.
+- **Built-in tunnel:** phone, TV and desktop stay in sync even off the home Wi-Fi, through an end-to-end encrypted relay (AES-256-GCM; the relay only sees opaque frames). On by default, one switch to turn it off.
+- **Tahoe account (optional, private server):** sign in with e-mail + password to keep your name, photo, wallpaper and display choices (clock, greeting, theme, text size) on every device. Passwords are hashed with scrypt, data is encrypted at rest on your own server. See [docs/ACCOUNTS.md](docs/ACCOUNTS.md).
+- **Caching & smooth transitions:** disk cache for lists and images, page transitions, and a back-buffer so a short hiccup doesn't interrupt the picture, without lowering stream quality.
+- **No-signal screen:** when a channel can't play you see the Tahoe TV logo, a short message in *your* language (worded differently on each retry), the reason, and a soft long Tahoe tone that stops the moment the picture returns.
+- **Update safety:** What's new after an update, and APKs are checked against the app's signing certificate before installing.
+
 ### 📺 TV (Android TV launcher)
 - **Calm, cinematic look:** glass-style tiles with lift and shine, a floating dock, Launchpad with a Games shelf, an editorial hero (YouTube trending, popular on Netflix) and app-opening transitions.
 - **Profiles:** Me, Guest and **Kids**. Kids is locked with a 4-digit PIN and only shows kids' & documentary channels and allowed apps. The PIN can be reset from a paired phone.

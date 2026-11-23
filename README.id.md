@@ -99,6 +99,14 @@ Pembaruan dan siaran pengumuman bekerja real-time: aplikasi TV, HP, dan desktop 
 
 ## Fitur
 
+### ✨ Baru di semua perangkat
+- **Tahoe Live (Media Center):** beranda imersif di dalam launcher: baris saluran, panduan langsung, dan pemutar layar penuh dengan jam besar yang jelas. Beranda Tahoe yang lama tetap ada.
+- **Tunnel bawaan:** HP, TV, dan desktop tetap sinkron walau di luar Wi-Fi rumah, lewat relay terenkripsi ujung ke ujung (AES-256-GCM; relay hanya melihat data acak). Aktif secara bawaan, ada satu sakelar untuk mematikannya.
+- **Akun Tahoe (opsional, server pribadi):** masuk dengan e-mail + kata sandi agar nama, foto, wallpaper, dan pilihan tampilan (jam, sapaan, tema, ukuran teks) ikut di semua perangkat. Kata sandi di-hash scrypt, data dienkripsi di server milikmu sendiri. Lihat [docs/ACCOUNTS.md](docs/ACCOUNTS.md).
+- **Cache & transisi mulus:** cache disk untuk daftar dan gambar, transisi antarhalaman, dan back-buffer agar gangguan singkat tidak memutus gambar, tanpa menurunkan kualitas siaran.
+- **Layar siaran tidak tersedia:** logo Tahoe TV, pesan singkat dalam bahasa *kamu* (redaksinya berganti tiap percobaan), alasannya, dan nada Tahoe yang panjang dan lembut yang berhenti begitu gambar kembali.
+- **Keamanan pembaruan:** "Apa yang baru" setelah update, dan APK dicocokkan dengan sertifikat tanda tangan aplikasi sebelum dipasang.
+
 ### 📺 TV (launcher Android TV)
 - **Tampilan tenang dan sinematik:** material kaca dengan efek lift dan kilau, dock mengambang, Launchpad dengan rak Game, hero editorial (trending YouTube, populer di Netflix), dan transisi buka aplikasi.
 - **Profil:** Saya, Tamu, dan **Anak**. Profil Anak dikunci PIN 4 angka, hanya menampilkan saluran Anak & Dokumenter dan aplikasi yang diizinkan. PIN bisa diatur ulang dari HP yang sudah dipasangkan.
@@ -172,6 +180,7 @@ pun — issue dan PR dalam English, Bahasa Indonesia, atau 中文 semuanya boleh
 - 🐞 **Lapor bug:** pakai **Kirim log** di app, lalu buka [issue baru](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose).
 - 💡 **Ambil issue:** [`good first issue`](https://github.com/fk0u/cleanyourtv-tahoe/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/cleanyourtv-tahoe/labels/help%20wanted).
 - 💬 **Tanya atau diskusi** di [Discussions](https://github.com/fk0u/cleanyourtv-tahoe/discussions).
+- 📣 **Kabar layanan:** ikuti [saluran TahoeTV OFFICIAL di WhatsApp](https://whatsapp.com/channel/0029VbE4YqRBvvsozUIyJ42n).
 - 📣 **Bagikan** ke grup Android TV, STB, atau komunitas IPTV.
 
 Mulai dari [docs/id/CONTRIBUTING.md](docs/id/CONTRIBUTING.md). Celah keamanan lewat [SECURITY.md](SECURITY.md#bahasa-indonesia), jangan lewat issue publik.
