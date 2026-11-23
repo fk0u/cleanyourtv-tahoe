@@ -99,13 +99,41 @@ object Updates {
         return Release(o.getString("tag_name").removePrefix("v"), o.optString("body"), o.optString("html_url", PAGE), o.optString("published_at").take(10), assets)
     }
 
-    /** "2.10.0" > "2.9.3"; suffixes like "-beta" are ignored. */
-    @JvmStatic fun newer(candidate: String, current: String): Boolean {
-        fun parts(v: String) = v.removePrefix("v").substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
-        val a = parts(candidate); val b = parts(current)
-        for (i in 0 until maxOf(a.size, b.size)) { val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }; if (x != y) return x > y }
-        return false
+    /** Semantic-version order: "2.10.0" > "2.9.3", and a pre-release sorts below its release ("3.6.0-beta.1" < "3.6.0"),
+     *  with pre-release parts compared one by one ("beta.2" > "beta.1", numbers numerically). A leading "v" and "+build" are ignored. */
+    @JvmStatic fun compare(x: String, y: String): Int {
+        fun split(v: String): Pair<List<Int>, List<String>> {
+            val clean = v.trim().removePrefix("v").substringBefore('+')
+            val core = clean.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
+            val pre = if (clean.contains('-')) clean.substringAfter('-').split('.', '-').filter { it.isNotEmpty() } else emptyList()
+            return core to pre
+        }
+        val (a, pa) = split(x); val (b, pb) = split(y)
+        for (i in 0 until maxOf(a.size, b.size)) {
+            val p = a.getOrElse(i) { 0 }; val q = b.getOrElse(i) { 0 }
+            if (p != q) return p.compareTo(q)
+        }
+        if (pa.isEmpty() && pb.isEmpty()) return 0
+        if (pa.isEmpty()) return 1   // release beats its own pre-release
+        if (pb.isEmpty()) return -1
+        for (i in 0 until maxOf(pa.size, pb.size)) {
+            if (i >= pa.size) return -1 // fewer parts sort first
+            if (i >= pb.size) return 1
+            val m = pa[i]; val n = pb[i]
+            val mi = m.toIntOrNull(); val ni = n.toIntOrNull()
+            val c = when {
+                mi != null && ni != null -> mi.compareTo(ni)
+                mi != null -> -1        // numbers sort before words
+                ni != null -> 1
+                else -> m.compareTo(n)
+            }
+            if (c != 0) return c
+        }
+        return 0
     }
+
+    /** True when [candidate] is a later version than [current]. */
+    @JvmStatic fun newer(candidate: String, current: String): Boolean = compare(candidate, current) > 0
 
     /** Downloads [url] to [out] (follows redirects), reporting 0–100. Blocks. */
     @JvmStatic @JvmOverloads fun download(

@@ -18,6 +18,14 @@ class UpdatesTest {
         assertFalse(Updates.newer("2.9.2", "2.9.2"))
         assertFalse(Updates.newer("2.9.1", "2.9.2"))
         assertFalse(Updates.newer("2.9.3-beta", "2.9.3"))
+        assertTrue(Updates.newer("3.6.0", "3.6.0-beta.1"))        // the stable release replaces its own beta
+        assertTrue(Updates.newer("3.6.0-beta.2", "3.6.0-beta.1"))
+        assertTrue(Updates.newer("3.6.0-beta.10", "3.6.0-beta.9")) // numeric, not alphabetical
+        assertTrue(Updates.newer("3.6.0-rc.1", "3.6.0-beta.5"))
+        assertFalse(Updates.newer("3.6.0-beta.1", "3.6.0"))
+        assertFalse(Updates.newer("3.6.0-beta.1", "3.6.0-beta.1"))
+        assertTrue(Updates.newer("3.6.1-beta.1", "3.6.0"))        // a higher core number wins over any pre-release
+        assertFalse(Updates.newer("3.6.0+build7", "3.6.0"))
     }
 
     @Test fun parsesChecksumsFile() {
