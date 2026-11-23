@@ -176,7 +176,7 @@ private fun ChannelListRow(e: LocalTv.Entry, now: Instant, trailing: @Composable
 }
 
 @Composable
-private fun MenuGroup(label: String?, content: @Composable ColumnScope.() -> Unit) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+internal fun MenuGroup(label: String?, content: @Composable ColumnScope.() -> Unit) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     if (label != null) Text(label.uppercase(), fontSize = 11.sp, color = Tahoe.Faint, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
         modifier = Modifier.padding(start = 4.dp).a11yHeading())
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Tahoe.Surface).border(if (ThemePrefs.highContrast) 2.dp else 1.dp, Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(26.dp))
@@ -184,7 +184,7 @@ private fun MenuGroup(label: String?, content: @Composable ColumnScope.() -> Uni
 }
 
 @Composable
-private fun MenuRow(icon: ImageVector, title: String, value: String? = null, tint: Color? = null, checked: Boolean = false, onClick: () -> Unit) {
+internal fun MenuRow(icon: ImageVector, title: String, value: String? = null, tint: Color? = null, checked: Boolean = false, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val discBg = if (tint != null) tint.copy(alpha = 0.16f)
         else if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass
@@ -207,7 +207,7 @@ private fun MenuRow(icon: ImageVector, title: String, value: String? = null, tin
 }
 
 @Composable
-private fun SwitchMenuRow(icon: ImageVector, title: String, checked: Boolean, tint: Color? = null, onCheckedChange: (Boolean) -> Unit) {
+internal fun SwitchMenuRow(icon: ImageVector, title: String, checked: Boolean, tint: Color? = null, onCheckedChange: (Boolean) -> Unit) {
     val discBg = if (tint != null) tint.copy(alpha = 0.16f)
         else if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass
     Row(
@@ -400,7 +400,8 @@ fun ProfileScreen() {
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Box(Modifier.size(84.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Tahoe.Accent, Tahoe.Lake))), contentAlignment = Alignment.Center) {
-                        Text(
+                        val photo = Account.avatar
+                        if (photo != null) Image(photo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else Text(
                             name.trim().split(' ').filter { it.isNotEmpty() }.take(2).joinToString("") { it.take(1).uppercase() }.ifEmpty { "T" },
                             fontSize = 30.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
                         )
@@ -442,6 +443,10 @@ fun ProfileScreen() {
                 MenuRow(Icons.Rounded.Tv, I18n.get(lang, "profile.connect_tv"), if (tvCount > 0) "$tvCount" else null) { Nav.page = "connect" }
                 MenuRow(Icons.Rounded.Download, I18n.get(lang, "tv.install_on_tv")) { Nav.page = "setup" }
             }
+            if (Account.available(c)) MenuGroup(tech.kousozo.tahoetv.core.AccountText.get(lang, "title")) {
+                MenuRow(Icons.Rounded.AccountCircle, tech.kousozo.tahoetv.core.AccountText.get(lang, if (Account.signedIn) "display" else "signin"),
+                    if (Account.signedIn) Account.email else null) { Nav.page = "account" }
+            }
             MenuGroup(I18n.get(lang, "profile.help_group")) {
                 MenuRow(Icons.Rounded.Flag, I18n.get(lang, "profile.report")) { Nav.page = "report" }
                 MenuRow(Icons.AutoMirrored.Rounded.HelpOutline, I18n.get(lang, "profile.help_center")) { Nav.page = "help" }
@@ -472,7 +477,7 @@ fun ProfileScreen() {
 // ============================================================================ pages over the tabs
 
 @Composable
-private fun PageScaffold(title: String, sub: String? = null, trailing: @Composable (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+internal fun PageScaffold(title: String, sub: String? = null, trailing: @Composable (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     BackHandler { Nav.page = null }
     val lang = PhoneRegion.language
     Column(
@@ -1371,6 +1376,7 @@ fun NavPage(page: String) {
         "report" -> ReportPage()
         "help" -> HelpCenterPage()
         "contributors" -> ContributorsPage()
+        "account" -> AccountPage()
         "recap" -> RecapPage()
         "explore" -> { BackHandler { Nav.page = null }; Box(Modifier.fillMaxSize().background(Tahoe.Bg)) { CategoriesScreen() } }
         "setup" -> { BackHandler { Nav.page = null }; Box(Modifier.fillMaxSize().background(Tahoe.Bg)) { SetupScreen(onExit = { Nav.page = null }) } }

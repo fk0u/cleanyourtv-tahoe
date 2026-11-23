@@ -150,7 +150,10 @@ fun BrandTile(size: Dp, modifier: Modifier = Modifier) = Box(
 @Composable
 fun TahoeTheme(content: @Composable () -> Unit) {
     ThemePrefs.systemDark = androidx.compose.foundation.isSystemInDarkTheme()
-    TahoeThemeInner(content)
+    // text size chosen in the account's display settings (1.0 = as the system has it)
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    val scale = Account.profile.textScale
+    CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density, d.fontScale * scale)) { TahoeThemeInner(content) }
 }
 
 @Composable

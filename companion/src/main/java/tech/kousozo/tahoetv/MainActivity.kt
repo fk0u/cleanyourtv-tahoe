@@ -84,6 +84,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(b)
         Report.install(this)
         AppearancePrefs.load(this)
+        Account.load(applicationContext)
         applySystemBars(true)
         if (isTelevisionOnly()) {
             val lang = tech.kousozo.tahoetv.core.Region.suggest(java.util.Locale.getDefault()).first
