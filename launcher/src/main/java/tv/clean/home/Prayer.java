@@ -351,6 +351,9 @@ final class Prayer {
 
     static MediaPlayer player;
 
+    /** The adzan plays at 60 % of the alarm volume the TV is set to: loud enough to hear across the house, not blasting. */
+    static final float ADHAN_VOLUME = 0.6f;
+
     /** Adzan, then the du'a after adzan. Subuh uses the Subuh adzan (with "ash-shalātu khairum minan-naum"), every other
      *  prayer the Masjid Mesir adzan. A file uploaded from the phone (files/adzan/adzan_subuh.mp3 or adzan.mp3) replaces
      *  the built-in one. */
@@ -362,7 +365,7 @@ final class Prayer {
         focus(c, true); // Live TV, YouTube, music… pause while the adzan and du'a play, and resume after
         if (start(c, own != null && own.exists() ? own : null, subuh ? R.raw.adzan_subuh : R.raw.adzan,
                 () -> { if (!start(c, null, R.raw.doa_adzan, Prayer::stop)) stop(); })) return;
-        ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_ALARM, 70);
+        ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_ALARM, Math.round(ADHAN_VOLUME * 100));
         tg.startTone(ToneGenerator.TONE_PROP_BEEP2, 600);
     }
 
@@ -371,6 +374,7 @@ final class Prayer {
         try {
             MediaPlayer p = new MediaPlayer();
             p.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            p.setVolume(ADHAN_VOLUME, ADHAN_VOLUME);
             p.setWakeMode(c.getApplicationContext(), android.os.PowerManager.PARTIAL_WAKE_LOCK);
             if (file != null) p.setDataSource(file.getPath());
             else try (android.content.res.AssetFileDescriptor fd = c.getResources().openRawResourceFd(raw)) { p.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength()); }
