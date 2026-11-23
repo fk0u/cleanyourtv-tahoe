@@ -96,6 +96,18 @@ object Account {
         kotlin.concurrent.thread { runCatching { a.setHandoff(tech.kousozo.tahoetv.core.Handoff(channelId, url, name, android.os.Build.MODEL, "phone")) } }
     }
     private var lastPublished = ""
+
+    /** Something another device of the account was watching (the TV, the Mac); null when there is nothing to carry on. */
+    var incoming by mutableStateOf<tech.kousozo.tahoetv.core.Handoff?>(null)
+    fun checkHandoff(c: Context) {
+        if (!signedIn || !handoffOn(c)) { incoming = null; return }
+        val a = api(c) ?: return
+        kotlin.concurrent.thread {
+            val h = runCatching { a.handoff() }.getOrNull()
+            // this phone's own playing is not an offer
+            incoming = h?.takeUnless { it.kind == "phone" && it.device == android.os.Build.MODEL }
+        }
+    }
     fun handoffOn(c: Context) = prefs(c).getBoolean("handoff", true)
     fun setHandoffOn(c: Context, on: Boolean) { prefs(c).edit().putBoolean("handoff", on).apply() }
 
@@ -327,5 +339,29 @@ fun AccountPage() {
         }
         if (msg.isNotEmpty()) Text(msg, color = if (msg == t("saved") || msg == t("tv_sent")) Tahoe.Dim else Tahoe.Bad, fontSize = 14.sp,
             modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
+    }
+}
+
+/** "Continue: <channel> · from <device>" on the Home screen: one tap plays it here. */
+@Composable
+fun HandoffCard() {
+    val c = LocalContext.current
+    val lang = PhoneRegion.language
+    val h = Account.incoming ?: return
+    val entry = Channels.entries?.firstOrNull { (h.channelId.isNotBlank() && it.channel.channelId == h.channelId) || (h.url.isNotBlank() && it.channel.url == h.url) || (h.name.isNotBlank() && it.name == h.name) } ?: return // same channel under another id: match by name
+    if (Playback.entry?.channel?.url == entry.channel.url) return // already playing it here
+    Row(
+        Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Tahoe.Surface)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button) { Playback.play(c, entry); Account.incoming = null }
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.size(44.dp).clip(CircleShape).background(Tahoe.Accent), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.PlayArrow, null, tint = Tahoe.OnAccent, modifier = Modifier.size(24.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(AccountText.get(lang, "continue_here", entry.name), fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            if (h.device.isNotBlank()) Text(AccountText.get(lang, "continue_from", h.device), fontSize = 13.sp, color = Tahoe.Dim)
+        }
     }
 }

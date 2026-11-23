@@ -576,6 +576,9 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
             }
         }
 
+        val appCtx = androidx.compose.ui.platform.LocalContext.current.applicationContext
+        LaunchedEffect(resumeTick, Account.signedIn) { Account.checkHandoff(appCtx) }
+        HandoffCard()
         val recent = recentWatched.ifEmpty { entries.orEmpty().take(8) }
         if (recent.isNotEmpty()) CardShelf(L(if (recentWatched.isEmpty()) "home.featured_channels" else "home.continue_watching"), recent, now) { Nav.category(null) }
         val favs = entries.orEmpty().filter { it.channel.url in Channels.favs }
