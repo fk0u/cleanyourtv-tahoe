@@ -292,18 +292,8 @@ fun AccountPage() {
             }
             MenuGroup(t("on_tv")) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(t("accent"), color = Tahoe.Dim, fontSize = 13.sp)
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf("" to 0xFF7AA2FF, "#34C759" to 0xFF34C759, "#FF9F0A" to 0xFFFF9F0A, "#FF453A" to 0xFFFF453A, "#BF5AF2" to 0xFFBF5AF2, "#64D2FF" to 0xFF64D2FF).forEach { (hex, argb) ->
-                            Box(Modifier.size(44.dp).clip(CircleShape).background(Color(argb)).clickable(role = androidx.compose.ui.semantics.Role.RadioButton) { save(p.copy(accent = hex)) }, contentAlignment = Alignment.Center) {
-                                if (p.accent == hex) Icon(Icons.Rounded.Check, null, tint = Color.Black, modifier = Modifier.size(22.dp))
-                            }
-                        }
-                    }
                     Text(t("clock_size"), color = Tahoe.Dim, fontSize = 13.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("s", "m", "l").forEach { Chip(t(it), p.clockSize == it) { save(p.copy(clockSize = it)) } } }
-                    Text(t("density"), color = Tahoe.Dim, fontSize = 13.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("comfortable", "compact").forEach { Chip(t(it), p.density == it) { save(p.copy(density = it)) } } }
                 }
                 SwitchMenuRow(Icons.Rounded.Schedule, t("clock24"), p.clock24) { save(p.copy(clock24 = it)) }
                 SwitchMenuRow(Icons.Rounded.Timer, t("seconds"), p.clockSeconds) { save(p.copy(clockSeconds = it)) }
