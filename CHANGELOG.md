@@ -5,9 +5,25 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
-### Baru
-- **Akun Tahoe pribadi (e-mail + kata sandi):** masuk dari HP, lalu foto profil, wallpaper, nama, format jam, detik, ukuran jam, sapaan, tema, ukuran teks, dan kurangi gerakan ikut tersinkron ke TV dan HP. Perubahan yang dibuat di TV juga naik ke akun.
-- **Server pribadi:** kata sandi di-hash dengan scrypt, sesi token ber-hash 30 hari, kunci percobaan per IP dan per e-mail, wajib HTTPS, tanpa CORS. Profil dan semua foto yang diunggah dienkripsi AES-256-GCM di server (kunci `TAHOE_DATA_KEY`); pendaftaran tertutup kecuali ada kode undangan. Alamat server hanya ada di `secrets.properties` / pengaturan perangkat, tidak di repositori. Lihat `docs/ACCOUNTS.md`.
+## 3.8.0
+
+**Tahoe TV v3.8.0 (Stable) · Reaching The New Era of Tahoe TV v4** · rilis besar: Tahoe Live (Media Center) yang imersif, tunnel bawaan agar semua perangkat selalu sinkron, akun Tahoe pribadi, cache dan transisi yang jauh lebih mulus, layar siaran tidak tersedia yang baru, serta pembaruan yang lebih aman, di Android TV, HP, dan desktop.
+
+### Baru & Diperbarui
+- **Tahoe Live (Media Center):** beranda imersif di dalam launcher dengan baris saluran, panduan langsung, jam besar, sapaan beranimasi, dan pemutar layar penuh. Beranda Tahoe yang lama tetap ada; layar splash beranimasi muncul saat TV dinyalakan.
+- **Tunnel bawaan:** HP, TV, dan desktop tetap tersinkron walau di luar Wi-Fi rumah, lewat relay terenkripsi ujung ke ujung (AES-256-GCM, relay hanya melihat data acak). Aktif secara bawaan, bisa dimatikan di Pengaturan.
+- **Akun Tahoe (opsional, server pribadi):** masuk dengan e-mail + kata sandi agar nama, foto profil, wallpaper, dan pilihan tampilan (format jam, detik, ukuran jam, sapaan, tema, ukuran teks, kurangi gerakan) ikut di semua perangkat; perubahan dari TV juga naik ke akun. Kata sandi di-hash scrypt, sesi bertoken ber-hash, percobaan login dibatasi, HTTPS wajib, dan profil serta foto dienkripsi AES-256-GCM di server. Pendaftaran tertutup kecuali ada kode undangan. Lihat `docs/ACCOUNTS.md`.
+- **Layar siaran tidak tersedia:** logo Tahoe TV, pesan dalam bahasa pengguna saja (Inggris, Indonesia, Mandarin, Arab) dengan redaksi yang berganti tiap percobaan, alasan gangguan, ajakan mengikuti saluran WhatsApp, dan nada khas Tahoe yang panjang dan lembut (berhenti begitu gambar kembali).
+- **Cache dan transisi:** cache disk untuk daftar dan gambar, transisi antarhalaman yang mulus, dan back-buffer anti-buffering tanpa menurunkan kualitas siaran.
+- **Pembaruan lebih aman:** layar "Apa yang baru" setelah update, chip pembaruan di beranda, dan APK dicocokkan dengan sertifikat tanda tangan aplikasi sebelum dipasang.
+- **Data nyata, bukan tiruan:** riwayat tontonan, kontributor, jumlah bintang, angka katalog di website, dan layar lain kini memakai data sebenarnya; mode demo dihapus.
+- **Tampilan:** ikon vektor menggantikan emoji di semua perangkat, kontras mengikuti WCAG, menu samping desktop kini berlabel, Pusat Kontrol TV disederhanakan, dan jadwal, pengaturan, serta layar aplikasi dirapikan.
+- **Adzan** diputar pada volume 60 %. Tidak ada lagi siaran atau suara langsung selama onboarding dan pemilihan profil.
+- **Ikuti saluran TahoeTV OFFICIAL di WhatsApp:** https://whatsapp.com/channel/0029VbE4YqRBvvsozUIyJ42n
+- **Repositori kini bernama `fk0u/tahoe-tv`;** tautan lama tetap diteruskan oleh GitHub.
+
+### Server
+- Rute baru `/api/account/*`, `/api/tunnel/*`, dan `/api/public/catalog`; paket deploy di `server/deploy/`.
 
 ## 3.7.0
 
