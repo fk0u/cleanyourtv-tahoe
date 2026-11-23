@@ -17,7 +17,7 @@ object AccountText {
         "delete" to "Delete account", "delete_note" to "Removes your profile, photo and wallpaper from the server. This cannot be undone.",
         "to_tv" to "Use this account on my TV", "tv_sent" to "Sent to your TV", "tv_fail" to "Couldn't reach the TV",
         "err_upload" to "Upload failed: %s", "err_generic" to "Something went wrong", "confirm_delete" to "Delete my account",
-        "storage" to "Your files are stored encrypted on your private Tahoe server.",
+        "storage" to "Your files are stored encrypted on your private Tahoe server.", "server" to "Server address", "server_hint" to "https://your-server",
     )
     private val ID = mapOf(
         "title" to "Akun", "sub" to "Masuk agar profil, foto, dan wallpaper tersimpan di semua perangkat.",
@@ -34,7 +34,7 @@ object AccountText {
         "delete" to "Hapus akun", "delete_note" to "Menghapus profil, foto, dan wallpaper dari server. Tidak bisa dibatalkan.",
         "to_tv" to "Pakai akun ini di TV saya", "tv_sent" to "Terkirim ke TV", "tv_fail" to "TV tidak terjangkau",
         "err_upload" to "Unggah gagal: %s", "err_generic" to "Terjadi kesalahan", "confirm_delete" to "Hapus akun saya",
-        "storage" to "Filemu tersimpan terenkripsi di server Tahoe pribadi.",
+        "storage" to "Filemu tersimpan terenkripsi di server Tahoe pribadi.", "server" to "Alamat server", "server_hint" to "https://servermu",
     )
     @JvmStatic val tables: Map<String, Map<String, String>> = mapOf("en" to EN, "id" to ID)
 

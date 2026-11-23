@@ -8,6 +8,11 @@ plugins {
 def ksProps = new Properties()
 def ksFile = rootProject.file("keystore.properties")
 if (ksFile.exists()) ksFile.withInputStream { ksProps.load(it) }
+// The private account server's address lives only in secrets.properties (gitignored), never in the repository.
+// Empty (or -PpublicBuild) = the account screens stay hidden.
+def secrets = new Properties()
+def sf = rootProject.file("secrets.properties")
+if (sf.exists() && !project.hasProperty("publicBuild")) sf.withInputStream { secrets.load(it) }
 
 android {
     namespace "tech.kousozo.tahoetv"
@@ -19,8 +24,9 @@ android {
         targetSdk 34
         versionCode project.property("tahoe.versionCode").toString().toInteger()
         versionName project.property("tahoe.version").toString()
+        buildConfigField "String", "ACCOUNT_URL", "\"" + (secrets.getProperty("account.url") ?: "") + "\""
     }
-    buildFeatures { compose true }
+    buildFeatures { compose true; buildConfig true }
     signingConfigs {
         release {
             if (ksFile.exists()) {
