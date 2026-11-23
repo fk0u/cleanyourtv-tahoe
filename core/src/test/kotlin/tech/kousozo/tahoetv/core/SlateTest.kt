@@ -71,9 +71,10 @@ class SlateTest {
 
     @Test fun toneIsQuietShortAndAValidWav() {
         val p = SlateTone.pcm()
-        assertTrue(p.size in SlateTone.RATE / 2..SlateTone.RATE * 2)
+        assertTrue(p.size in SlateTone.RATE * 6..SlateTone.RATE * 12) // a long tone, not a blip
+        assertTrue(p.copyOfRange(SlateTone.RATE * 2, SlateTone.RATE * 6).count { kotlin.math.abs(it.toInt()) > 4_000 } > SlateTone.RATE) // really sustained
         val peak = p.maxOf { kotlin.math.abs(it.toInt()) }
-        assertTrue(peak in 8_000..18_000, "peak $peak")            // audible but never loud
+        assertTrue(peak in 14_000..24_000, "peak $peak")           // clearly audible, never full scale
         assertTrue(p.last().toInt() == 0 || kotlin.math.abs(p.last().toInt()) < 200) // ends silent: no click
         assertTrue(SlateTone.pcm().contentEquals(p))
         val w = SlateTone.wav()
