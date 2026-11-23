@@ -132,6 +132,6 @@ object Slate {
 
     /** GitHub's "channel problem" form, with the channel name filled in and localised title. */
     @JvmStatic @JvmOverloads fun reportUrl(channel: String, lang: String? = null): String =
-        "https://github.com/fk0u/cleanyourtv-tahoe/issues/new?template=channel.yml&title=" +
+        "https://github.com/fk0u/tahoe-tv/issues/new?template=channel.yml&title=" +
         java.net.URLEncoder.encode(reportTitle(lang, channel), "UTF-8")
 }

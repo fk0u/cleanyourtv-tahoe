@@ -5,5 +5,5 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories { google(); mavenCentral() }
 }
-rootProject.name = "cleanyourtv-tahoe"
+rootProject.name = "tahoe-tv"
 include ":launcher", ":companion", ":core", ":desktop"

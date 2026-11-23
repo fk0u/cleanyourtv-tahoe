@@ -9,7 +9,7 @@ import org.json.JSONObject
 /** OTA: the latest GitHub release of Tahoe TV, its notes (the in-app changelog) and its installers.
  *  Release APKs are signed with one key since 2.9.2, so they install over the current app. */
 object Updates {
-    const val REPO = "fk0u/cleanyourtv-tahoe"
+    const val REPO = "fk0u/tahoe-tv"
     const val PAGE = "https://github.com/$REPO/releases"
     const val CONTROL_PLANE_RELEASE = "https://tahoe.kousozo.tech/api/releases/latest"
 
