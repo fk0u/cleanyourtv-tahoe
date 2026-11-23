@@ -24,6 +24,7 @@ public class Config extends BroadcastReceiver {
             int n = 0;
             for (String k : KEYS) if (i.hasExtra(k)) { e.putString(k, i.getStringExtra(k)); n++; }
             e.apply();
+            if (i.getBooleanExtra("chime_test", false)) Chime.noSignal("test-" + System.nanoTime()); // adb only: plays the no-signal tone
             if (i.hasExtra("avatar_url")) Avatar.reset(c);
             if (i.hasExtra("account_url")) Acct.link(c, i.getStringExtra("account_url"), i.getStringExtra("account_token"), i.getStringExtra("account_email"));
             if (i.hasExtra("dock")) // "pkg1,pkg2,…" for the owner profile

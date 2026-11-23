@@ -1453,13 +1453,15 @@ public class LiveTv extends Activity {
                 + "  ·  " + when);
     }
 
-    void hideSlate() { Chime.stop(); slateGen++; if (slate != null) slate.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
+    void hideSlate() { Chime.stop(); hideSlateKeepSound(); }
+    /** A background retry: the picture isn't back yet, so the tone keeps going. */
+    void hideSlateKeepSound() { slateGen++; if (slate != null) slate.setVisibility(View.GONE); bStatus.setVisibility(View.GONE); }
 
     /** Every source of this channel again, best first (OK on the slate, or the background retry). */
     void retryChannel() {
         if (index < 0 || list.isEmpty()) return;
         sawRecording = false;
-        hideSlate();
+        hideSlateKeepSound();
         LocalTv.Entry e = list.get(index);
         List<M3u.Channel> raw = new ArrayList<>(); raw.add(e.getChannel()); raw.addAll(e.getAlternates());
         M3u.Channel fallback = tech.kousozo.tahoetv.core.OttEngine.findFallbackStream(e.getChannel());
