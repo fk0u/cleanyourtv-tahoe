@@ -19,7 +19,7 @@
 1. **`:launcher` (aplikasi TV) = Android Views murni (Java).** Jangan tambahkan Jetpack Compose, jangan pakai blur real-time, tetap `minSdk 26`. Target perangkat: TV stick RAM 1 GB.
 2. **Logika non-Android masuk `:core`** beserta unit test di `core/src/test/...`.
 3. **Patuhi `architecture.json`.** URL dan log selalu lewat `DiagLog.redact`. Jangan commit `secrets.properties`, jangan menyentuh atau membocorkan kredensial internal.
-4. **Screenshot selalu dalam mode demo.** Desktop `--demo`; HP (build debug) `--es demo <lang>` (lihat §3).
+4. **Screenshot memakai data asli.** Mode demo sudah dihapus: tidak ada data contoh di aplikasi. Pangkas atau buramkan nama dan foto pribadi sebelum dibagikan.
 5. **Jangan menduplikasi fitur yang sudah ada di `main`.** Baca file terkait dulu sebelum mengedit.
 6. **Audit keamanan `git diff` sebelum commit**, lalu **commit dan push satu per satu per modul** ke `origin/main` dengan urutan `:core` → `:companion` → `:desktop` → `:launcher` → `website/` & `server/` → docs/CHANGELOG. **Jangan digabung sekaligus.**
 7. **Atribusi:** setiap commit diakhiri `Co-Authored-By: bensoncloud <bensoncloud@bot.cue.im>`. Teks PR, issue dan catatan rilis tidak menyebut nama asisten AI.
@@ -47,19 +47,19 @@ Catatan penting:
 - Server Node (`server/`) dites dengan `cd server && npm test` (Node ≥ 22). Node tidak terpasang di Mac ini; CI juga belum menjalankan tes server.
 - Website: `sh website/build.sh && python3 -m http.server -d website/_site 8080`. `BrandTokensTest` di `:core` ikut mengecek token di `website/assets/style.css`.
 
-**Emulator** (tanpa jaringan, jadi pakai mode demo):
+**Emulator** (butuh internet; data asli, tanpa mode demo):
 
 ```bash
 ~/Library/Android/sdk/emulator/emulator -avd Pixel_10_Pro_XL -gpu host -no-snapshot-save -no-audio &
 ./gradlew :companion:installDebug
 adb shell am force-stop tech.kousozo.tahoetv.dev
-adb shell am start -W -n tech.kousozo.tahoetv.dev/tech.kousozo.tahoetv.MainActivity --es demo id
+adb shell am start -W -n tech.kousozo.tahoetv.dev/tech.kousozo.tahoetv.MainActivity
 adb exec-out screencap -p > shot.png
 ```
 
 - AVD TV: `Television_1080p`. Paket debug HP: `tech.kousozo.tahoetv.dev`.
 - Layar emulator 1344×2992 px. Ketuk dock: Beranda ≈ (200, 2778), Live TV (436, 2778), Remote (672, 2720), Watchlist (900, 2778), Profil (1145, 2778).
-- Mode demo HP memuat `Demo.channels()`, `Demo.epg()` dan `Demo.viewer()` dari `:core`. Tidak ada yang disimpan; 2 saluran pertama jadi favorit di memori.
+- Data di aplikasi selalu asli (saluran, jadwal, cuaca, shalat); tidak ada data contoh.
 - Emulator lambat; kalau muncul "System UI isn't responding", ketuk **Wait**.
 
 ## 4. Peta kode yang paling sering disentuh
@@ -69,11 +69,10 @@ adb exec-out screencap -p > shot.png
 | `:core` | `Brand.kt`, `docs/brand/tokens.json` | Warna, ukuran, gerak (sumber kebenaran token) |
 | `:core` | `Theme.kt` | Palet Gelap/Terang/Kontras Tinggi |
 | `:core` | `I18n.kt`, `resources/i18n/ar.json` | Semua teks UI |
-| `:core` | `Demo.kt` | Data demo untuk screenshot |
 | `:core` | `PairRequests.kt`, `TvLink.kt` | Pairing tanpa kode (#180) |
 | `:companion` (HP, Compose) | `Ui.kt` | Komponen Figma: `Chip`, `PillButton` (Primary), `GlassPill`, `RoundGlass` (Icon Button 48 dp), `LiveBadge`, `ProgressBar`, `Backdrop` |
 | `:companion` | `MainActivity.kt` | Beranda: hero, `ChannelArt`, `ChannelCard`, `CardShelf`, kartu sambung TV |
-| `:companion` | `Live.kt` | Tab Live TV, `BrowseSections`, `Channels` (loader + demo), `Nav` |
+| `:companion` | `Live.kt` | Tab Live TV, `BrowseSections`, `Channels` (loader, riwayat), `Nav` |
 | `:companion` | `Profile.kt` | Gerak, `Dock`, Watchlist (`WatchRow`), Profil, halaman `Nav.page`, `NoCodePair` |
 | `:companion` | `Remote.kt` | Remote: `TvCardTile`, `LabeledKey`, `PillRocker`, `PinPairDialog`, D-pad |
 | `:launcher` (TV, Java Views) | `Ui.java`, `Sheets.java`, `Live.java`, `LivePreview.java`, `Companion*.java` | Fokus, sheet, pratinjau langsung, server HTTP pairing |
@@ -102,7 +101,7 @@ adb exec-out screencap -p > shot.png
 
 **Spesifikasi HP sudah ada di repo:** [`docs/design/figma-mobile.css`](design/figma-mobile.css) berisi CSS Figma Dev Mode untuk ke-23 layar HP (token, komponen bersama sekali saja, lalu nilai unik per layar). Pakai ini dulu sebelum memanggil Figma. Label bertanda † tidak ada di CSS ekspor dan perlu dicek di frame Figma.
 
-Alur kerja per layar: ambil `get_design_context` untuk node Figma → sesuaikan ke komponen yang sudah ada (§4), jangan menyalin React/Tailwind → screenshot mode demo → bandingkan dengan Figma → commit per modul.
+Alur kerja per layar: ambil `get_design_context` untuk node Figma → sesuaikan ke komponen yang sudah ada (§4), jangan menyalin React/Tailwind → screenshot dengan data asli → bandingkan dengan Figma → commit per modul.
 
 ### 6.1 HP: 18 layar sisa (`:companion`, halaman Figma `7:48`)
 
@@ -129,7 +128,7 @@ Alur kerja per layar: ambil `get_design_context` untuk node Figma → sesuaikan 
 
 ### 6.3 Desktop (`:desktop`, halaman Figma `7:50`, 1440×900)
 
-`13:2`, `22:20`, `22:199`, `22:378` Home dipilih 1–4 · `22:557` Player · `30:77` Live TV grid · `30:200` Multi-view 2×2 · `30:236` Rekaman · `30:301` Pengaturan. Screenshot dengan `./gradlew :desktop:run --args="--demo=id"`.
+`13:2`, `22:20`, `22:199`, `22:378` Home dipilih 1–4 · `22:557` Player · `30:77` Live TV grid · `30:200` Multi-view 2×2 · `30:236` Rekaman · `30:301` Pengaturan. Screenshot dari `./gradlew :desktop:run --args="--screen=<nama>"` dengan data asli.
 
 ### 6.4 Web (halaman Figma `7:51`, frame `13:183`)
 
@@ -161,5 +160,5 @@ Landing sudah dibuat ulang, tapi belum dicocokkan per piksel. Perbedaan yang ter
 - Struktur, jarak, ukuran huruf dan warna cocok dengan frame Figma (tema Gelap) dan tidak rusak di Terang/Kontras Tinggi.
 - Teks baru ada di EN/ID/ZH + `ar.json`; tampilan Arab dicerminkan kecuali video/seekbar.
 - Target sentuh HP ≥ 48 dp; teks TV ≥ 19 px di 1080p; tombol TV ≥ 74 px.
-- Pemeriksaan lengkap §3 lulus; ada screenshot mode demo sebelum/sesudah.
+- Pemeriksaan lengkap §3 lulus; ada screenshot dengan data asli sebelum/sesudah.
 - Satu commit per modul, `CHANGELOG.md` di bagian versi teratas diperbarui (Bahasa Indonesia, gaya yang sama).
