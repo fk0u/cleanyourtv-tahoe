@@ -48,4 +48,13 @@ class AccountTest {
             assertFailsWith<IllegalArgumentException> { api.downloadFile("../etc/passwd") }
         } finally { srv.stop(0) }
     }
+
+    @Test fun handoffRoundTripsAndOnlyOffersWhatCanPlay() {
+        val h = Handoff("rcti.id", "", "RCTI", "Pixel", "phone", 5_000)
+        val back = Handoff.fromJson(h.toJson(), 42)!!
+        assertEquals("RCTI", back.name); assertEquals("phone", back.kind); assertEquals(5_000L, back.posMs); assertEquals(42L, back.at)
+        assertNull(Handoff.fromJson(JSONObject("""{"name":"nothing to play"}""")))
+        assertNull(Handoff.fromJson(null))
+        assertEquals("phone", Handoff.fromJson(JSONObject("""{"url":"https://x/y.m3u8","kind":"fridge"}"""))!!.kind)
+    }
 }

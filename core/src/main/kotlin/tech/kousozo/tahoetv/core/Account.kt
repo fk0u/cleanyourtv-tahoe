@@ -63,6 +63,29 @@ data class DisplayProfile @JvmOverloads constructor(
     }
 }
 
+/** What an account is watching right now, so another of its devices can pick it up ("continue on this TV"). */
+data class Handoff @JvmOverloads constructor(
+    val channelId: String = "", val url: String = "", val name: String = "",
+    /** The device that is playing, for "from Pixel 8". */
+    val device: String = "",
+    /** tv | phone | desktop */
+    val kind: String = "phone",
+    val posMs: Long = 0,
+    /** When the server heard it (epoch ms); 0 when unknown. */
+    val at: Long = 0,
+) {
+    fun toJson(): JSONObject = JSONObject().put("channelId", channelId).put("url", url).put("name", name).put("device", device).put("kind", kind).put("posMs", posMs)
+    /** Worth offering to another device only if it really names something to play. */
+    val playable: Boolean get() = channelId.isNotBlank() || url.isNotBlank()
+
+    companion object {
+        @JvmStatic fun fromJson(o: JSONObject?, at: Long = 0): Handoff? = o?.let {
+            Handoff(it.optString("channelId"), it.optString("url"), it.optString("name"), it.optString("device"),
+                it.optString("kind", "phone").takeIf { k -> k in setOf("tv", "phone", "desktop") } ?: "phone", it.optLong("posMs"), at).takeIf { h -> h.playable }
+        }
+    }
+}
+
 class AccountException(val status: Int, message: String) : Exception(message)
 
 /** Talks to the private Tahoe server's account routes (under /api/account). The server address and any invite code come from the build
@@ -141,6 +164,12 @@ class AccountApi(baseUrl: String, private val token: String? = null, private val
     }
 
     fun deleteFile(id: String) { require(Regex("^[0-9a-f-]{36}$").matches(id)); json("DELETE", "/api/account/files/$id") }
+
+    /** Tells the account what this device is playing now. */
+    fun setHandoff(h: Handoff) { json("PUT", "/api/account/handoff", h.toJson()) }
+    /** What the account's devices were last watching (within six hours), or null. */
+    fun handoff(): Handoff? = json("GET", "/api/account/handoff").let { Handoff.fromJson(it.optJSONObject("handoff"), it.optLong("at")) }
+    fun clearHandoff() { json("DELETE", "/api/account/handoff") }
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 }
