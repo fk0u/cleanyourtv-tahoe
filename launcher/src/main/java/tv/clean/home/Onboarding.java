@@ -465,9 +465,13 @@ public class Onboarding extends Activity {
     TextView row(String text, int icon, boolean selected, int tail, String key, Runnable onClick) {
         TextView r = otv(30, 600, 0xFFF7F8FA);
         r.setSingleLine(); r.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        CharSequence label = icon == 0 ? text : Ui.iconText(r, icon, 0xFFF7F8FA, text);
-        int end = tail != 0 ? tail : selected ? R.drawable.ic_check : 0;
-        r.setText(end == 0 ? label : Ui.textIcon(r, label, end, 0xFFF7F8FA));
+        final int end = tail != 0 ? tail : selected ? R.drawable.ic_check : 0;
+        // the icons are tinted like the text, so they are redrawn when focus flips the text between light and dark
+        final java.util.function.IntFunction<CharSequence> build = color -> {
+            CharSequence label = icon == 0 ? text : Ui.iconText(r, icon, color, text);
+            return end == 0 ? label : Ui.textIcon(r, label, end, color);
+        };
+        r.setText(build.apply(0xFFF7F8FA));
         r.setPadding(px(36), px(28), px(36), px(28));
         r.setFocusable(true); r.setClickable(true); r.setTag(selected);
         GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(px(28));
@@ -477,12 +481,14 @@ public class Onboarding extends Activity {
             if (f && Ui.highContrast(this)) {
                 r.setBackground(Ui.focusRing(this, px(28)));
                 r.setTextColor(0xFFF7F8FA);
+                r.setText(build.apply(0xFFF7F8FA));
             } else {
                 GradientDrawable g = new GradientDrawable(); g.setCornerRadius(px(28));
                 g.setColor(f ? 0xFFFFFFFF : selected ? 0x2664D2FF : 0x14FFFFFF);
                 if (f) g.setStroke(Math.max(2, px(5)), 0xFF5CD0FF);
                 r.setBackground(g);
                 r.setTextColor(f ? 0xFF0D0F14 : 0xFFF7F8FA);
+                r.setText(build.apply(f ? 0xFF0D0F14 : 0xFFF7F8FA));
             }
         });
         r.setOnClickListener(v -> { focusKey = key; onClick.run(); });
