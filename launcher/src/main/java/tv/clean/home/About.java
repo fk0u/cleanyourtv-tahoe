@@ -27,7 +27,8 @@ final class About extends FrameLayout implements Sheet {
     final TextView status, notes;
     final ScrollView scroll;
     Updates.Release latest;
-    boolean busy;
+    boolean busy, fixed;
+    String shownVersion; // set when this is the "What's new" pop-up after an update
 
     About(Home h) {
         super(h);
@@ -77,6 +78,14 @@ final class About extends FrameLayout implements Sheet {
         return md.replaceAll("(?m)^#+\\s*", "").replace("**", "").replaceAll("(?m)^\\s*[-*]\\s+", "•  ").trim();
     }
 
+    /** After an update: show this release's notes once instead of the update check. */
+    void showReleased(Updates.Release r) {
+        fixed = true; busy = false; latest = r; shownVersion = r.getVersion();
+        String lang = TvViewer.get(home).getLanguage();
+        status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_updated", r.getVersion()));
+        notes.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_whats_new") + r.getVersion() + "  (" + r.getDate() + ")\n\n" + plain(r.getNotes()));
+    }
+
     void check() {
         String lang = TvViewer.get(home).getLanguage();
         busy = true; status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.checking"));
@@ -84,6 +93,7 @@ final class About extends FrameLayout implements Sheet {
             try {
                 Updates.Release r = Updates.latest();
                 post(() -> {
+                    if (fixed) return;
                     latest = r; busy = false;
                     boolean nu = Updates.newer(r.getVersion(), version(home)) && r.hasAnyAsset(Updates.LAUNCHER_ASSETS);
                     status.setText(nu ? tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_status_new", r.getVersion())
@@ -190,7 +200,7 @@ final class About extends FrameLayout implements Sheet {
         return true;
     }
 
-    @Override public void onClose() {}
+    @Override public void onClose() { if (shownVersion != null) home.prefs.edit().putString("whatsnew_seen", About.version(home)).apply(); }
 
     /** Glass pop-up modal shown when a new Tahoe TV update is available or mandated by the admin server. */
     static final class UpdateModal extends FrameLayout implements Sheet {

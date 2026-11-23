@@ -342,6 +342,31 @@ public class Home extends Activity {
         updateFocusBlocking();
         row = 0; tick(); buildChips(); loadApps(); hero.refreshWallpaperSettings(); render(false);
         if (mc()) { mediaHome.refresh(); mediaHome.focusFirst(); }
+        maybeWhatsNew();
+    }
+
+    private boolean whatsNewChecked;
+
+    /** After the launcher was updated, show the new version's release notes once (a fresh install just records its version). */
+    void maybeWhatsNew() {
+        if (whatsNewChecked || kids()) return;
+        whatsNewChecked = true;
+        final String cur = About.version(this);
+        switch (tech.kousozo.tahoetv.core.WhatsNew.decide(prefs.getString("whatsnew_seen", null), cur)) {
+            case RECORD_ONLY: prefs.edit().putString("whatsnew_seen", cur).apply(); return;
+            case NOTHING: return;
+            default: break;
+        }
+        Net.bg.execute(() -> {
+            try {
+                tech.kousozo.tahoetv.core.Updates.Release r = tech.kousozo.tahoetv.core.Updates.latest();
+                if (!tech.kousozo.tahoetv.core.WhatsNew.notesApply(r.getVersion(), cur)) { prefs.edit().putString("whatsnew_seen", cur).apply(); return; } // no notes for this build
+                runOnUiThread(() -> {
+                    if (sheet != null || profiles != null) { whatsNewChecked = false; return; } // busy: ask again next time
+                    About a = new About(this); a.showReleased(r); openSheet(a);
+                });
+            } catch (Exception offline) { /* tried again at the next start */ }
+        });
     }
 
     /** New PIN for the kids profile: type it, type it again. */
