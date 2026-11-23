@@ -184,7 +184,7 @@ private fun MenuGroup(label: String?, content: @Composable ColumnScope.() -> Uni
 }
 
 @Composable
-private fun MenuRow(icon: ImageVector, title: String, value: String? = null, tint: Color? = null, onClick: () -> Unit) {
+private fun MenuRow(icon: ImageVector, title: String, value: String? = null, tint: Color? = null, checked: Boolean = false, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val discBg = if (tint != null) tint.copy(alpha = 0.16f)
         else if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Glass
@@ -201,7 +201,8 @@ private fun MenuRow(icon: ImageVector, title: String, value: String? = null, tin
         // a long value never squeezes the title into a vertical column of letters: it wraps to two lines inside its own width
         if (value != null) Text(value, fontSize = 14.sp, lineHeight = 18.sp, color = Tahoe.Dim, maxLines = 2, overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.widthIn(max = 132.dp))
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Faint, modifier = Modifier.size(18.dp))
+        if (checked) Icon(Icons.Rounded.Check, null, tint = Tahoe.Accent, modifier = Modifier.size(20.dp))
+        else Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Tahoe.Faint, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -389,7 +390,7 @@ fun ProfileScreen() {
                 Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                Text(I18n.get(lang, "profile.hello") + " 👋", fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
+                Text(I18n.get(lang, "profile.hello"), fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
                         .background(if (ThemePrefs.dark) Color.White.copy(alpha = 0.08f) else Tahoe.Surface.copy(alpha = 0.92f))
@@ -446,7 +447,7 @@ fun ProfileScreen() {
                 MenuRow(Icons.AutoMirrored.Rounded.HelpOutline, I18n.get(lang, "profile.help_center")) { Nav.page = "help" }
             }
             MenuGroup(I18n.get(lang, "profile.community")) {
-                MenuRow(Icons.Rounded.Star, I18n.get(lang, "profile.star"), value = "★ 1,2k", tint = Color(Brand.SUN)) { open(c, REPO) }
+                MenuRow(Icons.Rounded.Star, I18n.get(lang, "profile.star"), tint = Color(Brand.SUN)) { open(c, REPO) }
                 MenuRow(Icons.Rounded.Groups, I18n.get(lang, "profile.contributors")) { Nav.page = "contributors" }
             }
             MenuGroup(null) { MenuRow(Icons.Rounded.Settings, I18n.get(lang, "nav.prefs")) { Nav.page = "settings" } }
@@ -599,7 +600,7 @@ fun SettingsPage() {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Theme.Mode.entries.forEach { m ->
-                        MenuRow(Icons.Rounded.Palette, themeLabel(m), if (ThemePrefs.mode == m) "✓" else null) {
+                        MenuRow(Icons.Rounded.Palette, themeLabel(m), checked = ThemePrefs.mode == m) {
                             ThemePrefs.mode = m; AppearancePrefs.save(c); dialog = null
                         }
                     }
@@ -614,7 +615,7 @@ fun SettingsPage() {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     PlayPrefs.Quality.entries.forEach { q ->
-                        MenuRow(Icons.Rounded.Hd, q.label(lang), if (Playback.quality == q) "✓" else null) {
+                        MenuRow(Icons.Rounded.Hd, q.label(lang), checked = Playback.quality == q) {
                             Playback.setQuality(c, q); dialog = null
                         }
                     }
@@ -629,7 +630,7 @@ fun SettingsPage() {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     PlayPrefs.Latency.entries.forEach { l ->
-                        MenuRow(Icons.Rounded.Speed, l.label(lang), if (Playback.latency == l) "✓" else null) {
+                        MenuRow(Icons.Rounded.Speed, l.label(lang), checked = Playback.latency == l) {
                             Playback.setLatency(c, l); dialog = null
                         }
                     }
@@ -644,7 +645,7 @@ fun SettingsPage() {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     PlayPrefs.SubtitleSize.entries.forEach { sz ->
-                        MenuRow(Icons.Rounded.Subtitles, sz.label(lang), if (Playback.subtitleSize == sz) "✓" else null) {
+                        MenuRow(Icons.Rounded.Subtitles, sz.label(lang), checked = Playback.subtitleSize == sz) {
                             Playback.setSubtitleSize(c, sz); dialog = null
                         }
                     }
@@ -659,7 +660,7 @@ fun SettingsPage() {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Region.LANGUAGES.forEach { code ->
-                        MenuRow(Icons.Rounded.Translate, OnboardingText.LANGUAGE_NAMES[code] ?: code, if (lang == code) "✓" else null) {
+                        MenuRow(Icons.Rounded.Translate, OnboardingText.LANGUAGE_NAMES[code] ?: code, checked = lang == code) {
                             PhoneRegion.save(c, PhoneRegion.viewer.copy(language = code)); dialog = null
                         }
                     }
@@ -1075,11 +1076,11 @@ fun ReportPage() {
         title = { Text(I18n.get(lang, "report.channel_label")) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                MenuRow(Icons.Rounded.Tv, I18n.get(lang, "report.channel_any"), if (pickedEntry == null) "✓" else null) {
+                MenuRow(Icons.Rounded.Tv, I18n.get(lang, "report.channel_any"), checked = pickedEntry == null) {
                     pickedEntry = null; channelDialogOpen = false
                 }
                 allEntries.take(30).forEach { entry ->
-                    MenuRow(Icons.Rounded.Tv, entry.name, if (entry == pickedEntry) "✓" else null) {
+                    MenuRow(Icons.Rounded.Tv, entry.name, checked = entry == pickedEntry) {
                         pickedEntry = entry; channelDialogOpen = false
                     }
                 }

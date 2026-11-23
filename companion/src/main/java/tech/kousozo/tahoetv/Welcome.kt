@@ -23,6 +23,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.LocationCity
+import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Tune
@@ -388,7 +391,7 @@ private fun CountryAndCityStep(v: Viewer, suggestedCountry: String, t: (String) 
         val cities = cityResults
         if (cities != null && cities.isNotEmpty()) {
             items(cities, key = { "city:${it.label}" }) { city ->
-                Option(city.label, "📍", v.city.equals(city.name, ignoreCase = true)) {
+                Option(city.label, null, v.city.equals(city.name, ignoreCase = true), icon = Icons.Rounded.Place) {
                     onChange(v.copy(city = city.name, lat = city.lat, lon = city.lon, region = city.region, timeZone = city.timeZone.ifBlank { v.timeZone }))
                     query = ""; cityResults = null
                 }
@@ -416,7 +419,7 @@ private fun CountryAndCityStep(v: Viewer, suggestedCountry: String, t: (String) 
         }
         if (query.isBlank() && suggestedCities.size > 1) {
             items(suggestedCities.drop(1).take(3), key = { "sc:${it.city}" }) { opt ->
-                Option(opt.label(), "📍", v.city.equals(opt.city, ignoreCase = true)) {
+                Option(opt.label(), null, v.city.equals(opt.city, ignoreCase = true), icon = Icons.Rounded.Place) {
                     onChange(v.copy(city = opt.city, lat = opt.lat, lon = opt.lon, region = opt.region, timeZone = opt.zoneId))
                 }
             }
@@ -514,7 +517,7 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
     SearchPill(query, { query = it }, tech.kousozo.tahoetv.core.I18n.get(v.language, "onboarding.city_subdistrict_hint"), active = query.isNotBlank())
     Spacer(Modifier.height(10.dp))
     if (v.lat != null) {
-        Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", ") + "  ✕", "📍", true) {
+        Option(listOf(v.city, Region.name(v.country, v.language)).joinToString(", "), null, true, icon = Icons.Rounded.Place) {
             onChange(v.copy(city = "", lat = null, lon = null, region = "", timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(v.country)))
             query = ""
         }
@@ -530,7 +533,7 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
             )
             Spacer(Modifier.height(6.dp))
             suggested.forEach { opt ->
-                Option(opt.label(), "🏙", v.city.equals(opt.city, ignoreCase = true)) {
+                Option(opt.label(), null, v.city.equals(opt.city, ignoreCase = true), icon = Icons.Rounded.LocationCity) {
                     query = opt.city
                     onChange(v.copy(city = opt.city, lat = opt.lat, lon = opt.lon, region = opt.region, timeZone = opt.zoneId))
                 }
@@ -541,7 +544,7 @@ private fun CityStep(v: Viewer, t: (String) -> String, onChange: (Viewer) -> Uni
         if (list.isEmpty()) Text(t("city.empty"), color = Tahoe.Faint, fontSize = 12.sp)
         LazyColumn(Modifier.weight(1f).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(list) { city ->
-                Option(city.label, "📍", false) {
+                Option(city.label, null, false, icon = Icons.Rounded.Place) {
                     onChange(v.copy(city = city.name, lat = city.lat, lon = city.lon, region = city.region, timeZone = city.timeZone.ifBlank { v.timeZone }))
                     query = city.name; results = null
                 }
@@ -556,7 +559,7 @@ private fun TimeZoneStep(v: Viewer, t: (String) -> String, onPick: (String) -> U
     var query by remember { mutableStateOf("") }
     val zones = remember { (listOf("UTC") + java.time.ZoneId.getAvailableZoneIds().filter { '/' in it && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }.sorted()) }
     val picked = v.timeZone.ifBlank { device }
-    Option(t("tz.device").replace("%s", device), "📱", v.timeZone.isBlank() || v.timeZone == device) { onPick("") }
+    Option(t("tz.device").replace("%s", device), null, v.timeZone.isBlank() || v.timeZone == device, icon = Icons.Rounded.PhoneAndroid) { onPick("") }
     Spacer(Modifier.height(6.dp))
     Field(query, { query = it }, t("search"))
     Spacer(Modifier.height(8.dp))
@@ -685,7 +688,7 @@ private fun Summary(v: Viewer, t: (String) -> String, showMore: Boolean = false,
 }
 
 @Composable
-private fun Option(text: String, flag: String?, selected: Boolean, sub: String? = null, onClick: () -> Unit) = Row(
+private fun Option(text: String, flag: String?, selected: Boolean, sub: String? = null, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) = Row(
     Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(22.dp))
         .background(if (selected) (if (ThemePrefs.dark) Color.White.copy(alpha = 0.10f) else Tahoe.SurfaceHi) else Tahoe.Surface)
         .border(if (selected || ThemePrefs.highContrast) 2.dp else 1.dp, if (selected) Tahoe.Accent else Tahoe.Stroke.copy(alpha = 0.3f), RoundedCornerShape(22.dp))
@@ -694,6 +697,7 @@ private fun Option(text: String, flag: String?, selected: Boolean, sub: String? 
         .padding(horizontal = 18.dp, vertical = 14.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
+    icon?.let { Icon(it, null, tint = Tahoe.Dim, modifier = Modifier.padding(end = 12.dp).size(22.dp)) }
     flag?.let { Text(it, fontSize = 20.sp, modifier = Modifier.padding(end = 12.dp)) }
     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(text, color = Tahoe.Text, fontSize = 16.sp, fontWeight = FontWeight.Medium)
