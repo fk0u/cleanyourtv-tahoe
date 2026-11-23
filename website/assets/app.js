@@ -331,7 +331,7 @@
 
   // GitHub stars & contributors
   const gh = p => fetch("https://api.github.com/repos/" + REPO + p, { headers: { Accept: "application/vnd.github+json" } }).then(r => r.ok ? r.json() : Promise.reject(r.status));
-  gh("").then(r => { $("#stars").textContent = "★ " + (r.stargazers_count >= 1000 ? (r.stargazers_count / 1000).toFixed(1) + "k" : r.stargazers_count); }).catch(() => {});
+  gh("").then(r => { $("#stars-n").textContent = (r.stargazers_count >= 1000 ? (r.stargazers_count / 1000).toFixed(1) + "k" : r.stargazers_count); }).catch(() => {});
   gh("/contributors?per_page=60").then(list => {
     const people = list.filter(p => p.type === "User" && !/\[bot\]$|^ImgBotApp$/i.test(p.login));
     if (!people.length) return;
