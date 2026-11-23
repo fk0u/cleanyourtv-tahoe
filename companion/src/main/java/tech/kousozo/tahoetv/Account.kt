@@ -86,6 +86,19 @@ object Account {
 
     fun token(c: Context): String? = prefs(c).getString("token", null)?.let { unseal(it) }
     fun api(c: Context): AccountApi? = serverUrl(c).takeIf { it.isNotBlank() }?.let { runCatching { AccountApi(it, token(c), android.os.Build.MODEL) }.getOrNull() }
+    /** Tells the account what this phone just started playing, so the TV (and the Mac) can offer to carry on. Quiet if not signed in. */
+    fun publishNowPlaying(c: Context, channelId: String, url: String, name: String) {
+        if (!signedIn || !prefs(c).getBoolean("handoff", true)) return
+        val key = "$channelId|$url"
+        if (key == lastPublished) return
+        lastPublished = key
+        val a = api(c) ?: return
+        kotlin.concurrent.thread { runCatching { a.setHandoff(tech.kousozo.tahoetv.core.Handoff(channelId, url, name, android.os.Build.MODEL, "phone")) } }
+    }
+    private var lastPublished = ""
+    fun handoffOn(c: Context) = prefs(c).getBoolean("handoff", true)
+    fun setHandoffOn(c: Context, on: Boolean) { prefs(c).edit().putBoolean("handoff", on).apply() }
+
     fun available(c: Context) = serverUrl(c).isNotBlank()
 
     private fun dir(c: Context) = File(c.filesDir, "account").apply { mkdirs() }
@@ -289,6 +302,8 @@ fun AccountPage() {
                         colors = SliderDefaults.colors(thumbColor = Tahoe.Accent, activeTrackColor = Tahoe.Accent))
                 }
                 SwitchMenuRow(Icons.Rounded.Animation, t("motion"), p.reduceMotion) { save(p.copy(reduceMotion = it)) }
+                var handoff by remember { mutableStateOf(Account.handoffOn(c)) }
+                SwitchMenuRow(Icons.Rounded.Devices, t("handoff_on"), handoff) { handoff = it; Account.setHandoffOn(c, it) }
             }
             MenuGroup(t("on_tv")) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

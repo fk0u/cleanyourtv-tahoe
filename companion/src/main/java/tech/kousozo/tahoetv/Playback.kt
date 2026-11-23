@@ -314,6 +314,7 @@ object Playback {
         entry = e; slate = null; autoRetries = 0; retryIn = 0; sawRecording = false
         MobileLivePreview.syncProbeGate()
         Channels.remember(c, e)
+        Account.publishNowPlaying(c, e.channel.channelId, e.channel.url, e.name)
         val fallbackStream = tech.kousozo.tahoetv.core.OttEngine.findFallbackStream(e.channel)
         val raw = (listOf(e.channel) + e.alternates + listOfNotNull(fallbackStream)).distinctBy { it.url }
         val app = c.applicationContext
