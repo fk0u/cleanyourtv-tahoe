@@ -216,7 +216,29 @@ fun UpdateCard() {
     }
 }
 
+/** Throws when [apk] is not a genuine update of this app (other package, unsigned, or signed by someone else). */
+@Suppress("DEPRECATION")
+private fun requireGenuineUpdate(c: Context, apk: File) {
+    val pm = c.packageManager
+    val flags = if (android.os.Build.VERSION.SDK_INT >= 28) android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES else android.content.pm.PackageManager.GET_SIGNATURES
+    fun hex(s: android.content.pm.Signature) = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
+    fun current(pi: android.content.pm.PackageInfo): Set<String> =
+        if (android.os.Build.VERSION.SDK_INT >= 28) pi.signingInfo?.apkContentsSigners?.map(::hex)?.toSet().orEmpty()
+        else pi.signatures?.map(::hex)?.toSet().orEmpty()
+    fun history(pi: android.content.pm.PackageInfo): Set<String> =
+        if (android.os.Build.VERSION.SDK_INT >= 28 && pi.signingInfo?.hasMultipleSigners() == false) pi.signingInfo?.signingCertificateHistory?.map(::hex)?.toSet().orEmpty() else emptySet()
+    val mine = pm.getPackageInfo(c.packageName, flags)
+    val cand = pm.getPackageArchiveInfo(apk.absolutePath, flags)
+    val v = tech.kousozo.tahoetv.core.ApkTrust.verdict(c.packageName, cand?.packageName, current(mine), cand?.let(::current).orEmpty(), cand?.let(::history).orEmpty())
+    if (v != tech.kousozo.tahoetv.core.ApkTrust.Verdict.OK) {
+        apk.delete()
+        tech.kousozo.tahoetv.core.DiagLog.add("update", "refused ${apk.name}: $v")
+        throw SecurityException(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "update.untrusted"))
+    }
+}
+
 fun install(c: Context, apk: File) {
+    requireGenuineUpdate(c, apk)
     val pi = c.packageManager.packageInstaller
     val id = pi.createSession(PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL))
     pi.openSession(id).use { s ->
