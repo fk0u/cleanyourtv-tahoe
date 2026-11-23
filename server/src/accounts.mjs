@@ -87,6 +87,7 @@ export function sniffImage(buf) {
 class Window {
   constructor(max, ms) { this.max = max; this.ms = ms; this.m = new Map(); }
   hit(key, now = Date.now()) {
+    if (this.m.size > 5000) for (const [k, v] of this.m) if (now - v.at >= this.ms) this.m.delete(k); // forget old keys: no unbounded growth
     const r = this.m.get(key);
     if (!r || now - r.at >= this.ms) { this.m.set(key, { at: now, n: 1 }); return true; }
     r.n += 1;
