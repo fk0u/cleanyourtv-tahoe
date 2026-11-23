@@ -1004,7 +1004,7 @@ public class Home extends Activity {
         String w = cur == null ? "" : Math.round(cur.optDouble("temperature_2m")) + "° " + Weather.text(this, cur.optInt("weather_code"));
         Object[] n = Prayer.next(this);
         String p = n == null ? "" : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_prayer_in", String.valueOf(n[0]), Prayer.countdown(this, (Long) n[1]));
-        String meta = (phoneMedia != null ? "♪ " + phoneMedia.optString("title") + " — " + phoneMedia.optString("artist") + "  ·  " : "") + p;
+        String meta = (phoneMedia != null ? phoneMedia.optString("title") + " — " + phoneMedia.optString("artist") + "  ·  " : "") + p;
         hero.text(date + (w.isEmpty() ? "" : "  ·  " + w), Cfg.s(this, "city", R.string.city), meta);
     }
 

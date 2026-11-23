@@ -581,7 +581,7 @@ public class LiveTv extends Activity {
         return off != C.TIME_UNSET && off > 15 * 60_000L;
     }
 
-    /** ⏪ / ⏩ within what the server keeps (the live window); past the live edge it jumps back to live. */
+    /** Rewind / fast-forward within what the server keeps (the live window); past the live edge it jumps back to live. */
     void seekRel(long ms) {
         if (player == null || index < 0) return;
         long pos = player.getCurrentPosition(), off = player.getCurrentLiveOffset();
@@ -595,10 +595,10 @@ public class LiveTv extends Activity {
     /** How far behind live the current source aims to play (the chosen latency). */
     private long targetOffsetMs = 20_000;
 
-    /** "● LIVE", or how far behind the live point we are (after ⏪ or a pause). */
+    /** "● LIVE", or how far behind the live point we are (after a rewind or a pause). */
     String liveLabel() {
         String lang = TvViewer.get(this).getLanguage();
-        if (player == null || !player.getPlayWhenReady()) return "⏸ " + I18n.get(lang, "tv.live_paused");
+        if (player == null || !player.getPlayWhenReady()) return I18n.get(lang, "tv.live_paused"); // the pause icon is drawn next to it by the caller
         long off = player.getCurrentLiveOffset();
         if (off == C.TIME_UNSET || off < targetOffsetMs + 20_000) return "● LIVE";
         long sec = Math.max(0, off - targetOffsetMs) / 1000; // the chosen latency is the normal cushion
@@ -679,7 +679,8 @@ public class LiveTv extends Activity {
                 + (sources > 1 ? "  ·  " + I18n.get(lang, "tv.live_sources_fmt", String.valueOf(sources)) : "")
                 + (e.getNear() ? "  ·  " + I18n.get(lang, "ch.near_badge") : ""));
         bCat.setText(catLbl);
-        bOffset.setText(liveLabel());
+        boolean paused = player == null || !player.getPlayWhenReady();
+        bOffset.setText(paused ? Ui.iconText(bOffset, R.drawable.ic_pause, 0xCCFFFFFF, liveLabel()) : liveLabel());
         if (pauseBtn != null) pauseBtn.setText(I18n.get(lang, player != null && !player.getPlayWhenReady() ? "tv.po_play" : "tv.po_pause"));
         buildUpNext();
         Ui.bindLogo(e.getChannel().getLogo(), logo, logoText, e.getName());
@@ -808,8 +809,10 @@ public class LiveTv extends Activity {
         LinearLayout line = new LinearLayout(this); line.setGravity(Gravity.CENTER_VERTICAL);
         bClock = otv("", 21, 500, 0xFFFFFFFF);
         line.addView(bClock);
-        String hint = "▲▼ " + I18n.get(lang, "tv.live_key_switch") + "   ·   OK " + I18n.get(lang, "tv.live_key_guide") + "   ·   ⏪⏩ " + I18n.get(lang, "tv.live_key_seek");
-        TextView hintTv = otv(hint, 21, 500, 0x8CFFFFFF); hintTv.setGravity(Gravity.CENTER);
+        TextView hintTv = otv("", 21, 500, 0x8CFFFFFF); hintTv.setGravity(Gravity.CENTER);
+        android.text.SpannableStringBuilder hint = new android.text.SpannableStringBuilder("▲▼ " + I18n.get(lang, "tv.live_key_switch") + "   ·   OK " + I18n.get(lang, "tv.live_key_guide") + "   ·   ");
+        hint.append(Ui.iconText(hintTv, R.drawable.ic_rewind, 0x8CFFFFFF, "")).append(Ui.iconText(hintTv, R.drawable.ic_forward, 0x8CFFFFFF, "")).append(" " + I18n.get(lang, "tv.live_key_seek"));
+        hintTv.setText(hint);
         line.addView(hintTv, new LinearLayout.LayoutParams(0, -2, 1));
         bOffset = otv("", 21, 500, 0xCCFFFFFF);
         line.addView(bOffset);
@@ -895,7 +898,7 @@ public class LiveTv extends Activity {
     boolean guideDirty = true;
     int renderedEnd = 0;
 
-    /** Guide: ★ Favorit, Terakhir ditonton, then a windowed slice of every channel (expanded on scroll/focus). */
+    /** Guide: favourites, Terakhir ditonton, then a windowed slice of every channel (expanded on scroll/focus). */
     void buildRows() {
         rows.removeAllViews();
         guideDirty = false;
@@ -941,7 +944,7 @@ public class LiveTv extends Activity {
             Epg.Programme p = s != null && !s.isEmpty() && !s.get(0).getStart().isAfter(now) ? s.get(0) : null;
             boolean reminded = next != null && Reminder.isSet(this, e.getChannel().getUrl(), next.getStart().toEpochMilli());
             sub.setTextColor(reminded ? Ui.ACCENT : Ui.TEXT_3);
-            sub.setText(reminded ? "🔔 " + hm().format(next.getStart()) + "  " + next.getTitle()
+            sub.setText(reminded ? Ui.iconText(sub, R.drawable.ic_bell, Ui.ACCENT, hm().format(next.getStart()) + "  " + next.getTitle())
                     : p != null ? p.getTitle() : OnboardingText.INSTANCE.category(TvViewer.get(this).getLanguage(), e.getCategory()));
         }
     }
@@ -986,13 +989,13 @@ public class LiveTv extends Activity {
         boolean reminded = nx != null && Reminder.isSet(this, e.getChannel().getUrl(), nx.getStart().toEpochMilli());
         TextView sub = Ui.text(this, TvViewer.simpleMode(this) ? 16 : Ui.CAPTION, 500, reminded ? Ui.ACCENT : Ui.TEXT_3); sub.setShadowLayer(0, 0, 0, 0);
         sub.setTag("sub");
-        sub.setText(reminded ? "🔔 " + hm().format(nx.getStart()) + "  " + nx.getTitle()
+        sub.setText(reminded ? Ui.iconText(sub, R.drawable.ic_bell, Ui.ACCENT, hm().format(nx.getStart()) + "  " + nx.getTitle())
                 : p != null ? p.getTitle() : OnboardingText.INSTANCE.category(lang, e.getCategory()));
         col.addView(name); col.addView(sub);
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -2, 1); cp.leftMargin = (int) dp(12);
         r.addView(col, cp);
         TextView star = Ui.text(this, Ui.BODY, 700, Ui.SUN);
-        star.setText("★");
+        star.setText(Ui.iconText(star, R.drawable.ic_star_filled, Ui.SUN, ""));
         star.setTag("star");
         star.setVisibility(fav.contains(e.getChannel().getUrl()) ? View.VISIBLE : View.GONE);
         r.addView(star);

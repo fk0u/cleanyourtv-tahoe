@@ -183,7 +183,7 @@ public class Live extends Activity {
         TextView recB = panelButton(I18n.get(lang, "tv.live_record_btn"), false, () -> { if (cur != null) { if (preview != null) preview.stop();
             startActivity(new Intent(this, LiveTv.class).putExtra("url", cur.getChannel().getUrl()).putExtra("record", true)); } });
         LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-2, -2); rl.setMarginStart(px(12)); btns.addView(recB, rl);
-        TextView favB = panelButton("☆ " + I18n.get(lang, "tv.fav_short"), false, () -> { if (cur != null) { toggleFav(cur); detail(cur); } });
+        TextView favB = panelButton(I18n.get(lang, "tv.fav_short"), false, () -> { if (cur != null) { toggleFav(cur); detail(cur); } }); favB.setText(Ui.iconText(favB, R.drawable.ic_star, 0xFFF7F8FA, favB.getText()));
         favB.setTag("fav");
         LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(-2, -2); fl.setMarginStart(px(12)); btns.addView(favB, fl);
         favBtn = favB;
@@ -459,7 +459,7 @@ public class Live extends Activity {
         cur = e;
         if (favBtn != null) {
             boolean isFav0 = prefs.getStringSet("fav", new java.util.HashSet<>()).contains(e.getChannel().getUrl());
-            favBtn.setText((isFav0 ? "★ " : "☆ ") + I18n.get(lang, "tv.fav_short"));
+            favBtn.setText(Ui.iconText(favBtn, isFav0 ? R.drawable.ic_star_filled : R.drawable.ic_star, isFav0 ? Ui.SUN : 0xFFF7F8FA, I18n.get(lang, "tv.fav_short")));
         }
         List<Epg.Programme> s = epg == null ? new ArrayList<>() : epg.schedule(e.getName(), now, e.getChannel().getTvgId());
         Epg.Programme p = onAir(e, now);

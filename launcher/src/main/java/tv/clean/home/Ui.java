@@ -189,4 +189,37 @@ final class Ui {
             }
         });
     }
+
+    /** An icon in the middle of a line of text, tinted and sized to the text: replaces emoji and symbol glyphs, which look different on every TV. */
+    private static final class IconSpan extends android.text.style.ImageSpan {
+        IconSpan(Drawable d) { super(d, ALIGN_BOTTOM); }
+        @Override public void draw(android.graphics.Canvas canvas, CharSequence text, int start, int end, float x, int top, int y, int bottom, android.graphics.Paint paint) {
+            Drawable d = getDrawable();
+            android.graphics.Paint.FontMetricsInt fm = paint.getFontMetricsInt();
+            int centre = y + (fm.descent + fm.ascent) / 2;
+            canvas.save(); canvas.translate(x, centre - d.getBounds().height() / 2f); d.draw(canvas); canvas.restore();
+        }
+    }
+
+    private static CharSequence iconSpan(Context c, int res, float sizePx, int color) {
+        Drawable d = c.getResources().getDrawable(res, null).mutate();
+        d.setTint(color); int s = Math.round(sizePx); d.setBounds(0, 0, s, s);
+        android.text.SpannableString sp = new android.text.SpannableString("\u00A0");
+        sp.setSpan(new IconSpan(d), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return sp;
+    }
+
+    /** [icon] [text] — the icon at the front, as tall as [t]'s text. */
+    static CharSequence iconText(TextView t, int res, int color, CharSequence text) {
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder(iconSpan(t.getContext(), res, t.getTextSize() * 1.05f, color));
+        if (text != null && text.length() > 0) b.append("  ").append(text);
+        return b;
+    }
+
+    /** [text] [icon] — the icon at the end (a selected mark). */
+    static CharSequence textIcon(TextView t, CharSequence text, int res, int color) {
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder(text);
+        b.append("   ").append(iconSpan(t.getContext(), res, t.getTextSize() * 1.05f, color));
+        return b;
+    }
 }

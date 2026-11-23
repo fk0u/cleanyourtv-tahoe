@@ -164,7 +164,7 @@ final class ConnectSheets {
             add(new Sheets.Item(R.drawable.ic_tv, I18n.get(lang, "device.display"),
                     sp.getWidthPx() + "×" + sp.getHeightPx() + " @ " + sp.getRefreshHz() + " Hz" + (sp.getHdrSupported() ? " · HDR" : ""), null),
                 new Sheets.Item(R.drawable.ic_play, I18n.get(lang, "device.codecs"),
-                    "HEVC:" + (sp.getHwHevc() ? "✓" : "–") + "  AV1:" + (sp.getHwAv1() ? "✓" : "–") + "  AC3:" + (sp.getHwAc3() ? "✓" : "–"), null));
+                    "HEVC: " + I18n.get(lang, sp.getHwHevc() ? "common.yes" : "common.no") + "   AV1: " + I18n.get(lang, sp.getHwAv1() ? "common.yes" : "common.no") + "   AC3: " + I18n.get(lang, sp.getHwAc3() ? "common.yes" : "common.no"), null));
             long bootMs = DeviceProfile.INSTANCE.getStartupMs();
             add(new Sheets.Item(R.drawable.ic_clock, I18n.get(lang, "device.startup_latency"),
                     bootMs >= 0 ? (bootMs + " ms") : "—", null).wide());

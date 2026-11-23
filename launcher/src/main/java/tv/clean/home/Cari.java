@@ -70,7 +70,7 @@ final class Cari extends FrameLayout implements Sheet {
         LinearLayout bottom = new LinearLayout(h);
         TextView space = key(I18n.get(lang, "tv.cari_space"), 300, 24, 400); space.setOnClickListener(v -> { query.append(' '); update(); });
         TextView del = key(I18n.get(lang, "tv.cari_delete"), 200, 24, 400); del.setOnClickListener(v -> { if (query.length() > 0) query.setLength(query.length() - 1); update(); });
-        TextView voice = key("🎤 " + I18n.get(lang, "tv.cari_voice"), 232, 24, 400); voice.setOnClickListener(v -> { home.closeSheet(); home.openAssistant(); });
+        TextView voice = key(I18n.get(lang, "tv.cari_voice"), 232, 24, 400); voice.setText(Ui.iconText(voice, R.drawable.ic_mic, 0xFFF7F8FA, voice.getText())); voice.setOnClickListener(v -> { home.closeSheet(); home.openAssistant(); });
         bottom.addView(space, new LinearLayout.LayoutParams(px(300), px(84)));
         LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(px(200), px(84)); dl.setMarginStart(px(12)); bottom.addView(del, dl);
         LinearLayout.LayoutParams vl = new LinearLayout.LayoutParams(px(232), px(84)); vl.setMarginStart(px(12)); bottom.addView(voice, vl);

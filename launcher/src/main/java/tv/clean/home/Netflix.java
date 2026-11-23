@@ -29,7 +29,7 @@ final class Netflix {
                 v.id = String.valueOf(m.optLong("id"));
                 v.title = m.optString("title", m.optString("name"));
                 String year = m.optString("release_date", m.optString("first_air_date", ""));
-                v.channel = (year.length() >= 4 ? year.substring(0, 4) + "  ·  " : "") + "★ " + String.format(java.util.Locale.US, "%.1f", m.optDouble("vote_average"));
+                v.channel = (year.length() >= 4 ? year.substring(0, 4) + "  ·  " : "") + "TMDB " + String.format(java.util.Locale.US, "%.1f", m.optDouble("vote_average"));
                 v.views = m.optString("overview");
                 v.thumb = new File(dir, v.id + ".jpg");
                 if (v.thumb.exists()) out.add(v);

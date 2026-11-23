@@ -186,25 +186,25 @@ public class Onboarding extends Activity {
         title.setText(t(ts[0])); sub.setText(t(ts[1]));
         switch (step) {
             case LANGUAGE:
-                for (String l : Region.INSTANCE.getLANGUAGES()) row(OnboardingText.INSTANCE.getLANGUAGE_NAMES().get(l), null, l.equals(language), () -> { language = l; postRender(); });
-                row(tech.kousozo.tahoetv.core.I18n.get(language, "qr.setup_web_btn"), "📱", false, this::showSetupQr);
-                if (!TvViewer.done(this)) note("📱 " + phoneHint());
+                for (String l : Region.INSTANCE.getLANGUAGES()) row(OnboardingText.INSTANCE.getLANGUAGE_NAMES().get(l), 0, l.equals(language), () -> { language = l; postRender(); });
+                row(tech.kousozo.tahoetv.core.I18n.get(language, "qr.setup_web_btn"), R.drawable.ic_smartphone, false, this::showSetupQr);
+                if (!TvViewer.done(this)) note(phoneHint());
                 break;
             case COUNTRY: countryList(false); break;
             case CITY: cityStep(); break;
             case TIMEZONE: zoneStep(); break;
             case PRAYER:
-                row(t("prayer.on") + (prayer ? "  ●" : "  ○"), null, prayer, () -> { prayer = !prayer; postRender(); });
+                row(t("prayer.on") + (prayer ? "  ●" : "  ○"), 0, prayer, () -> { prayer = !prayer; postRender(); });
                 if (prayer) {
                     boolean wakeOn = Cfg.p(this).getBoolean("prayer_wake_screen", true);
                     row(tech.kousozo.tahoetv.core.I18n.get(language, "tv.prayer_wake_screen") + (wakeOn ? "  ●" : "  ○"),
-                            "🌙", wakeOn, () -> { Cfg.p(this).edit().putBoolean("prayer_wake_screen", !wakeOn).apply(); postRender(); });
+                            R.drawable.ic_moon, wakeOn, () -> { Cfg.p(this).edit().putBoolean("prayer_wake_screen", !wakeOn).apply(); postRender(); });
                 }
                 if (prayer && lat == null) note(t("prayer.needcity"));
                 if (prayer) {
                     note(t("prayer.method"));
                     for (tech.kousozo.tahoetv.core.Prayer.Method m : tech.kousozo.tahoetv.core.Prayer.INSTANCE.getMETHODS())
-                        row(m.getName(), null, m.getId() == method, () -> { method = m.getId(); postRender(); });
+                        row(m.getName(), 0, m.getId() == method, () -> { method = m.getId(); postRender(); });
                 }
                 break;
             case COUNTRIES: countryList(true); break;
@@ -213,7 +213,7 @@ public class Onboarding extends Activity {
                     if (cat == LocalTv.Category.Other) continue;
                     if ((cat == LocalTv.Category.Tvri || cat == LocalTv.Category.Near) && !countries.contains(Region.HOME)) continue;
                     boolean on = categories.contains(cat.name());
-                    row(OnboardingText.INSTANCE.category(language, cat), null, on, () -> { if (!categories.remove(cat.name())) categories.add(cat.name()); postRender(); });
+                    row(OnboardingText.INSTANCE.category(language, cat), 0, on, () -> { if (!categories.remove(cat.name())) categories.add(cat.name()); postRender(); });
                 }
                 break;
             case FAVORITES: favoritesStep(); break;
@@ -281,7 +281,7 @@ public class Onboarding extends Activity {
         top.addAll(rest);
         for (Region.Country c : top) {
             boolean sel = multi ? countries.contains(c.getCode()) : c.getCode().equals(country);
-            row(c.getFlag() + "   " + c.getName(), null, sel, c.getCode(), () -> {
+            row(c.getFlag() + "   " + c.getName(), 0, sel, c.getCode(), () -> {
                 if (multi) { if (countries.contains(c.getCode())) { if (countries.size() > 1) countries.remove(c.getCode()); } else countries.add(c.getCode()); }
                 else if (!c.getCode().equals(country)) {
                     country = c.getCode(); prayer = Region.prayerByDefault(country); method = tech.kousozo.tahoetv.core.Prayer.methodFor(country);
@@ -298,13 +298,13 @@ public class Onboarding extends Activity {
     int citySearch;
 
     void cityStep() {
-        if (lat != null) row("📍  " + city + ", " + Region.name(country, language) + "   ✕", null, true, () -> {
+        if (lat != null) row(city + ", " + Region.name(country, language), R.drawable.ic_map_pin, true, R.drawable.ic_close, null, () -> {
             city = ""; lat = null; lon = null; region = ""; timeZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(country); postRender(); // OK again clears it
         });
         else {
             note(t("city.none"));
             for (tech.kousozo.tahoetv.core.CountryCatalog.CityOption s : tech.kousozo.tahoetv.core.CountryCatalog.suggestedCities(country, language)) {
-                row("📍  " + s.label(), null, false, () -> {
+                row(s.label(), R.drawable.ic_map_pin, false, () -> {
                     city = s.getCity(); lat = s.getLat(); lon = s.getLon(); region = s.getRegion();
                     timeZone = s.getZoneId();
                     postRender();
@@ -322,7 +322,7 @@ public class Onboarding extends Activity {
                     if (mine != citySearch || step != Step.CITY) return; // a newer search, or the viewer moved on
                     while (list.getChildCount() > baseCount[0]) list.removeViewAt(baseCount[0]);
                     if (found.isEmpty()) note(t("city.empty"));
-                    for (Web.City c : found) row("📍  " + c.getLabel(), null, false, () -> {
+                    for (Web.City c : found) row(c.getLabel(), R.drawable.ic_map_pin, false, () -> {
                         city = c.getName(); lat = c.getLat(); lon = c.getLon(); region = c.getRegion();
                         if (!c.getTimeZone().isEmpty()) timeZone = c.getTimeZone();
                         postRender();
@@ -337,12 +337,12 @@ public class Onboarding extends Activity {
         String defZone = tech.kousozo.tahoetv.core.CountryCatalog.defaultZone(country);
         String device = java.util.TimeZone.getDefault().getID();
         String picked = timeZone.isEmpty() ? defZone : timeZone;
-        row("📺  " + defZone.replace('_', ' ') + "  " + offset(defZone), null, picked.equals(defZone), () -> { timeZone = defZone; postRender(); });
+        row(defZone.replace('_', ' ') + "  " + offset(defZone), R.drawable.ic_tv, picked.equals(defZone), () -> { timeZone = defZone; postRender(); });
         if (!device.equals(defZone)) {
-            row("📺  " + t("tz.device").replace("%s", device), null, timeZone.equals(device), () -> { timeZone = device; postRender(); });
+            row(t("tz.device").replace("%s", device), R.drawable.ic_tv, timeZone.equals(device), () -> { timeZone = device; postRender(); });
         }
         if (!timeZone.isEmpty() && !timeZone.equals(defZone) && !timeZone.equals(device)) {
-            row(timeZone.replace('_', ' ') + "  " + offset(timeZone), null, true, () -> {});
+            row(timeZone.replace('_', ' ') + "  " + offset(timeZone), 0, true, () -> {});
         }
         final int[] baseCount = new int[1];
         searchField(t("search"), q -> {
@@ -354,7 +354,7 @@ public class Onboarding extends Activity {
             zones.add(0, "UTC");
             for (String z : zones) {
                 if ((!z.contains("/") && !z.equals("UTC")) || z.startsWith("Etc/") || z.startsWith("SystemV/") || !z.toLowerCase(Locale.ROOT).contains(qq)) continue;
-                row(z.replace('_', ' ') + "  " + offset(z), null, z.equals(picked), () -> { timeZone = z; postRender(); });
+                row(z.replace('_', ' ') + "  " + offset(z), 0, z.equals(picked), () -> { timeZone = z; postRender(); });
                 if (++n >= 40) break;
             }
         }, false);
@@ -404,7 +404,7 @@ public class Onboarding extends Activity {
             if (!q.isEmpty() && !e.getName().toLowerCase(Locale.ROOT).contains(q)) continue;
             String url = e.getChannel().getUrl();
             boolean on = favorites.contains(url);
-            row((on ? "♥  " : "♡  ") + e.getName(), null, on, url, () -> { if (!favorites.remove(url)) favorites.add(url); refreshFavs(); });
+            row(e.getName(), on ? R.drawable.ic_heart_filled : R.drawable.ic_heart, on, url, () -> { if (!favorites.remove(url)) favorites.add(url); refreshFavs(); });
             if (++n >= 150) break;
         }
     }
@@ -420,7 +420,7 @@ public class Onboarding extends Activity {
             final int at = i;
             String url = favorites.get(i);
             String name = names.containsKey(url) ? names.get(url) : url.substring(url.lastIndexOf('/') + 1);
-            TextView r = row((i + 1) + ".  " + name + (moving == i ? "   ▲▼" : ""), null, moving == i, () -> { moving = moving == at ? -1 : at; postRender(); });
+            TextView r = row((i + 1) + ".  " + name + (moving == i ? "   ▲▼" : ""), 0, moving == i, () -> { moving = moving == at ? -1 : at; postRender(); });
             r.setOnKeyListener((v, code, ev) -> {
                 if (moving != at || ev.getAction() != KeyEvent.ACTION_DOWN) return false;
                 int to = code == KeyEvent.KEYCODE_DPAD_UP ? at - 1 : code == KeyEvent.KEYCODE_DPAD_DOWN ? at + 1 : -2;
@@ -457,12 +457,17 @@ public class Onboarding extends Activity {
     /** Row to focus after the list is rebuilt (the one just toggled), by key. */
     String focusKey;
 
-    TextView row(String text, String icon, boolean selected, Runnable onClick) { return row(text, icon, selected, null, onClick); }
+    TextView row(String text, int icon, boolean selected, Runnable onClick) { return row(text, icon, selected, null, onClick); }
 
-    TextView row(String text, String icon, boolean selected, String key, Runnable onClick) {
+    TextView row(String text, int icon, boolean selected, String key, Runnable onClick) { return row(text, icon, selected, 0, key, onClick); }
+
+    /** [icon] at the front (0 = none) and [tail] at the end (0 = none; a check when selected and no tail). */
+    TextView row(String text, int icon, boolean selected, int tail, String key, Runnable onClick) {
         TextView r = otv(30, 600, 0xFFF7F8FA);
         r.setSingleLine(); r.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        r.setText((icon == null ? "" : icon + "  ") + text + (selected ? "   ✓" : ""));
+        CharSequence label = icon == 0 ? text : Ui.iconText(r, icon, 0xFFF7F8FA, text);
+        int end = tail != 0 ? tail : selected ? R.drawable.ic_check : 0;
+        r.setText(end == 0 ? label : Ui.textIcon(r, label, end, 0xFFF7F8FA));
         r.setPadding(px(36), px(28), px(36), px(28));
         r.setFocusable(true); r.setClickable(true); r.setTag(selected);
         GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(px(28));
@@ -499,7 +504,7 @@ public class Onboarding extends Activity {
     void searchField(String hint, OnText on) { searchField(hint, on, true); }
     void searchField(String hint, OnText on, boolean live) {
         EditText e = new EditText(this);
-        e.setHint("🔍  " + hint); e.setHintTextColor(0x99F7F8FA); e.setTextColor(0xFFF7F8FA); e.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 30 * S * 1.15f); e.setTypeface(Ui.font(this, 600));
+        e.setHint(Ui.iconText(e, R.drawable.ic_search_cari, 0x99F7F8FA, hint)); e.setHintTextColor(0x99F7F8FA); e.setTextColor(0xFFF7F8FA); e.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 30 * S * 1.15f); e.setTypeface(Ui.font(this, 600));
         e.setSingleLine(); e.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
         e.setPadding(px(36), px(22), px(36), px(22));
         GradientDrawable bg = new GradientDrawable(); bg.setCornerRadius(px(999)); bg.setColor(0x1AFFFFFF); bg.setStroke(Math.max(2, px(3)), 0xFF5CD0FF);
