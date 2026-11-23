@@ -156,11 +156,7 @@ object DesktopPush {
     fun dismissUpdateModal() {
         val rel = latestRelease
         val (curVer, curCode) = appVersion()
-        val pol = policy
-        val newer = rel != null && Updates.newer(rel.version, curVer)
-        val mandatory = (pol.minVersionCode > 0 && curCode < pol.minVersionCode) ||
-            (pol.forceModal && newer) ||
-            (rel?.forceModal == true && newer)
+        val mandatory = ControlPlane.isMandatory(curVer, curCode, rel)
         if (mandatory) return
         rel?.version?.takeIf { it.isNotBlank() }?.let { ControlPlane.markUpdateModalDismissed(storageDir, it) }
         showUpdateModal = false
