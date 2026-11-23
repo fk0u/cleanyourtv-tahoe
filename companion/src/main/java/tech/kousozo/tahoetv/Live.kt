@@ -1294,12 +1294,16 @@ fun PlayerStatsSheet(onDismiss: () -> Unit) {
 private fun ChannelSlate(e: LocalTv.Entry, reason: tech.kousozo.tahoetv.core.Slate.Reason, full: Boolean, zap: (Int) -> Unit) {
     val c = LocalContext.current
     val lang = PhoneRegion.language
-    val order = tech.kousozo.tahoetv.core.Slate.order(lang)
     val logo = rememberNetImage(e.channel.logo)
+    var wording by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Playback.retryIn) { if (Playback.retryIn == tech.kousozo.tahoetv.core.Slate.RETRY_SECONDS) wording++ } // new wording on each retry
+    LaunchedEffect(e.name) { Chime.noSignal(e.name) }
+    DisposableEffect(Unit) { onDispose { Chime.stop() } }
     Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(tech.kousozo.tahoetv.core.Brand.LAKE_DEEP), Color(tech.kousozo.tahoetv.core.Brand.NIGHT), Color(tech.kousozo.tahoetv.core.Brand.CANVAS))))
         .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
         Column(Modifier.align(Alignment.Center).padding(horizontal = 16.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(if (full) 10.dp else 4.dp)) {
+            if (full) BrandMark(44.dp)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.size(if (full) 48.dp else 28.dp).clip(RoundedCornerShape(if (full) 10.dp else 6.dp)).background(Color.White.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
                     if (logo != null) androidx.compose.foundation.Image(logo, null, Modifier.fillMaxSize().padding(3.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
@@ -1307,13 +1311,13 @@ private fun ChannelSlate(e: LocalTv.Entry, reason: tech.kousozo.tahoetv.core.Sla
                 }
                 Text(e.name, color = Color.White, fontSize = if (full) 20.sp else 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text(tech.kousozo.tahoetv.core.Slate.message(order[0]), color = Color.White, fontSize = if (full) 16.sp else 12.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = if (full) 3 else 2, overflow = TextOverflow.Ellipsis)
-            val others = order.drop(1).joinToString("  ·  ") { tech.kousozo.tahoetv.core.Slate.message(it) }
-            Text(others, color = Color.White.copy(alpha = 0.62f), fontSize = if (full) 13.sp else 10.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = if (full) 2 else 1, overflow = TextOverflow.Ellipsis)
+            Text(tech.kousozo.tahoetv.core.Slate.headline(lang, wording), color = Color.White, fontSize = if (full) 16.sp else 12.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = if (full) 4 else 2, overflow = TextOverflow.Ellipsis)
+            if (full) Text(tech.kousozo.tahoetv.core.Slate.follow(lang), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp,
+                textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.clickable(role = Role.Button) { runCatching { c.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(tech.kousozo.tahoetv.core.Brand.WHATSAPP_CHANNEL))) } }.padding(vertical = 8.dp))
             val whenText = if (Playback.retryIn > 0) tech.kousozo.tahoetv.core.Slate.label(lang, "trying") else tech.kousozo.tahoetv.core.Slate.label(lang, "waiting")
-            Text(tech.kousozo.tahoetv.core.Slate.reason(order.first(), reason) + "  ·  " + whenText,
+            Text(tech.kousozo.tahoetv.core.Slate.reason(lang, reason) + "  ·  " + whenText,
                 color = Color.White.copy(alpha = 0.62f), fontSize = if (full) 13.sp else 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = if (full) 6.dp else 2.dp)) {
                 SlateButton(tech.kousozo.tahoetv.core.Slate.label(lang, "retry"), Icons.Rounded.Refresh, full, primary = true) { Playback.retry(c) }

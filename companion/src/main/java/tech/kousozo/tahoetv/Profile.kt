@@ -454,6 +454,7 @@ fun ProfileScreen() {
             MenuGroup(I18n.get(lang, "profile.community")) {
                 MenuRow(Icons.Rounded.Star, I18n.get(lang, "profile.star"), tint = Color(Brand.SUN)) { open(c, REPO) }
                 MenuRow(Icons.Rounded.Groups, I18n.get(lang, "profile.contributors")) { Nav.page = "contributors" }
+                MenuRow(Icons.Rounded.Chat, tech.kousozo.tahoetv.core.Slate.follow(lang)) { open(c, Brand.WHATSAPP_CHANNEL) }
             }
             MenuGroup(null) { MenuRow(Icons.Rounded.Settings, I18n.get(lang, "nav.prefs")) { Nav.page = "settings" } }
             Column(
