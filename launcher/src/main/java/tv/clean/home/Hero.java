@@ -361,6 +361,8 @@ final class Hero extends FrameLayout {
 
     /** Preview the first of [sources] that plays: the channel's own and backups, then the next channels'. */
     void previewChannels(java.util.List<M3u.Channel> sources) {
+        Home h = Home.live;
+        if (h != null && !h.previewAllowed()) { stopPreview(); return; } // not while onboarding, the profile picker, or another screen is in front
         if (livePreview != null) {
             previewBadge.setText("● " + I18n.get(TvViewer.get(getContext()).getLanguage(), "tv.live_preview"));
             livePreview.focus(sources);

@@ -156,8 +156,14 @@ public class Home extends Activity {
         }, e -> { }, () -> warming = false);
     }
 
+    private boolean resumed;
+
+    /** The live picture (and its sound) may play only while the home screen is in front, set up, and past the profile picker. */
+    boolean previewAllowed() { return resumed && TvViewer.done(this) && profiles == null; }
+
     @Override protected void onResume() {
         super.onResume();
+        resumed = true;
         if (!TvGuard.isAndroidTv(this)) return;
         updateFocusBlocking();
         // first run (#77): onboarding until it's done, also after Home was pressed in the middle of it
@@ -174,9 +180,11 @@ public class Home extends Activity {
             dockLayer.animate().translationY(0).alpha(1).setDuration(Ui.SLOW).setInterpolator(Ui.out()).start();
         }
         refreshData(false);
+        if (previewAllowed()) renderHero(); // back from onboarding or an app: the live picture starts again
     }
 
     @Override protected void onPause() {
+        resumed = false;
         if (hero != null) hero.stopPreview();
         super.onPause();
     }
