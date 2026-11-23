@@ -26,6 +26,8 @@ class LocalTvTest {
         assertEquals(Category.Entertainment, cat("tvN HD", "Entertainment"))
         assertEquals("TVRI Kalimantan Timur", LocalTv.cleanName("TVRI East Kalimantan (720p) [Not 24/7]"))
         assertEquals("RCTI", LocalTv.cleanName("RCTI HD (R+)"))
+        assertEquals("RCTI", LocalTv.cleanName("RCTI R+"))     // the same channel carried by the R+ service
+        assertEquals("MNCTV", LocalTv.cleanName("MNC TV R+"))
         assertEquals("Trans7", LocalTv.cleanName("TRANS 7 TV"))
         assertEquals("MNCTV", LocalTv.cleanName("MNC TV HD"))
         assertEquals("RTV", LocalTv.cleanName("RTV (Channel Feed))"))
@@ -55,5 +57,18 @@ class LocalTvTest {
         assertEquals(Category.National, arranged.first { it.name == "PBS National" }.category)
         assertEquals(Category.News, arranged.first { it.name == "ABC News" }.category)
         assertEquals(Category.Entertainment, arranged.first { it.name == "FTV" }.category)
+    }
+
+    @Test fun rctiAndRctiRPlusAreOneChannelWithTwoSources() {
+        val entries = LocalTv.arrange(
+            listOf(
+                M3u.Channel("RCTI R+", "https://rplus.example/rcti.m3u8", null, "Saluran Nasional"),
+                M3u.Channel("RCTI HD", "https://cdn.example/rcti.m3u8", null, "General"),
+            ), null, listOf("id"),
+        )
+        val rcti = entries.filter { it.name.startsWith("RCTI") }
+        assertEquals(1, rcti.size)
+        assertEquals("RCTI", rcti.single().name)
+        assertEquals(1, rcti.single().alternates.size)
     }
 }

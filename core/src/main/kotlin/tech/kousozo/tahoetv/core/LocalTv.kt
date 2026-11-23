@@ -106,11 +106,13 @@ object LocalTv {
     private val CLEAN_PARENS = Regex("""\s*\([^)]*\)\)?""")
     private val CLEAN_QUALITY = Regex("""\s+(HD|FHD|SD)\b""", RegexOption.IGNORE_CASE)
     private val CLEAN_CAD = Regex("""\s+cad$""", RegexOption.IGNORE_CASE)
+    /** "RCTI R+" is the same RCTI, just carried by the R+ service: a trailing "R+" is not part of the channel's name. */
+    private val CLEAN_RPLUS = Regex("""\s+R\+$""", RegexOption.IGNORE_CASE)
 
     /** "TVRI East Java (720p) [Not 24/7]" → "TVRI Jawa Timur"; "RCTI HD (R+)" → "RCTI"; "Trans 7 TV" → "Trans7". */
     fun cleanName(raw: String): String {
         var n = raw.replace(CLEAN_BRACKETS, "").replace(CLEAN_PARENS, "")
-            .replace(CLEAN_QUALITY, "").replace(CLEAN_CAD, "").trim()
+            .replace(CLEAN_QUALITY, "").replace(CLEAN_CAD, "").replace(CLEAN_RPLUS, "").trim()
         if (n.startsWith("TVRI ", true)) TVRI_ID[n.substring(5).lowercase()]?.let { n = "TVRI $it" }
         return ALIAS[n.lowercase()] ?: n
     }
