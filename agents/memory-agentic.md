@@ -2,7 +2,7 @@
 
 ```
 01010100 01000001 01001000 01001111 01000101   ; "TAHOE"
-⟦MEM v1 · scope=repo:fk0u/cleanyourtv-tahoe · ts=2026-11-13 · ttl=∞ · trust=verified-in-code⟧
+⟦MEM v1 · scope=repo:fk0u/tahoe-tv · ts=2026-11-13 · ttl=∞ · trust=verified-in-code⟧
 ```
 
 > Dense, agent-readable memory. One fact per line. `⊢` = verified fact, `⚑` = rule, `△` = open risk, `→` = pointer.

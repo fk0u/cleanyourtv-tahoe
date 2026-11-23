@@ -16,7 +16,7 @@ keep going after being asked to stop.
 
 Maintainers may edit or remove comments, commits and issues, and may block people who break these rules.
 Report problems privately to the maintainer through GitHub ([@fk0u](https://github.com/fk0u)) or a
-[private security advisory](https://github.com/fk0u/cleanyourtv-tahoe/security/advisories/new) if it's sensitive.
+[private security advisory](https://github.com/fk0u/tahoe-tv/security/advisories/new) if it's sensitive.
 Reports are kept confidential.
 
 Based on the spirit of the [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
@@ -35,7 +35,7 @@ data pribadi orang lain; atau terus melakukannya setelah diminta berhenti.
 
 Maintainer boleh menyunting atau menghapus komentar, commit, dan issue, serta memblokir orang yang melanggar aturan ini.
 Laporkan masalah secara privat ke maintainer lewat GitHub ([@fk0u](https://github.com/fk0u)) atau lewat
-[security advisory privat](https://github.com/fk0u/cleanyourtv-tahoe/security/advisories/new) bila sensitif.
+[security advisory privat](https://github.com/fk0u/tahoe-tv/security/advisories/new) bila sensitif.
 Laporan dijaga kerahasiaannya.
 
 Mengikuti semangat [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).

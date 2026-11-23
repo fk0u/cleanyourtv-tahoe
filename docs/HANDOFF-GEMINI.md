@@ -9,7 +9,7 @@
 | Hal | Status |
 | --- | --- |
 | Versi di `gradle.properties` | `tahoe.version=3.5.0`, `tahoe.versionCode=32` |
-| Rilis terakhir | [v3.5.0-alpha.12](https://github.com/fk0u/cleanyourtv-tahoe/releases/tag/v3.5.0-alpha.12), judul "v3.500.12 Alpha Dev", prerelease, 8 aset (2 APK TV, APK HP, DMG arm64 + Intel, MSI, DEB, SHA256SUMS). Semua job CI hijau. |
+| Rilis terakhir | [v3.5.0-alpha.12](https://github.com/fk0u/tahoe-tv/releases/tag/v3.5.0-alpha.12), judul "v3.500.12 Alpha Dev", prerelease, 8 aset (2 APK TV, APK HP, DMG arm64 + Intel, MSI, DEB, SHA256SUMS). Semua job CI hijau. |
 | Kenapa bukan 3.500.12 | Installer Windows (MSI) membatasi angka tengah ≤ 255. Pemilik repo memilih tag `3.5.0-alpha.12` dengan judul rilis "v3.500.12 Alpha Dev". |
 | Figma | [tahoeApp](https://www.figma.com/design/W3FBycV5KKVCD5RWHDk3kV/tahoeApp), file key `W3FBycV5KKVCD5RWHDk3kV` |
 | Permintaan terakhir pemilik | "Tampilan aplikasi semuanya harus sama seperti di Figma." Baru 5 layar HP yang selesai (lihat §5). |

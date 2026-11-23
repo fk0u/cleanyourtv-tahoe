@@ -7,9 +7,9 @@ broken channels, translations, channels for your country, design, docs or code. 
 comment on an issue so others know you're on it.
 
 ## Report a bug or a broken channel
-1. Check the [existing issues](https://github.com/fk0u/cleanyourtv-tahoe/issues) first.
+1. Check the [existing issues](https://github.com/fk0u/tahoe-tv/issues) first.
 2. Grab a log from the app: **Send log** (phone: Remote · TV: Control Center · desktop: Settings → Help).
-3. Open a [new issue](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose) and pick a template. Issues in English or Indonesian are both fine.
+3. Open a [new issue](https://github.com/fk0u/tahoe-tv/issues/new/choose) and pick a template. Issues in English or Indonesian are both fine.
 
 Security problems go to [SECURITY.md](SECURITY.md), never to a public issue.
 
@@ -27,8 +27,8 @@ Code structure and flows: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Light enough for a 1 GB TV:** the launcher uses Android Views (not Compose), no real-time blur, no heavy polling. Measure before adding a dependency.
 - **`minSdk 26` (Android 8), tested on Android 9.** Avoid newer APIs without a version check (e.g. `InputStream.readNBytes` only exists from Android 13).
 - Logic used by more than one app goes in `:core` (pure JVM, no Android APIs), with tests.
-- UI text: short and clear. Strings live in `:core` (`I18n`, `OnboardingText`) for trilingual support (`en`, `id`, `zh`); new screens should localize all copy ([#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)).
-- Screenshots & PR media: use the real app with real data, but never include real faces, personal photos, or personal names — crop or blur them first ([#99](https://github.com/fk0u/cleanyourtv-tahoe/issues/99)).
+- UI text: short and clear. Strings live in `:core` (`I18n`, `OnboardingText`) for trilingual support (`en`, `id`, `zh`); new screens should localize all copy ([#56](https://github.com/fk0u/tahoe-tv/issues/56)).
+- Screenshots & PR media: use the real app with real data, but never include real faces, personal photos, or personal names — crop or blur them first ([#99](https://github.com/fk0u/tahoe-tv/issues/99)).
 - Privacy: never log tokens, keys or personal data; URLs in logs go through `DiagLog.redact`.
 
 ## Translations
@@ -36,7 +36,7 @@ Code structure and flows: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Docs:** copy a file into `docs/<language-code>/` (e.g. `docs/es/INSTALL.md`), translate it, link it from the README's documentation table.
 - **README:** add `README.<language-code>.md` and a link in the language switcher at the top of each README.
 - **Website:** add your language to the `I18N` table in `website/assets/i18n.js` (copy the `id` block as a template; missing keys fall back to English).
-- **Apps:** follow [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56) and [#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71).
+- **Apps:** follow [#56](https://github.com/fk0u/tahoe-tv/issues/56) and [#71](https://github.com/fk0u/tahoe-tv/issues/71).
 
 ## Send a pull request
 1. Fork and branch from `main`.
@@ -44,7 +44,7 @@ Code structure and flows: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 3. Add a line to `CHANGELOG.md` under `## Belum dirilis` for changes users will notice (English is fine).
 4. Make sure the tests pass. PRs run CI and get reviewed (including an automated review).
 
-Good places to start: [`good first issue`](https://github.com/fk0u/cleanyourtv-tahoe/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/cleanyourtv-tahoe/labels/help%20wanted) · [`i18n`](https://github.com/fk0u/cleanyourtv-tahoe/labels/i18n).
+Good places to start: [`good first issue`](https://github.com/fk0u/tahoe-tv/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/tahoe-tv/labels/help%20wanted) · [`i18n`](https://github.com/fk0u/tahoe-tv/labels/i18n).
 
 ## Channels & sources
 Tahoe only uses **free** broadcasts from public sources and hosts no streams. Don't propose paid, pirated or rights-infringing sources.

@@ -6,7 +6,7 @@ Contents: [From your phone](#install-from-your-phone-no-computer) · [From a com
 [Remote control](#remote-control) · [Phone ↔ TV](#phone--tv) · [Configuration](#configuration) · [API keys](#api-keys-optional) ·
 [Wallpaper & photos](#wallpaper--photos) · [Kids profile](#kids-profile) · [Send log](#send-log) · [Debloat](#debloat) · [Restore the TV](#restore-the-tv)
 
-> The apps' text is in Indonesian for now (English: [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)). Menu
+> The apps' text is in Indonesian for now (English: [#56](https://github.com/fk0u/tahoe-tv/issues/56)). Menu
 > names below give the English meaning with the Indonesian label in brackets where it helps.
 
 ## Install from your phone (no computer)
@@ -14,7 +14,7 @@ Contents: [From your phone](#install-from-your-phone-no-computer) · [From a com
 The recommended way. You need an Android phone on the same Wi-Fi as the TV.
 
 1. On the TV: **Settings → Device Preferences → About → press "Build" 7×**, then **Developer options → USB debugging: ON**.
-2. On your Android phone or tablet: install [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) (**Tahoe TV**) and open the **Install** (*Pasang*) tab.
+2. On your Android phone or tablet: install [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) (**Tahoe TV**) and open the **Install** (*Pasang*) tab.
 3. The app scans the Wi-Fi and lists the TVs it finds (ADB port 5555, and TVs already running Tahoe via `/info`). You can also type an IP.
 4. The TV shows **"Allow USB debugging?"**: tick *Always allow*, then **OK**.
 5. Choose which built-in apps to turn off, then fill in your name, city (searched automatically), photo, dock and API keys (optional), and tap **Install to TV**.
@@ -25,8 +25,8 @@ Change settings any time by turning debugging back on and opening the app. **Res
 Under the hood: ADB over Wi-Fi ([dadb](https://github.com/mobile-dev-inc/dadb)) with the phone's own key. Settings go to the
 receiver `tech.kousozo.tahoetv.launcher/tv.clean.home.Config`, which only the ADB shell can call.
 
-> TV box without a debugging option? See [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26) (Tahoe as a standalone app) and
-> [#36](https://github.com/fk0u/cleanyourtv-tahoe/issues/36) (first setup through a local web page / QR).
+> TV box without a debugging option? See [#26](https://github.com/fk0u/tahoe-tv/issues/26) (Tahoe as a standalone app) and
+> [#36](https://github.com/fk0u/tahoe-tv/issues/36) (first setup through a local web page / QR).
 
 ## Install from a computer (ADB)
 
@@ -34,7 +34,7 @@ You need Python 3, JDK 17 and the Android SDK (platform 36, build-tools 34+). Th
 Turn on USB debugging on the TV as above.
 
 ```bash
-git clone https://github.com/fk0u/cleanyourtv-tahoe.git && cd cleanyourtv-tahoe
+git clone https://github.com/fk0u/tahoe-tv.git && cd tahoe-tv
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp secrets.example.properties secrets.properties     # optional: API keys
 export TV_HOST=192.168.1.50                           # your TV's IP
@@ -59,7 +59,7 @@ Public build without keys: `./gradlew -PpublicBuild assembleRelease` (keys are t
 
 ## Desktop app
 
-Download from [Releases](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest): `TahoeTV-macos-arm64.dmg` (Apple Silicon),
+Download from [Releases](https://github.com/fk0u/tahoe-tv/releases/latest): `TahoeTV-macos-arm64.dmg` (Apple Silicon),
 `TahoeTV-macos-intel.dmg`, `TahoeTV-windows.msi`, or `TahoeTV-linux-amd64.deb` (Debian / Ubuntu amd64).
 
 - **macOS:** the app isn't notarized by Apple yet. The first time: right-click the app → **Open** → **Open**.
@@ -89,7 +89,7 @@ Control Center (◀ ▶).
 
 ## Phone ↔ TV
 
-- **Phone & Tablet app** (`TahoeTV-Phone-and-Tablet.apk`, label **Tahoe TV**): pair with the **QR code** on the TV (Control Center → Phone) or a 6-digit code. It has responsive phone & tablet Live TV (including fullscreen landscape), the remote, install/set up the TV, notifications inbox, Send log, and the Kids PIN. (**Android TV Only:** install [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Android-TV.apk) — label **Tahoe TV Launcher** — directly on Android TV/Box via USB or ADB.)
+- **Phone & Tablet app** (`TahoeTV-Phone-and-Tablet.apk`, label **Tahoe TV**): pair with the **QR code** on the TV (Control Center → Phone) or a 6-digit code. It has responsive phone & tablet Live TV (including fullscreen landscape), the remote, install/set up the TV, notifications inbox, Send log, and the Kids PIN. (**Android TV Only:** install [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Android-TV.apk) — label **Tahoe TV Launcher** — directly on Android TV/Box via USB or ADB.)
 - **Web (any phone, nothing to install):** open the address shown on the TV for a remote, gamepad, app list, send a link, ask the assistant, send photos and upload an adhan sound.
 - **Phone notifications & music on the TV:** in the phone app, allow notification access. The TV shows notifications and what's playing, with play/pause/next in Control Center.
 - **Security:** LAN only (port 8765). Every phone needs a token from a one-time code. **Menu** on the TV's "Connect phone" screen forgets all phones.
@@ -112,7 +112,7 @@ Dock changes made with the hold-OK menu are saved on the TV per profile.
 
 **Live TV:** channels come from [iptv-org](https://github.com/iptv-org/iptv), [dhanytv](https://github.com/dhasap/dhanytv) (free Indonesian TV part) and
 [yositapjani](https://github.com/yositapjani/iptv-indonesia). Your own playlist: phone app (URL) or desktop (Settings → Add playlist file).
-Channels for other countries are planned in [#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71); until then, add an
+Channels for other countries are planned in [#71](https://github.com/fk0u/tahoe-tv/issues/71); until then, add an
 [iptv-org country playlist](https://github.com/iptv-org/iptv#grouped-by-country) (e.g. `https://iptv-org.github.io/iptv/countries/us.m3u`) as your own playlist.
 
 ## API keys (optional)
@@ -137,7 +137,7 @@ Gemini's Google Search grounding has its own quota. When it runs out (429), the 
   sips -s format jpeg -z 1080 1920 photo.jpg --out wallpapers/01.jpg
   .venv/bin/python tools/tv.py --push /sdcard/Android/data/tech.kousozo.tahoetv.launcher/files/wallpapers wallpapers/01.jpg
   ```
-- Built-in wallpapers from a free photo API are planned in [#39](https://github.com/fk0u/cleanyourtv-tahoe/issues/39).
+- Built-in wallpapers from a free photo API are planned in [#39](https://github.com/fk0u/tahoe-tv/issues/39).
 
 ## Kids profile
 

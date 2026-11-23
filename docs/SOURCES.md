@@ -38,7 +38,7 @@ Every public source passes through [`Sources.free()`](../core/src/main/kotlin/te
 
 If you are a broadcaster, rights holder, or authorized representative and believe a public stream URL included via any built-in source should not be reachable through Tahoe TV:
 
-1. **Report here:** Open a [GitHub issue](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose) (or email/contact the maintainer listed in [MAINTAINERS.md](../MAINTAINERS.md)) with the **channel name**, **stream URL / host**, and **proof of authority**.
+1. **Report here:** Open a [GitHub issue](https://github.com/fk0u/tahoe-tv/issues/new/choose) (or email/contact the maintainer listed in [MAINTAINERS.md](../MAINTAINERS.md)) with the **channel name**, **stream URL / host**, and **proof of authority**.
 2. **Removal within 7 days:** Verified exclusion requests (blocking a host/channel or updating source group filters) are applied and merged within **7 calendar days**.
 3. **Upstream removal:** Because built-in lists originate from community indexers (`iptv-org`, etc.), please also file a removal request upstream (for instance at [iptv-org/iptv](https://github.com/iptv-org/iptv/issues)) so the link is removed across all players that read those public indexes.
 
@@ -79,7 +79,7 @@ Setiap sumber publik disaring oleh [`Sources.free()`](../core/src/main/kotlin/te
 
 Apabila Anda pemegang hak siar atau pihak resmi stasiun TV dan menemukan tautan siaran yang perlu diblokir atau dihapus dari konfigurasi bawaan Tahoe TV:
 
-1. Buka [GitHub issue baru](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose) (atau hubungi maintainer di [MAINTAINERS.md](../MAINTAINERS.md)) dengan menyertakan **nama saluran**, **URL/domain sumber**, dan **bukti kewenangan**.
+1. Buka [GitHub issue baru](https://github.com/fk0u/tahoe-tv/issues/new/choose) (atau hubungi maintainer di [MAINTAINERS.md](../MAINTAINERS.md)) dengan menyertakan **nama saluran**, **URL/domain sumber**, dan **bukti kewenangan**.
 2. Permintaan yang terverifikasi akan ditindaklanjuti (penambahan aturan filter/penghapusan sumber) dalam **7 hari kalender**.
 3. Silakan laporkan juga ke repositori hulu seperti [iptv-org/iptv](https://github.com/iptv-org/iptv/issues) agar tautan terhapus di sumber asalnya.
 
@@ -109,6 +109,6 @@ Tahoe TV 仅是一个开源的 Android TV 桌面、遥控器与播放器前端�
 
 如果您是广播机构或版权方代表，希望从 Tahoe TV 的默认公开源过滤列表中添加屏蔽或移除特定频道/域名：
 
-1. 请提交 [GitHub Issue](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose) 或联系 [MAINTAINERS.md](../MAINTAINERS.md) 中的维护者，附带**频道名称**、**流媒体域名或 URL** 以及**权属证明**。
+1. 请提交 [GitHub Issue](https://github.com/fk0u/tahoe-tv/issues/new/choose) 或联系 [MAINTAINERS.md](../MAINTAINERS.md) 中的维护者，附带**频道名称**、**流媒体域名或 URL** 以及**权属证明**。
 2. 核实后的下架请求将在 **7 个自然日**内完成屏蔽更新。
 3. 同时建议向上游社区清单（例如 [iptv-org/iptv](https://github.com/iptv-org/iptv/issues)）提交移除请求，以便从源头索引中删除。

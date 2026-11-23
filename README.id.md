@@ -12,17 +12,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest"><img alt="Rilis terbaru" src="https://img.shields.io/github/v/release/fk0u/cleanyourtv-tahoe?label=rilis&color=00B8D9"></a>
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases"><img alt="Unduhan" src="https://img.shields.io/github/downloads/fk0u/cleanyourtv-tahoe/total?label=unduhan&color=3DDC84"></a>
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/fk0u/cleanyourtv-tahoe?style=flat&color=F5B301"></a>
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/graphs/contributors"><img alt="Kontributor" src="https://img.shields.io/github/contributors/fk0u/cleanyourtv-tahoe?label=kontributor&color=9B5DE5"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/releases/latest"><img alt="Rilis terbaru" src="https://img.shields.io/github/v/release/fk0u/tahoe-tv?label=rilis&color=00B8D9"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/releases"><img alt="Unduhan" src="https://img.shields.io/github/downloads/fk0u/tahoe-tv/total?label=unduhan&color=3DDC84"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/fk0u/tahoe-tv?style=flat&color=F5B301"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/graphs/contributors"><img alt="Kontributor" src="https://img.shields.io/github/contributors/fk0u/tahoe-tv?label=kontributor&color=9B5DE5"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-Android%20TV%20%7C%20Android%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux-555">
   <a href="LICENSE"><img alt="Lisensi MIT" src="https://img.shields.io/badge/lisensi-MIT-lightgrey"></a>
   <a href="docs/id/CONTRIBUTING.md"><img alt="PR dipersilakan" src="https://img.shields.io/badge/PR-dipersilakan-30D158"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest"><b>⬇️ Unduh</b></a> ·
+  <a href="https://github.com/fk0u/tahoe-tv/releases/latest"><b>⬇️ Unduh</b></a> ·
   <a href="https://tahoe.kousozo.tech/?lang=id">🌐 Situs web</a> ·
   <a href="#mulai-dalam-5-menit">Mulai</a> ·
   <a href="#fitur">Fitur</a> ·
@@ -35,7 +35,7 @@
 > **Tahoe TV adalah proyek open source komunitas untuk seluruh dunia.** Berlisensi MIT: bebas dipakai, dipelajari,
 > dikonfigurasi, di-fork, dan dirilis ulang versimu sendiri — dan pull request terbuka untuk siapa pun, dari mana pun,
 > dalam bahasa apa pun. Lahir di Indonesia, kini berbahasa English, Bahasa Indonesia, dan 中文, dengan saluran gratis
-> dari semua negara ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)). Mau negara atau bahasamu masuk? [Ayo ikut](#ikut-berkontribusi).
+> dari semua negara ([#71](https://github.com/fk0u/tahoe-tv/issues/71)). Mau negara atau bahasamu masuk? [Ayo ikut](#ikut-berkontribusi).
 
 ## Asal-usul proyek ini
 
@@ -66,12 +66,12 @@ dengan Live TV yang terasa seperti TV biasa (▲ ▼ untuk ganti saluran, jelas 
 
 | Saya punya… | Unduh | Lalu |
 |---|---|---|
-| **Android TV / TV box** (Mi TV Stick, Chromecast, dll.) | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) di HP Android (paling mudah) | Buka **Tahoe TV** → **Pasang** → pilih TV di Wi-Fi yang sama. **Tahoe TV Launcher** terpasang otomatis ([langkah lengkap](docs/id/INSTALL.md#pasang-dari-hp-tanpa-laptop)) |
-| **HP & Tablet Android** (Live TV + remote TV) | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | **Tahoe TV** khusus HP & Tablet Android (Live TV, layar penuh lanskap, remote sentuh, & pasang TV lewat Wi-Fi) |
-| **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | Buka → TV Live. Pertama kali: klik kanan → **Buka** (app belum dinotarisasi) |
-| **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | Pasang → TV Live |
-| **Debian / Ubuntu** (64-bit) | [`TahoeTV-linux-amd64.deb`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-linux-amd64.deb) | `sudo apt install ./TahoeTV-linux-amd64.deb` → TV Live |
-| Pasang **Khusus Android TV** manual (USB / ADB) | [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Android-TV.apk) | Memasang **Tahoe TV Launcher** khusus Android TV/Box (`leanback` wajib, bukan untuk HP) — lihat [docs/id/INSTALL.md](docs/id/INSTALL.md) |
+| **Android TV / TV box** (Mi TV Stick, Chromecast, dll.) | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) di HP Android (paling mudah) | Buka **Tahoe TV** → **Pasang** → pilih TV di Wi-Fi yang sama. **Tahoe TV Launcher** terpasang otomatis ([langkah lengkap](docs/id/INSTALL.md#pasang-dari-hp-tanpa-laptop)) |
+| **HP & Tablet Android** (Live TV + remote TV) | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | **Tahoe TV** khusus HP & Tablet Android (Live TV, layar penuh lanskap, remote sentuh, & pasang TV lewat Wi-Fi) |
+| **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-macos-intel.dmg) | Buka → TV Live. Pertama kali: klik kanan → **Buka** (app belum dinotarisasi) |
+| **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-windows.msi) | Pasang → TV Live |
+| **Debian / Ubuntu** (64-bit) | [`TahoeTV-linux-amd64.deb`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-linux-amd64.deb) | `sudo apt install ./TahoeTV-linux-amd64.deb` → TV Live |
+| Pasang **Khusus Android TV** manual (USB / ADB) | [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Android-TV.apk) | Memasang **Tahoe TV Launcher** khusus Android TV/Box (`leanback` wajib, bukan untuk HP) — lihat [docs/id/INSTALL.md](docs/id/INSTALL.md) |
 
 Pembaruan dan siaran pengumuman bekerja real-time: aplikasi TV, HP, dan desktop terhubung ke Control Plane (`https://tahoe.kousozo.tech`) dan rilis GitHub untuk pop-up modal pembaruan serta notifikasi push.
 
@@ -167,7 +167,7 @@ Mau menerjemahkan dokumen ke bahasamu? Taruh di `docs/<kode-bahasa>/` dan tautka
 - **Tanpa root:** Assistant, popup volume, dan Settings sistem tidak bisa diganti; tombol tidak bisa disuntik ke aplikasi lain (Back/Home tetap bisa).
 - **Notifikasi dari TV sendiri** diblokir firmware low-RAM. Solusinya app HP.
 - **Tidak meng-host siaran:** Tahoe TV tidak meng-host stream video/audio apa pun; saluran berasal dari playlist publik atau URL/file pengguna sendiri. Pemutaran DASH (`.mpd`) dan DRM (`ClearKey`, `Widevine`, `PlayReady`) membutuhkan kunci/lisensi yang valid dari sumber yang dikonfigurasi.
-- **Google TV dan webOS** belum didukung penuh: lihat [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) dan [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26).
+- **Google TV dan webOS** belum didukung penuh: lihat [#40](https://github.com/fk0u/tahoe-tv/issues/40) dan [#26](https://github.com/fk0u/tahoe-tv/issues/26).
 
 ## Ikut berkontribusi
 
@@ -176,10 +176,10 @@ rilis versimu sendiri dengan lisensi MIT, atau kirim perbaikanmu kembali ke sini
 pun — issue dan PR dalam English, Bahasa Indonesia, atau 中文 semuanya boleh. Bantuan apa pun berarti:
 
 - ⭐ **Beri bintang** repo ini kalau Tahoe TV berguna. Itu membantu orang lain menemukannya.
-- 🌍 **Terjemahkan** app atau dokumentasi, atau **tambahkan saluran negaramu** ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71), [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)).
-- 🐞 **Lapor bug:** pakai **Kirim log** di app, lalu buka [issue baru](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose).
-- 💡 **Ambil issue:** [`good first issue`](https://github.com/fk0u/cleanyourtv-tahoe/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/cleanyourtv-tahoe/labels/help%20wanted).
-- 💬 **Tanya atau diskusi** di [Discussions](https://github.com/fk0u/cleanyourtv-tahoe/discussions).
+- 🌍 **Terjemahkan** app atau dokumentasi, atau **tambahkan saluran negaramu** ([#71](https://github.com/fk0u/tahoe-tv/issues/71), [#56](https://github.com/fk0u/tahoe-tv/issues/56)).
+- 🐞 **Lapor bug:** pakai **Kirim log** di app, lalu buka [issue baru](https://github.com/fk0u/tahoe-tv/issues/new/choose).
+- 💡 **Ambil issue:** [`good first issue`](https://github.com/fk0u/tahoe-tv/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/tahoe-tv/labels/help%20wanted).
+- 💬 **Tanya atau diskusi** di [Discussions](https://github.com/fk0u/tahoe-tv/discussions).
 - 📣 **Kabar layanan:** ikuti [saluran TahoeTV OFFICIAL di WhatsApp](https://whatsapp.com/channel/0029VbE4YqRBvvsozUIyJ42n).
 - 📣 **Bagikan** ke grup Android TV, STB, atau komunitas IPTV.
 
@@ -189,12 +189,12 @@ Mulai dari [docs/id/CONTRIBUTING.md](docs/id/CONTRIBUTING.md). Celah keamanan le
 
 Terima kasih untuk semua yang sudah ikut membangun Tahoe TV:
 
-<a href="https://github.com/fk0u/cleanyourtv-tahoe/graphs/contributors">
-  <img alt="Kontributor" src="https://contrib.rocks/image?repo=fk0u/cleanyourtv-tahoe&max=100&columns=12">
+<a href="https://github.com/fk0u/tahoe-tv/graphs/contributors">
+  <img alt="Kontributor" src="https://contrib.rocks/image?repo=fk0u/tahoe-tv&max=100&columns=12">
 </a>
 
-<a href="https://star-history.com/#fk0u/cleanyourtv-tahoe&Date">
-  <img alt="Riwayat bintang" src="https://api.star-history.com/svg?repos=fk0u/cleanyourtv-tahoe&type=Date" width="600">
+<a href="https://star-history.com/#fk0u/tahoe-tv&Date">
+  <img alt="Riwayat bintang" src="https://api.star-history.com/svg?repos=fk0u/tahoe-tv&type=Date" width="600">
 </a>
 
 ## Kredit & lisensi

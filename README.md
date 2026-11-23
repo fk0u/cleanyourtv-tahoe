@@ -12,17 +12,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/fk0u/cleanyourtv-tahoe?label=release&color=00B8D9"></a>
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/fk0u/cleanyourtv-tahoe/total?label=downloads&color=3DDC84"></a>
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/fk0u/cleanyourtv-tahoe?style=flat&color=F5B301"></a>
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/fk0u/cleanyourtv-tahoe?color=9B5DE5"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/fk0u/tahoe-tv?label=release&color=00B8D9"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/fk0u/tahoe-tv/total?label=downloads&color=3DDC84"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/fk0u/tahoe-tv?style=flat&color=F5B301"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/fk0u/tahoe-tv?color=9B5DE5"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platform-Android%20TV%20%7C%20Android%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux-555">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-lightgrey"></a>
   <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-30D158"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest"><b>⬇️ Download</b></a> ·
+  <a href="https://github.com/fk0u/tahoe-tv/releases/latest"><b>⬇️ Download</b></a> ·
   <a href="https://tahoe.kousozo.tech">🌐 Website</a> ·
   <a href="#get-started-in-5-minutes">Get started</a> ·
   <a href="#features">Features</a> ·
@@ -35,7 +35,7 @@
 > **Tahoe TV is a worldwide, community open-source project.** It's MIT-licensed: use it, study it, configure it,
 > fork it and ship your own build — and pull requests are welcome from anyone, anywhere, in any language.
 > It started in Indonesia and now speaks English, Bahasa Indonesia and 中文, with free channels from every country
-> ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)). Want your country or language in? [Jump in](#contributing).
+> ([#71](https://github.com/fk0u/tahoe-tv/issues/71)). Want your country or language in? [Jump in](#contributing).
 
 ## Why this exists
 
@@ -66,12 +66,12 @@ where live TV behaves like a normal TV (▲ ▼ to change channel, a clear "what
 
 | I have… | Download | Then |
 |---|---|---|
-| **Android TV / TV box** (Mi TV Stick, Chromecast, …) | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) on an Android phone (easiest) | Open **Tahoe TV** → **Setup** → pick your TV on the same Wi-Fi. **Tahoe TV Launcher** installs automatically ([full steps](docs/INSTALL.md#install-from-your-phone-no-computer)) |
-| **An Android phone or tablet** (Live TV + TV remote) | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | **Tahoe TV** — mobile/tablet Live TV player (DASH/DRM + fullscreen), TV remote & Wi-Fi TV installer |
-| **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | Open → Live TV. First time: right-click → **Open** (not notarized yet) |
-| **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | Install → Live TV |
-| **Debian / Ubuntu** (64-bit) | [`TahoeTV-linux-amd64.deb`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-linux-amd64.deb) | `sudo apt install ./TahoeTV-linux-amd64.deb` → Live TV |
-| **Android TV only** via USB / ADB | [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Android-TV.apk) | Installs **Tahoe TV Launcher** directly on Android TV/Box (`leanback` required, not for phones) — see [docs/INSTALL.md](docs/INSTALL.md) |
+| **Android TV / TV box** (Mi TV Stick, Chromecast, …) | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) on an Android phone (easiest) | Open **Tahoe TV** → **Setup** → pick your TV on the same Wi-Fi. **Tahoe TV Launcher** installs automatically ([full steps](docs/INSTALL.md#install-from-your-phone-no-computer)) |
+| **An Android phone or tablet** (Live TV + TV remote) | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | **Tahoe TV** — mobile/tablet Live TV player (DASH/DRM + fullscreen), TV remote & Wi-Fi TV installer |
+| **Mac** (Apple Silicon / Intel) | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-macos-intel.dmg) | Open → Live TV. First time: right-click → **Open** (not notarized yet) |
+| **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-windows.msi) | Install → Live TV |
+| **Debian / Ubuntu** (64-bit) | [`TahoeTV-linux-amd64.deb`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-linux-amd64.deb) | `sudo apt install ./TahoeTV-linux-amd64.deb` → Live TV |
+| **Android TV only** via USB / ADB | [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Android-TV.apk) | Installs **Tahoe TV Launcher** directly on Android TV/Box (`leanback` required, not for phones) — see [docs/INSTALL.md](docs/INSTALL.md) |
 
 Updates and announcements work in real time: TV, phone and desktop apps check both GitHub releases and the Control Plane (`https://tahoe.kousozo.tech`), showing a pop-up update modal and real-time push notifications.
 
@@ -169,7 +169,7 @@ Translating a document into your language? Add it under `docs/<language-code>/` 
 - **No root:** the Assistant, volume popup and system Settings can't be replaced; keys can't be injected into other apps (Back/Home still work).
 - **Notifications from the TV itself** are blocked by low-RAM firmware; the phone app is the workaround.
 - **No hosted streams:** Tahoe TV hosts no video/audio streams; channels come from public playlists or user-configured URLs/files. In-app DASH (`.mpd`) and DRM (`ClearKey`, `Widevine`, `PlayReady`) require valid stream licenses/keys from the configured source.
-- **Google TV and webOS** aren't fully supported yet: see [#40](https://github.com/fk0u/cleanyourtv-tahoe/issues/40) and [#26](https://github.com/fk0u/cleanyourtv-tahoe/issues/26).
+- **Google TV and webOS** aren't fully supported yet: see [#40](https://github.com/fk0u/tahoe-tv/issues/40) and [#26](https://github.com/fk0u/tahoe-tv/issues/26).
 
 ## Contributing
 
@@ -178,10 +178,10 @@ version under the MIT license, or send your improvements back. Pull requests are
 PRs in English, Bahasa Indonesia or 中文 are all fine. Every kind of help counts:
 
 - ⭐ **Star** the repo if Tahoe TV is useful. It helps others find it.
-- 🌍 **Translate** the apps or docs, or **add your country's channels** ([#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71), [#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)).
-- 🐞 **Report bugs:** use **Send log** in the app, then open a [new issue](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose).
-- 💡 **Pick an issue:** [`good first issue`](https://github.com/fk0u/cleanyourtv-tahoe/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/cleanyourtv-tahoe/labels/help%20wanted).
-- 💬 **Ask or discuss** in [Discussions](https://github.com/fk0u/cleanyourtv-tahoe/discussions).
+- 🌍 **Translate** the apps or docs, or **add your country's channels** ([#71](https://github.com/fk0u/tahoe-tv/issues/71), [#56](https://github.com/fk0u/tahoe-tv/issues/56)).
+- 🐞 **Report bugs:** use **Send log** in the app, then open a [new issue](https://github.com/fk0u/tahoe-tv/issues/new/choose).
+- 💡 **Pick an issue:** [`good first issue`](https://github.com/fk0u/tahoe-tv/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/tahoe-tv/labels/help%20wanted).
+- 💬 **Ask or discuss** in [Discussions](https://github.com/fk0u/tahoe-tv/discussions).
 - 📣 **Service news:** follow the [TahoeTV OFFICIAL channel on WhatsApp](https://whatsapp.com/channel/0029VbE4YqRBvvsozUIyJ42n).
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). Security issues go to [SECURITY.md](SECURITY.md), never to public issues.
@@ -190,12 +190,12 @@ Start with [CONTRIBUTING.md](CONTRIBUTING.md). Security issues go to [SECURITY.m
 
 Thanks to everyone who has helped build Tahoe TV:
 
-<a href="https://github.com/fk0u/cleanyourtv-tahoe/graphs/contributors">
-  <img alt="Contributors" src="https://contrib.rocks/image?repo=fk0u/cleanyourtv-tahoe&max=100&columns=12">
+<a href="https://github.com/fk0u/tahoe-tv/graphs/contributors">
+  <img alt="Contributors" src="https://contrib.rocks/image?repo=fk0u/tahoe-tv&max=100&columns=12">
 </a>
 
-<a href="https://star-history.com/#fk0u/cleanyourtv-tahoe&Date">
-  <img alt="Star history" src="https://api.star-history.com/svg?repos=fk0u/cleanyourtv-tahoe&type=Date" width="600">
+<a href="https://star-history.com/#fk0u/tahoe-tv&Date">
+  <img alt="Star history" src="https://api.star-history.com/svg?repos=fk0u/tahoe-tv&type=Date" width="600">
 </a>
 
 ## Credits & license

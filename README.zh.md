@@ -12,16 +12,16 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest"><img alt="最新版本" src="https://img.shields.io/github/v/release/fk0u/cleanyourtv-tahoe?label=%E7%89%88%E6%9C%AC&color=00B8D9"></a>
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases"><img alt="下载量" src="https://img.shields.io/github/downloads/fk0u/cleanyourtv-tahoe/total?label=%E4%B8%8B%E8%BD%BD&color=3DDC84"></a>
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/fk0u/cleanyourtv-tahoe?style=flat&color=F5B301"></a>
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/graphs/contributors"><img alt="贡献者" src="https://img.shields.io/github/contributors/fk0u/cleanyourtv-tahoe?label=%E8%B4%A1%E7%8C%AE%E8%80%85&color=9B5DE5"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/releases/latest"><img alt="最新版本" src="https://img.shields.io/github/v/release/fk0u/tahoe-tv?label=%E7%89%88%E6%9C%AC&color=00B8D9"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/releases"><img alt="下载量" src="https://img.shields.io/github/downloads/fk0u/tahoe-tv/total?label=%E4%B8%8B%E8%BD%BD&color=3DDC84"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/fk0u/tahoe-tv?style=flat&color=F5B301"></a>
+  <a href="https://github.com/fk0u/tahoe-tv/graphs/contributors"><img alt="贡献者" src="https://img.shields.io/github/contributors/fk0u/tahoe-tv?label=%E8%B4%A1%E7%8C%AE%E8%80%85&color=9B5DE5"></a>
   <a href="LICENSE"><img alt="MIT 许可证" src="https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-lightgrey"></a>
   <a href="CONTRIBUTING.md"><img alt="欢迎 PR" src="https://img.shields.io/badge/PR-%E6%AC%A2%E8%BF%8E-30D158"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/fk0u/cleanyourtv-tahoe/releases/latest"><b>⬇️ 下载</b></a> ·
+  <a href="https://github.com/fk0u/tahoe-tv/releases/latest"><b>⬇️ 下载</b></a> ·
   <a href="https://tahoe.kousozo.tech">🌐 网站</a> ·
   <a href="#5-分钟上手">上手</a> ·
   <a href="#功能">功能</a> ·
@@ -34,7 +34,7 @@
 > **Tahoe TV 是一个面向全球的社区开源项目。** 采用 MIT 许可证：可以自由使用、学习、配置、fork，
 > 并发布你自己的版本——欢迎来自任何地方、使用任何语言的 Pull Request。项目起源于印度尼西亚，
 > 现已支持 English、Bahasa Indonesia 和 中文，并提供来自世界各国的免费频道
-> （[#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)）。想加入你的国家或语言？[来参与吧](#参与贡献)。
+> （[#71](https://github.com/fk0u/tahoe-tv/issues/71)）。想加入你的国家或语言？[来参与吧](#参与贡献)。
 
 ## 项目缘起
 
@@ -64,11 +64,11 @@ Tahoe TV 起初只是作者闲来无事做的一个业余项目——也源于�
 
 | 我有… | 下载 | 然后 |
 |---|---|---|
-| **Android TV / 电视盒子**（小米电视棒、Chromecast 等） | 在 Android 手机上安装 [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | 打开 **Tahoe TV** → **安装** → 选择同一 Wi-Fi 下的电视，**Tahoe TV Launcher** 将自动安装（[详细步骤](docs/INSTALL.md)） |
-| **Android 手机与平板**（观看直播 + 电视遥控） | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | **Tahoe TV** — 专为手机与平板打造（电视直播、横屏全屏、遥控与 Wi-Fi 安装电视） |
-| **仅限 Android TV** 手动安装 (USB / ADB) | [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-Android-TV.apk) | **Tahoe TV Launcher**（仅限 Android TV 电视/盒子，手机不可安装） |
-| **Mac**（Apple 芯片 / Intel） | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-macos-intel.dmg) | 打开 → 电视直播。首次打开：右键 → **打开**（应用尚未公证） |
-| **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/cleanyourtv-tahoe/releases/latest/download/TahoeTV-windows.msi) | 安装 → 电视直播 |
+| **Android TV / 电视盒子**（小米电视棒、Chromecast 等） | 在 Android 手机上安装 [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | 打开 **Tahoe TV** → **安装** → 选择同一 Wi-Fi 下的电视，**Tahoe TV Launcher** 将自动安装（[详细步骤](docs/INSTALL.md)） |
+| **Android 手机与平板**（观看直播 + 电视遥控） | [`TahoeTV-Phone-and-Tablet.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Phone-and-Tablet.apk) | **Tahoe TV** — 专为手机与平板打造（电视直播、横屏全屏、遥控与 Wi-Fi 安装电视） |
+| **仅限 Android TV** 手动安装 (USB / ADB) | [`TahoeTV-Android-TV.apk`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-Android-TV.apk) | **Tahoe TV Launcher**（仅限 Android TV 电视/盒子，手机不可安装） |
+| **Mac**（Apple 芯片 / Intel） | [`TahoeTV-macos-arm64.dmg`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-macos-arm64.dmg) · [`TahoeTV-macos-intel.dmg`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-macos-intel.dmg) | 打开 → 电视直播。首次打开：右键 → **打开**（应用尚未公证） |
+| **Windows 10/11** | [`TahoeTV-windows.msi`](https://github.com/fk0u/tahoe-tv/releases/latest/download/TahoeTV-windows.msi) | 安装 → 电视直播 |
 
 电视、手机和电脑端都会自动检查 GitHub 发布与控制平面（`https://tahoe.kousozo.tech`），支持弹窗更新提示与实时推送通知。
 
@@ -86,7 +86,7 @@ Tahoe TV 起初只是作者闲来无事做的一个业余项目——也源于�
 |---|---|
 | ![Mi TV Home](docs/screenshots/v3/mitv-home.png) | ![Mi TV Live Guide](docs/screenshots/v3/mitv-live-guide.png) |
 
-应用界面文字目前除首次设置外仍以印尼语为主，完整翻译正在进行中（[#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)）——欢迎帮忙翻译！
+应用界面文字目前除首次设置外仍以印尼语为主，完整翻译正在进行中（[#56](https://github.com/fk0u/tahoe-tv/issues/56)）——欢迎帮忙翻译！
 
 ## 功能
 
@@ -139,16 +139,16 @@ Tahoe TV **对全世界所有人免费开放**：fork 它、为你的国家或�
 或者把改进提交回来。欢迎任何人提交 Pull Request——用 English、Bahasa Indonesia 或 中文 提交 issue 和 PR 都可以。
 
 - ⭐ 觉得有用就点个 **Star**，让更多人发现它。
-- 🌍 **翻译**应用或文档，或**添加你所在国家的频道**（[#71](https://github.com/fk0u/cleanyourtv-tahoe/issues/71)、[#56](https://github.com/fk0u/cleanyourtv-tahoe/issues/56)）。
-- 🐞 **报告问题：** 在应用里使用"发送日志"，然后新建 [issue](https://github.com/fk0u/cleanyourtv-tahoe/issues/new/choose)。
-- 💡 **认领任务：** [`good first issue`](https://github.com/fk0u/cleanyourtv-tahoe/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/cleanyourtv-tahoe/labels/help%20wanted)。
+- 🌍 **翻译**应用或文档，或**添加你所在国家的频道**（[#71](https://github.com/fk0u/tahoe-tv/issues/71)、[#56](https://github.com/fk0u/tahoe-tv/issues/56)）。
+- 🐞 **报告问题：** 在应用里使用"发送日志"，然后新建 [issue](https://github.com/fk0u/tahoe-tv/issues/new/choose)。
+- 💡 **认领任务：** [`good first issue`](https://github.com/fk0u/tahoe-tv/labels/good%20first%20issue) · [`help wanted`](https://github.com/fk0u/tahoe-tv/labels/help%20wanted)。
 
 请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请通过 [SECURITY.md](SECURITY.md) 私下报告，不要公开发 issue。
 
 ### 贡献者
 
-<a href="https://github.com/fk0u/cleanyourtv-tahoe/graphs/contributors">
-  <img alt="贡献者" src="https://contrib.rocks/image?repo=fk0u/cleanyourtv-tahoe&max=100&columns=12">
+<a href="https://github.com/fk0u/tahoe-tv/graphs/contributors">
+  <img alt="贡献者" src="https://contrib.rocks/image?repo=fk0u/tahoe-tv&max=100&columns=12">
 </a>
 
 ## 致谢与许可

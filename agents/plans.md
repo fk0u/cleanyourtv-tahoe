@@ -68,7 +68,7 @@ security     per-device tokens (not in URL), role checks (Kids), pairing approve
 - **Trust and naming:**
   - SOURCES.md and a takedown process (#101);
   - brand wording without Apple vocabulary (#91).
-  - Decide on the repo rename `cleanyourtv-tahoe` → `tahoe-tv` (the owner's call).
+  - Repo renamed to `tahoe-tv` (done by the owner).
 
 ## 6 · What we won't do
 
