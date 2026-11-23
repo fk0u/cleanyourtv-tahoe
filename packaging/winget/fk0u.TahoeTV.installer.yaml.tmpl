@@ -1,0 +1,13 @@
+PackageIdentifier: fk0u.TahoeTV
+PackageVersion: @VERSION@
+InstallerType: wix
+Scope: user
+InstallModes: [interactive, silent]
+UpgradeBehavior: install
+MinimumOSVersion: 10.0.17763.0
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/fk0u/tahoe-tv/releases/download/v@VERSION@/TahoeTV-windows.msi
+    InstallerSha256: @SHA_MSI@
+ManifestType: installer
+ManifestVersion: 1.6.0

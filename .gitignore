@@ -34,3 +34,4 @@ RUAS_CONTEXT.md
 dist/
 # local test recordings (large, and screen recordings can show personal content)
 docs/test-recordings/
+packaging/out/
