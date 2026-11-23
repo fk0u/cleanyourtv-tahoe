@@ -271,6 +271,7 @@ export function createTahoeServer({
   releaseTtlMs = 5 * 60_000,
   channelsTtlMs = 15 * 60_000,
   secureCookies = true,
+  accounts = null,
 }) {
   const limiter = new LoginLimiter();
   const sseClients = new Set();
@@ -389,6 +390,7 @@ export function createTahoeServer({
     const method = req.method || "GET";
 
     try {
+      if (accounts && path.startsWith("/api/account") && (await accounts.handle(req, res, path, method, u))) return;
       // ------------------------------------------------------------- Health & Public
       if (method === "GET" && path === "/api/health") {
         return sendJson(res, 200, { ok: true, time: Date.now(), online_sse: sseClients.size }, cors);

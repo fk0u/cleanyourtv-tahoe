@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 import { openDb } from "./db.mjs";
 import { ensureBootstrapAdmin, resetAdminPassword } from "./auth.mjs";
 import { createTahoeServer } from "./app.mjs";
+import { createAccounts } from "./accounts.mjs";
+import { dirname } from "node:path";
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 3140);
@@ -24,8 +26,19 @@ if (ADMIN_USER && ADMIN_PASSWORD) {
   }
 }
 
+// Accounts stay off unless TAHOE_DATA_KEY (64 hex chars) is set. Registration is closed unless TAHOE_INVITE_CODE is set.
+const accounts = createAccounts({
+  db,
+  dataDir: process.env.TAHOE_DATA_DIR || dirname(DB_PATH),
+  dataKey: process.env.TAHOE_DATA_KEY || "",
+  inviteCode: process.env.TAHOE_INVITE_CODE || "",
+  registration: process.env.TAHOE_REGISTRATION || undefined,
+});
+console.log(`[tahoe-server] accounts: ${accounts.enabled ? accounts.mode : "off (no TAHOE_DATA_KEY)"}`);
+
 const server = createTahoeServer({
   db,
+  accounts,
   sessionSecret: SESSION_SECRET,
   secureCookies: process.env.TAHOE_INSECURE_COOKIES !== "1",
 });

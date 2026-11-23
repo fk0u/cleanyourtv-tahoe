@@ -265,3 +265,128 @@ test("catalogue counts are real: unique channels and the countries in their ids,
     assert.ok(j.updated_at);
   } finally { await srv.close(); }
 });
+
+// ------------------------------------------------------------------------------------------------ accounts
+import { createAccounts, sniffImage, seal, open as unseal } from "../src/accounts.mjs";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+async function startAccountServer(extra = {}) {
+  const db = openDb(":memory:");
+  const accounts = createAccounts({ db, dataDir: mkdtempSync(join(tmpdir(), "tahoe-acc-")), dataKey: "ab".repeat(32), inviteCode: "let-me-in-please", allowHttp: true, ...extra });
+  const server = createTahoeServer({ db, sessionSecret: "s".repeat(40), secureCookies: false, accounts, fetchCatalog: async () => ({}) });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const call = async (path, { method = "GET", body, token, raw, headers = {} } = {}) => {
+    const r = await fetch(base + path, { method, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body && !raw ? { "Content-Type": "application/json" } : {}), ...headers }, body: raw ?? (body ? JSON.stringify(body) : undefined) });
+    const buf = Buffer.from(await r.arrayBuffer());
+    let json = null; try { json = JSON.parse(buf.toString()); } catch { /* binary */ }
+    return { status: r.status, json, buf, headers: r.headers };
+  };
+  return { call, db, close: () => new Promise((r) => { server.closeAll(); server.close(() => { db.close(); r(); }); }) };
+}
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 7)]);
+
+test("accounts: register needs the invite, login is generic, tokens are stored hashed", async () => {
+  const s = await startAccountServer();
+  try {
+    const cred = { email: "Tester@Example.com", password: "correct horse battery" };
+    assert.equal((await s.call("/api/account/register", { method: "POST", body: cred })).status, 403);
+    const ok = await s.call("/api/account/register", { method: "POST", body: { ...cred, invite: "let-me-in-please" } });
+    assert.equal(ok.status, 201);
+    assert.equal(ok.json.user.email, "tester@example.com");
+    assert.equal((await s.call("/api/account/register", { method: "POST", body: { ...cred, invite: "let-me-in-please" } })).status, 409);
+    assert.equal((await s.call("/api/account/register", { method: "POST", body: { email: "x@y.zz", password: "short", invite: "let-me-in-please" } })).status, 400);
+    const bad = await s.call("/api/account/login", { method: "POST", body: { email: cred.email, password: "nope-nope-nope" } });
+    const ghost = await s.call("/api/account/login", { method: "POST", body: { email: "ghost@example.com", password: "nope-nope-nope" } });
+    assert.equal(bad.status, 401); assert.deepEqual(bad.json, ghost.json);
+    const login = await s.call("/api/account/login", { method: "POST", body: cred });
+    assert.equal(login.status, 200);
+    assert.match(login.json.token, /^tt_/);
+    assert.equal((await s.call("/api/account/me", { token: login.json.token })).json.user.email, "tester@example.com");
+    assert.equal((await s.call("/api/account/me")).status, 401);
+    assert.equal(s.db.prepare("SELECT COUNT(*) n FROM user_sessions WHERE token_hash = ?").get(login.json.token).n, 0, "raw token never stored");
+    assert.match(s.db.prepare("SELECT password FROM users").get().password, /^scrypt\$/);
+    assert.equal((await s.call("/api/account/logout", { method: "POST", token: login.json.token })).status, 200);
+    assert.equal((await s.call("/api/account/me", { token: login.json.token })).status, 401);
+  } finally { await s.close(); }
+});
+
+test("accounts: closed registration, HTTPS rule and missing key fail closed", async () => {
+  const closed = await startAccountServer({ inviteCode: "" });
+  try { assert.equal((await closed.call("/api/account/register", { method: "POST", body: { email: "a@b.cc", password: "long enough pw" } })).status, 403); } finally { await closed.close(); }
+  const nokey = await startAccountServer({ dataKey: "" });
+  try { assert.equal((await nokey.call("/api/account/login", { method: "POST", body: {} })).status, 503); } finally { await nokey.close(); }
+  const https = await startAccountServer({ allowHttp: false });
+  try {
+    assert.equal((await https.call("/api/account/login", { method: "POST", body: {}, headers: { "x-forwarded-proto": "http" } })).status, 403);
+    assert.notEqual((await https.call("/api/account/login", { method: "POST", body: {}, headers: { "x-forwarded-proto": "https" } })).status, 403);
+  } finally { await https.close(); }
+});
+
+test("accounts: login locks after repeated failures", async () => {
+  const s = await startAccountServer();
+  try {
+    await s.call("/api/account/register", { method: "POST", body: { email: "lock@example.com", password: "long enough pw", invite: "let-me-in-please" } });
+    let last = 0;
+    for (let i = 0; i < 10; i++) last = (await s.call("/api/account/login", { method: "POST", body: { email: "lock@example.com", password: "wrong-wrong" } })).status;
+    assert.equal(last, 429);
+  } finally { await s.close(); }
+});
+
+test("accounts: profile syncs with revisions, is sealed at rest, and files are private", async () => {
+  const s = await startAccountServer();
+  try {
+    const reg = async (email) => (await s.call("/api/account/register", { method: "POST", body: { email, password: "long enough pw", invite: "let-me-in-please" } })).json.token;
+    const a = await reg("a@example.com"); const b = await reg("b@example.com");
+    assert.deepEqual((await s.call("/api/account/profile", { token: a })).json, { rev: 0, settings: {} });
+    const put = await s.call("/api/account/profile", { method: "PUT", token: a, body: { settings: { theme: "dark", clock: 24 }, base_rev: 0 } });
+    assert.equal(put.json.rev, 1);
+    assert.equal((await s.call("/api/account/profile", { method: "PUT", token: a, body: { settings: { theme: "x" }, base_rev: 0 } })).status, 409);
+    assert.equal((await s.call("/api/account/profile", { token: a })).json.settings.theme, "dark");
+    assert.equal(Buffer.from(s.db.prepare("SELECT blob FROM user_profiles").get().blob).includes("dark"), false, "profile is encrypted at rest");
+    assert.equal((await s.call("/api/account/profile", { token: b })).json.rev, 0, "profiles are per user");
+
+    assert.equal((await s.call("/api/account/files?kind=avatar", { method: "POST", token: a, raw: Buffer.from("<script>alert(1)</script>") })).status, 415);
+    assert.equal((await s.call("/api/account/files?kind=banner", { method: "POST", token: a, raw: PNG })).status, 400);
+    const up = await s.call("/api/account/files?kind=avatar&name=me.png", { method: "POST", token: a, raw: PNG });
+    assert.equal(up.status, 201); assert.equal(up.json.mime, "image/png");
+    const got = await s.call(`/api/account/files/${up.json.id}`, { token: a });
+    assert.equal(got.status, 200); assert.ok(got.buf.equals(PNG)); assert.equal(got.headers.get("content-type"), "image/png");
+    assert.equal((await s.call(`/api/account/files/${up.json.id}`, { token: b })).status, 404, "someone else's file");
+    assert.equal((await s.call(`/api/account/files/${up.json.id}`)).status, 401);
+    assert.equal((await s.call("/api/account/files", { token: a })).json.files.length, 1);
+    assert.equal((await s.call(`/api/account/files/${up.json.id}`, { method: "DELETE", token: a })).status, 200);
+    assert.equal((await s.call(`/api/account/files/${up.json.id}`, { token: a })).status, 404);
+  } finally { await s.close(); }
+});
+
+test("accounts: password change signs out other devices; delete wipes everything", async () => {
+  const s = await startAccountServer();
+  try {
+    const cred = { email: "pw@example.com", password: "long enough pw" };
+    await s.call("/api/account/register", { method: "POST", body: { ...cred, invite: "let-me-in-please" } });
+    const t1 = (await s.call("/api/account/login", { method: "POST", body: cred })).json.token;
+    const t2 = (await s.call("/api/account/login", { method: "POST", body: cred })).json.token;
+    assert.equal((await s.call("/api/account/password", { method: "POST", token: t1, body: { old: "wrong wrong wrong", new: "another long pass" } })).status, 401);
+    assert.equal((await s.call("/api/account/password", { method: "POST", token: t1, body: { old: cred.password, new: "another long pass" } })).status, 200);
+    assert.equal((await s.call("/api/account/me", { token: t2 })).status, 401);
+    assert.equal((await s.call("/api/account/me", { token: t1 })).status, 200);
+    await s.call("/api/account/files?kind=avatar", { method: "POST", token: t1, raw: PNG });
+    assert.equal((await s.call("/api/account/delete", { method: "POST", token: t1, body: { password: "another long pass" } })).status, 200);
+    assert.equal(s.db.prepare("SELECT COUNT(*) n FROM users").get().n, 0);
+    assert.equal(s.db.prepare("SELECT COUNT(*) n FROM user_files").get().n, 0);
+  } finally { await s.close(); }
+});
+
+test("accounts: sealing detects tampering and wrong owner; images are sniffed", () => {
+  const key = Buffer.alloc(32, 9);
+  const blob = seal(key, Buffer.from("hello"), "file:u:1");
+  assert.equal(unseal(key, blob, "file:u:1").toString(), "hello");
+  assert.throws(() => unseal(key, blob, "file:other:1"));
+  blob[blob.length - 1] ^= 1;
+  assert.throws(() => unseal(key, blob, "file:u:1"));
+  assert.equal(sniffImage(PNG), "image/png");
+  assert.equal(sniffImage(Buffer.from("GIF89a-not-allowed-here")), null);
+});
