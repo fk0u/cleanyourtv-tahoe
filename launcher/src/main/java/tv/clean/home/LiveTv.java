@@ -1353,7 +1353,9 @@ public class LiveTv extends Activity {
         LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL); col.setGravity(Gravity.CENTER_HORIZONTAL);
         int slateSide = (int) dp(compact ? 24 : Ui.SAFE_SIDE * 3);
         col.setPadding(slateSide, (int) dp(24), slateSide, (int) dp(24));
-        TextView brand = Ui.eyebrow(this, Ui.TEXT_3); brand.setText("Tahoe TV"); col.addView(brand);
+        android.widget.ImageView logo = new android.widget.ImageView(this); logo.setImageResource(R.mipmap.ic_launcher);
+        logo.setContentDescription("Tahoe TV");
+        col.addView(logo, new LinearLayout.LayoutParams((int) dp(compact ? 72 : 110), (int) dp(compact ? 72 : 110)));
         slName = Ui.text(this, compact ? Ui.HEADLINE : Ui.TITLE, 700, Ui.TEXT); slName.setSingleLine(false); slName.setGravity(Gravity.CENTER); slName.setPadding(0, (int) dp(8), 0, (int) dp(14)); col.addView(slName);
         slMessages = new LinearLayout(this); slMessages.setOrientation(LinearLayout.VERTICAL); slMessages.setGravity(Gravity.CENTER_HORIZONTAL);
         col.addView(slMessages);
@@ -1412,19 +1414,16 @@ public class LiveTv extends Activity {
         String lang = TvViewer.get(this).getLanguage();
         if (index >= 0 && index < list.size()) slName.setText(list.get(index).getName());
         slMessages.removeAllViews();
-        java.util.List<String> order = tech.kousozo.tahoetv.core.Slate.order(lang);
 
+        // the announcement in the viewer's own language, worded differently on each retry
         TextView primary = Ui.text(this, Ui.HEADLINE, 600, Ui.TEXT);
         primary.setSingleLine(false); primary.setGravity(Gravity.CENTER);
-        primary.setText(tech.kousozo.tahoetv.core.Slate.message(order.get(0)));
+        primary.setText(tech.kousozo.tahoetv.core.Slate.headline(lang, slateRetries));
         slMessages.addView(primary);
-
-        java.util.List<String> others = new ArrayList<>();
-        for (int k = 1; k < order.size(); k++) others.add(tech.kousozo.tahoetv.core.Slate.message(order.get(k)));
         TextView sub = Ui.text(this, Ui.BODY, 400, Ui.TEXT_3);
         sub.setSingleLine(false); sub.setGravity(Gravity.CENTER);
-        sub.setPadding(0, (int) dp(8), 0, 0);
-        sub.setText(android.text.TextUtils.join("\n", others));
+        sub.setPadding(0, (int) dp(14), 0, 0);
+        sub.setText(tech.kousozo.tahoetv.core.Slate.follow(lang) + "\n" + tech.kousozo.tahoetv.core.Brand.WHATSAPP_CHANNEL.replace("https://", ""));
         slMessages.addView(sub);
 
         if (slPills != null) {
@@ -1433,7 +1432,9 @@ public class LiveTv extends Activity {
             slPills.addView(pill("▼", tech.kousozo.tahoetv.core.Slate.label(lang, "next"), () -> tune(index + 1)));
         }
 
+        boolean fresh = slate.getVisibility() != View.VISIBLE;
         slate.setVisibility(View.VISIBLE);
+        if (fresh) Chime.noSignal(index >= 0 && index < list.size() ? list.get(index).getName() : ""); // once when the slate appears, not on every background retry
         int my = ++slateGen;
         if (slateRetries >= tech.kousozo.tahoetv.core.Slate.MAX_RETRIES) { slateLeft = 0; slateStatus(lang, reason); return; }
         slateLeft = tech.kousozo.tahoetv.core.Slate.RETRY_SECONDS;
@@ -1448,7 +1449,7 @@ public class LiveTv extends Activity {
         String when = slateRetries < tech.kousozo.tahoetv.core.Slate.MAX_RETRIES
                 ? tech.kousozo.tahoetv.core.Slate.label(lang, "trying")
                 : tech.kousozo.tahoetv.core.Slate.label(lang, "waiting");
-        slStatus.setText(tech.kousozo.tahoetv.core.Slate.reason(tech.kousozo.tahoetv.core.Slate.order(lang).get(0), reason)
+        slStatus.setText(tech.kousozo.tahoetv.core.Slate.reason(lang, reason)
                 + "  ·  " + when);
     }
 
