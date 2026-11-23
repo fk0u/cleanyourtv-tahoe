@@ -458,7 +458,7 @@ fun FormatBadge(text: String, lang: String = PhoneRegion.language, onClick: (() 
             text,
             Modifier.clip(RoundedCornerShape(5.dp))
                 .border(1.dp, Tahoe.Faint, RoundedCornerShape(5.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
-            color = Tahoe.Dim, fontSize = 10.sp, fontFamily = Mono,
+            color = Tahoe.Dim, fontSize = 11.sp, fontFamily = Mono,
         )
     }
     if (onClick == null) pill()
@@ -1178,7 +1178,7 @@ fun ChannelLogo(e: LocalTv.Entry, modifier: Modifier) = Box(
 @Composable
 fun Pill(text: String, color: Color, filled: Boolean = false) = Text(text,
     Modifier.clip(RoundedCornerShape(6.dp)).background(if (filled) color else color.copy(alpha = 0.18f)).padding(horizontal = 6.dp, vertical = 1.dp),
-    color = if (filled) Color.White else color, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+    color = if (filled) contrastOn(color) else color, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
 
 fun progress(p: Epg.Programme, now: Instant) =
     ((now.epochSecond - p.start.epochSecond).toFloat() / (p.stop.epochSecond - p.start.epochSecond).coerceAtLeast(1)).coerceIn(0f, 1f)

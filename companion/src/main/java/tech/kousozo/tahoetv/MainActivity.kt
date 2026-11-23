@@ -772,7 +772,7 @@ fun ChannelCard(e: LocalTv.Entry, now: Instant, modifier: Modifier = Modifier) {
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
                         NowPlayingIndicator(playing = !Playback.paused)
-                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_playing"), color = Tahoe.Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(tech.kousozo.tahoetv.core.I18n.get(lang, "live.badge_playing"), color = Tahoe.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -832,8 +832,8 @@ fun CategoryCard(k: LocalTv.Category, count: Int, modifier: Modifier, big: Boole
         .background(Brush.verticalGradient(listOf(tint.copy(alpha = 0.30f), Color(0xFF0C0E14))))
         .border(1.dp, Brush.verticalGradient(listOf(tint.copy(alpha = 0.55f), Color.White.copy(alpha = 0.04f))), RoundedCornerShape(22.dp))
         .clickable { Nav.category(k) }.padding(14.dp)) {
-        Text("● LIVE", Modifier.align(Alignment.TopStart).clip(RoundedCornerShape(6.dp)).background(Tahoe.Bad).padding(horizontal = 6.dp, vertical = 2.dp),
-            color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text("● LIVE", Modifier.align(Alignment.TopStart).clip(RoundedCornerShape(6.dp)).background(LiveFill).padding(horizontal = 6.dp, vertical = 2.dp),
+            color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Icon(categoryIcon(k), null, tint = tint, modifier = Modifier.align(if (big) Alignment.Center else Alignment.TopEnd).size(if (big) 64.dp else 26.dp))
         Column(Modifier.align(Alignment.BottomStart)) {
             Text(k.label(lang), fontSize = if (big) 18.sp else 15.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, maxLines = 1, overflow = TextOverflow.Ellipsis)

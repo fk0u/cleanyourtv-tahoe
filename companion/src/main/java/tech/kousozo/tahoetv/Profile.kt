@@ -312,8 +312,8 @@ private fun WatchRow(e: LocalTv.Entry, now: Instant, trailing: @Composable () ->
         ) {
             Box(Modifier.size(90.dp, 52.dp).clip(RoundedCornerShape(12.dp))) {
                 ChannelArt(e, Modifier.fillMaxSize(), logoScale = 0.3f)
-                if (on != null) Text("● LIVE", Modifier.padding(5.dp).clip(RoundedCornerShape(50)).background(Tahoe.Bad).padding(horizontal = 6.dp, vertical = 2.dp),
-                    color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.9.sp)
+                if (on != null) Text("● LIVE", Modifier.padding(5.dp).clip(RoundedCornerShape(50)).background(LiveFill).padding(horizontal = 6.dp, vertical = 2.dp),
+                    color = Color.White, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.9.sp)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -406,7 +406,7 @@ fun ProfileScreen() {
                         )
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(I18n.get(lang, "profile.id_eyebrow"), fontSize = 10.sp, fontFamily = Mono, letterSpacing = 1.sp, color = Tahoe.Dim)
+                        Text(I18n.get(lang, "profile.id_eyebrow"), fontSize = 11.sp, fontFamily = Mono, letterSpacing = 1.sp, color = Tahoe.Dim)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(name.ifBlank { I18n.get(lang, "profile.main") }, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                             Icon(Icons.Rounded.Edit, I18n.get(lang, "profile.edit_name"), tint = Tahoe.Faint, modifier = Modifier.size(14.dp))

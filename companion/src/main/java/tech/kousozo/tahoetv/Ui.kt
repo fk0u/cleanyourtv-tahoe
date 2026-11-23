@@ -77,6 +77,19 @@ object ThemePrefs {
     val palette get() = tech.kousozo.tahoetv.core.Theme.palette(dark, highContrast) // Figma bg/canvas #0D0F14, bg/surface #191C23
 }
 
+/** The LIVE badge red when the text on it is white: #D92D20 keeps 4.8:1 (the lighter brand red gives only 3.4:1, below WCAG AA). */
+val LiveFill = Color(0xFFD92D20)
+
+/** Dark or white text, whichever reads better on [bg] (WCAG contrast). */
+fun contrastOn(bg: Color): Color {
+    fun lum(c: Color): Double {
+        fun f(v: Float): Double = if (v <= 0.03928f) v / 12.92 else Math.pow(((v + 0.055f) / 1.055f).toDouble(), 2.4)
+        return 0.2126 * f(c.red) + 0.7152 * f(c.green) + 0.0722 * f(c.blue)
+    }
+    val l = lum(bg)
+    return if (1.05 / (l + 0.05) >= (l + 0.05) / (lum(Color(0xFF0D0F14)) + 0.05)) Color.White else Color(0xFF0D0F14)
+}
+
 object Tahoe {
     private val p get() = ThemePrefs.palette
     val Bg get() = Color(p.bg)
