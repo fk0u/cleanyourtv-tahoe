@@ -105,6 +105,7 @@ final class Pengaturan extends FrameLayout implements Sheet {
                 break;
             case 4:
                 linkRow(I18n.get(lang, "tv.home_chip_connect_phone"), "", () -> { home.closeSheet(); home.openPair(); });
+                linkRow(AccountText.get(lang, "phones"), home.companion == null ? "" : String.valueOf(home.companion.pairedCount()), () -> { home.closeSheet(); home.openSheet(new ConnectSheets.Phones(home)); });
                 toggleRow(I18n.get(lang, "tv.st_tunnel"), I18n.get(lang, "tv.st_tunnel_sub"), "@tunnel", true);
                 linkRow(I18n.get(lang, "tv.cc_assistant"), Assistant.enabled() ? "Gemini" : I18n.get(lang, "tv.cc_unset"), () -> { home.closeSheet(); home.openAssistant(); });
                 linkRow(I18n.get(lang, "tv.cc_smart_home"), HomeControl.enabled() ? "Home Assistant" : "Hey Google", () -> { home.closeSheet(); home.openSheet(new ConnectSheets.Devices(home)); });

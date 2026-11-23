@@ -1,5 +1,6 @@
 package tv.clean.home;
 
+import tech.kousozo.tahoetv.core.AccountText;
 import android.graphics.Bitmap;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -97,6 +98,29 @@ final class ConnectSheets {
         @Override protected void onDetachedFromWindow() { removeCallbacks(tick); super.onDetachedFromWindow(); }
 
         @Override public void onClose() {}
+    }
+
+    /** Paired phones, each with its own key; OK on one removes its access at once (#180). */
+    static final class Phones extends Sheets.Grid {
+        Phones(Home h) { super(h, 520, Gravity.CENTER); rebuild(); }
+
+        @Override void fill() {
+            Home h = home;
+            String lang = TvViewer.get(h).getLanguage();
+            header(AccountText.get(lang, "phones_sub"), AccountText.get(lang, "phones"));
+            org.json.JSONObject meta = h.companion == null ? new org.json.JSONObject() : h.companion.tokenMeta();
+            java.util.List<String> tokens = new java.util.ArrayList<>(h.companion == null ? java.util.Collections.<String>emptySet() : h.companion.tokens());
+            if (tokens.isEmpty()) { add(new Sheets.Item(R.drawable.ic_smartphone, AccountText.get(lang, "phones_none"), null, null).wide()); return; }
+            java.text.DateFormat df = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM, java.util.Locale.forLanguageTag(lang));
+            for (String t : tokens) {
+                org.json.JSONObject m = meta.optJSONObject(t);
+                String name = m == null || m.optString("name").isEmpty() ? "Phone" : m.optString("name");
+                long at = m == null ? 0 : m.optLong("pairedAt");
+                String sub = (at > 0 ? AccountText.get(lang, "phones_paired", df.format(new java.util.Date(at))) : "") + (m != null && !m.optString("ip").isEmpty() ? "  ·  " + m.optString("ip") : "");
+                add(new Sheets.Item(R.drawable.ic_smartphone, name, sub, () -> { h.companion.revoke(t); rebuild(); }).wide());
+            }
+            add(new Sheets.Item(R.drawable.ic_close, AccountText.get(lang, "revoke_all"), null, () -> { h.companion.forgetAll(); rebuild(); }).wide());
+        }
     }
 
     static final class Devices extends Sheets.Grid {
