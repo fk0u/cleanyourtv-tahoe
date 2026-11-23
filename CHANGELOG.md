@@ -5,6 +5,10 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+### Baru
+- **Akun Tahoe pribadi (e-mail + kata sandi):** masuk dari HP, lalu foto profil, wallpaper, nama, format jam, detik, ukuran jam, sapaan, tema, ukuran teks, dan kurangi gerakan ikut tersinkron ke TV dan HP. Perubahan yang dibuat di TV juga naik ke akun.
+- **Server pribadi:** kata sandi di-hash dengan scrypt, sesi token ber-hash 30 hari, kunci percobaan per IP dan per e-mail, wajib HTTPS, tanpa CORS. Profil dan semua foto yang diunggah dienkripsi AES-256-GCM di server (kunci `TAHOE_DATA_KEY`); pendaftaran tertutup kecuali ada kode undangan. Alamat server hanya ada di `secrets.properties` / pengaturan perangkat, tidak di repositori. Lihat `docs/ACCOUNTS.md`.
+
 ## 3.7.0
 
 **Tahoe TV v3.7.0 (Stable)** · rilis stabil resmi dengan arsitektur Hybrid Provider yang mengombinasikan server IPTV OTT Semar (`https://plsemar.pages.dev`) dan server siaran bawaan (`val DEFAULT`: iptv-org, dhanytv, windozalmi, yositapjani), sistem penentuan saluran paling stabil & minim buffering otomatis, serta integrasi penuh panduan acara EPG Indonesia terbaru di seluruh platform (Android HP, Android TV, macOS Intel/Apple Silicon, Windows, Linux).
