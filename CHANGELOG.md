@@ -5,6 +5,20 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.8.2
+
+**Tahoe TV v3.8.2 (Stable)** · perbaikan pembaruan, kontrol media, dan PiP di HP, ditambah tampilan beranda HP yang lebih imersif.
+
+### Perbaikan
+- **Pembaruan:** pembaruan resmi tidak lagi ditolak hanya karena sistem tidak bisa membaca tanda tangan APK baru atau memparse berkasnya; Android tetap memeriksa tanda tangan sendiri. Kalau aplikasi yang terpasang memakai kunci tanda tangan lain (build uji coba), pesannya kini jelas: hapus aplikasi lalu pasang rilis resmi. Alasan kegagalan pemasangan tercatat di log.
+- **HP: PiP.** Menutup jendela PiP (✕) sekarang menghentikan siaran, tidak lagi terus berjalan.
+- **HP: kontrol media.** Saluran yang diputar tampil di bayangan notifikasi dan layar kunci dengan judul acara, nama saluran, dan logo; tombol play/jeda dari sana dan dari headset bekerja, dan TalkBack bisa membacanya.
+- **HP: macet 2-3 detik.** Percobaan ulang segmen yang gagal dibuat lebih cepat (0,5 sampai 2,5 detik, hingga 8 kali) agar gangguan kecil dari server publik tidak berujung pada pemuatan ulang stream. Setiap macet kini tercatat di log (lama, jarak dari siaran langsung, bandwidth) supaya penyebabnya terlihat di laporan.
+
+### Baru
+- **HP: beranda lebih imersif.** Gambar langsung di hero beranda memenuhi seluruh hero dari tepi ke tepi, tidak lagi sebatas strip 16:9.
+- **HP: hemat kuota.** Pratinjau langsung tidak diputar otomatis di jaringan seluler; bisa dinyalakan di Pengaturan ("Pratinjau langsung di data seluler").
+
 ## 3.8.1
 
 **Tahoe TV v3.8.1 (Stable)** · perbaikan cepat untuk aplikasi HP, ditambah Handoff (lanjutkan tontonan di perangkat lain).
