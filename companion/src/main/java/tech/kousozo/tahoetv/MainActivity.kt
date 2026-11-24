@@ -457,18 +457,19 @@ fun HomeScreen(resumeTick: Int, onOpenInbox: () -> Unit = {}) {
             ) { curHero ->
             if (curHero != null) ChannelArt(curHero, Modifier.fillMaxSize(), logoScale = 0.8f, logoTop = 128.dp, programme = nowOn(Channels.epg, curHero, now)?.title)
             }
-            // ONE preview surface for the hero channel, in a 16:9 frame so the picture is never cropped or stretched
-            if (hero != null) Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).align(Alignment.TopCenter)) {
+            // ONE preview surface for the hero channel, edge to edge: the picture fills the whole hero (cropped at the sides), not a letterboxed strip
+            if (hero != null) Box(Modifier.fillMaxSize()) {
                 LivePreviewSurface(
                     hero,
                     owner = "home",
                     active = Nav.tab == 0 && Nav.page == null && Nav.detail == null && Playback.entry == null && heroVisible,
                     modifier = Modifier.fillMaxSize(),
+                    fill = true,
                 )
             }
             run {
                 val scrimBrush = if (ThemePrefs.dark) {
-                    Brush.verticalGradient(0f to Tahoe.Stage.copy(alpha = 0.7f), 0.25f to Tahoe.Stage.copy(alpha = 0.15f), 0.5f to Tahoe.Stage.copy(alpha = 0.35f), 1f to Tahoe.Bg)
+                    Brush.verticalGradient(0f to Tahoe.Stage.copy(alpha = 0.7f), 0.22f to Tahoe.Stage.copy(alpha = 0.22f), 0.45f to Tahoe.Stage.copy(alpha = 0.5f), 0.75f to Tahoe.Stage.copy(alpha = 0.82f), 1f to Tahoe.Bg) // darker in the middle: the copy sits on a moving picture
                 } else {
                     // Figma 30:823 Light theme scrim fading smoothly to #F6F7F9
                     Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.55f), 0.30f to Color.Black.copy(alpha = 0.10f), 0.62f to Tahoe.Bg.copy(alpha = 0.40f), 1f to Tahoe.Bg)
@@ -939,12 +940,14 @@ object AppearancePrefs {
         val osNoAnim = runCatching { android.provider.Settings.Global.getFloat(c.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }.getOrDefault(false)
         ThemePrefs.reduceMotion = p.getBoolean("reduce_motion", false) || osNoAnim
         MobileLivePreview.enabled = p.getBoolean("live_preview", true)
+        MobileLivePreview.allowCellular = p.getBoolean("preview_cellular", false)
     }
     fun save(c: android.content.Context) = c.getSharedPreferences("ui", 0).edit()
         .putString("theme", ThemePrefs.mode.name)
         .putBoolean("high_contrast", ThemePrefs.highContrast)
         .putBoolean("reduce_motion", ThemePrefs.reduceMotion)
         .putBoolean("live_preview", MobileLivePreview.enabled)
+        .putBoolean("preview_cellular", MobileLivePreview.allowCellular)
         .apply()
 }
 

@@ -781,6 +781,11 @@ fun SettingsPage() {
                 if (!it) MobileLivePreview.stop()
                 AppearancePrefs.save(c)
             }
+            SwitchMenuRow(Icons.Rounded.SignalCellularAlt, I18n.get(lang, "settings.preview_cellular"), MobileLivePreview.allowCellular) {
+                MobileLivePreview.allowCellular = it
+                if (!it) MobileLivePreview.stop()
+                AppearancePrefs.save(c)
+            }
             MenuRow(Icons.Rounded.Hd, I18n.get(lang, "player.quality"), Playback.quality.label(lang)) { dialog = SettingsDialog.Quality }
             MenuRow(Icons.Rounded.Speed, I18n.get(lang, "player.latency"), Playback.latency.label(lang)) { dialog = SettingsDialog.Latency }
             MenuRow(Icons.Rounded.Subtitles, I18n.get(lang, "sub.size_label"), Playback.subtitleSize.label(lang)) { dialog = SettingsDialog.SubtitleSize }

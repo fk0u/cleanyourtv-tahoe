@@ -72,9 +72,18 @@ object MobileLivePreview {
     fun candidates(entry: LocalTv.Entry): List<M3u.Channel> =
         SourceHealth.order(listOf(entry.channel) + entry.alternates).filter { it.url.isNotBlank() }
 
+    /** Off by default: an autoplaying live picture would eat the viewer's mobile data. Settings can allow it. */
+    @Volatile var allowCellular = false
+    @Volatile private var meteredNow = false
+    /** Looks at the current network (cheap); a metered one (mobile data, hotspot) blocks the preview unless [allowCellular]. */
+    fun refreshNetwork(ctx: Context) {
+        meteredNow = runCatching { (ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager).isActiveNetworkMetered }.getOrDefault(false)
+    }
+
     fun canPreview(entry: LocalTv.Entry?): Boolean =
         entry != null &&
             enabled &&
+            (allowCellular || !meteredNow) &&
             !Channels.debugOffline &&
             !ThemePrefs.reduceMotion &&
             Playback.entry == null &&
@@ -289,8 +298,11 @@ fun LivePreviewSurface(
     owner: String,
     active: Boolean,
     modifier: Modifier = Modifier,
+    /** true = the picture covers the whole area (cropped at the edges, like a full-bleed hero); false = the whole picture is shown. */
+    fill: Boolean = false,
 ) {
     val ctx = LocalContext.current
+    MobileLivePreview.refreshNetwork(ctx)
     val eligible = active && MobileLivePreview.canPreview(entry)
 
     LaunchedEffect(eligible, entry.channel.url) {
@@ -307,7 +319,7 @@ fun LivePreviewSurface(
         factory = { context ->
             val tv = TextureView(context).apply { isOpaque = false; alpha = 0f }
             val frame = AspectRatioFrameLayout(context).apply {
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                resizeMode = if (fill) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
                 addView(tv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             }
             MobileLivePreview.attachSurface(tv, frame)
