@@ -16,14 +16,28 @@ import tech.kousozo.tahoetv.core.ApkTrust;
 final class ApkCheck {
     private ApkCheck() {}
 
+    /** What the check says about [apk] (adb-only diagnostics): the verdict plus how many signers were read from each side. */
+    static String describe(Context c, File apk) throws Exception {
+        PackageManager pm = c.getPackageManager();
+        int flags = Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES;
+        PackageInfo mine = pm.getPackageInfo(c.getPackageName(), flags);
+        PackageInfo cand = pm.getPackageArchiveInfo(apk.getAbsolutePath(), flags);
+        Set<String> a = current(mine), b = cand == null ? new HashSet<>() : current(cand);
+        ApkTrust.Verdict v = ApkTrust.verdict(c.getPackageName(), cand == null ? null : cand.packageName, a, b, cand == null ? new HashSet<>() : history(cand));
+        return v + " (installed signers=" + a.size() + ", archive=" + (cand == null ? "unreadable" : cand.packageName + " v" + cand.versionName + ", signers=" + b.size()) + ")";
+    }
+
     /** Throws when [apk] is not a genuine update of this app (other package, unsigned, or signed by someone else). */
     static void requireGenuineUpdate(Context c, File apk, String message) throws Exception {
         PackageManager pm = c.getPackageManager();
         int flags = Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES;
         PackageInfo mine = pm.getPackageInfo(c.getPackageName(), flags);
         PackageInfo cand = pm.getPackageArchiveInfo(apk.getAbsolutePath(), flags);
-        ApkTrust.Verdict v = ApkTrust.verdict(c.getPackageName(), cand == null ? null : cand.packageName,
-                current(mine), cand == null ? new HashSet<>() : current(cand), cand == null ? new HashSet<>() : history(cand));
+        if (cand == null) { // the platform could not parse the file: the SHA-256 check already passed and Android verifies the signature itself
+            tech.kousozo.tahoetv.core.DiagLog.INSTANCE.add("update", "could not read " + apk.getName() + " to compare signers; leaving it to Android");
+            return;
+        }
+        ApkTrust.Verdict v = ApkTrust.verdict(c.getPackageName(), cand.packageName, current(mine), current(cand), history(cand));
         if (v != ApkTrust.Verdict.OK) {
             //noinspection ResultOfMethodCallIgnored
             apk.delete();

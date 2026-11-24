@@ -152,8 +152,11 @@ final class About extends FrameLayout implements Sheet {
                 if (confirm != null) c.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             } else if (st != PackageInstaller.STATUS_SUCCESS) {
                 String lang = TvViewer.get(c).getLanguage();
-                Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_upd_failed",
-                        String.valueOf(i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE))), Toast.LENGTH_LONG).show();
+                String why = String.valueOf(i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
+                tech.kousozo.tahoetv.core.DiagLog.INSTANCE.add("update", "install failed: status " + st + " " + why);
+                boolean otherKey = st == PackageInstaller.STATUS_FAILURE_CONFLICT || why.contains("UPDATE_INCOMPATIBLE") || why.contains("signatures do not match");
+                Toast.makeText(c, otherKey ? tech.kousozo.tahoetv.core.I18n.get(lang, "update.untrusted")
+                        : tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_upd_failed", why), Toast.LENGTH_LONG).show();
             }
         }
     }
