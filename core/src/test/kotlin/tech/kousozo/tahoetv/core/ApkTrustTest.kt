@@ -18,7 +18,7 @@ class ApkTrustTest {
 
     @Test fun differentSignerRefused() = assertEquals(ApkTrust.Verdict.DIFFERENT_SIGNER, v(cand = setOf("bb22")))
 
-    @Test fun unsignedRefused() = assertEquals(ApkTrust.Verdict.UNSIGNED, v(cand = emptySet()))
+    @Test fun unreadableCandidateSignerLeavesItToAndroid() = assertEquals(ApkTrust.Verdict.OK, v(cand = emptySet())) // was refused as "unsigned" on ROMs that cannot read an archive's signer
 
     @Test fun rotationHistoryVouchesForOurOldKey() =
         assertEquals(ApkTrust.Verdict.OK, v(cand = setOf("bb22"), hist = setOf("aa11", "bb22")))
