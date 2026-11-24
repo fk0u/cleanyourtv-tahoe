@@ -242,14 +242,19 @@ class MainActivity : ComponentActivity() {
         if (isInPictureInPictureMode) {
             Nav.tab = 1
             Nav.detail = null
+        } else if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+            Playback.stop() // the little window was closed (✕), not expanded: the stream ends with it
         }
     }
 
-    /** Live TV pauses when leaving unless Picture-in-Picture is active (#63). */
+    /** Live TV pauses when leaving unless Picture-in-Picture is active (#63); a PiP window that was closed ends the stream. */
     override fun onStop() {
         super.onStop()
         MobileLivePreview.stop()
-        if (!isInPictureInPictureMode) Playback.pause()
+        // an activity in PiP stays started; being stopped while the flag is still set means the PiP window was dismissed
+        if (Nav.inPip || isInPictureInPictureMode) { Nav.inPip = false; Playback.stop(); return }
+        // with the system media controls the picture can go while the sound carries on, like a music app; pausing stays the default
+        Playback.pause()
     }
 
     override fun onDestroy() {

@@ -241,7 +241,9 @@ object Playback {
     }
 
     /** Built with, and its callbacks keep, the application context only: this object outlives activities (rotation). */
+    private var appCtx: Context? = null
     fun player(ctx: Context): ExoPlayer = player ?: ctx.applicationContext.let { c ->
+        appCtx = c
         val tuning = tech.kousozo.tahoetv.core.PlayPrefs.tuningFor(latency)
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(tuning.minBufferMs, tuning.maxBufferMs, tuning.bufferForPlaybackMs, tuning.bufferForPlaybackAfterRebufferMs)
@@ -261,6 +263,9 @@ object Playback {
             }
             override fun onDroppedVideoFrames(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, count: Int, elapsedMs: Long) {
                 droppedFramesCount += maxOf(0, count)
+            }
+            override fun onLoadError(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, loadEventInfo: androidx.media3.exoplayer.source.LoadEventInfo, mediaLoadData: androidx.media3.exoplayer.source.MediaLoadData, error: java.io.IOException, wasCanceled: Boolean) {
+                DiagLog.add("live", "load error ${error.javaClass.simpleName}: ${error.message?.take(80)} (${loadEventInfo.uri.host})")
             }
             override fun onBandwidthEstimate(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, totalLoadTimeMs: Int, totalBytesLoaded: Long, bitrateEstimate: Long) {
                 if (bitrateEstimate > 0) bandwidthKbps = (bitrateEstimate / 1000L).toInt()
@@ -283,8 +288,11 @@ object Playback {
                 if (state != Player.STATE_READY) return
                 if (bufferingSince > 0) {
                     rebufferCount++
-                    rebufferMs += maxOf(0L, System.currentTimeMillis() - bufferingSince)
+                    val stall = maxOf(0L, System.currentTimeMillis() - bufferingSince)
+                    rebufferMs += stall
                     bufferingSince = -1L
+                    // every freeze is written down (when, how long, how far behind live, bandwidth) so a report says why
+                    DiagLog.add("live", "freeze ${stall} ms, behind live ${p.currentLiveOffset} ms, ~${bandwidthKbps} kbps, ${streams.getOrNull(source)?.url?.substringBefore('?')}")
                 }
                 // a finished playlist, or a "live" window far in the past, is a recording (yesterday's show on a loop)
                 if (!everReady && isRecording(p, streams.getOrNull(source))) { DiagLog.add("live", "rekaman, bukan live → sumber berikutnya"); sawRecording = true; next(c); return }
@@ -350,7 +358,7 @@ object Playback {
     fun resume() { player?.play(); paused = false }
 
     /** Stop and forget the channel (the mini-player's ✕). */
-    fun stop() { flushRecap(); attempt++; player?.stop(); entry = null; message = null; format = null; paused = false; slate = null; retryIn = 0; MobileLivePreview.syncProbeGate() }
+    fun stop() { flushRecap(); attempt++; player?.stop(); appCtx?.let { c -> runCatching { c.stopService(android.content.Intent(c, PlaybackService::class.java)) } }; entry = null; message = null; format = null; paused = false; slate = null; retryIn = 0; MobileLivePreview.syncProbeGate() }
 
     /** "Coba lagi" on the slate, or the background retry: every source again, best first. */
     fun retry(c: Context) {
@@ -434,8 +442,11 @@ object Playback {
         p.trackSelectionParameters = tsp.build()
 
         val tuning = tech.kousozo.tahoetv.core.PlayPrefs.tuningFor(latency, SourceHealth.isTightWindow(s.url), false)
-        p.setMediaSource(StreamSource.build(s, tuning))
+        val show = nowOn(Channels.epg, e, java.time.Instant.now())?.title
+        p.setMediaSource(StreamSource.build(s, tuning, StreamSource.Meta(show ?: e.name, e.name, e.channel.logo)))
         p.prepare(); p.play()
+        // the system media controls (notification, lock screen, headset buttons) follow the playing channel
+        runCatching { c.startService(android.content.Intent(c, PlaybackService::class.java)) }
         ui.postDelayed({ // never started → next source
             if (my == attempt && !everReady) { DiagLog.add("live", "tidak mulai dalam 20 dtk → sumber berikutnya"); next(c) }
         }, 20_000)

@@ -174,7 +174,8 @@ class Sync : NotificationListenerService() {
     }
 
     private fun sessions(list: List<MediaController>?) {
-        val pick = list?.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: list?.firstOrNull()
+        val others = list?.filter { it.packageName != packageName } // our own channel session is not "music on the phone" for the TV
+        val pick = others?.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: others?.firstOrNull()
         media?.unregisterCallback(cb)
         media = pick
         media?.registerCallback(cb, ui)
