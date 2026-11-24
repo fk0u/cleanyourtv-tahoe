@@ -227,7 +227,11 @@ private fun requireGenuineUpdate(c: Context, apk: File) {
         if (android.os.Build.VERSION.SDK_INT >= 28 && pi.signingInfo?.hasMultipleSigners() == false) pi.signingInfo?.signingCertificateHistory?.map(::hex)?.toSet().orEmpty() else emptySet()
     val mine = pm.getPackageInfo(c.packageName, flags)
     val cand = pm.getPackageArchiveInfo(apk.absolutePath, flags)
-    val v = tech.kousozo.tahoetv.core.ApkTrust.verdict(c.packageName, cand?.packageName, current(mine), cand?.let(::current).orEmpty(), cand?.let(::history).orEmpty())
+    if (cand == null) { // the platform could not parse the file: SHA-256 already matched and Android verifies the signature itself
+        tech.kousozo.tahoetv.core.DiagLog.add("update", "could not read ${apk.name} to compare signers; leaving it to Android")
+        return
+    }
+    val v = tech.kousozo.tahoetv.core.ApkTrust.verdict(c.packageName, cand.packageName, current(mine), current(cand), history(cand))
     if (v != tech.kousozo.tahoetv.core.ApkTrust.Verdict.OK) {
         apk.delete()
         tech.kousozo.tahoetv.core.DiagLog.add("update", "refused ${apk.name}: $v")
@@ -252,7 +256,15 @@ class OtaDone : BroadcastReceiver() {
             PackageInstaller.STATUS_PENDING_USER_ACTION ->
                 @Suppress("DEPRECATION") (i.getParcelableExtra<Intent>(Intent.EXTRA_INTENT))?.let { c.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             PackageInstaller.STATUS_SUCCESS -> {}
-            else -> Toast.makeText(c, tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "update.failed_pkg", i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: ""), Toast.LENGTH_LONG).show()
+            else -> {
+                val st = i.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+                val why = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: ""
+                tech.kousozo.tahoetv.core.DiagLog.add("update", "install failed: status $st $why")
+                // a different signing key (a test build over the official app, or the other way round) cannot be updated in place
+                val otherKey = st == PackageInstaller.STATUS_FAILURE_CONFLICT || "UPDATE_INCOMPATIBLE" in why || "signatures do not match" in why
+                Toast.makeText(c, if (otherKey) tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "update.untrusted")
+                    else tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "update.failed_pkg", why), Toast.LENGTH_LONG).show()
+            }
         }
     }
 }
