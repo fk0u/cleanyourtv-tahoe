@@ -35,7 +35,7 @@ final class About extends FrameLayout implements Sheet {
         super(h);
         home = h;
         float d = Ui.dp(h, 1);
-        setBackgroundColor(0xF2080A10);
+        setBackgroundColor(0xFC080A10); // nearly opaque: the home screen behind it showed through the text
         String lang = TvViewer.get(h).getLanguage();
         Ui.crumb(this, R.drawable.ic_info, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_title"));
 

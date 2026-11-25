@@ -48,7 +48,7 @@ final class Hero extends FrameLayout {
         previewView.setAlpha(0f);
         addView(previewView, new LayoutParams(-1, -1));
         View left = new View(c);
-        left.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xCC000000, 0x66000000, 0x00000000}));
+        left.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0xE6000000, 0x99000000, 0x00000000}));
         addView(left, new LayoutParams((int) (width * 0.62f), -1)); scrims.add(left);
         View bottom = new View(c);
         bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, new int[]{0xE6000000, 0x40000000, 0x00000000}));
@@ -73,6 +73,7 @@ final class Hero extends FrameLayout {
         title = Ui.text(c, Ui.TITLE, 600, Ui.TEXT);
         title.setSingleLine(false); title.setMaxLines(2); title.setLineSpacing(0, 1.05f);
         meta = Ui.text(c, Ui.BODY, 400, Ui.TEXT_2);
+        for (TextView t : new TextView[]{eyebrow, title, meta}) t.setShadowLayer(Ui.dp(c, 6), 0, Ui.dp(c, 1), 0xAA000000); // readable over a bright picture
         block.addView(eyebrow);
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2); tl.topMargin = (int) Ui.dp(c, 8);
         block.addView(title, tl);

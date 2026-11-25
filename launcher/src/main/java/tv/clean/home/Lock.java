@@ -190,7 +190,9 @@ public class Lock extends DreamService {
             LinearLayout col = new LinearLayout(c); col.setOrientation(LinearLayout.VERTICAL); col.setGravity(Gravity.CENTER_HORIZONTAL);
             TextView title = txt(c, tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_who_title"), 72, 700, 0xFFF7F8FA);
             title.setLetterSpacing(-0.02f); title.setGravity(Gravity.CENTER);
-            col.addView(title);
+            // a fixed wide box (wrapping to two lines if a language needs it): the column is only as wide as the three cards, which cut the title off
+            title.setSingleLine(false); title.setMaxLines(2);
+            col.addView(title, new LinearLayout.LayoutParams(Math.round(1500 * S), -2));
             LinearLayout row = new LinearLayout(c); row.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL); row.setClipChildren(false);
             String name = Cfg.s(c, "user_name", R.string.user_name);
             String me = name.isEmpty() ? tech.kousozo.tahoetv.core.I18n.get(lang2, "tv.lock_me") : name;

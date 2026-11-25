@@ -366,6 +366,9 @@ final class MediaHome extends FrameLayout {
     private int greetLine, greetChar;
     private final Runnable greetTick = this::greetStep;
 
+    /** Called each time Tahoe Live is opened: the greeting and the clock are for now, not for when the app started. */
+    void onOpened() { startGreeting(); tickClock(); }
+
     private void startGreeting() {
         if (!Acct.greeting(home)) { greeting.setText(""); return; }
         java.util.Calendar cal = java.util.Calendar.getInstance(Prayer.tz(home));

@@ -245,7 +245,7 @@ public class Home extends Activity {
         // Top bar: greeting left, chips + clock right.
         greeting = Ui.eyebrow(this, Ui.TEXT_2);
         greeting.setMaxLines(1); greeting.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        root.addView(greeting, at(M, dp(Ui.SAFE_TOP + 12), W * 0.4f, -1));
+        root.addView(greeting, at(M, dp(Ui.SAFE_TOP + 12), W * 0.21f, -1)); // never reaches the chips on its right
         chips = new LinearLayout(this); chips.setGravity(Gravity.CENTER_VERTICAL);
         clock = Ui.text(this, 26, 300, Ui.TEXT);
         LinearLayout right = new LinearLayout(this); right.setGravity(Gravity.CENTER_VERTICAL);
@@ -526,7 +526,7 @@ public class Home extends Activity {
         if (gamepad) addChip(R.drawable.ic_gamepad_2, null, () -> { if (row == 0) lastDockCol = col; openPad(); }).setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_gamepad"));
         addChip(R.drawable.ic_tv, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_guide"), () -> start(new Intent(this, Live.class)));
         if (!kids()) { // no assistant or phone pairing in the kids profile
-            addChip(R.drawable.ic_sparkles, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_ask"), this::openAssistant);
+            addChip(R.drawable.ic_sparkles, null, this::openAssistant).setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_ask")); // icon only: the top row is tight
             addChip(R.drawable.ic_smartphone, null, this::openPair).setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_connect_phone"));
         }
         { // another device of the account was watching something: offer to carry on here
@@ -543,7 +543,7 @@ public class Home extends Activity {
             }
         }
         if (!kids() && updateAvailable()) // a newer release was found by the daily check: one tap opens About, where OK installs it
-            addChip(R.drawable.ic_download, tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_update"), () -> openSheet(new About(this)));
+            addChip(R.drawable.ic_download, null, () -> openSheet(new About(this))).setContentDescription(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.home_chip_update"));
         // Profile photo chip opens Control Center.
         LinearLayout av = new LinearLayout(this);
         av.setPadding((int) dp(3), (int) dp(3), (int) dp(3), (int) dp(3));
@@ -931,6 +931,7 @@ public class Home extends Activity {
         mcOpen = true;
         updateFocusBlocking();
         mediaHome.refresh();
+        mediaHome.onOpened();
         render(false);
         mediaHome.focusFirst();
     }
