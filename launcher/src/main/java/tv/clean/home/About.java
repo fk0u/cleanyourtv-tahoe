@@ -4,6 +4,7 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.content.pm.PackageInstaller;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -108,6 +109,7 @@ final class About extends FrameLayout implements Sheet {
 
     void installLatest() {
         if (latest == null) return;
+        if (!ensureInstallPermission(home, status)) return;
         String lang = TvViewer.get(home).getLanguage();
         busy = true;
         status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.preparing"));
@@ -127,6 +129,16 @@ final class About extends FrameLayout implements Sheet {
     }
 
     /** Hands the APK to Android's installer; [Done] opens the confirmation screen it asks for. */
+    /** Android 8+ asks per app for "install unknown apps": if it is off, open that switch (the viewer comes back and presses OK again). */
+    static boolean ensureInstallPermission(Context c, TextView status) {
+        if (Build.VERSION.SDK_INT < 26 || c.getPackageManager().canRequestPackageInstalls()) return true;
+        String lang = TvViewer.get(c).getLanguage();
+        if (status != null) { status.setVisibility(View.VISIBLE); status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.allow_install")); }
+        try { c.startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:" + c.getPackageName())).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+        catch (Exception noSettingsPage) { /* some TV firmwares have no such page: the message above says what is needed */ }
+        return false;
+    }
+
     static void install(Context c, File apk) throws Exception {
         ApkCheck.requireGenuineUpdate(c, apk, tech.kousozo.tahoetv.core.I18n.get(TvViewer.get(c).getLanguage(), "update.untrusted"));
         PackageInstaller pi = c.getPackageManager().getPackageInstaller();
@@ -325,6 +337,7 @@ final class About extends FrameLayout implements Sheet {
         }
 
         void startInstall() {
+            if (!ensureInstallPermission(home, statusView)) return;
             String lang = TvViewer.get(home).getLanguage();
             busy = true;
             statusView.setVisibility(View.VISIBLE);
