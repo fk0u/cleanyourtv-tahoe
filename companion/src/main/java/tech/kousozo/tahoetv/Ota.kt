@@ -70,7 +70,7 @@ fun UpdateModalDialog() {
                     Text(pol.modalMessage, fontSize = 14.sp, color = Tahoe.Text)
                 }
                 if (r != null && r.notes.isNotBlank()) {
-                    Text(tech.kousozo.tahoetv.core.WhatsNew.plainNotes(r.notes).take(600), fontSize = 13.sp, color = Tahoe.Dim) // the notes are Markdown: show plain text
+                    Text(tech.kousozo.tahoetv.core.WhatsNew.plainNotes(r.notes).take(600).trimEnd('•', ' ', '\n'), fontSize = 13.sp, color = Tahoe.Dim) // the notes are Markdown: show plain text
                 } else if (r == null) {
                     Text(tech.kousozo.tahoetv.core.I18n.get(lang, "update.checking_server"), fontSize = 13.sp, color = Tahoe.Dim)
                 }
@@ -92,6 +92,12 @@ fun UpdateModalDialog() {
                 Button(
                     enabled = !busy,
                     onClick = {
+                        // Android asks for "install unknown apps" per app: send the viewer to that switch instead of failing after the download
+                        if (!canInstallPackages(c)) {
+                            status = tech.kousozo.tahoetv.core.I18n.get(lang, "update.allow_install")
+                            openInstallPermission(c)
+                            return@Button
+                        }
                         busy = true
                         scope.launch {
                             val f = File(c.cacheDir, "update-remote.apk")
@@ -236,6 +242,16 @@ private fun requireGenuineUpdate(c: Context, apk: File) {
         apk.delete()
         tech.kousozo.tahoetv.core.DiagLog.add("update", "refused ${apk.name}: $v")
         throw SecurityException(tech.kousozo.tahoetv.core.I18n.get(PhoneRegion.language, "update.untrusted"))
+    }
+}
+
+/** Whether this app may hand an APK to the installer (Android 8+: "Install unknown apps" for this app). */
+fun canInstallPackages(c: Context): Boolean = android.os.Build.VERSION.SDK_INT < 26 || c.packageManager.canRequestPackageInstalls()
+
+/** Opens the system page where the viewer allows Tahoe TV to install updates. */
+fun openInstallPermission(c: Context) {
+    runCatching {
+        c.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${c.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }
 
