@@ -141,6 +141,7 @@ fun LiveScreen() {
         }.fold(
             { loaded ->
                 channels = loaded
+                DeskLibrary.titles = tech.kousozo.tahoetv.core.FilmLibrary.group(loaded)
                 if (loaded.isEmpty()) {
                     error = tech.kousozo.tahoetv.core.I18n.get(Settings.lang, "live.empty_load")
                     return@fold

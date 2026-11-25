@@ -51,6 +51,7 @@ import tech.kousozo.tahoetv.core.TvAdb
 enum class Screen(private val labelKey: String, val icon: ImageVector) {
     Home("nav.home", Icons.Rounded.Home),
     Live("nav.live", Icons.Rounded.LiveTv),
+    Films("tv.mh_tab_film", Icons.Rounded.Movie),
     Recordings("nav.recordings", Icons.Rounded.VideoLibrary),
     Tv("nav.tv", Icons.Rounded.Tv),
     Remote("nav.remote", Icons.Rounded.SettingsRemote),
@@ -178,6 +179,7 @@ fun App(initial: Screen = Screen.Home, askRegion: Boolean = true) { // askRegion
                     when (s) {
                         Screen.Home -> HomeScreen(onLive = { DeskNav.screen = Screen.Live })
                         Screen.Live -> LiveScreen()
+                        Screen.Films -> FilmsScreen()
                         Screen.Recordings -> RecordingsScreen()
                         Screen.Tv -> HomeTvScreen(onRemote = { DeskNav.screen = Screen.Remote })
                         Screen.Remote -> RemoteScreen(onSetup = { DeskNav.screen = Screen.Tv })
