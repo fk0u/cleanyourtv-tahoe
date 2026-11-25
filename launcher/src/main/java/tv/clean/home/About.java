@@ -134,8 +134,17 @@ final class About extends FrameLayout implements Sheet {
         if (Build.VERSION.SDK_INT < 26 || c.getPackageManager().canRequestPackageInstalls()) return true;
         String lang = TvViewer.get(c).getLanguage();
         if (status != null) { status.setVisibility(View.VISIBLE); status.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "update.allow_install")); }
-        try { c.startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:" + c.getPackageName())).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
-        catch (Exception noSettingsPage) { /* some TV firmwares have no such page: the message above says what is needed */ }
+        // this app's page first, then the general "unknown sources" page, then security, then settings: TV firmwares differ a lot
+        android.net.Uri me = android.net.Uri.parse("package:" + c.getPackageName());
+        Intent[] tries = {
+            new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, me),
+            new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES),
+            new Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS),
+            new Intent(android.provider.Settings.ACTION_SETTINGS),
+        };
+        for (Intent i : tries) {
+            try { c.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); break; } catch (Exception notOnThisTv) { /* try the next page */ }
+        }
         return false;
     }
 

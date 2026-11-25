@@ -1222,6 +1222,19 @@ public class Home extends Activity {
         return super.dispatchKeyEvent(e);
     }
 
+    private Boolean asApp;
+    /** True when Tahoe is not the TV's home screen (Google TV does not let a third-party launcher take over): it then behaves like
+     *  an app: Back at the top returns to the system home instead of being swallowed. */
+    boolean runsAsApp() {
+        if (asApp == null) {
+            try {
+                android.content.pm.ResolveInfo r = getPackageManager().resolveActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+                asApp = r == null || r.activityInfo == null || !getPackageName().equals(r.activityInfo.packageName);
+            } catch (Exception e) { asApp = false; }
+        }
+        return asApp;
+    }
+
     @Override public boolean onKeyDown(int k, KeyEvent e) {
         if (Splash.active) return true;
         if (!TvGuard.isAndroidTv(this)) {
@@ -1244,7 +1257,10 @@ public class Home extends Activity {
                 return true;
             case KeyEvent.KEYCODE_ALL_APPS: if (row >= 1) toDock(); else openPad(); return true;
             case KeyEvent.KEYCODE_MENU: openControl(); return true;
-            case KeyEvent.KEYCODE_BACK: if (row != 0) toDock(); return true;
+            case KeyEvent.KEYCODE_BACK: if (row != 0) toDock(); else if (runsAsApp() && sheet == null) finish(); return true; // as an app (Google TV), Back at the top leaves
+            // remote keys of Google TV / Android TV remotes that apps may receive
+            case KeyEvent.KEYCODE_GUIDE: case KeyEvent.KEYCODE_TV: start(new Intent(this, Live.class)); return true;
+            case KeyEvent.KEYCODE_SEARCH: if (!kids()) openSheet(new Cari(this)); return true;
         }
         return super.onKeyDown(k, e);
     }
