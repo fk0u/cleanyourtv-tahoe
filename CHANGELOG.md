@@ -5,6 +5,17 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.8.3
+
+**Tahoe TV v3.8.3 (Stable)** · perbaikan pembaruan: aplikasi kini memandu pengguna mengaktifkan izin pemasangan sebelum mengunduh.
+
+### Perbaikan
+- **Pembaruan gagal di HP dan TV.** Android menolak memasang pembaruan kalau izin "pasang aplikasi tidak dikenal" untuk Tahoe TV belum aktif, dan aplikasi tidak memberi petunjuk. Sekarang, sebelum mengunduh, aplikasi memeriksa izin itu, menjelaskan langkahnya (tiga bahasa), dan membuka halaman pengaturannya; setelah kembali, tekan Perbarui sekali lagi. Pada firmware TV tanpa halaman itu, penjelasannya tetap tampil.
+- Catatan rilis di dialog pembaruan tidak lagi berakhir dengan titik kosong.
+
+### Catatan
+- Perangkat yang masih memakai 3.8.2 atau lebih lama perlu mengaktifkan izin itu satu kali di Setelan (Aplikasi → Tahoe TV → Pasang aplikasi tidak dikenal) sebelum bisa memperbarui ke versi ini.
+
 ## 3.8.2
 
 **Tahoe TV v3.8.2 (Stable)** · perbaikan pembaruan, kontrol media, dan PiP di HP, ditambah tampilan beranda HP yang lebih imersif.
