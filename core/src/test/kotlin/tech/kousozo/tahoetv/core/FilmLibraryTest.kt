@@ -12,8 +12,10 @@ class FilmLibraryTest {
     @Test fun pixeldrainAndFilmGroupsAreLibrary() {
         assertTrue(FilmLibrary.isLibrary(ch("X", "https://pixeldrain.com/api/file/abc")))
         assertTrue(FilmLibrary.isLibrary(ch("X", "https://cdn.pixeldrain.net/u/abc")))
-        assertTrue(FilmLibrary.isLibrary(ch("X", group = "Film Indonesia")))
-        assertTrue(FilmLibrary.isLibrary(ch("X", group = "Series")))
+        assertTrue(FilmLibrary.isLibrary(ch("Laskar Pelangi 2008", group = "Film Indonesia")))
+        assertTrue(FilmLibrary.isLibrary(ch("Drama X S01E01", group = "Series")))
+        assertTrue(FilmLibrary.isLibrary(ch("Some Film", "https://example.com/some.mp4", group = "Movies")))
+        assertFalse(FilmLibrary.isLibrary(ch("AMC Europe", group = "Movies"))) // a live movie channel stays in Live TV
         assertFalse(FilmLibrary.isLibrary(ch("Trans TV", group = "General")))
         assertFalse(FilmLibrary.isLibrary(ch("X", "https://notpixeldrain.com/a")))
     }
@@ -42,6 +44,12 @@ class FilmLibraryTest {
         val it = """{"results":[{"trackName":"The Raid 2","releaseDate":"2014-03-28T07:00:00Z","artworkUrl100":"https://is1.mzstatic.com/x/100x100bb.jpg"}]}"""
         assertEquals("https://is1.mzstatic.com/x/400x600bb.jpg", MediaScraper.parseItunesPoster(it, "The Raid 2", 2014))
         assertNull(MediaScraper.parseItunesPoster(it, "Unrelated Film", null))
+        val tm = """{"results":[{"title":"Agak Laen","poster_path":"/abc.jpg"}]}"""
+        assertEquals("https://image.tmdb.org/t/p/w500/abc.jpg", MediaScraper.parseTmdbPoster(tm, "Agak Laen"))
+        val im = """{"d":[{"l":"Agak Laen","y":2024,"qid":"movie","i":{"imageUrl":"https://m.media-amazon.com/images/M/x@._V1_.jpg"}},{"l":"Agak Laen","y":2021,"qid":"podcastSeries","i":{"imageUrl":"https://x/p.jpg"}}]}"""
+        assertEquals("https://m.media-amazon.com/images/M/x@._V1_UX400_.jpg", MediaScraper.parseImdbPoster(im, "Agak Laen", 2024, false))
+        assertNull(MediaScraper.parseImdbPoster(im, "Agak Laen", null, true))
+        assertNull(MediaScraper.parseImdbPoster(im, "13 Bomb Di Jakarta", null, false))
         val tv = """[{"show":{"name":"Drama X","image":{"medium":"http://a/m.jpg","original":"http://a/o.jpg"}}}]"""
         assertEquals("https://a/o.jpg", MediaScraper.parseTvmazePoster(tv, "Drama X"))
     }

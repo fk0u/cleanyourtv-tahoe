@@ -44,7 +44,7 @@ object MediaScraper {
         cacheDir = File(dir, "media-scraper").also { runCatching { it.mkdirs() } }
         loadCacheFile("logos.tsv", logoCache)
         loadCacheFile("thumbs.tsv", thumbCache)
-        loadCacheFile("posters.tsv", posterCache)
+        loadCacheFile("posters3.tsv", posterCache)
         PopularityScraper.initCache(dir)
         Epg.initCache(dir)
     }
@@ -139,12 +139,15 @@ object MediaScraper {
         if (t.isBlank()) return null
         val key = "${if (series) "s" else "m"}|${t.lowercase()}|${year ?: ""}"
         val now = System.currentTimeMillis()
-        posterCache[key]?.takeIf { now - it.at < TTL_MS * (if (it.url == null) 1 else 30) }?.let { return it.url }
-        val found = (if (series) tvmazePoster(t) else itunesPoster(t, year))
+        posterCache[key]?.takeIf { now - it.at < (if (it.url == null) TTL_MS / 24 else TTL_MS * 30) }?.let { return it.url }
+        // TMDB first when a key is set (covers Indonesian films best), then the keyless sources; an image search is never used (it returns unrelated pictures)
+        val found = tmdbPoster(t, year, series)
+            ?: (if (series) tvmazePoster(t) else itunesPoster(t, year))
+            ?: imdbPoster(t, year, series)
             ?: scrapeWikiThumb(if (series) "$t TV series" else if (year != null) "$t $year film" else "$t film", 500)
         val ok = found?.takeIf(::verifyImageUrl)
         posterCache[key] = Cached(ok, now)
-        scheduleSave("posters.tsv", posterCache)
+        scheduleSave("posters3.tsv", posterCache)
         return ok
     }
 
@@ -155,6 +158,31 @@ object MediaScraper {
         prefetchPool.execute {
             try { poster(title, year, series)?.let(onReady) } finally { inflight.remove(key) }
         }
+    }
+
+    /** Optional TMDB key (the launcher passes its own); blank in public builds, which use the keyless sources instead. */
+    @Volatile @JvmStatic var tmdbKey: String = ""
+
+    internal fun parseTmdbPoster(json: String, title: String): String? = runCatching {
+        val arr = JSONObject(json).optJSONArray("results") ?: return null
+        for (i in 0 until arr.length()) {
+            val r = arr.optJSONObject(i) ?: continue
+            val name = r.optString("title").ifBlank { r.optString("name") }
+            val orig = r.optString("original_title").ifBlank { r.optString("original_name") }
+            if (!titleMatches(title, name) && !titleMatches(title, orig)) continue
+            val path = r.optString("poster_path").takeIf { it.startsWith("/") } ?: continue
+            return "https://image.tmdb.org/t/p/w500$path"
+        }
+        null
+    }.getOrNull()
+
+    private fun tmdbPoster(title: String, year: Int?, series: Boolean): String? {
+        val key = tmdbKey.trim().takeIf { it.isNotEmpty() } ?: return null
+        val q = URLEncoder.encode(title, "UTF-8")
+        val y = if (year != null) (if (series) "&first_air_date_year=$year" else "&year=$year") else ""
+        val url = "https://api.themoviedb.org/3/search/${if (series) "tv" else "movie"}?api_key=${URLEncoder.encode(key, "UTF-8")}&query=$q$y"
+        val body = runCatching { Web.get(url, 4000, mapOf("User-Agent" to "TahoeTV/3.8")) }.getOrNull() ?: return null
+        return parseTmdbPoster(body, title)
     }
 
     internal fun parseItunesPoster(json: String, title: String, year: Int?): String? = runCatching {
@@ -179,6 +207,29 @@ object MediaScraper {
         }
         null
     }.getOrNull()
+
+    /** IMDb's public search-suggestion feed (no key): title, year and poster. Only an exactly matching title counts. */
+    internal fun parseImdbPoster(json: String, title: String, year: Int?, series: Boolean): String? = runCatching {
+        val arr = JSONObject(json).optJSONArray("d") ?: return null
+        for (i in 0 until arr.length()) {
+            val r = arr.optJSONObject(i) ?: continue
+            val kind = r.optString("qid")
+            if (series != kind.startsWith("tv") || kind in setOf("tvEpisode", "tvSpecial") || kind == "podcastSeries") continue
+            if (!titleMatches(title, r.optString("l"))) continue
+            val y = r.optInt("y", 0)
+            if (year != null && y != 0 && kotlin.math.abs(y - year) > 1) continue
+            val img = r.optJSONObject("i")?.optString("imageUrl").orEmpty()
+            if (img.startsWith("https://")) return img.replace("._V1_.", "._V1_UX400_.")
+        }
+        null
+    }.getOrNull()
+
+    private fun imdbPoster(title: String, year: Int?, series: Boolean): String? {
+        val key = title.lowercase().filter { it.isLetterOrDigit() || it == ' ' }.trim().replace(' ', '_')
+        if (key.isEmpty() || !key[0].isLetterOrDigit() || key[0].code > 127) return null
+        val body = runCatching { Web.get("https://v2.sg.media-imdb.com/suggestion/${key[0]}/${URLEncoder.encode(key, "UTF-8")}.json", 4000, mapOf("User-Agent" to "TahoeTV/3.8")) }.getOrNull() ?: return null
+        return parseImdbPoster(body, title, year, series)
+    }
 
     private fun itunesPoster(title: String, year: Int?): String? {
         val q = URLEncoder.encode(title, "UTF-8")

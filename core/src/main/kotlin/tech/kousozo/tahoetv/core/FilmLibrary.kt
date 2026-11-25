@@ -21,17 +21,20 @@ object FilmLibrary {
     private val YEAR = Regex("""[\s.(\[_-]((?:19|20)\d{2})(?=[\s.)\]_-]|$)""")
     private val NOISE = Regex("""(?i)\b(2160p|1080p|720p|480p|360p|4k|uhd|hdr|web-?dl|web-?rip|blu-?ray|bdrip|brrip|dvdrip|hdrip|hdtv|x264|x265|h\.?264|h\.?265|hevc|aac|ac3|dts|10bit|sub(?:s|title)?\s*(?:indo|id|eng)?|indo|dubbed|dub|nf|amzn|extended|remastered|proper|repack)\b""")
     private val EXT = Regex("""(?i)\.(mp4|mkv|avi|mov|webm|m4v|ts)$""")
-    private val TAGS = Regex("""\[[^\]]*]|\{[^}]*}""")
+    private val TAGS = Regex("""\[[^\]]*\]|\{[^}]*\}""")
 
     fun host(url: String): String = runCatching { URI(url.trim()).host.orEmpty().lowercase().removePrefix("www.") }.getOrDefault("")
 
     fun isPixeldrain(url: String): Boolean = host(url).let { h -> HOSTS.any { h == it || h.endsWith(".$it") } }
 
-    /** True for what belongs in Film & Series and must not appear in Live TV. */
+    /** True for what belongs in Film & Series and must not appear in Live TV: pixeldrain, or a film/series group holding a file or release-named title. */
     fun isLibrary(c: M3u.Channel): Boolean {
         if (isPixeldrain(c.url)) return true
         val g = c.group?.lowercase().orEmpty()
-        return g.isNotEmpty() && GROUP.containsMatchIn(g)
+        if (g.isEmpty() || !GROUP.containsMatchIn(g)) return false
+        // a "Movies" group on a playlist is often a 24/7 channel (AMC, BBC First): only a file or a release-style title is a film
+        val p = parse(c.name)
+        return LocalTv.isVod(c) || p.year != null || p.episode != null
     }
 
     fun kindOf(c: M3u.Channel): Kind {
