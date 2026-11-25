@@ -5,6 +5,19 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.8.6
+
+**Tahoe TV v3.8.6 (Stable)** · film dan series kini punya bagian sendiri, tidak lagi bercampur dengan TV langsung.
+
+### Baru
+- **Film & Series** di TV (Tahoe Live), HP (Profil → Aktivitas) dan desktop (menu samping). Semua yang sumbernya pixeldrain, serta file atau judul rilisan di grup film/series, masuk ke sini dan tidak muncul di Live TV.
+- **Poster dari judul:** "Nama.Film.2021.1080p.mkv" dibersihkan menjadi judul dan tahun, lalu posternya dicari (TMDB bila ada kunci; selain itu iTunes, TVMaze, IMDb, Wikipedia). Bila tidak ada kecocokan yang pasti, tampil kartu berisi judul, bukan gambar yang salah.
+- **Series:** episode satu serial digabung dalam satu kartu dan diputar berurutan; di TV, Atas/Bawah pindah episode.
+
+### Catatan
+- Saluran TV 24 jam di grup "Movies" (mis. AMC, BBC First) tetap di Live TV.
+- Layar Film di TV memuat poster saat kartu didekati agar ringan di TV 1 GB.
+
 ## 3.8.5
 
 **Tahoe TV v3.8.5 (Stable)** · perbaikan tampilan Android TV yang ditemukan langsung di TV nyata.
