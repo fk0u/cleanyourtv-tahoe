@@ -674,6 +674,9 @@ public class LiveTv extends Activity {
         LocalTv.Entry e = list.get(index);
         bNum.setText(String.format(java.util.Locale.ROOT, "%02d", index + 1));
         bName.setText(e.getName());
+        // the box was staying as narrow as the previous, shorter name ("The In…"): give it the width this name needs
+        bName.setMinWidth(Math.min(px(1100), (int) Math.ceil(bName.getPaint().measureText(e.getName())) + px(8)));
+        bName.requestLayout(); if (bName.getParent() instanceof View) ((View) bName.getParent()).requestLayout();
         int sources = 1 + e.getAlternates().size();
         String catLbl = OnboardingText.INSTANCE.category(lang, e.getCategory());
         bMeta.setText(catLbl
@@ -787,16 +790,20 @@ public class LiveTv extends Activity {
         bNum = otv("", 30, 600, 0xFFFFFFFF); bNum.setPadding(px(16), px(8), px(16), px(8)); bNum.setBackground(obox(0x26FFFFFF, 14));
         info.addView(bNum);
         LinearLayout names = new LinearLayout(this); names.setOrientation(LinearLayout.VERTICAL);
-        bName = otv("", 46, 600, 0xFFFFFFFF); bName.setLetterSpacing(-0.02f);
+        bName = otv("", 46, 600, 0xFFFFFFFF); bName.setLetterSpacing(-0.02f); bName.setMaxWidth(px(1100)); // wide enough for the longest channel names
         bMeta = otv("", 21, 500, 0xB3FFFFFF);
         bStatus = otv("", 21, 600, 0xFFFF8A80); bStatus.setVisibility(View.GONE);
-        names.addView(bName);
-        LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-2, -2); ml.topMargin = px(4); names.addView(bMeta, ml);
-        names.addView(bStatus);
-        LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(-2, -2); nl.setMarginStart(px(20)); info.addView(names, nl);
+        // The name sits in a box of fixed width (the wrap-to-content box cut "The Indonesia Channel" to "The In…"); LIVE and the
+        // category share the line under it, so a short name no longer leaves a gap in front of the badge
+        names.addView(bName, new LinearLayout.LayoutParams(-1, -2));
         bLive = otv("LIVE", 21, 600, 0xFFFFFFFF); bLive.setLetterSpacing(0.12f);
         bLive.setPadding(px(16), px(7), px(16), px(7)); bLive.setBackground(obox(0xFFD92D20, 999));
-        LinearLayout.LayoutParams ll0 = new LinearLayout.LayoutParams(-2, -2); ll0.setMarginStart(px(20)); info.addView(bLive, ll0);
+        LinearLayout second = new LinearLayout(this); second.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams ll0 = new LinearLayout.LayoutParams(-2, -2); ll0.setMarginEnd(px(16)); second.addView(bLive, ll0);
+        second.addView(bMeta);
+        LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-1, -2); sl.topMargin = px(8); names.addView(second, sl);
+        names.addView(bStatus);
+        LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(px(1000), -2); nl.setMarginStart(px(20)); info.addView(names, nl);
         FrameLayout.LayoutParams il = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START); il.leftMargin = px(112); il.topMargin = px(64);
         o.addView(info, il);
 

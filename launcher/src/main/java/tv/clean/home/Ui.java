@@ -175,7 +175,7 @@ final class Ui {
 
     /** Binds a channel logo (cached via [Logos]) onto an ImageView with fallback initials. */
     static void bindLogo(String url, android.widget.ImageView iv, TextView fallback, String name) {
-        String init = name == null ? "" : (name.length() > 3 ? name.substring(0, 3) : name).toUpperCase(java.util.Locale.ROOT);
+        String init = tech.kousozo.tahoetv.core.Monogram.of(name);
         fallback.setText(init);
         iv.setTag(url);
         Bitmap hit = Logos.cached(url);
