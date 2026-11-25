@@ -29,6 +29,7 @@ final class Film extends FrameLayout implements Sheet {
 
     Film(Home h) {
         super(h);
+        MediaScraper.setTmdbKey(Cfg.key("tmdb_key", BuildConfig.TMDB_API_KEY));
         home = h; S = h.W / 1920f; lang = TvViewer.get(h).getLanguage();
         setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xFF0D1429, 0xFF08080D}));
         setClickable(true);
@@ -62,7 +63,8 @@ final class Film extends FrameLayout implements Sheet {
         hs.setHorizontalScrollBarEnabled(false); hs.setClipChildren(false); hs.setClipToPadding(false);
         hs.setPadding(px(10), px(24), px(10), px(24));
         LinearLayout row = new LinearLayout(home); row.setClipChildren(false);
-        for (FilmLibrary.Title t : titles) row.addView(card(t));
+        int n = 0;
+        for (FilmLibrary.Title t : titles) { View c = card(t); row.addView(c); if (n++ < 10) ((Runnable) c.getTag(R.id.film_poster)).run(); }
         hs.addView(row);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px(1700), -2); lp.setMarginStart(-px(10)); lp.bottomMargin = px(12);
         body.addView(hs, lp);
@@ -89,12 +91,24 @@ final class Film extends FrameLayout implements Sheet {
         col.addView(tv(sub, 16, 500, 0x99F7F8FA), new LinearLayout.LayoutParams(w, -2));
         col.setPadding(px(8), px(8), px(8), px(8));
         col.setFocusable(true); col.setFocusableInTouchMode(true); col.setClickable(true);
-        col.setOnFocusChangeListener((v, fo) -> { col.setBackground(frame(fo)); col.animate().scaleX(fo ? 1.06f : 1f).scaleY(fo ? 1.06f : 1f).setDuration(Ui.dur(home, Ui.FAST)).start(); });
+        col.setOnFocusChangeListener((v, fo) -> { if (fo) warm(col); col.setBackground(frame(fo)); col.animate().scaleX(fo ? 1.06f : 1f).scaleY(fo ? 1.06f : 1f).setDuration(Ui.dur(home, Ui.FAST)).start(); });
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-2, -2); cp.setMarginEnd(px(20)); col.setLayoutParams(cp);
         col.setTag(t);
         col.setOnClickListener(v -> play(t));
-        MediaScraper.prefetchPoster(t.getTitle(), t.getYear(), series, url -> { img.post(() -> Logos.fetchAsync(url, (Bitmap b) -> { img.setImageBitmap(b); img.setVisibility(View.VISIBLE); fallback.setVisibility(View.GONE); })); return kotlin.Unit.INSTANCE; });
+        final boolean[] asked = {false}; // posters are looked up when a card is near the start or focused, not all hundreds at once
+        col.setTag(R.id.film_poster, (Runnable) () -> {
+            if (asked[0]) return; asked[0] = true;
+            MediaScraper.prefetchPoster(t.getTitle(), t.getYear(), series, url -> { img.post(() -> Logos.fetchAsync(url, (Bitmap b) -> { img.setImageBitmap(b); img.setVisibility(View.VISIBLE); fallback.setVisibility(View.GONE); })); return kotlin.Unit.INSTANCE; });
+        });
         return col;
+    }
+
+    /** Looks up this card's poster and the next few to its right, so they are ready when the user gets there. */
+    private void warm(View card) {
+        android.view.ViewGroup row = (android.view.ViewGroup) card.getParent();
+        if (row == null) return;
+        int at = row.indexOfChild(card);
+        for (int i = at; i < Math.min(row.getChildCount(), at + 5); i++) { Object r = row.getChildAt(i).getTag(R.id.film_poster); if (r instanceof Runnable) ((Runnable) r).run(); }
     }
 
     private void play(FilmLibrary.Title t) {
