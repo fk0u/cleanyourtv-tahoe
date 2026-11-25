@@ -5,6 +5,18 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.8.5
+
+**Tahoe TV v3.8.5 (Stable)** · perbaikan tampilan Android TV yang ditemukan langsung di TV nyata.
+
+### Perbaikan
+- **Pemilih profil:** judul "Siapa yang menonton?" tidak lagi terpotong (sebelumnya terbaca "menontor").
+- **Beranda:** sapaan tidak lagi tertimpa chip cuaca di baris atas (chip Tanya dan Pembaruan kini hanya ikon). Teks hero lebih mudah dibaca di atas video terang.
+- **Tahoe Live:** sapaan mengikuti waktu setiap kali dibuka (sebelumnya bisa tetap "pagi" sampai sore).
+- **Pemutar:** nama saluran panjang tampil utuh ("The Indonesia Channel", bukan "The In…"); lencana LIVE dan kategori kini berada di baris di bawah nama.
+- **Logo saluran yang belum termuat:** huruf pengganti kini membedakan saluran sejenis (TVRI, TVRI Sport, TVRI World tampil TVR, TS, TW; sebelumnya semuanya "TVR").
+- **Tentang & pembaruan:** latarnya nyaris buram sehingga beranda tidak terlihat tembus di belakang teks.
+
 ## 3.8.4
 
 **Tahoe TV v3.8.4 (Stable)** · penyesuaian untuk Android TV dan Google TV.
