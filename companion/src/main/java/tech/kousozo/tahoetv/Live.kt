@@ -1027,6 +1027,8 @@ object Channels {
     var entries by mutableStateOf<List<LocalTv.Entry>?>(null); private set
     var epg by mutableStateOf<Epg?>(null); private set
     var failed by mutableStateOf(false); private set
+    /** Movies and series (pixeldrain, film/series groups): never in [entries], so never in Live TV. */
+    var library by mutableStateOf<List<tech.kousozo.tahoetv.core.FilmLibrary.Title>>(emptyList()); private set
     var debugOffline by mutableStateOf(false)
     private var loading = false
     /** Bumped on a country change: a load still running for the old country throws its result away. */
@@ -1072,6 +1074,7 @@ object Channels {
                 }
             }.getOrNull()
             if (mine != generation) return@withContext // the country changed meanwhile
+            if (!rawAll.isNullOrEmpty()) { val lib = tech.kousozo.tahoetv.core.FilmLibrary.group(rawAll); ui.post { if (mine == generation) library = lib } }
             val list = if (rawAll.isNullOrEmpty()) null else LocalTv.arrange(rawAll, province, viewer.countries, viewer.sort, viewer.city, viewer.country)
             if (list.isNullOrEmpty()) {
                 if (!showedPriority) failed = true // no playlist for this country, or no internet: show the note, not a blank list

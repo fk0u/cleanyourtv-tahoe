@@ -439,6 +439,7 @@ fun ProfileScreen() {
                 }
             }
             MenuGroup(I18n.get(lang, "profile.activity")) {
+                MenuRow(Icons.Rounded.Movie, I18n.get(lang, "tv.mh_tab_film")) { Nav.page = "films" }
                 MenuRow(Icons.Rounded.History, I18n.get(lang, "profile.history")) { Nav.page = "history" }
                 MenuRow(Icons.Rounded.Tv, I18n.get(lang, "profile.connect_tv"), if (tvCount > 0) "$tvCount" else null) { Nav.page = "connect" }
                 MenuRow(Icons.Rounded.Download, I18n.get(lang, "tv.install_on_tv")) { Nav.page = "setup" }
@@ -1376,6 +1377,7 @@ fun NoCodePairDialog() {
 fun NavPage(page: String) {
     when (page) {
         "history" -> HistoryPage()
+        "films" -> FilmsPage()
         "notifications" -> NotificationsPage()
         "settings" -> SettingsPage()
         "search" -> SearchPage()
