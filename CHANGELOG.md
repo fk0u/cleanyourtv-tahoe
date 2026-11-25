@@ -5,6 +5,18 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.8.4
+
+**Tahoe TV v3.8.4 (Stable)** · penyesuaian untuk Android TV dan Google TV.
+
+### Perbaikan
+- **Google TV: Back.** Saat Tahoe berjalan sebagai aplikasi (Google TV tidak mengizinkan launcher pihak ketiga menjadi layar Beranda), Back di layar utama kini kembali ke Beranda Google TV; sebelumnya tombol itu tertelan.
+- **Tombol remote.** Guide dan TV membuka Tahoe Live, Search membuka pencarian.
+- **Pembaruan di TV.** Langkah izin pemasangan kini mencoba halaman izin khusus Tahoe, lalu halaman "sumber tidak dikenal", lalu Keamanan, lalu Pengaturan, karena firmware TV berbeda-beda.
+
+### Pengembangan
+- Tes asap instalasi-baru di CI (pasang, hapus data, jalankan, monkey di emulator) supaya crash seperti di onboarding 3.8.0 tertangkap sebelum rilis.
+
 ## 3.8.3
 
 **Tahoe TV v3.8.3 (Stable)** · perbaikan pembaruan: aplikasi kini memandu pengguna mengaktifkan izin pemasangan sebelum mengunduh.
