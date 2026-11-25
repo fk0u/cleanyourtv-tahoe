@@ -324,7 +324,7 @@ object LocalTv {
         val home = Region.HOME in normCountries
         val near = CountryCatalog.localKeywords(viewerCountry ?: normCountries.firstOrNull(), province, city)
         val exactBuckets = channels
-            .filterNot { isMismatchedSource(it.name, it.url) }
+            .filterNot { FilmLibrary.isLibrary(it) || isMismatchedSource(it.name, it.url) }
             .map {
                 val e = classify(it, near, home)
                 val spaceKey = canonicalMergeKey(e.name).replace(" ", "")

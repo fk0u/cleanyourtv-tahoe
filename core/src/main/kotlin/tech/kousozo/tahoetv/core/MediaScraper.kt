@@ -28,6 +28,7 @@ object MediaScraper {
 
     private val logoCache = newLru()
     private val thumbCache = newLru()
+    private val posterCache = newLru()
     private val inflight = ConcurrentHashMap.newKeySet<String>()
     private val prefetchPool = Executors.newFixedThreadPool(2) { r ->
         Thread(r, "tahoe-media-prefetch").apply { isDaemon = true }
@@ -43,6 +44,7 @@ object MediaScraper {
         cacheDir = File(dir, "media-scraper").also { runCatching { it.mkdirs() } }
         loadCacheFile("logos.tsv", logoCache)
         loadCacheFile("thumbs.tsv", thumbCache)
+        loadCacheFile("posters.tsv", posterCache)
         PopularityScraper.initCache(dir)
         Epg.initCache(dir)
     }
@@ -127,6 +129,67 @@ object MediaScraper {
         thumbCache[key] = Cached(found, now)
         scheduleSave("thumbs.tsv", thumbCache)
         return found
+    }
+
+    /** Poster of a movie or series by its title (no API key): movies from the iTunes catalogue, series from TVMaze, then a Wikipedia
+     *  page picture whose title really matches. Null when nothing matches: a wrong poster is worse than a placeholder. */
+    @JvmStatic @JvmOverloads
+    fun poster(title: String, year: Int? = null, series: Boolean = false): String? {
+        val t = title.trim()
+        if (t.isBlank()) return null
+        val key = "${if (series) "s" else "m"}|${t.lowercase()}|${year ?: ""}"
+        val now = System.currentTimeMillis()
+        posterCache[key]?.takeIf { now - it.at < TTL_MS * (if (it.url == null) 1 else 30) }?.let { return it.url }
+        val found = (if (series) tvmazePoster(t) else itunesPoster(t, year))
+            ?: scrapeWikiThumb(if (series) "$t TV series" else if (year != null) "$t $year film" else "$t film", 500)
+        val ok = found?.takeIf(::verifyImageUrl)
+        posterCache[key] = Cached(ok, now)
+        scheduleSave("posters.tsv", posterCache)
+        return ok
+    }
+
+    @JvmStatic @JvmOverloads
+    fun prefetchPoster(title: String, year: Int? = null, series: Boolean = false, onReady: (String) -> Unit) {
+        val key = "poster:${if (series) "s" else "m"}|${title.lowercase()}|${year ?: ""}"
+        if (!inflight.add(key)) return
+        prefetchPool.execute {
+            try { poster(title, year, series)?.let(onReady) } finally { inflight.remove(key) }
+        }
+    }
+
+    internal fun parseItunesPoster(json: String, title: String, year: Int?): String? = runCatching {
+        val arr = JSONObject(json).optJSONArray("results") ?: return null
+        for (i in 0 until arr.length()) {
+            val r = arr.optJSONObject(i) ?: continue
+            if (!titleMatches(title, r.optString("trackName"))) continue
+            val y = r.optString("releaseDate").take(4).toIntOrNull()
+            if (year != null && y != null && kotlin.math.abs(y - year) > 1) continue
+            return r.optString("artworkUrl100").takeIf { it.startsWith("https://") }?.replace(Regex("""/\d+x\d+bb"""), "/400x600bb")
+        }
+        null
+    }.getOrNull()
+
+    internal fun parseTvmazePoster(json: String, title: String): String? = runCatching {
+        val arr = org.json.JSONArray(json)
+        for (i in 0 until arr.length()) {
+            val show = arr.optJSONObject(i)?.optJSONObject("show") ?: continue
+            if (!titleMatches(title, show.optString("name"))) continue
+            val img = show.optJSONObject("image") ?: continue
+            return (img.optString("original").ifBlank { img.optString("medium") }).takeIf { it.startsWith("http") }?.replace("http://", "https://")
+        }
+        null
+    }.getOrNull()
+
+    private fun itunesPoster(title: String, year: Int?): String? {
+        val q = URLEncoder.encode(title, "UTF-8")
+        val body = runCatching { Web.get("https://itunes.apple.com/search?term=$q&media=movie&entity=movie&limit=8", 4000, mapOf("User-Agent" to "TahoeTV/3.8")) }.getOrNull() ?: return null
+        return parseItunesPoster(body, title, year)
+    }
+
+    private fun tvmazePoster(title: String): String? {
+        val q = URLEncoder.encode(title, "UTF-8")
+        val body = runCatching { Web.get("https://api.tvmaze.com/search/shows?q=$q", 4000, mapOf("User-Agent" to "TahoeTV/3.8")) }.getOrNull() ?: return null
+        return parseTvmazePoster(body, title)
     }
 
     /** Non-blocking background prefetch (<= 2 concurrent workers) for channel logo lookup. */
