@@ -14,7 +14,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.exoplayer.ExoPlayer;
 import java.io.File;
 
-/** Plays one local recording (.ts) full screen: OK pauses, ◀ ▶ seek 10 s, Back leaves. */
+/** Plays one local recording (.ts), or a film/series playlist (extra "urls"), full screen: OK pauses, ◀ ▶ seek 10 s, Back leaves. */
 public class RecordingPlayer extends Activity {
     private ExoPlayer player;
 
@@ -22,7 +22,8 @@ public class RecordingPlayer extends Activity {
         super.onCreate(b);
         if (TvGuard.blockIfNotTv(this)) return;
         String path = getIntent().getStringExtra("path");
-        if (path == null || !new File(path).exists()) { finish(); return; }
+        String[] urls = getIntent().getStringArrayExtra("urls"); // film/series: http(s) sources, played in order
+        if (urls == null && (path == null || !new File(path).exists())) { finish(); return; }
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         SurfaceView surface = new SurfaceView(this);
@@ -38,7 +39,12 @@ public class RecordingPlayer extends Activity {
         setContentView(root);
         player = new ExoPlayer.Builder(this).build();
         player.setVideoSurfaceView(surface);
-        player.setMediaItem(MediaItem.fromUri(Uri.fromFile(new File(path))));
+        if (urls != null) {
+            java.util.List<MediaItem> items = new java.util.ArrayList<>();
+            for (String u : urls) if (u.startsWith("https://") || u.startsWith("http://")) items.add(MediaItem.fromUri(u));
+            if (items.isEmpty()) { finish(); return; }
+            player.setMediaItems(items);
+        } else player.setMediaItem(MediaItem.fromUri(Uri.fromFile(new File(path))));
         player.prepare();
         player.play();
     }
@@ -48,6 +54,8 @@ public class RecordingPlayer extends Activity {
         switch (code) {
             case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
                 player.setPlayWhenReady(!player.getPlayWhenReady()); return true;
+            case KeyEvent.KEYCODE_DPAD_DOWN: case KeyEvent.KEYCODE_MEDIA_NEXT: if (player.hasNextMediaItem()) { player.seekToNextMediaItem(); return true; } break;
+            case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_MEDIA_PREVIOUS: if (player.hasPreviousMediaItem()) { player.seekToPreviousMediaItem(); return true; } break;
             case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_MEDIA_REWIND: player.seekTo(Math.max(0, player.getCurrentPosition() - 10_000)); return true;
             case KeyEvent.KEYCODE_DPAD_RIGHT: case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD: player.seekTo(player.getCurrentPosition() + 10_000); return true;
         }

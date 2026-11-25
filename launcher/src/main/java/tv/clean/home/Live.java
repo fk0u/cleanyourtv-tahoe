@@ -36,6 +36,7 @@ import tech.kousozo.tahoetv.core.Web;
  *  Choosing a channel plays it in Tahoe's built-in Live TV player. */
 public class Live extends Activity {
     static final String TV_APP = "com.live_streaming_tv.online_tv"; // BitTV
+    static List<tech.kousozo.tahoetv.core.FilmLibrary.Title> library = new ArrayList<>(); // movies & series: never part of `cached` (Live TV)
     static List<LocalTv.Entry> cached; static Epg epg; static long cachedAt;   // survive re-opening; refreshed every 6 h
 
     final Handler ui = new Handler(Looper.getMainLooper());
@@ -278,6 +279,7 @@ public class Live extends Activity {
                         }
                         return kotlin.Unit.INSTANCE;
                     });
+                    library = tech.kousozo.tahoetv.core.FilmLibrary.INSTANCE.group(rawAll);
                     List<LocalTv.Entry> l = vw.arrange(LocalTv.INSTANCE.arrange(
                             rawAll, nearProvince, vw.getCountries(), vw.getSort(), vw.getCity(), vw.getCountry()));
                     currentChannels = l;
