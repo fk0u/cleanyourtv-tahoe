@@ -42,7 +42,8 @@ Sesi Developer Mode punya masa berlaku; perpanjang di aplikasi Developer Mode, k
 
 Versi pertama sudah dicoba di LG 43LM5700 (webOS 4.10, Chromium 53): saluran, siaran langsung 720p, poster. Pada mesin
 lama ini dipakai huruf bawaan TV (font variabel tidak didukung), dan logo punya cadangan karena sebagian host gambar
-gagal. Beranda, jadwal, profil, dan fitur baru lainnya baru dicoba di browser.
+gagal. Beranda, jadwal, cari, pemutar, film, profil, dan pengaturan juga sudah dicek di TV yang sama; rinciannya di
+[docs/id/WEBOS-PARITAS.md](../docs/id/WEBOS-PARITAS.md).
 
 Kode ada di `app/js/` dan harus tetap ES5 (ada tesnya).
 

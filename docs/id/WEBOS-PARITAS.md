@@ -1,22 +1,22 @@
 # webOS vs Android TV: audit kesetaraan fitur
 
 Diperbarui 28 November 2026. "Sudah" berarti ada di `webos/`; kolom terakhir menyebut sejauh mana sudah dicoba.
-Putaran pertama webOS sudah dicek di LG 43LM5700 (webOS 4.10). **Fitur di bawah yang ditambahkan sesudahnya baru dicoba
-di browser komputer** (Chromium baru), belum di TV.
+"TV" = dicek di LG 43LM5700 (webOS 4.10, Chromium 53) lewat perintah dari komputer, bukan tombol remote fisik. Di TV itu:
+915 saluran, jadwal 141 saluran termuat sekitar 12 detik, tombol di daftar ditanggapi di bawah 40 ms, memori JS 30 MB.
 
 | Fitur Android TV | webOS | Catatan |
 |---|---|---|
-| TV langsung: kategori, logo, favorit, sumber cadangan, nomor saluran | Sudah | dasar sudah dicek di TV |
-| Beranda (sorotan, lanjutkan menonton, sedang tayang, film) | Sudah | browser |
-| Jam, cuaca, waktu salat berikutnya | Sudah | browser; belum ada adzan |
-| Jadwal acara (EPG): kini/berikutnya, halaman jadwal, bilah kemajuan | Sudah | 167 dari 999 saluran punya jadwal (data nyata) |
-| Pengingat acara | Sudah | hanya saat aplikasi terbuka |
-| Cari saluran, acara, film (papan ketik di layar) | Sudah | browser |
-| Pemutar: daftar saluran, pilihan sumber, saluran sebelumnya, pengatur tidur | Sudah | browser |
-| Layar siaran gagal + nada Tahoe + hitung mundur coba lagi | Sudah | nada diputar di browser; bunyinya di TV belum didengar |
-| Film & Series: poster, episode, lanjutkan posisi, tanda selesai | Sudah | posisi, lanjutkan, dan sambung ulang dicek di browser dengan aliran uji |
-| Profil Saya / Anak / Tamu, PIN, batas waktu Anak | Sudah | PIN dan batas waktu dicek di browser |
-| Onboarding dan Pengaturan (nama, bahasa, kota, negara, kategori, urutan, playlist) | Sudah | browser |
+| TV langsung: kategori, logo, favorit, sumber cadangan, nomor saluran | Sudah | TV |
+| Beranda (sorotan, lanjutkan menonton, sedang tayang, film) | Sudah | TV |
+| Jam, cuaca, waktu salat berikutnya | Sudah | jam di TV; cuaca dan salat baru di browser; belum ada adzan |
+| Jadwal acara (EPG): kini/berikutnya, halaman jadwal, bilah kemajuan | Sudah | TV |
+| Pengingat acara | Sudah | pasang/hapus di TV, notifikasi di browser; hanya saat aplikasi terbuka |
+| Cari saluran, acara, film (papan ketik di layar) | Sudah | TV |
+| Pemutar: daftar saluran, pilihan sumber, saluran sebelumnya, pengatur tidur | Sudah | TV (daftar, pilihan, saluran sebelumnya); pengatur tidur belum ditunggu sampai habis |
+| Layar siaran gagal + nada Tahoe + hitung mundur coba lagi | Sudah | tampilan dan nada berjalan di TV; bunyinya belum didengar orang |
+| Film & Series: poster, episode, lanjutkan posisi, tanda selesai | Sudah | TV: film pixeldrain diputar, dimajukan, dan dilanjutkan; episode serial baru di browser |
+| Profil Saya / Anak / Tamu, PIN, batas waktu Anak | Sudah | profil dan PIN di TV; batas waktu Anak baru di browser |
+| Onboarding dan Pengaturan (nama, bahasa, kota, negara, kategori, urutan, playlist) | Sudah | TV |
 | Bahasa Indonesia, Inggris, Mandarin | Sudah | bahasa Android lain belum |
 | Info pembaruan dengan tombol Nanti | Sudah | webOS tidak bisa memasang sendiri; dari komputer |
 | Launcher: dock, daftar aplikasi, jadi layar Beranda | Tidak bisa | webOS tidak mengizinkan launcher pihak ketiga |
@@ -29,5 +29,5 @@ di browser komputer** (Chromium baru), belum di TV.
 | Berkas unduhan di rilis GitHub (`.ipk`) | Sudah di CI | muncul mulai rilis berikutnya; pasang tetap dari komputer |
 
 ## Urutan yang disarankan berikutnya
-1. Coba seluruh putaran ini di TV LG (mesin lama: kecepatan jadwal, memori, bunyi, resume film).
+1. Coba dengan remote fisik, dengarkan nada, dan pakai beberapa hari.
 2. Akun Tahoe dan Handoff, lalu remote dari HP lewat layanan JS.

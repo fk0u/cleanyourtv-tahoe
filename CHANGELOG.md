@@ -6,7 +6,7 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 ## Belum dirilis
 
 ### Baru
-- **webOS setara lebih jauh dengan Android TV:** Beranda, jadwal acara dengan pengingat, cari, panel pemutar (daftar saluran, sumber, pengatur tidur, saluran sebelumnya), layar siaran gagal dengan nada Tahoe, lanjutkan film, profil Anak/Tamu dengan PIN, onboarding, pengaturan, cuaca dan waktu salat, tiga bahasa. Baru dicoba di browser.
+- **webOS setara lebih jauh dengan Android TV:** Beranda, jadwal acara dengan pengingat, cari, panel pemutar (daftar saluran, sumber, pengatur tidur, saluran sebelumnya), layar siaran gagal dengan nada Tahoe, lanjutkan film, profil Anak/Tamu dengan PIN, onboarding, pengaturan, cuaca dan waktu salat, tiga bahasa. Sudah dicek di LG webOS 4.10.
 - **`TahoeTV-webOS.ipk`** kini dibuat CI dan ikut di halaman rilis.
 
 ### Perbaikan
