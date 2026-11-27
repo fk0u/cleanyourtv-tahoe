@@ -398,7 +398,7 @@
     D.version(function (v) {
       app.version = v;
       var seen = store.get('seenVersion', null);
-      if (seen && seen !== v) app.notify(Text.fill(app.S.updated, v), app.updateSource());
+      if (seen && D.newer(v, seen)) app.notify(Text.fill(app.S.updated, v), app.updateSource()); // not after going back to the package
       store.set('seenVersion', v);
       setTimeout(function () { app.checkUpdate(false); }, 20000);
     });
