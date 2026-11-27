@@ -232,10 +232,11 @@
       var key = squeezed + '|' + cat, e = own(map, key);
       if (!e) {
         var rank = NATIONAL.indexOf(name.toLowerCase());
-        e = map[key] = { key: key, name: name, cat: cat, rank: rank < 0 ? 1000 : rank, logo: null, streams: [] };
+        e = map[key] = { key: key, name: name, cat: cat, rank: rank < 0 ? 1000 : rank, logos: [], streams: [] };
         list.push(e);
       }
-      if (!e.logo && c.logo && /^https?:/i.test(c.logo)) e.logo = c.logo;
+      // several candidates: some image hosts don't load on every TV or network
+      if (c.logo && /^https?:/i.test(c.logo) && e.logos.length < 4 && e.logos.indexOf(c.logo) < 0) e.logos.push(c.logo);
       e.streams.push({ url: c.url, referer: c.referer, order: streamRank(c, c.primary) + i / 1e7 });
     });
     list.forEach(function (e) {

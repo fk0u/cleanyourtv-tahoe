@@ -33,7 +33,7 @@ test('live list merges feeds, keeps film files and DRM out', () => {
   const live = L.arrange(L.parseM3u(m3u));
   assert.deepStrictEqual(live.map(e => e.name), ['Trans7', 'AMC Europe']);
   assert.deepStrictEqual(live[0].streams, ['https://b.example/trans7.m3u8', 'https://a.example/trans7.m3u8']); // a feed needing a Referer goes last
-  assert.strictEqual(live[0].logo, 'https://x/logo.png');
+  assert.deepStrictEqual(live[0].logos, ['https://x/logo.png']);
 });
 
 test('films and series are grouped like on Android', () => {

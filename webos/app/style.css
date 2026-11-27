@@ -1,6 +1,7 @@
 @font-face { font-family: Outfit; src: url(Outfit.ttf); font-weight: 100 900; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { width: 1920px; height: 1080px; overflow: hidden; background: #08080d; color: #f7f8fa; font-family: Outfit, sans-serif; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: #08080d; color: #f7f8fa; font-family: 'LG Smart UI', 'LG Display', Roboto, Arial, sans-serif; }
+html.vf, html.vf body { font-family: Outfit, sans-serif; }
 [hidden] { display: none !important; }
 #video { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #000; display: none; }
 body.playing, body.playing html { background: transparent; }
@@ -38,13 +39,13 @@ h1 { font-size: 46px; font-weight: 600; margin-right: 24px; }
 #note { font-size: 28px; color: rgba(247,248,250,.75); max-width: 1100px; line-height: 1.5; padding-top: 16px; }
 #hint { position: absolute; left: 20px; bottom: 24px; font-size: 19px; color: rgba(247,248,250,.45); }
 
-input { display: block; width: 900px; height: 70px; font: 500 28px Outfit, sans-serif; color: #f7f8fa; background: rgba(255,255,255,.1); border: 4px solid transparent; border-radius: 18px; padding: 0 24px; outline: none; }
+input { display: block; width: 900px; height: 70px; font-family: inherit; font-size: 28px; font-weight: 500; color: #f7f8fa; background: rgba(255,255,255,.1); border: 4px solid transparent; border-radius: 18px; padding: 0 24px; outline: none; }
 input:focus, input.focus { border-color: #5cd0ff; }
 #searchBox { padding-top: 14px; }
 #settingsBox { padding-top: 24px; }
 #settingsBox label { display: block; font-size: 24px; margin-bottom: 12px; color: rgba(247,248,250,.7); }
 #settingsBox input { width: 1300px; margin-bottom: 28px; }
-button { display: block; font: 600 26px Outfit, sans-serif; color: #f7f8fa; background: rgba(255,255,255,.12); border: 4px solid transparent; border-radius: 999px; padding: 14px 34px; margin-bottom: 18px; cursor: pointer; }
+button { display: block; font-family: inherit; font-size: 26px; font-weight: 600; color: #f7f8fa; background: rgba(255,255,255,.12); border: 4px solid transparent; border-radius: 999px; padding: 14px 34px; margin-bottom: 18px; cursor: pointer; }
 button.focus { background: #f7f8fa; color: #0d0d12; border-color: #5cd0ff; }
 
 #episodes { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: rgba(4,4,8,.82); }

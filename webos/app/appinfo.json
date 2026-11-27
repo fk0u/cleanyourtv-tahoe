@@ -11,5 +11,6 @@
   "bgColor": "#08080d",
   "resolution": "1920x1080",
   "disableBackHistoryAPI": true,
-  "requiredMemory": 200
+  "requiredMemory": 200,
+  "requiredACG": []
 }

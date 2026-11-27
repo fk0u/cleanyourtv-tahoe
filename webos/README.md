@@ -20,6 +20,9 @@ webos/install-tv.sh <alamat IP TV>
 
 Sesi Developer Mode punya masa berlaku; perpanjang di aplikasi Developer Mode, kalau habis aplikasinya terhapus.
 
+Sudah dicoba di LG 43LM5700 (webOS 4.10, Chromium 53): saluran, siaran langsung 720p, poster. Pada mesin lama ini
+dipakai huruf bawaan TV (font variabel tidak didukung), dan logo punya cadangan karena sebagian host gambar gagal.
+
 ## Pengembangan
 - Tes: `node --test webos/test/*.test.js`
 - Pratinjau di browser: sajikan folder `webos/app` (konfigurasi `webos` di `.claude/launch.json`). Browser menerapkan

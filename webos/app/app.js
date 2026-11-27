@@ -117,16 +117,23 @@
     return (w.length > 1 ? w[0].charAt(0) + w[1].charAt(0) : (w[0] || '?').slice(0, 3)).toUpperCase();
   }
 
-  function picture(url, box, fallback) {
+  var good = {}, bad = {};
+  /** The first of [urls] that loads replaces the text placeholder; one already seen shows at once (no flicker while moving). */
+  function picture(urls, box, fallback) {
+    urls = urls.filter(function (u) { return u && !bad[u]; });
+    var url = urls.filter(function (u) { return good[u]; })[0] || urls[0];
     if (!url) return;
     var img = new Image();
-    img.onload = function () { box.appendChild(img); if (fallback.parentNode === box) box.removeChild(fallback); };
+    function show() { box.appendChild(img); if (fallback.parentNode === box) box.removeChild(fallback); }
+    img.onload = function () { if (!good[url]) { good[url] = 1; show(); } };
+    img.onerror = function () { bad[url] = 1; delete good[url]; if (img.parentNode) { box.removeChild(img); box.appendChild(fallback); } picture(urls, box, fallback); };
     img.src = url;
+    if (good[url]) show();
   }
 
   function channelTile(e) {
     var t = el('div', 'tile'), box = el('div', 'logo'), mono = el('span', 'mono', monogram(e.name));
-    box.appendChild(mono); picture(e.logo, box, mono);
+    box.appendChild(mono); picture(e.logos || [], box, mono);
     t.appendChild(box); t.appendChild(el('div', 'name', e.name));
     if (favs[e.key]) t.appendChild(el('div', 'star', '★'));
     return t;
@@ -134,7 +141,7 @@
 
   function filmTile(x) {
     var t = el('div', 'poster'), box = el('div', 'art'), text = el('span', 'mono', x.title);
-    box.appendChild(text); poster(x, function (url) { picture(url, box, text); });
+    box.appendChild(text); poster(x, function (url) { picture([url], box, text); });
     t.appendChild(box); t.appendChild(el('div', 'name', x.title));
     t.appendChild(el('div', 'sub', x.series ? f(S.episodes, x.items.length) : (S.movies + (x.year ? ' · ' + x.year : ''))));
     return t;
@@ -418,6 +425,8 @@
   // ---------------------------------------------------------------- start
 
   function init() {
+    // Outfit is a variable font: old engines (webOS 4 = Chromium 53) would draw it hair-thin, so they keep the TV's font
+    if (window.CSS && CSS.supports && CSS.supports('font-variation-settings', 'normal')) document.documentElement.className = 'vf';
     document.documentElement.lang = id ? 'id' : 'en';
     $('query').placeholder = S.typeSearch; $('urlLabel').textContent = S.playlist; $('url').placeholder = DEFAULT_PLAYLIST; $('url').value = playlist;
     $('save').textContent = S.save; $('reset').textContent = S.reset; $('reload').textContent = S.reload;
