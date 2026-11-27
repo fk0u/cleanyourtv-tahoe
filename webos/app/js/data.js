@@ -149,8 +149,41 @@
     for (var i = 0; i < 3; i++) { var d = (+x[i] || 0) - (+y[i] || 0); if (d) return d > 0; }
     return false;
   }
-  function version(done) { json('appinfo.json', function (j) { done(j && j.version ? j.version : '0.0.0'); }); }
-  function latest(done) { json('https://api.github.com/repos/fk0u/tahoe-tv/releases/latest', function (j) { done(j && j.tag_name ? String(j.tag_name).replace(/^v/, '') : null); }); }
+  /** The running version: a downloaded update's (boot.js), else the package's. */
+  function version(done) {
+    if (root.TahoeBoot) return done(root.TahoeBoot.version);
+    json('appinfo.json', function (j) { done(j && j.version ? j.version : '0.0.0'); });
+  }
+  /** The latest stable release: { version, notes } (notes as plain text), or null when offline. */
+  function latest(done) {
+    json('https://api.github.com/repos/fk0u/tahoe-tv/releases/latest', function (j) {
+      if (!j || !j.tag_name) return done(null);
+      var notes = String(j.body || '').replace(/\r/g, '').replace(/^#+\s*/gm, '').replace(/\*\*|`/g, '').replace(/^\s*[-*]\s+/gm, '• ').replace(/\n{3,}/g, '\n\n').trim();
+      done({ version: String(j.tag_name).replace(/^v/, ''), notes: notes });
+    });
+  }
+  /** Five days: [{ day (ms), code, max, min }]. */
+  function forecast(cfg, done) {
+    if (cfg.lat === null) return done(null);
+    json('https://api.open-meteo.com/v1/forecast?latitude=' + cfg.lat + '&longitude=' + cfg.lon + '&daily=weather_code,temperature_2m_max,temperature_2m_min&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m&timezone=auto&forecast_days=5', function (j) {
+      if (!j || !j.daily) return done(null);
+      var d = j.daily, days = [];
+      for (var i = 0; i < d.time.length; i++) days.push({ day: new Date(d.time[i] + 'T12:00:00').getTime(), code: d.weather_code[i], max: Math.round(d.temperature_2m_max[i]), min: Math.round(d.temperature_2m_min[i]) });
+      done({ now: j.current ? { temp: Math.round(j.current.temperature_2m), code: j.current.weather_code, humidity: j.current.relative_humidity_2m, wind: Math.round(j.current.wind_speed_10m) } : null, days: days });
+    });
+  }
+  /** Open-Meteo weather code → text key in i18n "wx". */
+  function sky(code) {
+    if (code === 0) return 'clear';
+    if (code <= 2) return 'partly';
+    if (code === 3) return 'cloudy';
+    if (code === 45 || code === 48) return 'fog';
+    if (code >= 51 && code <= 57) return 'drizzle';
+    if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return code >= 80 ? 'showers' : 'rain';
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
+    if (code >= 95) return 'storm';
+    return 'cloudy';
+  }
 
-  root.TahoeData = { DEFAULT_PLAYLIST: DEFAULT_PLAYLIST, COUNTRIES: COUNTRIES, get: get, channels: channels, sorted: sorted, guide: guide, poster: poster, weather: weather, prayer: prayer, cities: cities, newer: newer, version: version, latest: latest };
+  root.TahoeData = { DEFAULT_PLAYLIST: DEFAULT_PLAYLIST, COUNTRIES: COUNTRIES, get: get, channels: channels, sorted: sorted, guide: guide, poster: poster, weather: weather, forecast: forecast, sky: sky, prayer: prayer, cities: cities, newer: newer, version: version, latest: latest };
 })(this);
