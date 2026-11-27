@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const L = require('../app/lib.js');
+const L = require('../app/js/lib.js');
 
 const m3u = `#EXTM3U
 #EXTINF:-1 tvg-logo="https://x/logo.png" group-title="General",Trans 7 TV (720p)

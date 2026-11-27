@@ -88,7 +88,7 @@
           out.push({ name: name.replace(/\s*\(\d+[pi]\)/g, ''), url: url, logo: attrs['tvg-logo'] || null,
             group: grp ? grp.split(';')[0] : null,
             referer: head.referer || attrs['http-referrer'] || attrs['http-referer'] || null,
-            ua: head.ua || attrs['http-user-agent'] || null, drm: drm });
+            ua: head.ua || attrs['http-user-agent'] || null, id: attrs['tvg-id'] || null, drm: drm });
         }
         reset();
       } else reset();
@@ -232,11 +232,12 @@
       var key = squeezed + '|' + cat, e = own(map, key);
       if (!e) {
         var rank = NATIONAL.indexOf(name.toLowerCase());
-        e = map[key] = { key: key, name: name, cat: cat, rank: rank < 0 ? 1000 : rank, logos: [], streams: [] };
+        e = map[key] = { key: key, name: name, cat: cat, rank: rank < 0 ? 1000 : rank, logos: [], ids: [], streams: [] };
         list.push(e);
       }
       // several candidates: some image hosts don't load on every TV or network
       if (c.logo && /^https?:/i.test(c.logo) && e.logos.length < 4 && e.logos.indexOf(c.logo) < 0) e.logos.push(c.logo);
+      if (c.id && e.ids.length < 4 && e.ids.indexOf(c.id) < 0) e.ids.push(c.id); // for the programme guide
       e.streams.push({ url: c.url, referer: c.referer, order: streamRank(c, c.primary) + i / 1e7 });
     });
     list.forEach(function (e) {
