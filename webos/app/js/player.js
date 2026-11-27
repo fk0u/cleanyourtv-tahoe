@@ -48,7 +48,7 @@
     failed = true; clearTimeout(timer); release(); status(''); closePanel();
     seconds = Slate.RETRY_SECONDS;
     $('slate').hidden = false;
-    drawSlate(); $('osd').className = ''; chime(); // the slate names the channel itself
+    drawSlate(); $('osd').className = ''; $('osdTop').className = ''; chime(); // the slate names the channel itself
     clearInterval(slateTimer);
     slateTimer = setInterval(function () {
       if (!open || !failed || tries >= Slate.MAX_RETRIES) return clearInterval(slateTimer);
@@ -83,9 +83,18 @@
   function release() { video.removeAttribute('src'); video.load(); }
   function status(t) { $('status').textContent = t; }
 
+  var osdFor = null;
   function showOsd() {
     if (!playing) return;
-    $('osd').className = 'show';
+    $('osd').className = 'show'; $('osdTop').className = 'show';
+    $('osdBadge').textContent = playing.vod ? S().film : 'LIVE';
+    $('osdBadge').className = playing.vod ? 'film' : 'live';
+    $('osdClock').textContent = U.clock(new Date().getTime());
+    if (osdFor !== playing.key) { // the channel's logo, or its initials
+      osdFor = playing.key;
+      var box = clear($('osdLogo')), mono = el('span', 'mono', U.monogram(playing.name));
+      box.appendChild(mono); U.picture(playing.logos || (playing.poster ? [playing.poster] : []), box, mono);
+    }
     $('osdNum').textContent = playing.vod ? '' : String(at + 1);
     $('osdName').textContent = playing.name;
     var nn = playing.vod ? [null, null] : E.nowNext(app.guide[playing.key], new Date().getTime());
@@ -97,7 +106,7 @@
     $('osdBar').hidden = !part;
     $('osdFill').style.width = Math.round(Math.max(0, Math.min(1, part)) * 100) + '%';
     $('osdHint').textContent = playing.vod ? '' : S().playerHint;
-    clearTimeout(osdTimer); osdTimer = setTimeout(function () { if (!failed) $('osd').className = ''; }, 5500);
+    clearTimeout(osdTimer); osdTimer = setTimeout(function () { if (!failed) $('osd').className = ''; $('osdTop').className = ''; }, 5500);
   }
 
   function zap(d) { if (list.length < 2) return showOsd(); var i = (at + d + list.length) % list.length; attempts = 0; start(list[i], list, i); }
@@ -115,7 +124,7 @@
     saveResume(true);
     clearTimeout(timer); clearTimeout(recentTimer); clearInterval(slateTimer); silence(); closePanel();
     var last = playing; open = false; failed = false; playing = null; release();
-    document.body.className = '';
+    document.body.className = ''; $('osdTop').className = ''; osdFor = null;
     app.stopped(last);
   }
 
@@ -145,6 +154,10 @@
     var rows = [];
     if (playing.streams.length > 1) rows.push({ label: Text.fill(S().source, source + 1, playing.streams.length), ok: function () { source = (source + 1) % playing.streams.length; attempts = 0; var keep = panel.at; tune(); optionPanel(keep); } });
     if (!playing.vod) rows.push({ label: app.isFav(playing.key) ? S().favDel : S().favAdd, ok: function () { app.toggleFav(playing.key); optionPanel(panel.at); } });
+    rows.push({ label: Text.fill(S().aspect, S()['aspect_' + (app.cfg.aspect || 'fit')]), ok: function () { cycleAspect(); optionPanel(panel.at); } });
+    var audioTracks = video.audioTracks, texts = video.textTracks;
+    if (audioTracks && audioTracks.length > 1) rows.push({ label: Text.fill(S().audio, trackName(audioTracks, enabledAudio(audioTracks))), ok: function () { nextAudio(audioTracks); optionPanel(panel.at); } });
+    if (texts && texts.length) rows.push({ label: Text.fill(S().subtitles, shownText(texts) < 0 ? S().off : trackName(texts, shownText(texts))), ok: function () { nextText(texts); optionPanel(panel.at); } });
     rows.push({ label: Text.fill(S().sleep, app.sleepLabel()), ok: function () { app.cycleSleep(); optionPanel(panel.at); } });
     if (!playing.vod && app.guide[playing.key]) rows.push({ label: S().schedule, ok: function () { schedulePanel(); } });
     rows.push({ label: S().exitPlayer, ok: stop });
@@ -157,6 +170,21 @@
     });
     openPanel(S().schedule, rows, 0, 'right');
   }
+
+  // ---------------------------------------------------------------- picture shape, audio and subtitles
+
+  var FIT = { fit: 'contain', fill: 'fill', zoom: 'cover' };
+  function applyAspect() { video.style.objectFit = FIT[app.cfg.aspect] || 'contain'; }
+  function cycleAspect() {
+    var order = ['fit', 'fill', 'zoom'];
+    app.cfg.aspect = order[(order.indexOf(app.cfg.aspect) + 1) % order.length];
+    app.saveCfg(); applyAspect();
+  }
+  function trackName(tracks, i) { var t = tracks[i]; return t ? (t.label || t.language || Text.fill(S().track, i + 1)) : '-'; }
+  function enabledAudio(tracks) { for (var i = 0; i < tracks.length; i++) if (tracks[i].enabled) return i; return 0; }
+  function nextAudio(tracks) { var n = (enabledAudio(tracks) + 1) % tracks.length; for (var i = 0; i < tracks.length; i++) tracks[i].enabled = i === n; }
+  function shownText(tracks) { for (var i = 0; i < tracks.length; i++) if (tracks[i].mode === 'showing') return i; return -1; }
+  function nextText(tracks) { var n = shownText(tracks) + 1; for (var i = 0; i < tracks.length; i++) tracks[i].mode = i === n ? 'showing' : 'disabled'; } // past the last one: off
 
   var digits = '', digitTimer = 0;
   function number(d) {
@@ -193,7 +221,7 @@
   }
 
   function init(a) {
-    app = a; video = $('video');
+    app = a; video = $('video'); applyAspect();
     video.addEventListener('playing', function () {
       clearTimeout(timer); clearInterval(slateTimer); silence(); status(''); $('slate').hidden = true; failed = false; attempts = 0; tries = 0;
       if (playing) { var good = U.store.get('good', {}); good[playing.key] = playing.streams[source]; U.store.set('good', good); }

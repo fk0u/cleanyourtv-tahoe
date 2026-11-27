@@ -4,6 +4,15 @@
   var K = ['home', 'live', 'guide', 'film', 'search', 'settings'];
   var S = {
     id: {
+      history: 'Riwayat', today: 'Hari ini', yesterday: 'Kemarin', historyHint: 'OK tonton lagi · Merah hapus dari riwayat', emptyHistory: 'Belum ada riwayat tontonan.',
+      forYou: 'Untukmu', weather: 'Cuaca', setCityFirst: 'Atur kota di Pengaturan', prayerTitle: 'Waktu salat', prayerNow: 'Waktunya salat %1', weatherTitle: 'Cuaca di %1', humidityWind: 'Kelembapan %1% · Angin %2 km/j',
+      wx: { clear: 'Cerah', partly: 'Cerah berawan', cloudy: 'Berawan', fog: 'Berkabut', drizzle: 'Gerimis', rain: 'Hujan', showers: 'Hujan lokal', snow: 'Salju', storm: 'Badai petir' },
+      updating: 'Pembaruan sedang diunduh…', updateNow: 'Perbarui sekarang', downloading: 'Mengunduh pembaruan %1/%2…', updateFailed: 'Pembaruan gagal (%1). Coba lagi nanti.',
+      updateReady: 'Tahoe TV %1 siap', updateReadyBody: 'Berlaku saat Tahoe TV dibuka lagi, atau mulai ulang sekarang.', restartNow: 'Mulai ulang sekarang',
+      updatePackage: 'Versi ini perlu paket baru: pasang TahoeTV-webOS.ipk dari halaman rilis lewat komputer (Developer Mode).', updated: 'Diperbarui ke %1',
+      fromUpdate: 'pembaruan otomatis', fromPackage: 'paket', setRollback: 'Kembali ke versi paket', rollbackBody: 'Pembaruan yang terunduh dihapus dan Tahoe TV dibuka lagi dengan versi paket %1.',
+      setPreview: 'Pratinjau siaran di latar', setAuto: 'Pembaruan otomatis',
+      aspect: 'Tampilan: %1', aspect_fit: 'Pas', aspect_fill: 'Penuh', aspect_zoom: 'Zoom', audio: 'Audio: %1', subtitles: 'Subtitel: %1', track: 'Trek %1',
       home: 'Beranda', live: 'TV Langsung', guide: 'Jadwal', film: 'Film & Series', search: 'Cari', settings: 'Pengaturan',
       morning: 'Selamat pagi', noon: 'Selamat siang', afternoon: 'Selamat sore', night: 'Selamat malam',
       all: 'Semua', fav: 'Favorit', watch: 'Tonton', cont: 'Lanjutkan menonton', onAir: 'Sedang tayang', movies: 'Film', series: 'Series',
@@ -23,10 +32,19 @@
       setPrayer: 'Waktu salat', setAsk: 'Tanya profil saat dibuka', setPin: 'PIN orang tua', setKids: 'Batas waktu Anak per hari', setHistory: 'Hapus riwayat tontonan', setUpdate: 'Cek pembaruan', setSetup: 'Ulangi pengaturan awal', setAbout: 'Tentang',
       sortPopularity: 'Populer', sortAsc: 'A–Z', sortDesc: 'Z–A', on: 'Aktif', builtIn: 'Bawaan', unset: 'Belum diatur', done: 'Selesai', skip: 'Lewati', continue_: 'Lanjut', back: 'Kembali', cancel: 'Batal', clear: 'Bersihkan', cleared: 'Riwayat dihapus', reloading: 'Memuat ulang…', badUrl: 'Alamat harus diawali http:// atau https://',
       obLang: 'Pilih bahasa', obName: 'Siapa namamu?', obCity: 'Di kota mana kamu tinggal?', obCountries: 'Saluran dari negara mana?', obCats: 'Apa yang suka kamu tonton?', obPrayer: 'Tampilkan waktu salat?', obReady: 'Siap menonton', yes: 'Ya', no: 'Tidak', notFound: 'Kota tidak ditemukan', searching: 'Mencari…',
-      updateTitle: 'Tahoe TV %1 tersedia', updateBody: 'Versi terpasang %1. Di webOS pembaruan dipasang dari komputer: ambil kode terbaru lalu jalankan webos/install-tv.sh.', later: 'Nanti', upToDate: 'Sudah versi terbaru (%1)', checkFailed: 'Tidak bisa memeriksa pembaruan',
+      updateTitle: 'Tahoe TV %1 tersedia', updateBody: 'Versi terpasang %1.', later: 'Nanti', upToDate: 'Sudah versi terbaru (%1)', checkFailed: 'Tidak bisa memeriksa pembaruan',
       about: 'Tahoe TV untuk webOS %1. TV langsung, jadwal, film & series. Sumber terbuka di github.com/fk0u/tahoe-tv', exitAsk: 'Keluar dari Tahoe TV?', exit: 'Keluar', prayer: { Fajr: 'Subuh', Dhuhr: 'Zuhur', Asr: 'Asar', Maghrib: 'Magrib', Isha: 'Isya' }
     },
     en: {
+      history: 'History', today: 'Today', yesterday: 'Yesterday', historyHint: 'OK watch again · Red remove from history', emptyHistory: 'Nothing watched yet.',
+      forYou: 'For you', weather: 'Weather', setCityFirst: 'Set your city in Settings', prayerTitle: 'Prayer times', prayerNow: 'Time for %1 prayer', weatherTitle: 'Weather in %1', humidityWind: 'Humidity %1% · Wind %2 km/h',
+      wx: { clear: 'Clear', partly: 'Partly cloudy', cloudy: 'Cloudy', fog: 'Fog', drizzle: 'Drizzle', rain: 'Rain', showers: 'Showers', snow: 'Snow', storm: 'Thunderstorm' },
+      updating: 'The update is downloading…', updateNow: 'Update now', downloading: 'Downloading the update %1/%2…', updateFailed: 'The update failed (%1). Try again later.',
+      updateReady: 'Tahoe TV %1 is ready', updateReadyBody: 'It starts the next time Tahoe TV opens, or restart now.', restartNow: 'Restart now',
+      updatePackage: 'This version needs a new package: install TahoeTV-webOS.ipk from the release page with a computer (Developer Mode).', updated: 'Updated to %1',
+      fromUpdate: 'automatic update', fromPackage: 'package', setRollback: 'Back to the package version', rollbackBody: 'The downloaded update is removed and Tahoe TV opens again with package version %1.',
+      setPreview: 'Channel preview in the background', setAuto: 'Automatic updates',
+      aspect: 'Picture: %1', aspect_fit: 'Fit', aspect_fill: 'Fill', aspect_zoom: 'Zoom', audio: 'Audio: %1', subtitles: 'Subtitles: %1', track: 'Track %1',
       home: 'Home', live: 'Live TV', guide: 'Guide', film: 'Movies & Series', search: 'Search', settings: 'Settings',
       morning: 'Good morning', noon: 'Good afternoon', afternoon: 'Good afternoon', night: 'Good evening',
       all: 'All', fav: 'Favorites', watch: 'Watch', cont: 'Continue watching', onAir: 'On now', movies: 'Movies', series: 'Series',
@@ -46,10 +64,19 @@
       setPrayer: 'Prayer times', setAsk: 'Ask for a profile at start', setPin: 'Parental PIN', setKids: 'Kids daily time limit', setHistory: 'Clear watch history', setUpdate: 'Check for updates', setSetup: 'Run first-time setup again', setAbout: 'About',
       sortPopularity: 'Popular', sortAsc: 'A–Z', sortDesc: 'Z–A', on: 'On', builtIn: 'Built-in', unset: 'Not set', done: 'Done', skip: 'Skip', continue_: 'Continue', back: 'Back', cancel: 'Cancel', clear: 'Clear', cleared: 'History cleared', reloading: 'Reloading…', badUrl: 'The address must start with http:// or https://',
       obLang: 'Choose a language', obName: 'What is your name?', obCity: 'Which city do you live in?', obCountries: 'Channels from which countries?', obCats: 'What do you like to watch?', obPrayer: 'Show prayer times?', obReady: 'Ready to watch', yes: 'Yes', no: 'No', notFound: 'City not found', searching: 'Searching…',
-      updateTitle: 'Tahoe TV %1 is available', updateBody: 'Installed version %1. On webOS updates are installed from a computer: get the latest code and run webos/install-tv.sh.', later: 'Later', upToDate: 'You have the latest version (%1)', checkFailed: 'Could not check for updates',
+      updateTitle: 'Tahoe TV %1 is available', updateBody: 'Installed version %1.', later: 'Later', upToDate: 'You have the latest version (%1)', checkFailed: 'Could not check for updates',
       about: 'Tahoe TV for webOS %1. Live TV, guide, movies & series. Open source at github.com/fk0u/tahoe-tv', exitAsk: 'Leave Tahoe TV?', exit: 'Exit', prayer: { Fajr: 'Fajr', Dhuhr: 'Dhuhr', Asr: 'Asr', Maghrib: 'Maghrib', Isha: 'Isha' }
     },
     zh: {
+      history: '观看记录', today: '今天', yesterday: '昨天', historyHint: '确认键再看 · 红色键从记录中删除', emptyHistory: '还没有观看记录。',
+      forYou: '为你推荐', weather: '天气', setCityFirst: '请在设置中选择城市', prayerTitle: '礼拜时间', prayerNow: '%1时间到了', weatherTitle: '%1天气', humidityWind: '湿度 %1% · 风速 %2 公里/时',
+      wx: { clear: '晴', partly: '晴间多云', cloudy: '多云', fog: '雾', drizzle: '毛毛雨', rain: '雨', showers: '阵雨', snow: '雪', storm: '雷暴' },
+      updating: '正在下载更新…', updateNow: '立即更新', downloading: '正在下载更新 %1/%2…', updateFailed: '更新失败（%1），请稍后再试。',
+      updateReady: 'Tahoe TV %1 已就绪', updateReadyBody: '下次打开 Tahoe TV 时生效，也可以现在重启。', restartNow: '立即重启',
+      updatePackage: '此版本需要新的安装包：请用电脑从发布页安装 TahoeTV-webOS.ipk（开发者模式）。', updated: '已更新到 %1',
+      fromUpdate: '自动更新', fromPackage: '安装包', setRollback: '恢复安装包版本', rollbackBody: '将删除已下载的更新，并以安装包版本 %1 重新打开 Tahoe TV。',
+      setPreview: '后台频道预览', setAuto: '自动更新',
+      aspect: '画面：%1', aspect_fit: '适应', aspect_fill: '拉伸', aspect_zoom: '放大', audio: '音轨：%1', subtitles: '字幕：%1', track: '音轨 %1',
       home: '首页', live: '电视直播', guide: '节目单', film: '电影和剧集', search: '搜索', settings: '设置',
       morning: '早上好', noon: '中午好', afternoon: '下午好', night: '晚上好',
       all: '全部', fav: '收藏', watch: '观看', cont: '继续观看', onAir: '正在播出', movies: '电影', series: '剧集',
@@ -69,7 +96,7 @@
       setPrayer: '礼拜时间', setAsk: '启动时选择用户', setPin: '家长密码', setKids: '儿童每日时长', setHistory: '清除观看记录', setUpdate: '检查更新', setSetup: '重新进行初始设置', setAbout: '关于',
       sortPopularity: '热门', sortAsc: 'A–Z', sortDesc: 'Z–A', on: '开启', builtIn: '内置', unset: '未设置', done: '完成', skip: '跳过', continue_: '继续', back: '返回', cancel: '取消', clear: '清空', cleared: '已清除记录', reloading: '正在重新加载…', badUrl: '地址必须以 http:// 或 https:// 开头',
       obLang: '选择语言', obName: '你叫什么名字？', obCity: '你住在哪个城市？', obCountries: '想看哪些国家的频道？', obCats: '你喜欢看什么？', obPrayer: '显示礼拜时间吗？', obReady: '可以开始观看了', yes: '是', no: '否', notFound: '找不到该城市', searching: '正在搜索…',
-      updateTitle: 'Tahoe TV %1 可用', updateBody: '当前版本 %1。webOS 版需在电脑上更新：获取最新代码后运行 webos/install-tv.sh。', later: '稍后', upToDate: '已是最新版本（%1）', checkFailed: '无法检查更新',
+      updateTitle: 'Tahoe TV %1 可用', updateBody: '当前版本 %1。', later: '稍后', upToDate: '已是最新版本（%1）', checkFailed: '无法检查更新',
       about: 'Tahoe TV webOS 版 %1。直播、节目单、电影和剧集。开源：github.com/fk0u/tahoe-tv', exitAsk: '要退出 Tahoe TV 吗？', exit: '退出', prayer: { Fajr: '晨礼', Dhuhr: '晌礼', Asr: '晡礼', Maghrib: '昏礼', Isha: '宵礼' }
     }
   };

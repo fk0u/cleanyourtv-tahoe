@@ -11,8 +11,29 @@ body.playing #app { display: none; }
 #player { display: none; }
 body.playing #player { display: block; }
 
-#app { position: absolute; width: 1920px; height: 1080px; display: flex; background: linear-gradient(135deg, #0d1429, #08080d 65%); }
-#side { width: 340px; padding: 48px 20px 0 52px; flex-shrink: 0; }
+#app { position: absolute; z-index: 2; width: 1920px; height: 1080px; display: flex; background: linear-gradient(135deg, #0d1429, #08080d 65%); transition: background .5s; }
+#video { z-index: 3; }
+#player { position: absolute; z-index: 4; left: 0; top: 0; width: 1920px; height: 1080px; }
+
+/* immersive background: the focused channel plays behind the page, or a film's poster shows there */
+#preview { position: absolute; z-index: 0; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; background: #000; opacity: 0; transition: opacity .6s; }
+#backdrop { position: absolute; z-index: 1; right: 0; top: 0; width: 1300px; height: 1080px; background-size: cover; background-position: center top; opacity: 0; transition: opacity .6s; }
+body.previewing #preview { opacity: 1; }
+body.backdropped #backdrop { opacity: .5; }
+body.previewing #app { background: linear-gradient(90deg, rgba(8,8,13,.97) 0, rgba(8,8,13,.88) 340px, rgba(8,8,13,.62) 900px, rgba(8,8,13,.30) 1920px), linear-gradient(0deg, rgba(8,8,13,.9) 0, rgba(8,8,13,0) 55%); }
+body.backdropped #app { background: linear-gradient(90deg, #0b0f1e 0, rgba(11,15,30,.96) 620px, rgba(11,15,30,.55) 1300px, rgba(11,15,30,.25) 1920px), linear-gradient(0deg, rgba(8,8,13,.95) 0, rgba(8,8,13,0) 50%); }
+body.playing #preview, body.playing #backdrop { display: none; }
+
+/* pages slide in */
+@keyframes enter { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+#page.enter { -webkit-animation: enter .28s ease-out; animation: enter .28s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+#sideClock { position: absolute; left: 52px; bottom: 46px; width: 270px; }
+#sideTime { font-size: 64px; font-weight: 700; letter-spacing: -1px; }
+#sideDate { font-size: 21px; color: rgba(247,248,250,.65); margin-top: 2px; }
+#sideWeather { font-size: 21px; color: #5cd0ff; margin-top: 6px; }
+#side { position: relative; width: 340px; padding: 48px 20px 0 52px; flex-shrink: 0; }
 #brand { display: flex; align-items: center; margin-bottom: 44px; font-size: 34px; font-weight: 700; }
 #brand img { width: 56px; height: 56px; margin-right: 16px; border-radius: 14px; }
 .item { display: flex; align-items: center; justify-content: space-between; font-size: 27px; font-weight: 500; line-height: 40px; padding: 12px 22px; margin-bottom: 8px; border-radius: 999px; color: rgba(247,248,250,.66); white-space: nowrap; overflow: hidden; border: 3px solid transparent; cursor: pointer; }
@@ -57,7 +78,17 @@ h2 { font-size: 30px; font-weight: 600; margin: 18px 0 14px; }
 .prog { font-size: 18px; color: rgba(247,248,250,.6); padding: 4px 22px 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile .bar { position: absolute; left: 22px; right: 22px; bottom: 12px; }
 .star { position: absolute; top: 12px; right: 18px; font-size: 26px; color: #ffd166; }
-.tile.focus, .poster.focus, .profile.focus .face { border-color: #5cd0ff; background: rgba(255,255,255,.18); transform: scale(1.04); }
+.tile, .poster, .row, .button, .info, .item, .chip, .key { transition: transform .16s ease-out, background .16s, box-shadow .16s; }
+.tile.focus, .poster.focus, .profile.focus .face, .info.focus { border-color: #5cd0ff; background: rgba(255,255,255,.18); transform: scale(1.05); box-shadow: 0 0 0 2px rgba(92,208,255,.35), 0 18px 50px rgba(0,0,0,.55), 0 0 40px rgba(92,208,255,.25); }
+.row.focus, .button.focus, .item.focus, .key.focus { box-shadow: 0 0 30px rgba(92,208,255,.28); }
+body.previewing .tile, body.previewing .row { background: rgba(14,16,28,.62); }
+body.previewing .tile.focus, body.previewing .row.focus { background: rgba(255,255,255,.2); }
+
+.info { position: relative; flex-shrink: 0; width: 320px; height: 200px; margin-right: 20px; padding: 24px 28px; border-radius: 24px; border: 4px solid transparent; background: linear-gradient(135deg, rgba(92,208,255,.16), rgba(255,255,255,.05)); cursor: pointer; }
+.info.prayer { background: linear-gradient(135deg, rgba(76,195,138,.2), rgba(255,255,255,.05)); }
+.info .big { font-size: 64px; font-weight: 700; }
+.info .name { font-size: 25px; font-weight: 600; margin-top: 6px; text-align: left; padding: 0; }
+.info .sub { font-size: 18px; color: rgba(247,248,250,.6); margin-top: 4px; }
 
 .poster { flex-shrink: 0; width: 226px; margin: 0 20px 14px 0; padding: 6px; border: 4px solid transparent; border-radius: 22px; cursor: pointer; }
 .art { width: 206px; height: 309px; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #22305a, #111628); }
@@ -69,7 +100,13 @@ h2 { font-size: 30px; font-weight: 600; margin: 18px 0 14px; }
 .grid.films { padding-top: 6px; }
 .grid.films .poster { margin: 0 14px 12px 0; }
 
-.hero { display: flex; align-items: center; justify-content: space-between; height: 340px; padding: 36px 48px; border-radius: 36px; background: linear-gradient(120deg, #1b2b55, #121a33 60%, #2a1840); }
+.hero { display: flex; align-items: center; justify-content: space-between; height: 360px; padding: 36px 48px; border-radius: 36px; background: linear-gradient(120deg, #1b2b55, #121a33 60%, #2a1840); border: 1px solid rgba(255,255,255,.08); transition: background .5s; }
+body.previewing .hero { background: linear-gradient(90deg, rgba(8,8,13,.55), rgba(8,8,13,0)); border-color: transparent; }
+body.previewing .hero .logo.big { opacity: 0; }
+.badges { display: flex; align-items: center; margin-bottom: 12px; }
+.badges span { font-size: 18px; font-weight: 700; letter-spacing: 2px; padding: 6px 14px; border-radius: 8px; margin-right: 12px; }
+.badges .live { background: #e5484d; color: #fff; }
+.badges .cat { background: rgba(255,255,255,.14); letter-spacing: 1px; font-weight: 600; }
 .hero .copy { width: 1040px; }
 .hero .eyebrow { font-size: 21px; font-weight: 600; letter-spacing: 3px; color: #5cd0ff; }
 .hero .title { font-size: 58px; font-weight: 700; margin: 10px 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -110,7 +147,19 @@ h2 { font-size: 30px; font-weight: 600; margin: 18px 0 14px; }
 .page-settings .scroll .item { width: 1200px; }
 
 .dialog { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: rgba(4,4,8,.84); z-index: 5; display: flex; align-items: center; justify-content: center; }
-.dialog .panel { width: 900px; padding: 34px 40px; border-radius: 34px; background: #141a2e; }
+.dialog .panel { width: 900px; padding: 34px 40px; border-radius: 34px; background: #141a2e; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 30px 90px rgba(0,0,0,.6); -webkit-animation: rise .22s ease-out; animation: rise .22s ease-out; }
+.dialog.wide .panel { width: 1400px; }
+.weatherNow { display: flex; align-items: center; margin-bottom: 26px; }
+.weatherNow .temp { font-size: 96px; font-weight: 700; margin-right: 34px; }
+.weatherNow .title { display: block; font-size: 34px; font-weight: 600; }
+.weatherNow .sub { display: block; font-size: 22px; color: rgba(247,248,250,.6); margin-top: 6px; }
+.days { display: flex; }
+.day { flex: 1; margin-right: 16px; padding: 22px; border-radius: 22px; background: rgba(255,255,255,.07); border: 4px solid transparent; text-align: center; }
+.day:last-child { margin-right: 0; }
+.day.focus { border-color: #5cd0ff; background: rgba(255,255,255,.16); }
+.day .name { font-size: 22px; font-weight: 600; padding: 0; text-transform: capitalize; }
+.day .sky { font-size: 19px; color: rgba(247,248,250,.65); margin: 10px 0; }
+.day .range { font-size: 30px; font-weight: 700; }
 .dialog h2 { font-size: 38px; margin: 0 0 22px; }
 .dialog .viewport { height: auto; max-height: 740px; }
 .dialog p { font-size: 25px; line-height: 1.5; color: rgba(247,248,250,.75); }
@@ -134,7 +183,21 @@ h2 { font-size: 30px; font-weight: 600; margin: 18px 0 14px; }
 #slate p { font-size: 30px; line-height: 1.5; max-width: 1300px; margin: 0 auto 14px; color: rgba(247,248,250,.85); }
 #slate p.small { font-size: 21px; color: rgba(247,248,250,.55); }
 #slate p.retry { color: #5cd0ff; font-weight: 600; margin-top: 18px; }
-#osd { position: absolute; left: 80px; bottom: 60px; display: flex; align-items: flex-start; width: 1300px; padding: 28px 44px; border-radius: 32px; background: rgba(8,8,13,.88); opacity: 0; transition: opacity .25s; }
+#osd { position: absolute; left: 80px; bottom: 60px; display: flex; align-items: center; width: 1460px; padding: 28px 44px; border-radius: 32px; background: linear-gradient(90deg, rgba(8,8,13,.94), rgba(8,8,13,.8)); border: 1px solid rgba(255,255,255,.08); opacity: 0; transform: translateY(20px); transition: opacity .25s, transform .25s; }
+#osd.show { transform: none; }
+#osdLogo { width: 170px; height: 110px; padding: 0; margin-right: 30px; flex-shrink: 0; border-radius: 18px; background: rgba(255,255,255,.06); }
+#osdLogo img { max-width: 140px; max-height: 90px; }
+#osdLogo .mono { font-size: 34px; }
+#osdTop { position: absolute; left: 80px; right: 80px; top: 50px; display: flex; justify-content: space-between; align-items: center; opacity: 0; transition: opacity .25s; }
+#osdTop.show { opacity: 1; }
+#osdBadge { font-size: 20px; font-weight: 700; letter-spacing: 2px; padding: 8px 16px; border-radius: 8px; }
+#osdBadge.live { background: #e5484d; }
+#osdBadge.film { background: rgba(92,208,255,.85); color: #0d0d12; }
+#osdClock { font-size: 40px; font-weight: 700; text-shadow: 0 2px 12px #000; }
+#notice { position: absolute; z-index: 10; right: 70px; top: 50px; width: 620px; padding: 24px 30px; border-radius: 26px; background: rgba(20,26,46,.96); border: 1px solid rgba(92,208,255,.35); box-shadow: 0 20px 60px rgba(0,0,0,.55); opacity: 0; transform: translateY(-20px); transition: opacity .3s, transform .3s; pointer-events: none; }
+#notice.show { opacity: 1; transform: none; }
+#noticeTitle { font-size: 28px; font-weight: 700; }
+#noticeBody { font-size: 21px; color: rgba(247,248,250,.7); margin-top: 6px; }
 #osd.show { opacity: 1; }
 #osd .info { flex: 1; min-width: 0; }
 #osdNum { font-size: 56px; font-weight: 700; color: #5cd0ff; margin-right: 34px; }

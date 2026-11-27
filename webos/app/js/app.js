@@ -1,10 +1,10 @@
 /* Tahoe TV for webOS: state, menu, profiles, timers and the remote. ES5. */
 (function () {
   'use strict';
-  var Resume = window.TahoeResume, U = window.TahoeUi, D = window.TahoeData, E = window.TahoeEpg, Text = window.TahoeText, Setup = window.TahoeSetup, Screens = window.TahoeScreens, Player = window.TahoePlayer;
+  var Resume = window.TahoeResume, U = window.TahoeUi, D = window.TahoeData, E = window.TahoeEpg, Text = window.TahoeText, Setup = window.TahoeSetup, Screens = window.TahoeScreens, Player = window.TahoePlayer, Update = window.TahoeUpdate, Preview = window.TahoePreview;
   var KEY = U.KEY, $ = U.$, el = U.el, add = U.add, clear = U.clear, store = U.store;
 
-  var DEFAULTS = { lang: null, name: '', city: '', lat: null, lon: null, country: '', countries: ['ID'], cats: [], prayer: true, playlist: '', sort: 'popularity', askProfile: false, pin: null, kidsMinutes: 0, setupDone: false };
+  var DEFAULTS = { lang: null, name: '', city: '', lat: null, lon: null, country: '', countries: ['ID'], cats: [], prayer: true, playlist: '', sort: 'popularity', askProfile: false, pin: null, kidsMinutes: 0, setupDone: false, preview: true, autoUpdate: true, aspect: 'fit' };
   var all = [], allFilms = [];
   var modals = [], screen = null, screenId = 'home', zone = 'page', menuAt = 0, sleepAt = 0, sleepMinutes = 0, bonus = 0;
 
@@ -56,7 +56,25 @@
   app.watched = function (key) {
     var r = store.get(pkey('recent'), []).filter(function (k) { return k !== key; });
     r.unshift(key); store.set(pkey('recent'), r.slice(0, 20));
+    remember({ kind: 'live', key: key });
   };
+  /** Watch history, newest first: { kind: 'live' | 'film', key, item, at }. One line per channel or title. */
+  function remember(h) {
+    h.at = now();
+    var list = store.get(pkey('history'), []).filter(function (x) { return !(x.kind === h.kind && x.key === h.key); });
+    list.unshift(h); store.set(pkey('history'), list.slice(0, 100));
+  }
+  app.history = function () {
+    var live = {}, films = {};
+    app.live.forEach(function (e, i) { live['$' + e.key] = i; });
+    app.films.forEach(function (x) { films['$' + x.key] = x; });
+    return store.get(pkey('history'), []).map(function (h) {
+      if (h.kind === 'live' && live['$' + h.key] !== undefined) return { h: h, entry: app.live[live['$' + h.key]], index: live['$' + h.key] };
+      if (h.kind === 'film' && films['$' + h.key]) return { h: h, title: films['$' + h.key] };
+      return null;
+    }).filter(Boolean);
+  };
+  app.forget = function (h) { store.set(pkey('history'), store.get(pkey('history'), []).filter(function (x) { return !(x.kind === h.kind && x.key === h.key); })); app.redraw(); };
   app.recents = function () {
     var byKey = {};
     app.live.forEach(function (e) { byKey['$' + e.key] = e; });
@@ -75,21 +93,23 @@
     var r = store.get(pkey('resume'), {});
     return app.films.filter(function (x) { var p = app.titleProgress(x); return x.series ? x.items.some(function (i) { return r[i.url]; }) && p < 1 : p > 0 && p <= 0.92; });
   };
-  app.clearHistory = function () { store.set(pkey('recent'), []); store.set(pkey('resume'), {}); store.set('last', null); app.redraw(); };
+  app.clearHistory = function () { store.set(pkey('recent'), []); store.set(pkey('resume'), {}); store.set(pkey('history'), []); store.set('last', null); app.redraw(); };
 
   // ---------------------------------------------------------------- watching
 
-  app.watch = function (entries, index) { if (!blocked()) Player.start(entries[index], entries, index); };
+  app.watch = function (entries, index) { if (blocked()) return; Preview.clear(); Player.start(entries[index], entries, index); };
+  app.preview = function (entry) { if (!Player.isOpen() && !modals.length) Preview.show(entry); };
+  app.poster = function (url) { if (!Player.isOpen()) Preview.poster(url || ''); };
   function filmEntries(title) {
     var r = store.get(pkey('resume'), {});
     return title.items.map(function (it, k) {
       var label = it.episode ? (it.season ? 'S' + it.season + ' ' : '') + 'E' + it.episode : String(k + 1), saved = r[it.url];
-      return { key: title.key + ':' + k, name: title.title + (title.items.length > 1 ? ' · ' + label : ''), label: title.items.length > 1 && it.episode ? label : it.name, cat: null, streams: [it.url], vod: true, resume: Resume.seek(saved), saved: saved };
+      return { key: title.key + ':' + k, name: title.title + (title.items.length > 1 ? ' · ' + label : ''), label: title.items.length > 1 && it.episode ? label : it.name, cat: null, streams: [it.url], vod: true, resume: Resume.seek(saved), saved: saved, poster: store.get('posters', {})[title.key] || null };
     });
   }
   app.openTitle = function (title) {
     var entries = filmEntries(title);
-    function play(i, fromStart) { if (blocked()) return; var list = filmEntries(title); list[i].fromStart = !!fromStart; Player.start(list[i], list, i); }
+    function play(i, fromStart) { if (blocked()) return; var list = filmEntries(title); list[i].fromStart = !!fromStart; remember({ kind: 'film', key: title.key, item: i }); Preview.clear(); Player.start(list[i], list, i); }
     if (entries.length > 1) {
       var d = Setup.dialog(app, title.title, function (body, nav) {
         entries.forEach(function (e, i) {
@@ -163,19 +183,93 @@
 
   // ---------------------------------------------------------------- updates
 
+  var updating = false;
+  /** Looks for a newer release. Manual: always answers. Otherwise once in a while, never over the player or in the Kids profile;
+   *  with automatic updates on, it downloads quietly and the new version starts the next time Tahoe TV opens. */
   app.checkUpdate = function (manual) {
-    D.latest(function (latest) {
-      if (!latest) { if (manual) app.toast(app.S.checkFailed); return; }
-      if (!D.newer(latest, app.version)) { if (manual) app.toast(Text.fill(app.S.upToDate, app.version)); return; }
-      var later = store.get('updateLater', null);
-      if (!manual && (kids() || Player.isOpen() || (later && later.version === latest && now() - later.at < 86400000))) return;
-      Setup.ask(app, Text.fill(app.S.updateTitle, latest), Text.fill(app.S.updateBody, app.version), [[app.S.later, function () { store.set('updateLater', { version: latest, at: now() }); }]]);
+    if (updating) return manual && app.toast(app.S.updating);
+    Update.check(function (error, info) {
+      if (error) { if (manual) app.toast(app.S.checkFailed); return; }
+      if (!info) { if (manual) app.toast(Text.fill(app.S.upToDate, app.version)); return; }
+      var ready = Update.waiting();
+      if (ready === info.version) { if (manual) askRestart(info.version); return; }
+      if (info.needsPackage) {
+        if (manual || !snoozed(info.version)) Setup.ask(app, Text.fill(app.S.updateTitle, info.version), app.S.updatePackage, [[app.S.later, function () { snooze(info.version); }]]);
+        return;
+      }
+      if (!manual && (kids() || Update.bad() === info.version)) return;
+      if (!manual && app.cfg.autoUpdate) return fetch(info, false);
+      if (!manual && (Player.isOpen() || modals.length || snoozed(info.version))) return;
+      var notes = info.notes ? info.notes.slice(0, 520) + (info.notes.length > 520 ? '…' : '') : Text.fill(app.S.updateBody, app.version);
+      Setup.ask(app, Text.fill(app.S.updateTitle, info.version), notes, [[app.S.updateNow, function () { fetch(info, true); }], [app.S.later, function () { snooze(info.version); }]]);
     });
+  };
+  function snooze(v) { store.set('updateLater', { version: v, at: now() }); }
+  function snoozed(v) { var l = store.get('updateLater', null); return l && l.version === v && now() - l.at < 86400000; }
+  function fetch(info, loud) {
+    updating = true;
+    Update.download(info, function (n, total) { if (loud) app.toast(Text.fill(app.S.downloading, n, total)); }, function (error) {
+      updating = false;
+      if (error) { if (loud) app.toast(Text.fill(app.S.updateFailed, error)); return; }
+      if (loud) askRestart(info.version); else app.notify(Text.fill(app.S.updateReady, info.version), app.S.updateReadyBody);
+    });
+  }
+  function askRestart(v) {
+    Setup.ask(app, Text.fill(app.S.updateReady, v), app.S.updateReadyBody, [[app.S.restartNow, function () { if (Player.isOpen()) Player.stop(); Update.restart(); }], [app.S.later]]);
+  }
+  app.updateSource = function () { return Update.source() === 'ota' ? app.S.fromUpdate : app.S.fromPackage; };
+  app.rollback = function () { Setup.ask(app, app.S.setRollback, Text.fill(app.S.rollbackBody, window.TahoeBoot ? window.TahoeBoot.bundled : ''), [[app.S.setRollback, function () { Update.reset(); }], [app.S.cancel]]); };
+
+  // ---------------------------------------------------------------- weather and prayer times
+
+  app.weatherDialog = function () {
+    if (app.cfg.lat === null) return app.toast(app.S.setCityFirst);
+    app.toast(app.S.searching);
+    D.forecast(app.cfg, function (f) {
+      if (!f) return app.toast(app.S.checkFailed);
+      var d = Setup.dialog(app, Text.fill(app.S.weatherTitle, app.cfg.city), function (body, nav) {
+        if (f.now) body.appendChild(add(el('div', 'weatherNow'), el('span', 'temp', f.now.temp + '°'), add(el('div', 'two'), el('span', 'title', app.S.wx[D.sky(f.now.code)]), el('span', 'sub', Text.fill(app.S.humidityWind, f.now.humidity, f.now.wind)))));
+        var days = el('div', 'days');
+        f.days.forEach(function (x, i) {
+          var name = i === 0 ? app.S.today : new Date(x.day).toLocaleDateString(app.cfg.lang, { weekday: 'long' });
+          var card = add(el('div', 'day'), el('div', 'name', name), el('div', 'sky', app.S.wx[D.sky(x.code)]), el('div', 'range', x.max + '° / ' + x.min + '°'));
+          days.appendChild(card); nav.add(0, card, function () { app.close(d); });
+        });
+        body.appendChild(days);
+      }, { wide: true });
+      app.modal(d);
+    });
+  };
+  app.prayerDialog = function () {
+    if (!app.prayer) return app.toast(app.cfg.lat === null ? app.S.setCityFirst : app.S.checkFailed);
+    var d = Setup.dialog(app, app.S.prayerTitle + (app.cfg.city ? ' · ' + app.cfg.city : ''), function (body, nav) {
+      var t = new Date(), hm = U.pad(t.getHours()) + ':' + U.pad(t.getMinutes()), next = null;
+      app.prayer.forEach(function (p) { if (!next && p[1] > hm) next = p[0]; });
+      app.prayer.forEach(function (p, i) { Setup.option(nav, body, i, app.S.prayer[p[0]], p[1].replace(':', '.') + (p[0] === next ? '  ●' : ''), function () { app.close(d); }); });
+    });
+    app.modal(d);
+  };
+  function prayerCall() {
+    if (!app.cfg.prayer || !app.prayer) return;
+    var t = new Date(), hm = U.pad(t.getHours()) + ':' + U.pad(t.getMinutes()), day = t.toDateString();
+    app.prayer.forEach(function (p) {
+      var id = day + p[0];
+      if (p[1] !== hm || store.get('prayerCalled', '') === id) return;
+      store.set('prayerCalled', id);
+      app.notify(Text.fill(app.S.prayerNow, app.S.prayer[p[0]]), p[1].replace(':', '.') + (app.cfg.city ? ' · ' + app.cfg.city : ''));
+    });
+  }
+
+  /** A banner over everything (also over the player) for a few seconds. */
+  app.notify = function (title, body) {
+    $('noticeTitle').textContent = title; $('noticeBody').textContent = body || '';
+    $('notice').className = 'show'; clearTimeout(app.notify.h);
+    app.notify.h = setTimeout(function () { $('notice').className = ''; }, 9000);
   };
 
   // ---------------------------------------------------------------- menu, pages, dialogs
 
-  function menu() { return kids() ? ['home', 'live', 'guide', 'search', 'profile'] : ['home', 'live', 'guide', 'film', 'search', 'settings']; }
+  function menu() { return kids() ? ['home', 'live', 'guide', 'history', 'search', 'profile'] : ['home', 'live', 'guide', 'film', 'history', 'search', 'settings']; }
   function drawMenu() {
     var box = clear($('menu')), items = menu();
     items.forEach(function (id, i) {
@@ -187,8 +281,11 @@
   }
   function open(id, argument) {
     screenId = id;
+    Preview.clear();
     var page = clear($('page'));
     page.className = 'page-' + id;
+    void page.offsetWidth; // restart the entry animation
+    page.className = 'page-' + id + ' enter';
     screen = id === 'settings' ? Setup.settings(app) : Screens[id](app, argument);
     screen.mount(page);
     menu().forEach(function (m, i) { if (m === id) menuAt = i; });
@@ -207,7 +304,7 @@
   app.go = function (id, argument) { zone = 'page'; open(id, argument); };
   app.toPage = function () { zone = 'page'; app.redraw(); };
   app.relabel = function () { app.S = Text.strings(app.cfg.lang); document.documentElement.lang = app.cfg.lang; open(screenId); };
-  app.modal = function (d) { modals.push(d); $('modals').appendChild(d.el); d.draw(); app.redraw(); };
+  app.modal = function (d) { Preview.stop(); modals.push(d); $('modals').appendChild(d.el); d.draw(); app.redraw(); };
   app.close = function (d) {
     var i = modals.indexOf(d);
     if (i < 0) return;
@@ -250,6 +347,14 @@
 
   // ---------------------------------------------------------------- start
 
+  function clock() {
+    var t = new Date();
+    $('sideTime').textContent = U.clock(t.getTime());
+    $('sideDate').textContent = t.toLocaleDateString(app.cfg.lang, { weekday: 'long', day: 'numeric', month: 'long' });
+    $('sideWeather').textContent = app.weather ? app.weather.temp + '° ' + app.S.wx[D.sky(app.weather.code)] : '';
+    if (Player.isOpen()) $('osdClock').textContent = U.clock(t.getTime());
+  }
+
   var ticks = 0;
   function tick() {
     ticks++;
@@ -257,9 +362,11 @@
     if (sleepAt && t >= sleepAt) { sleepAt = 0; sleepMinutes = 0; if (Player.isOpen()) Player.stop(); app.toast(app.S.sleepDone); }
     if (kids() && app.cfg.kidsMinutes && Player.playingPicture()) { var u = usage(); u.seconds += 20; store.set('kidsUsage', u); if (u.seconds >= (app.cfg.kidsMinutes + u.bonus) * 60) { Player.stop(); blocked(); } }
     if (!modals.length) checkReminders();
+    prayerCall();
     if (ticks % 3 === 0 && !modals.length && !document.hidden) app.redraw(); // clock, progress bars, what's on
     if (ticks % 90 === 0) app.ambient();
     if (ticks % 540 === 0) { if (all.length) loadGuide(); app.checkUpdate(false); } // every 3 hours
+    clock();
   }
 
   function migrate() { // the first webOS version kept one list of favourites and the playlist on their own
@@ -278,7 +385,7 @@
     migrate();
     app.S = Text.strings(app.cfg.lang); document.documentElement.lang = app.cfg.lang;
     app.profile = store.get('profile', 'owner');
-    Player.init(app);
+    Player.init(app); Preview.init(app);
     document.addEventListener('keydown', onKey);
     var cache = store.get('cache', null), guide = store.get('guide', null);
     if (cache && cache.live) { all = cache.live; allFilms = cache.films || []; }
@@ -287,12 +394,20 @@
     open('home');
     if (!app.cfg.setupDone) Setup.onboarding(app);
     else if (app.cfg.askProfile) Setup.profiles(app, false);
-    D.version(function (v) { app.version = v; setTimeout(function () { app.checkUpdate(false); }, 20000); });
+    D.version(function (v) {
+      app.version = v;
+      var seen = store.get('seenVersion', null);
+      if (seen && seen !== v) app.notify(Text.fill(app.S.updated, v), app.updateSource());
+      store.set('seenVersion', v);
+      setTimeout(function () { app.checkUpdate(false); }, 20000);
+    });
     app.reload(); app.ambient();
     // like a TV: back on the last channel
     var last = store.get('last', null);
     if (last && app.cfg.setupDone && !app.cfg.askProfile) for (var i = 0; i < app.live.length; i++) if (app.live[i].key === last) { app.watch(app.live, i); break; }
     setInterval(tick, 20000);
+    clock(); setInterval(clock, 10000);
+    if (window.TahoeBoot) window.TahoeBoot.ready(); // this version started fine
   }
 
   init();

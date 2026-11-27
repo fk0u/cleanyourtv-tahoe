@@ -28,7 +28,7 @@
   /** A titled panel with rows of focusable things. [build](page, nav) fills it and may be called again to redraw. */
   function dialog(app, title, build, opts) {
     opts = opts || {};
-    var wrap = el('div', 'dialog' + (opts.full ? ' full' : '')), panel = el('div', 'panel'), body = el('div', 'scroll'), head = el('h2', null, title), nav = new U.Nav(body, opts.full ? 760 : 700);
+    var wrap = el('div', 'dialog' + (opts.full ? ' full' : '') + (opts.wide ? ' wide' : '')), panel = el('div', 'panel'), body = el('div', 'scroll'), head = el('h2', null, title), nav = new U.Nav(body, opts.full ? 760 : 700);
     add(wrap, add(panel, head, add(el('div', 'viewport'), body)));
     var d = {
       el: wrap, nav: nav,
@@ -149,13 +149,16 @@
         [S.setPlaylist, c.playlist || S.builtIn, function () { text(app, S.setPlaylist, c.playlist, true, function (v) { if (v && !/^https?:\/\//i.test(v)) return app.toast(S.badUrl); c.playlist = v; changed(true); }); }],
         [S.setReload, null, function () { app.toast(S.reloading); app.reload(); }],
         [S.setAsk, onoff(c.askProfile), function () { c.askProfile = !c.askProfile; changed(); }],
+        [S.setPreview, onoff(c.preview), function () { c.preview = !c.preview; if (!c.preview) window.TahoePreview.clear(); changed(); }],
         [S.setPin, c.pin ? '••••' : S.unset, function () { var set = function () { pin(app, S.pinNew, function (v) { c.pin = v; changed(); app.toast(S.pinSaved); }); }; if (c.pin) pin(app, S.pin, function (v) { if (v === c.pin) set(); else app.toast(S.pinWrong); }); else set(); }],
         [S.setKids, c.kidsMinutes ? Text.fill(S.minutes, c.kidsMinutes) : S.off, function () { app.withPin(function () { choose(app, S.setKids, [0, 30, 60, 90, 120, 180].map(function (m) { return [m, m ? Text.fill(S.minutes, m) : S.off]; }), c.kidsMinutes, function (m) { c.kidsMinutes = m; changed(); }); }); }],
         [S.setHistory, null, function () { app.clearHistory(); app.toast(S.cleared); }],
-        [S.setUpdate, app.version, function () { app.checkUpdate(true); }],
+        [S.setUpdate, app.version + ' · ' + app.updateSource(), function () { app.checkUpdate(true); }],
+        [S.setAuto, onoff(c.autoUpdate), function () { c.autoUpdate = !c.autoUpdate; changed(); }]
+      ].concat(window.TahoeBoot && window.TahoeBoot.source === 'ota' ? [[S.setRollback, window.TahoeBoot.bundled, function () { app.rollback(); }]] : []).concat([
         [S.setSetup, null, function () { onboarding(app); }],
         [S.setAbout, null, function () { ask(app, 'Tahoe TV', Text.fill(S.about, app.version), [[S.done]]); }]
-      ];
+      ]);
     }
     return {
       mount: function (page) { head = add(el('div', 'head'), el('h1', null, app.S.settings)); add(page, head, add(el('div', 'viewport'), body)); },

@@ -30,6 +30,11 @@
     if (progress) t.appendChild(bar(progress));
     return t;
   }
+  /** Focusing a channel plays it behind the page; focusing a film shows its poster there. */
+  function previewChannel(app, e) { return function () { app.preview(e); }; }
+  function previewFilm(app, x, isCurrent) {
+    return function () { app.preview(null); D.poster(x, function (url) { if (!isCurrent || isCurrent()) app.poster(url); }); };
+  }
   function note(app) { return app.live.length ? '' : app.loading ? app.S.loading : app.S.failed; }
 
   // ---------------------------------------------------------------- Home
@@ -57,12 +62,31 @@
       if (!cards.length) return row;
       page.appendChild(el('h2', null, title));
       var view = el('div', 'view'), track = el('div', 'track');
-      cards.forEach(function (c) { track.appendChild(c.el); nav.add(row, c.el, c.ok, { id: c.id }); });
+      cards.forEach(function (c) { track.appendChild(c.el); nav.add(row, c.el, c.ok, { id: c.id, onFocus: c.focus }); });
       page.appendChild(add(view, track));
       return row + 1;
     }
     function channelCards(prefix, entries) {
-      return entries.slice(0, 12).map(function (e, i) { return { el: channelTile(app, e, 'tile card'), id: prefix + e.key, ok: function () { app.watch(entries, i); } }; });
+      return entries.slice(0, 12).map(function (e, i) { return { el: channelTile(app, e, 'tile card'), id: prefix + e.key, ok: function () { app.watch(entries, i); }, focus: previewChannel(app, e) }; });
+    }
+    function filmCards(prefix, titles) {
+      return titles.map(function (x) {
+        var id = prefix + x.key;
+        return { el: posterTile(app, x), id: id, ok: function () { app.openTitle(x); }, focus: previewFilm(app, x, function () { return nav.current() && nav.current().extra.id === id; }) };
+      });
+    }
+    /** Weather and the next prayer time, each opening its full view. */
+    function infoCards() {
+      var S = app.S, cards = [], d = new Date(), hm = U.pad(d.getHours()) + ':' + U.pad(d.getMinutes());
+      var w = app.weather;
+      cards.push({ el: add(el('div', 'info weather'), el('div', 'big', w ? w.temp + '°' : '–'), el('div', 'name', w ? S.wx[D.sky(w.code)] : S.weather), el('div', 'sub', app.cfg.city || S.setCityFirst)),
+        id: 'weather', ok: app.weatherDialog, focus: function () { app.preview(null); app.poster(''); } });
+      if (app.cfg.prayer) {
+        var next = app.prayer ? (app.prayer.filter(function (p) { return p[1] > hm; })[0] || app.prayer[0]) : null;
+        cards.push({ el: add(el('div', 'info prayer'), el('div', 'big', next ? next[1].replace(':', '.') : '–'), el('div', 'name', next ? S.prayer[next[0]] : S.prayerTitle), el('div', 'sub', S.prayerTitle)),
+          id: 'prayer', ok: app.prayerDialog, focus: function () { app.preview(null); app.poster(''); } });
+      }
+      return cards;
     }
 
     function draw(show) {
@@ -77,16 +101,17 @@
       add(copy, el('div', 'eyebrow', featured.name.toUpperCase()), el('div', 'title', p[0] ? p[0][2] : featured.name),
         el('div', 'meta', p[0] ? U.clock(p[0][0]) + ' – ' + U.clock(p[0][1]) + (p[1] ? '   ·   ' + app.S.next + ' ' + p[1][2] : '') : (app.S.cats[featured.cat] || '')),
         p[0] ? bar(part(p[0])) : null, add(el('div', 'buttons'), watch, guide));
+      copy.insertBefore(add(el('div', 'badges'), el('span', 'live', 'LIVE'), el('span', 'cat', app.S.cats[featured.cat] || '')), copy.firstChild);
       page.appendChild(add(hero, copy, logoBox(featured, 'logo big')));
-      nav.add(0, watch, function () { app.watch(list, 0); }, { id: 'watch' });
-      nav.add(0, guide, function () { app.go('guide', featured.key); }, { id: 'guide' });
+      nav.add(0, watch, function () { app.watch(list, 0); }, { id: 'watch', onFocus: previewChannel(app, featured) });
+      nav.add(0, guide, function () { app.go('guide', featured.key); }, { id: 'guide', onFocus: previewChannel(app, featured) });
       var r = 1;
-      var films = app.continueFilms().map(function (x) { return { el: posterTile(app, x), id: 'c' + x.key, ok: function () { app.openTitle(x); } }; });
-      r = section(app.S.cont, r, channelCards('r', recent).concat(films));
+      r = section(app.S.cont, r, channelCards('r', recent).concat(filmCards('c', app.continueFilms())));
       r = section(app.S.fav, r, channelCards('f', app.live.filter(function (e) { return app.isFav(e.key); })));
       var onAir = app.live.filter(function (e) { return app.guide[e.key] && E.nowNext(app.guide[e.key], now())[0]; });
       r = section(app.S.onAir, r, channelCards('n', onAir.length ? onAir : app.live));
-      section(app.S.film, r, app.films.slice(0, 14).map(function (x) { return { el: posterTile(app, x), id: 'm' + x.key, ok: function () { app.openTitle(x); } }; }));
+      r = section(app.S.film, r, filmCards('m', app.films.slice(0, 14)));
+      section(app.S.forYou, r, infoCards());
       nav.compact();
       if (!keep || !nav.focusId(keep)) { nav.r = row; nav.c = col; }
       nav.focus(show);
@@ -105,6 +130,7 @@
     var box = el('div', 'grid channels');
     var grid = new U.Grid(box, 4, 3, function (e) { return channelTile(app, e); }, function (e, i) { app.watch(grid.items, i); });
     grid.onPointer = function () { area = 'grid'; app.toPage(); };
+    grid.onFocus = function (e) { app.preview(e); };
 
     function filtered(id) {
       if (id === 'fav') return app.live.filter(function (e) { return app.isFav(e.key); });
@@ -193,6 +219,7 @@
       }, function (i) { pr = i; area = 'programmes'; press(); });
       if (!programmes.length && selected()) prList.appendChild(el('div', 'note', app.guideLoading ? app.S.guideLoading : app.S.noGuide));
       text.textContent = note(app) || app.S.guideHint;
+      if (show && selected()) app.preview(selected());
     }
     function press() {
       var p = programmes[pr];
@@ -221,6 +248,7 @@
     var head, text, box = el('div', 'grid films');
     var grid = new U.Grid(box, 6, 2, function (x) { return posterTile(app, x); }, function (x) { app.openTitle(x); });
     grid.onPointer = app.toPage;
+    grid.onFocus = function (x) { D.poster(x, function (url) { if (grid.current() === x) app.poster(url); }); };
     return {
       mount: function (page) { head = el('div', 'head'); text = el('div', 'hint'); add(page, head, box, text); },
       draw: function (show) {
@@ -291,5 +319,55 @@
     };
   }
 
-  root.TahoeScreens = { home: home, live: live, guide: guide, film: films, search: search };
+  // ---------------------------------------------------------------- History
+
+  function history(app) {
+    var head, box = el('div', 'list wide'), text, at = 0, rows = [];
+    function when(t) {
+      var d = new Date(t), today = new Date(), y = new Date(today.getTime() - 86400000);
+      if (d.toDateString() === today.toDateString()) return app.S.today + ' ' + U.clock(t);
+      if (d.toDateString() === y.toDateString()) return app.S.yesterday + ' ' + U.clock(t);
+      return d.toLocaleDateString(app.cfg.lang, { day: 'numeric', month: 'short' }) + ' ' + U.clock(t);
+    }
+    function play(r) { if (r.entry) app.watch(app.live, r.index); else app.openTitle(r.title); }
+    function draw(show) {
+      rows = app.history();
+      at = Math.max(0, Math.min(at, rows.length - 1));
+      clear(head); add(head, el('h1', null, app.S.history), el('span', 'count', String(rows.length)));
+      clear(box);
+      var from = Math.max(0, Math.min(at - 3, rows.length - 8));
+      rows.slice(from, from + 8).forEach(function (r, k) {
+        var i = from + k, d = el('div', 'row' + (show && i === at ? ' focus' : ''));
+        if (r.entry) {
+          var p = E.nowNext(app.guide[r.entry.key], now())[0];
+          add(d, logoBox(r.entry, 'logo small'), add(el('div', 'two'), el('span', 'title', r.entry.name), el('span', 'sub', when(r.h.at) + (p ? '  ·  ' + app.S.now + ': ' + p[2] : ''))));
+        } else {
+          var progress = app.titleProgress(r.title), item = r.title.items[r.h.item || 0];
+          var ep = r.title.items.length > 1 && item && item.episode ? '  ·  ' + (item.season ? 'S' + item.season + ' ' : '') + 'E' + item.episode : '';
+          add(d, add(el('div', 'logo small'), el('span', 'mono', '▶')), add(el('div', 'two'), el('span', 'title', r.title.title), el('span', 'sub', when(r.h.at) + ep)));
+          if (progress) d.appendChild(bar(progress));
+        }
+        d.onclick = function () { at = i; app.toPage(); play(r); };
+        box.appendChild(d);
+      });
+      text.textContent = rows.length ? app.S.historyHint : '';
+      if (!rows.length) box.appendChild(el('div', 'note', app.S.emptyHistory));
+      var cur = rows[at];
+      if (show && cur && cur.entry) app.preview(cur.entry); else if (show && cur) D.poster(cur.title, function (url) { if (rows[at] === cur) app.poster(url); });
+    }
+    return {
+      mount: function (page) { head = el('div', 'head'); text = el('div', 'hint'); add(page, head, box, text); },
+      draw: draw,
+      key: function (k) {
+        if (k === KEY.LEFT) return 'left';
+        if (k === KEY.UP || k === KEY.DOWN) { if (k === KEY.UP && at === 0) return true; at += k === KEY.UP ? -1 : 1; draw(true); return true; }
+        if (k === KEY.CH_UP || k === KEY.CH_DOWN) { at += k === KEY.CH_UP ? -8 : 8; draw(true); return true; }
+        if (k === KEY.OK && rows[at]) { play(rows[at]); return true; }
+        if (k === KEY.RED && rows[at]) { app.forget(rows[at].h); return true; }
+        return false;
+      }
+    };
+  }
+
+  root.TahoeScreens = { home: home, live: live, guide: guide, film: films, history: history, search: search };
 })(this);

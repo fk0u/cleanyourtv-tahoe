@@ -110,6 +110,7 @@
       t.onclick = function () { self.at = i; if (self.onPointer) self.onPointer(); self.ok(x, i); };
       self.box.appendChild(t);
     });
+    if (show && this.onFocus && this.items[this.at]) this.onFocus(this.items[this.at]);
   };
   Grid.prototype.current = function () { return this.items[this.at]; };
   Grid.prototype.key = function (k) {
