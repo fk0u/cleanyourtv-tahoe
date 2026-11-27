@@ -16,6 +16,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The LG webOS app: its tests, and the package must build.
+  webos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: LG CLI
+        run: npm install -g --ignore-scripts @webos-tools/cli@3.2.6
+      - name: Test and package
+        run: sh webos/package.sh
+
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -1,4 +1,4 @@
-# Multi-platform installers: Desktop (macOS Apple Silicon, macOS Intel, Windows) & Android (Android TV Launcher, Companion App).
+# Multi-platform installers: Desktop (macOS Apple Silicon, macOS Intel, Windows), Android (Android TV Launcher, Companion App) and LG webOS.
 # Runs on demand and on version tags; tagged builds are attached to the GitHub release.
 name: Multi-platform Release
 on:
@@ -130,6 +130,31 @@ jobs:
         with:
           name: ${{ contains(github.ref_name, '-') && format('Tahoe TV {0} (Beta)', github.ref_name) || github.ref_name }}
           files: ${{ matrix.out }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+
+  # LG webOS package, installed from a computer with Developer Mode (webos/README.md). Unsigned, like any sideloaded .ipk.
+  webos:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: LG CLI
+        run: npm install -g --ignore-scripts @webos-tools/cli@3.2.6
+      - name: Test and package
+        run: |
+          sh webos/package.sh
+          mkdir -p dist
+          cp webos/dist/*.ipk dist/TahoeTV-webOS.ipk
+          (cd dist && sha256sum TahoeTV-webOS.ipk > TahoeTV-webOS.ipk.sha256)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: TahoeTV-webOS
+          path: dist/*
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
+        with:
+          name: ${{ contains(github.ref_name, '-') && format('Tahoe TV {0} (Beta)', github.ref_name) || github.ref_name }}
+          files: dist/*
           prerelease: ${{ contains(github.ref_name, '-') }}
 
   android:
