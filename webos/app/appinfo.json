@@ -1,6 +1,6 @@
 {
   "id": "tech.kousozo.tahoetv.webos",
-  "version": "3.8.7",
+  "version": "3.8.8",
   "vendor": "Tahoe TV",
   "type": "web",
   "main": "index.html",

@@ -5,12 +5,22 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
-### Baru
-- **webOS setara lebih jauh dengan Android TV:** Beranda, jadwal acara dengan pengingat, cari, panel pemutar (daftar saluran, sumber, pengatur tidur, saluran sebelumnya), layar siaran gagal dengan nada Tahoe, lanjutkan film, profil Anak/Tamu dengan PIN, onboarding, pengaturan, cuaca dan waktu salat, tiga bahasa. Sudah dicek di LG webOS 4.10.
-- **`TahoeTV-webOS.ipk`** kini dibuat CI dan ikut di halaman rilis.
+## 3.8.8
 
-### Perbaikan
-- **webOS:** posisi film tidak lagi tertimpa saat pindah episode, memutar dari awal, atau menyambung ulang; pengingat untuk saluran di luar profil Anak tidak lagi terhapus; angka tidak lagi mengetik di kolom Cari saat fokus ada di menu.
+**Tahoe TV v3.8.8 (Stable)** · Tahoe TV di TV LG (webOS) kini jauh lebih setara dengan versi Android TV. Aplikasi Android TV, HP, dan desktop tidak berubah fiturnya di rilis ini.
+
+### Baru (LG webOS)
+- **Beranda:** sorotan saluran terakhir, lanjutkan menonton, favorit, sedang tayang, film; jam, cuaca, dan waktu salat.
+- **Jadwal acara** dengan pengingat, dan **Cari** saluran, acara, serta film.
+- **Pemutar:** daftar saluran, pilihan sumber, saluran sebelumnya, pengatur tidur, dan layar siaran gagal dengan nada Tahoe.
+- **Film & Series:** daftar episode dan lanjutkan dari posisi terakhir.
+- **Profil** Saya, Anak (PIN dan batas waktu), dan Tamu; pengaturan awal; Pengaturan; Indonesia, Inggris, Mandarin.
+- **`TahoeTV-webOS.ipk`** ikut di rilis ini. Pasang dari komputer lewat Developer Mode (`ares-install`), lihat `webos/README.md`. Dicek di webOS 4.10.
+
+### Perbaikan (LG webOS)
+- Posisi film tidak lagi tertimpa saat pindah episode, memutar dari awal, atau menyambung ulang.
+- Pengingat untuk saluran di luar profil Anak tidak lagi terhapus; angka tidak lagi mengetik di kolom Cari saat fokus ada di menu.
+- Notifikasi tidak menutupi jam, dan panel info tidak menumpang di layar siaran gagal.
 
 ## 3.8.7
 
