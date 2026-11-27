@@ -234,6 +234,7 @@ final class About extends FrameLayout implements Sheet {
         final View progFill;
         final ScrollView notesScroll;
         boolean busy;
+        private volatile boolean closed; // closed while downloading: the installer must not pop up afterwards
         int selectedBtn = 0; // 0 = Pasang Sekarang, 1 = Nanti Saja
 
         UpdateModal(Home h, Updates.Release r, boolean mandatory) {
@@ -307,13 +308,7 @@ final class About extends FrameLayout implements Sheet {
             laterBtn.setBackground(new GlassDrawable(16 * d, 0x22FFFFFF, d));
             laterBtn.setClickable(true);
             laterBtn.setFocusable(false); laterBtn.setFocusableInTouchMode(false);
-            laterBtn.setOnClickListener(v -> {
-                if (!mandatory && !busy) {
-                    ControlPlane.markUpdateModalDismissed(home.getFilesDir(), release.getVersion());
-                    home.closeSheet();
-                }
-            });
-            laterBtn.setVisibility(mandatory ? View.GONE : View.VISIBLE);
+            laterBtn.setOnClickListener(v -> { later(); home.closeSheet(); });
 
             primaryBtn = Ui.text(h, 15, 700, 0xFF0A0C12);
             primaryBtn.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_modal_install"));
@@ -323,11 +318,9 @@ final class About extends FrameLayout implements Sheet {
             primaryBtn.setFocusable(false); primaryBtn.setFocusableInTouchMode(false);
             primaryBtn.setOnClickListener(v -> { if (!busy) startInstall(); });
 
-            if (!mandatory) {
-                LinearLayout.LayoutParams lpLater = new LinearLayout.LayoutParams(-2, -2);
-                lpLater.rightMargin = (int) (12 * d);
-                btnRow.addView(laterBtn, lpLater);
-            }
+            LinearLayout.LayoutParams lpLater = new LinearLayout.LayoutParams(-2, -2);
+            lpLater.rightMargin = (int) (12 * d);
+            btnRow.addView(laterBtn, lpLater);
             btnRow.addView(primaryBtn);
             card.addView(btnRow, brl);
 
@@ -339,10 +332,16 @@ final class About extends FrameLayout implements Sheet {
         void renderBtns() {
             ((GlassDrawable) primaryBtn.getBackground()).fill(selectedBtn == 0 ? 0xFFF5F5F7 : Ui.ACCENT);
             primaryBtn.setTextColor(0xFF0A0C12);
-            if (!mandatory) {
-                ((GlassDrawable) laterBtn.getBackground()).fill(selectedBtn == 1 ? 0xFFF5F5F7 : 0x22FFFFFF);
-                laterBtn.setTextColor(selectedBtn == 1 ? 0xFF0A0C12 : Ui.TEXT);
-            }
+            ((GlassDrawable) laterBtn.getBackground()).fill(selectedBtn == 1 ? 0xFFF5F5F7 : 0x22FFFFFF);
+            laterBtn.setTextColor(selectedBtn == 1 ? 0xFF0A0C12 : Ui.TEXT);
+        }
+
+        /** "Later" / Back: always allowed. A required release is asked for again tomorrow; onboarding carries on. */
+        private void later() {
+            closed = true;
+            ControlPlane.markUpdateModalDismissed(home.getFilesDir(), release.getVersion());
+            home.prefs.edit().putBoolean("must_update", false).apply();
+            if (!TvViewer.done(home) && Onboarding.open == null) home.startActivity(new android.content.Intent(home, Onboarding.class));
         }
 
         void startInstall() {
@@ -366,6 +365,7 @@ final class About extends FrameLayout implements Sheet {
                         });
                         return kotlin.Unit.INSTANCE;
                     });
+                    if (closed) return;
                     post(() -> progLabel.setText(tech.kousozo.tahoetv.core.I18n.get(lang, "tv.about_opening_installer")));
                     About.install(home, apk);
                 } catch (Exception e) {
@@ -387,24 +387,19 @@ final class About extends FrameLayout implements Sheet {
                     if (notesScroll != null) notesScroll.smoothScrollBy(0, (int) Ui.dp(home, 120));
                     return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT:
-                    if (!mandatory && !busy) { selectedBtn = 1 - selectedBtn; renderBtns(); }
+                    selectedBtn = 1 - selectedBtn; renderBtns();
                     return true;
                 case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
-                    if (busy) return true;
-                    if (selectedBtn == 0) startInstall();
-                    else if (!mandatory) {
-                        ControlPlane.markUpdateModalDismissed(home.getFilesDir(), release.getVersion());
-                        home.closeSheet();
-                    }
+                    if (selectedBtn == 1) { later(); home.closeSheet(); }
+                    else if (!busy) startInstall();
                     return true;
                 case KeyEvent.KEYCODE_BACK:
-                    if (mandatory || busy) return true;
-                    ControlPlane.markUpdateModalDismissed(home.getFilesDir(), release.getVersion());
+                    later();
                     return false;
             }
             return true;
         }
 
-        @Override public void onClose() {}
+        @Override public void onClose() { closed = true; }
     }
 }

@@ -362,7 +362,7 @@ public class Home extends Activity {
 
     /** Asks for the latest release at most once a day; a newer one puts an Update chip on Home. Quiet on any failure. */
     void maybeCheckUpdate() {
-        final boolean must = prefs.getBoolean("must_update", false); // a fix release was found earlier: ask again at every start until it is installed
+        final boolean must = prefs.getBoolean("must_update", false); // a required update is waiting to be shown ("Later" clears this)
         if (kids() && !must) return;
         final long now = System.currentTimeMillis();
         if (!must && !tech.kousozo.tahoetv.core.UpdateSchedule.due(prefs.getLong("upd_checked", 0L), now)) return;
@@ -371,8 +371,9 @@ public class Home extends Activity {
             try {
                 tech.kousozo.tahoetv.core.Updates.Release r = tech.kousozo.tahoetv.core.Updates.latest();
                 boolean nu = tech.kousozo.tahoetv.core.Updates.newer(r.getVersion(), cur) && r.hasAnyAsset(tech.kousozo.tahoetv.core.Updates.LAUNCHER_ASSETS);
-                // a fix release (3.8.0 → 3.8.1) is never optional, not even in the middle of onboarding
-                boolean force = nu && tech.kousozo.tahoetv.core.ControlPlane.isMandatory(cur, tech.kousozo.tahoetv.core.TahoeVersion.VERSION_CODE, r);
+                // a fix release (3.8.0 → 3.8.1) is offered even in the middle of onboarding; it can be put off
+                boolean force = nu && tech.kousozo.tahoetv.core.ControlPlane.isMandatory(cur, tech.kousozo.tahoetv.core.TahoeVersion.VERSION_CODE, r)
+                        && tech.kousozo.tahoetv.core.ControlPlane.shouldShowUpdateModal(getFilesDir(), cur, tech.kousozo.tahoetv.core.TahoeVersion.VERSION_CODE, r); // not within a day of "Later"
                 prefs.edit().putLong("upd_checked", now).putString("upd_latest", nu ? r.getVersion() : "").putBoolean("must_update", force).apply();
                 runOnUiThread(() -> {
                     if (isFinishing()) return;
