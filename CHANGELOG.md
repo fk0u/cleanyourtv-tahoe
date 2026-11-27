@@ -5,6 +5,9 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+### Perubahan
+- **Pembaruan selalu bisa ditunda:** modal pembaruan di TV, HP, dan desktop kini selalu punya tombol Nanti/Tutup (juga Back), termasuk untuk rilis perbaikan dan saat sedang mengunduh. Rilis wajib diingatkan lagi setelah 24 jam; onboarding tidak lagi tertahan.
+
 ## 3.8.6
 
 **Tahoe TV v3.8.6 (Stable)** · film dan series kini punya bagian sendiri, tidak lagi bercampur dengan TV langsung.
