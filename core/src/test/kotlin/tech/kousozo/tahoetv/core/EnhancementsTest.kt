@@ -159,9 +159,11 @@ class EnhancementsTest {
             assertTrue(ControlPlane.isUrlBlocked("https://sub.blocked.org/live.m3u8"))
             assertFalse(ControlPlane.isUrlBlocked("https://good.example.com/live.m3u8"))
             assertTrue(ControlPlane.shouldShowUpdateModal(dir, "3.4.0", 28, hb.release))
-            // Mandatory policy still forces modal even after user dismisses
+            // "Later" closes even a required update; it is asked for again a day later
             ControlPlane.markUpdateModalDismissed(dir, "3.5.0")
-            assertTrue(ControlPlane.shouldShowUpdateModal(dir, "3.4.0", 28, hb.release))
+            assertFalse(ControlPlane.shouldShowUpdateModal(dir, "3.4.0", 28, hb.release))
+            assertTrue(ControlPlane.shouldShowUpdateModal(dir, "3.4.0", 28, hb.release,
+                System.currentTimeMillis() + ControlPlane.REMIND_AFTER_MS + 1000))
         } finally {
             ControlPlane.baseUrl = prev
             server.stop(0)

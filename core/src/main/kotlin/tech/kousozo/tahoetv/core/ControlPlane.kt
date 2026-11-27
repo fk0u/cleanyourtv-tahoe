@@ -164,29 +164,32 @@ object ControlPlane {
     @JvmStatic
     fun isChannelBlocked(channel: M3u.Channel): Boolean = isUrlBlocked(channel.url)
 
+    /** "Later" on a required release brings the modal back after this long; an optional release is not asked about again. */
+    const val REMIND_AFTER_MS = 24 * 60 * 60_000L
+
+    /** Whether to open the update modal by itself. It can always be closed ([markUpdateModalDismissed]). */
     @JvmStatic
+    @JvmOverloads
     fun shouldShowUpdateModal(
         storageDir: File?,
         currentVersion: String,
         currentVersionCode: Int,
         release: Updates.Release?,
+        now: Long = System.currentTimeMillis(),
     ): Boolean {
         if (release == null) return false
+        val mandatory = isMandatory(currentVersion, currentVersionCode, release)
         val policy = currentPolicy
-        val newerAvailable = Updates.newer(release.version, currentVersion)
-        val belowMinCode = policy.minVersionCode > 0 && currentVersionCode < policy.minVersionCode
-        val mandatory = belowMinCode ||
-            (policy.forceModal && (newerAvailable || (policy.minVersion.isNotBlank() && Updates.newer(policy.minVersion, currentVersion)))) ||
-            (release.forceModal && newerAvailable) ||
-            Updates.isPatchFix(release.version, currentVersion) // a fix release (3.8.0 → 3.8.1) is never optional
-        if (mandatory) return true
-        if (!newerAvailable) return false
-        val dir = storageDir ?: defaultStorageDir()
-        val dismissed = runCatching { File(dir, "dismissed_modal_version").readText().trim() }.getOrDefault("")
-        return dismissed != release.version
+        val forcedByMinVersion = policy.forceModal && policy.minVersion.isNotBlank() && Updates.newer(policy.minVersion, currentVersion)
+        val required = mandatory || forcedByMinVersion
+        if (!required && !Updates.newer(release.version, currentVersion)) return false
+        val file = File(storageDir ?: defaultStorageDir(), "dismissed_modal_version")
+        val dismissed = runCatching { file.readText().trim() }.getOrDefault("")
+        if (dismissed != release.version) return true
+        return required && now - file.lastModified() >= REMIND_AFTER_MS
     }
 
-    /** True when [release] must be installed before carrying on: below the server's minimum, forced by policy or release, or a fix release. */
+    /** True when [release] is a required one (reminded daily until installed): below the server's minimum, forced by policy or release, or a fix release. */
     @JvmStatic
     fun isMandatory(currentVersion: String, currentVersionCode: Int, release: Updates.Release?): Boolean {
         if (release == null) return false
