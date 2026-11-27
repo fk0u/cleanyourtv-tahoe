@@ -46,7 +46,7 @@ fun UpdateModalDialog() {
     val lang = PhoneRegion.language
 
     androidx.compose.material3.AlertDialog(
-        onDismissRequest = { if (!mandatory && !busy) PushHelper.dismissUpdateModal(c) },
+        onDismissRequest = { PushHelper.dismissUpdateModal(c) }, // always closable, also while downloading (the install is then dropped)
         containerColor = Tahoe.Surface,
         titleContentColor = Tahoe.Text,
         textContentColor = Tahoe.Text,
@@ -121,16 +121,14 @@ fun UpdateModalDialog() {
                 ) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, if (busy) "update.downloading" else "update.now")) }
             } else {
                 TextButton({
-                    if (!mandatory) PushHelper.dismissUpdateModal(c)
-                    else if (r != null) PushHelper.openSafeUrl(c, r.page)
+                    if (mandatory && r != null) PushHelper.openSafeUrl(c, r.page)
+                    PushHelper.dismissUpdateModal(c)
                 }) { Text(tech.kousozo.tahoetv.core.I18n.get(lang, if (mandatory) "update.open_page" else "common.close"), color = Tahoe.Accent) }
             }
         },
         dismissButton = {
-            if (!mandatory && !busy) {
-                TextButton({ PushHelper.dismissUpdateModal(c) }) {
-                    Text(tech.kousozo.tahoetv.core.I18n.get(lang, "common.later"), color = Tahoe.Dim)
-                }
+            TextButton({ PushHelper.dismissUpdateModal(c) }) {
+                Text(tech.kousozo.tahoetv.core.I18n.get(lang, if (newerAvailable || mandatory) "common.later" else "common.close"), color = Tahoe.Dim)
             }
         },
     )

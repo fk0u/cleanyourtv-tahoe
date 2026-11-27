@@ -176,10 +176,6 @@ object PushHelper {
 
     fun dismissUpdateModal(c: Context) {
         val ver = latestRelease?.version.orEmpty()
-        val pol = policy
-        val (curVer, curCode) = appVersion(c)
-        val mandatory = ControlPlane.isMandatory(curVer, curCode, latestRelease)
-        if (mandatory) return
         if (ver.isNotBlank()) ControlPlane.markUpdateModalDismissed(c.filesDir, ver)
         showUpdateModal = false
     }
