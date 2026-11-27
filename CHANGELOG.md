@@ -5,10 +5,14 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
+## 3.8.9
+
+**Tahoe TV v3.8.9 (Stable)** · Tahoe TV di TV LG (webOS) kini memperbarui dirinya sendiri dan tampil lebih imersif. Aplikasi Android TV, HP, dan desktop tidak berubah fiturnya di rilis ini.
+
 ### Baru (LG webOS, dicek di webOS 4.10)
-- **Pembaruan otomatis:** aplikasi webOS kini memperbarui dirinya sendiri dari rilis GitHub (kode dicek SHA-256), bertanya dulu atau otomatis sesuai pengaturan, dengan tombol Nanti, dan kembali sendiri ke versi paket bila pembaruan gagal menyala. Paket 3.8.8 ke bawah perlu dipasang sekali lagi dari komputer.
-- **Lebih imersif:** saluran yang disorot diputar tanpa suara di latar halaman, poster film jadi latar, halaman dan dialog beranimasi, sorotan bercahaya, jam/tanggal/cuaca di samping, OSD dengan logo, label LIVE, dan jam.
-- **Riwayat** tontonan, **rasio layar** Pas/Penuh/Zoom, pilihan **audio dan subtitel**, kartu **cuaca** dengan prakiraan 5 hari, kartu **waktu salat** dan pemberitahuan saat masuk waktunya, info "Diperbarui ke …" setelah pembaruan.
+- **Pembaruan otomatis:** aplikasi mengambil kode rilis terbaru dari GitHub (tiap berkas dicek SHA-256), bertanya dulu (Perbarui sekarang / Nanti) atau mengunduh diam-diam sesuai pengaturan, dan kembali sendiri ke versi paket bila pembaruan gagal menyala. **Pasang `TahoeTV-webOS.ipk` rilis ini sekali lagi dari komputer**; pembaruan berikutnya berjalan sendiri.
+- **Lebih imersif:** saluran yang disorot diputar tanpa suara di latar halaman, poster film jadi latar, halaman dan dialog beranimasi, sorotan bercahaya, jam/tanggal/cuaca di samping, panel info pemutar dengan logo, label LIVE, dan jam.
+- **Riwayat** tontonan, **rasio layar** Pas/Penuh/Zoom, pilihan **audio dan subtitel** bila siaran menyediakannya, kartu **cuaca** dengan prakiraan 5 hari, kartu **waktu salat** dan pemberitahuan saat masuk waktunya.
 
 ## 3.8.8
 

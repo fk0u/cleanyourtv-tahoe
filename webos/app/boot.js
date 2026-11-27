@@ -5,7 +5,7 @@
   'use strict';
   var BOOT = 1;
   // Written by webos/tools/manifest.js from gradle.properties and the file list; do not edit by hand.
-  var BUNDLED = '3.8.8';
+  var BUNDLED = '3.8.9';
   var BUNDLE = {"styles":["style.css"],"scripts":["js/lib.js","js/epg.js","js/slate.js","js/resume.js","js/i18n.js","js/ui.js","js/shell.js","js/data.js","js/update.js","js/preview.js","js/player.js","js/screens.js","js/setup.js","js/app.js"]};
 
   var PREFIX = 'tahoe.ota.f.';
