@@ -41,6 +41,7 @@ compose.desktop {
     application {
         mainClass = "tech.kousozo.tahoetv.desktop.MainKt"
         jvmArgs("-Dapple.awt.application.appearance=NSAppearanceNameDarkAqua")
+        if (os.contains("mac")) jvmArgs("-Dsun.java2d.opengl=false")
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Tahoe TV"
