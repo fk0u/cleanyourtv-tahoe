@@ -5,11 +5,15 @@ Catatan rilis Tahoe TV. Bagian versi yang dirilis otomatis menjadi catatan rilis
 
 ## Belum dirilis
 
-### Baru
-- **Tahoe TV untuk LG webOS** (`webos/`): TV langsung dengan kategori, favorit, cari, sumber cadangan otomatis, serta Film & Series berposter. Dipasang lewat Developer Mode (`webos/install-tv.sh`).
+## 3.8.7
 
-### Perubahan
+**Tahoe TV v3.8.7 (Stable)** · pembaruan selalu bisa ditunda, dan Tahoe TV kini ada untuk TV LG (webOS).
+
+### Perbaikan
 - **Pembaruan selalu bisa ditunda:** modal pembaruan di TV, HP, dan desktop kini selalu punya tombol Nanti/Tutup (juga Back), termasuk untuk rilis perbaikan dan saat sedang mengunduh. Rilis wajib diingatkan lagi setelah 24 jam; onboarding tidak lagi tertahan.
+
+### Baru
+- **Tahoe TV untuk LG webOS** (folder `webos/`): TV langsung dengan kategori, favorit, cari, sumber cadangan otomatis, serta Film & Series berposter. Sudah dicoba di webOS 4.10. Dipasang dari kode sumber lewat Developer Mode (`webos/install-tv.sh`); belum menjadi berkas unduhan rilis ini.
 
 ## 3.8.6
 
