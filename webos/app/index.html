@@ -9,37 +9,49 @@
 <body>
 <video id="video" autoplay></video>
 
-<div id="browse">
+<div id="app">
   <div id="side">
     <div id="brand"><img src="icon.png" alt=""><span>Tahoe TV</span></div>
-    <div id="rail"></div>
+    <div id="menu"></div>
   </div>
-  <div id="main">
-    <div id="head"><h1 id="title"></h1><span id="count"></span></div>
-    <div id="searchBox" hidden><input id="query" type="text" autocomplete="off"></div>
-    <div id="settingsBox" hidden>
-      <label id="urlLabel" for="url"></label>
-      <input id="url" type="url" autocomplete="off">
-      <button id="save" type="button"></button>
-      <button id="reset" type="button"></button>
-      <button id="reload" type="button"></button>
-    </div>
-    <div id="note"></div>
-    <div id="grid"></div>
-    <div id="hint"></div>
-  </div>
+  <div id="page"></div>
 </div>
-
-<div id="episodes" hidden><div class="panel"><h2 id="epHead"></h2><div id="epList"></div></div></div>
 
 <div id="player">
   <div id="status"></div>
-  <div id="slate" hidden><img src="largeIcon.png" alt=""><h2 id="slateTitle"></h2><p id="slateHint"></p></div>
-  <div id="osd"><span id="osdNum"></span><div><div id="osdName"></div><div id="osdCat"></div></div></div>
+  <div id="slate" hidden>
+    <img src="largeIcon.png" alt="">
+    <h2 id="slateTitle"></h2>
+    <p id="slateText"></p>
+    <p id="slateOthers" class="small"></p>
+    <p id="slateRetry" class="retry"></p>
+    <p id="slateFollow" class="small"></p>
+    <p id="slateKeys" class="small"></p>
+  </div>
+  <div id="osd">
+    <span id="osdNum"></span>
+    <div class="info">
+      <div id="osdName"></div>
+      <div id="osdNow"></div>
+      <div id="osdBar" class="bar"><i id="osdFill"></i></div>
+      <div id="osdNext"></div>
+      <div id="osdHint"></div>
+    </div>
+  </div>
+  <div id="panel" hidden><h2 id="panelTitle"></h2><div id="panelList"></div></div>
 </div>
 
+<div id="modals"></div>
 <div id="toast"></div>
-<script src="lib.js"></script>
-<script src="app.js"></script>
+<script src="js/lib.js"></script>
+<script src="js/epg.js"></script>
+<script src="js/slate.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/data.js"></script>
+<script src="js/player.js"></script>
+<script src="js/screens.js"></script>
+<script src="js/setup.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
