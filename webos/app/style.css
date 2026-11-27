@@ -78,17 +78,17 @@ h2 { font-size: 30px; font-weight: 600; margin: 18px 0 14px; }
 .prog { font-size: 18px; color: rgba(247,248,250,.6); padding: 4px 22px 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile .bar { position: absolute; left: 22px; right: 22px; bottom: 12px; }
 .star { position: absolute; top: 12px; right: 18px; font-size: 26px; color: #ffd166; }
-.tile, .poster, .row, .button, .info, .item, .chip, .key { transition: transform .16s ease-out, background .16s, box-shadow .16s; }
-.tile.focus, .poster.focus, .profile.focus .face, .info.focus { border-color: #5cd0ff; background: rgba(255,255,255,.18); transform: scale(1.05); box-shadow: 0 0 0 2px rgba(92,208,255,.35), 0 18px 50px rgba(0,0,0,.55), 0 0 40px rgba(92,208,255,.25); }
+.tile, .poster, .row, .button, .infocard, .item, .chip, .key { transition: transform .16s ease-out, background .16s, box-shadow .16s; }
+.tile.focus, .poster.focus, .profile.focus .face, .infocard.focus { border-color: #5cd0ff; background: rgba(255,255,255,.18); transform: scale(1.05); box-shadow: 0 0 0 2px rgba(92,208,255,.35), 0 18px 50px rgba(0,0,0,.55), 0 0 40px rgba(92,208,255,.25); }
 .row.focus, .button.focus, .item.focus, .key.focus { box-shadow: 0 0 30px rgba(92,208,255,.28); }
 body.previewing .tile, body.previewing .row { background: rgba(14,16,28,.62); }
 body.previewing .tile.focus, body.previewing .row.focus { background: rgba(255,255,255,.2); }
 
-.info { position: relative; flex-shrink: 0; width: 320px; height: 200px; margin-right: 20px; padding: 24px 28px; border-radius: 24px; border: 4px solid transparent; background: linear-gradient(135deg, rgba(92,208,255,.16), rgba(255,255,255,.05)); cursor: pointer; }
-.info.prayer { background: linear-gradient(135deg, rgba(76,195,138,.2), rgba(255,255,255,.05)); }
-.info .big { font-size: 64px; font-weight: 700; }
-.info .name { font-size: 25px; font-weight: 600; margin-top: 6px; text-align: left; padding: 0; }
-.info .sub { font-size: 18px; color: rgba(247,248,250,.6); margin-top: 4px; }
+.infocard { position: relative; flex-shrink: 0; width: 320px; height: 200px; margin-right: 20px; padding: 24px 28px; border-radius: 24px; border: 4px solid transparent; background: linear-gradient(135deg, rgba(92,208,255,.16), rgba(255,255,255,.05)); cursor: pointer; }
+.infocard.prayer { background: linear-gradient(135deg, rgba(76,195,138,.2), rgba(255,255,255,.05)); }
+.infocard .big { font-size: 64px; font-weight: 700; }
+.infocard .name { font-size: 25px; font-weight: 600; margin-top: 6px; text-align: left; padding: 0; }
+.infocard .sub { font-size: 18px; color: rgba(247,248,250,.6); margin-top: 4px; }
 
 .poster { flex-shrink: 0; width: 226px; margin: 0 20px 14px 0; padding: 6px; border: 4px solid transparent; border-radius: 22px; cursor: pointer; }
 .art { width: 206px; height: 309px; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #22305a, #111628); }
@@ -157,7 +157,7 @@ body.previewing .hero .logo.big { opacity: 0; }
 .day { flex: 1; margin-right: 16px; padding: 22px; border-radius: 22px; background: rgba(255,255,255,.07); border: 4px solid transparent; text-align: center; }
 .day:last-child { margin-right: 0; }
 .day.focus { border-color: #5cd0ff; background: rgba(255,255,255,.16); }
-.day .name { font-size: 22px; font-weight: 600; padding: 0; text-transform: capitalize; }
+.day .name { font-size: 22px; font-weight: 600; padding: 0; }
 .day .sky { font-size: 19px; color: rgba(247,248,250,.65); margin: 10px 0; }
 .day .range { font-size: 30px; font-weight: 700; }
 .dialog h2 { font-size: 38px; margin: 0 0 22px; }

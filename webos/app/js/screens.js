@@ -79,11 +79,11 @@
     function infoCards() {
       var S = app.S, cards = [], d = new Date(), hm = U.pad(d.getHours()) + ':' + U.pad(d.getMinutes());
       var w = app.weather;
-      cards.push({ el: add(el('div', 'info weather'), el('div', 'big', w ? w.temp + '°' : '–'), el('div', 'name', w ? S.wx[D.sky(w.code)] : S.weather), el('div', 'sub', app.cfg.city || S.setCityFirst)),
+      cards.push({ el: add(el('div', 'infocard weather'), el('div', 'big', w ? w.temp + '°' : '–'), el('div', 'name', w ? S.wx[D.sky(w.code)] : S.weather), el('div', 'sub', app.cfg.city || S.setCityFirst)),
         id: 'weather', ok: app.weatherDialog, focus: function () { app.preview(null); app.poster(''); } });
       if (app.cfg.prayer) {
         var next = app.prayer ? (app.prayer.filter(function (p) { return p[1] > hm; })[0] || app.prayer[0]) : null;
-        cards.push({ el: add(el('div', 'info prayer'), el('div', 'big', next ? next[1].replace(':', '.') : '–'), el('div', 'name', next ? S.prayer[next[0]] : S.prayerTitle), el('div', 'sub', S.prayerTitle)),
+        cards.push({ el: add(el('div', 'infocard prayer'), el('div', 'big', next ? next[1].replace(':', '.') : '–'), el('div', 'name', next ? S.prayer[next[0]] : S.prayerTitle), el('div', 'sub', S.prayerTitle)),
           id: 'prayer', ok: app.prayerDialog, focus: function () { app.preview(null); app.poster(''); } });
       }
       return cards;

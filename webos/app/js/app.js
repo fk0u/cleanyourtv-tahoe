@@ -232,6 +232,7 @@
         var days = el('div', 'days');
         f.days.forEach(function (x, i) {
           var name = i === 0 ? app.S.today : new Date(x.day).toLocaleDateString(app.cfg.lang, { weekday: 'long' });
+          name = name.charAt(0).toUpperCase() + name.slice(1);
           var card = add(el('div', 'day'), el('div', 'name', name), el('div', 'sky', app.S.wx[D.sky(x.code)]), el('div', 'range', x.max + '° / ' + x.min + '°'));
           days.appendChild(card); nav.add(0, card, function () { app.close(d); });
         });

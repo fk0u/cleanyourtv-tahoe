@@ -21,7 +21,7 @@
     "js/app.js"
   ],
   "files": {
-    "style.css": "d363ce6a851a8f10d1a1b42c17e1d7ecbe2cc28b493f0c5bec00a89ec15ece40",
+    "style.css": "bbe73f8c951521307833637bbfe15ae75d3c4e3ff98091ff57249e75885323da",
     "js/lib.js": "861ff6ce1b1c9e4685d782fe7391e4cc91d11975c023e3244222f0f8f87d23f5",
     "js/epg.js": "f8984dcaf0ee498233cf9fded38a57798012c975dbcaba1c4a3270049efa5235",
     "js/slate.js": "c6e49c5d1d0195b3b19782c9ef80881a1ec0b906355169d26cb944be97d88495",
@@ -33,8 +33,8 @@
     "js/update.js": "2d7cde6777df50750e6ee8c1846c40cc72078b005f8a6d53623f8f460c99c797",
     "js/preview.js": "399df820c5eb26f502929f9e01e7bd8043fecb8d3823b4695a22916bf02e76ef",
     "js/player.js": "2853da84be4c8fc1fc108eb23713613626f62f01186bd9a645aa9edbfd36b9ff",
-    "js/screens.js": "4b99cf84f4394dcaccb2e3212b7bc15a0e900ac0dfc652bdaf42b7543dec5985",
+    "js/screens.js": "6663bb192fe1effc170998a1b6b6409d171af519c867168b63acd3cc305917d4",
     "js/setup.js": "804a0f2457451f0e91082ff9396623382eac58c65df4eafe49cd1bf0399c93b9",
-    "js/app.js": "2314c4bda3f215592ac4a154dd5cc8a2273be2a557cc1876c3feae063273b32e"
+    "js/app.js": "2e558988991e81797e5818d8b76dc45b46447f9a8c0cf593c869af8347f3b8bf"
   }
 }
