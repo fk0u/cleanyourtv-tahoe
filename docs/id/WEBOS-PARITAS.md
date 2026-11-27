@@ -8,7 +8,7 @@ Diperbarui 28 November 2026. "Sudah" berarti ada di `webos/`; kolom terakhir men
 |---|---|---|
 | TV langsung: kategori, logo, favorit, sumber cadangan, nomor saluran | Sudah | TV |
 | Beranda (sorotan, lanjutkan menonton, sedang tayang, film) | Sudah | TV |
-| Jam, cuaca, waktu salat berikutnya | Sudah | jam di TV; cuaca dan salat baru di browser; belum ada adzan |
+| Jam, cuaca, waktu salat berikutnya | Sudah | jam di TV; cuaca dan salat baru di browser; belum ada suara adzan |
 | Jadwal acara (EPG): kini/berikutnya, halaman jadwal, bilah kemajuan | Sudah | TV |
 | Pengingat acara | Sudah | pasang/hapus di TV, notifikasi di browser; hanya saat aplikasi terbuka |
 | Cari saluran, acara, film (papan ketik di layar) | Sudah | TV |
@@ -18,7 +18,11 @@ Diperbarui 28 November 2026. "Sudah" berarti ada di `webos/`; kolom terakhir men
 | Profil Saya / Anak / Tamu, PIN, batas waktu Anak | Sudah | profil dan PIN di TV; batas waktu Anak baru di browser |
 | Onboarding dan Pengaturan (nama, bahasa, kota, negara, kategori, urutan, playlist) | Sudah | TV |
 | Bahasa Indonesia, Inggris, Mandarin | Sudah | bahasa Android lain belum |
-| Info pembaruan dengan tombol Nanti | Sudah | webOS tidak bisa memasang sendiri; dari komputer |
+| Pembaruan otomatis (OTA) dengan tombol Nanti | Sudah, belum diuji | kode diunduh dari tag rilis dan dicek SHA-256; kembali ke versi paket bila gagal; paket ≤ 3.8.8 perlu dipasang sekali lagi dari komputer |
+| Riwayat tontonan | Sudah, belum diuji | |
+| Pratinjau siaran di latar, poster sebagai latar, animasi | Sudah, belum diuji | bisa dimatikan di Pengaturan bila TV lambat |
+| Rasio layar, audio, subtitel | Sudah, belum diuji | audio/subtitel hanya bila browser TV memberi daftar trek |
+| Cuaca 5 hari, pemberitahuan waktu salat | Sudah, belum diuji | tanpa suara adzan |
 | Launcher: dock, daftar aplikasi, jadi layar Beranda | Tidak bisa | webOS tidak mengizinkan launcher pihak ketiga |
 | Rekaman siaran | Tidak bisa | aplikasi web tidak boleh menulis berkas video |
 | Header Referer/User-Agent per siaran, siaran DRM | Belum | pemutar bawaan tidak menerima header dari aplikasi web |

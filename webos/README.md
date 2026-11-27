@@ -11,8 +11,24 @@ Aplikasi web (HTML/JS tanpa dependensi, ES5) yang mengutamakan TV langsung. Atur
   pengatur tidur.
 - **Film & Series** (pixeldrain dan file di grup film/series): poster, episode, lanjutkan posisi.
 - **Profil** Saya, Anak (PIN, batas waktu), Tamu; onboarding; pengaturan; Indonesia, Inggris, Mandarin.
+- **Imersif**: saluran yang disorot diputar tanpa suara di latar, poster film jadi latar, halaman dan dialog beranimasi,
+  jam dan cuaca di samping, OSD dengan logo, label LIVE, dan jam.
+- **Riwayat** tontonan, **rasio layar** (Pas/Penuh/Zoom), pilihan audio dan subtitel bila siarannya punya, kartu cuaca
+  (prakiraan 5 hari) dan waktu salat dengan pemberitahuan saat masuk waktunya.
 
 Perbandingan dengan Android TV: [docs/id/WEBOS-PARITAS.md](../docs/id/WEBOS-PARITAS.md).
+
+## Pembaruan otomatis (OTA)
+Mulai versi yang berisi `boot.js`, aplikasi memperbarui dirinya sendiri tanpa komputer:
+- Sekali sehari (dan dari Pengaturan → Cek pembaruan) aplikasi melihat rilis stabil terbaru di GitHub.
+- Skrip dan gaya rilis itu diunduh dari repositori resmi pada tag rilisnya (`webos/app/manifest.json`), tiap berkas dicek
+  SHA-256-nya, lalu disimpan. Versi baru berjalan saat aplikasi dibuka lagi, atau langsung lewat "Mulai ulang sekarang".
+- Dengan *Pembaruan otomatis* mati, aplikasi bertanya dulu (Perbarui sekarang / Nanti; Nanti = ditanya lagi besok).
+- Pengaman: `boot.js` tidak pernah diganti lewat OTA. Pembaruan yang gagal menyala dalam 20 detik, atau macet saat dibuka
+  sebelumnya, dibuang dan aplikasi kembali ke versi paket. Pengaturan → *Kembali ke versi paket* melakukan hal yang sama.
+- Gambar, huruf, `boot.js`, dan `appinfo.json` hanya berubah lewat paket baru. Bila sebuah rilis membutuhkannya,
+  aplikasi memberi tahu untuk memasang `TahoeTV-webOS.ipk` dari komputer.
+- Paket sebelum `boot.js` (3.8.8 ke bawah) perlu dipasang sekali lagi dari komputer; sesudah itu pembaruan berjalan sendiri.
 
 ## Tombol remote
 | Tombol | Di daftar | Saat menonton |
@@ -51,7 +67,10 @@ Kode ada di `app/js/` dan harus tetap ES5 (ada tesnya).
 - Tes: `node --test webos/test/*.test.js`
 - Pratinjau di browser: sajikan folder `webos/app` (konfigurasi `webos` di `.claude/launch.json`). Browser menerapkan
   CORS, jadi sebagian playlist hanya termuat di TV.
-- Paket `.ipk`: `webos/package.sh` (versi mengikuti `gradle.properties`). CI membuatnya di setiap push dan menyertakannya di rilis.
+- Paket `.ipk`: `webos/package.sh` (versi mengikuti `gradle.properties`; juga menulis `app/manifest.json` dan baris versi di
+  `app/boot.js`). CI membuatnya di setiap push dan menyertakannya di rilis. Jalankan `node webos/tools/manifest.js` setelah
+  mengubah berkas aplikasi atau versi, kalau tidak tesnya gagal.
+- Berkas skrip baru harus didaftarkan di `webos/tools/manifest.js`.
 
 ## Belum ada
 Siaran DRM, header Referer/User-Agent khusus (aplikasi web tidak bisa mengirimnya; sumber seperti itu dicoba terakhir),
