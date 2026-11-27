@@ -13,9 +13,9 @@ di browser komputer** (Chromium baru), belum di TV.
 | Pengingat acara | Sudah | hanya saat aplikasi terbuka |
 | Cari saluran, acara, film (papan ketik di layar) | Sudah | browser |
 | Pemutar: daftar saluran, pilihan sumber, saluran sebelumnya, pengatur tidur | Sudah | browser |
-| Layar siaran gagal + nada Tahoe + hitung mundur coba lagi | Sudah | tampilan di browser; bunyi belum didengar |
-| Film & Series: poster, episode, lanjutkan posisi, tanda selesai | Sudah | pemutaran dan simpan posisi file belum dicoba |
-| Profil Saya / Anak / Tamu, PIN, batas waktu Anak | Sudah | PIN dicek di browser; batas waktu belum |
+| Layar siaran gagal + nada Tahoe + hitung mundur coba lagi | Sudah | nada diputar di browser; bunyinya di TV belum didengar |
+| Film & Series: poster, episode, lanjutkan posisi, tanda selesai | Sudah | posisi, lanjutkan, dan sambung ulang dicek di browser dengan aliran uji |
+| Profil Saya / Anak / Tamu, PIN, batas waktu Anak | Sudah | PIN dan batas waktu dicek di browser |
 | Onboarding dan Pengaturan (nama, bahasa, kota, negara, kategori, urutan, playlist) | Sudah | browser |
 | Bahasa Indonesia, Inggris, Mandarin | Sudah | bahasa Android lain belum |
 | Info pembaruan dengan tombol Nanti | Sudah | webOS tidak bisa memasang sendiri; dari komputer |
@@ -23,12 +23,11 @@ di browser komputer** (Chromium baru), belum di TV.
 | Rekaman siaran | Tidak bisa | aplikasi web tidak boleh menulis berkas video |
 | Header Referer/User-Agent per siaran, siaran DRM | Belum | pemutar bawaan tidak menerima header dari aplikasi web |
 | Remote dari HP, pasangkan lewat QR, setup ADB | Belum | perlu layanan JS webOS (server di TV) |
-| Akun Tahoe dan Handoff | Belum | perlu isian alamat server dan uji CORS |
+| Akun Tahoe dan Handoff | Belum | server akun sengaja tanpa CORS; perlu uji di TV apakah aplikasi webOS tetap bisa memanggilnya, kalau tidak server harus diubah |
 | Notifikasi dari server, kontrol admin | Belum | |
 | Asisten suara, Home Assistant, screensaver foto | Belum | webOS punya screensaver sendiri |
-| Berkas unduhan di rilis GitHub (`.ipk`) | Belum | CI belum membuat paketnya |
+| Berkas unduhan di rilis GitHub (`.ipk`) | Sudah di CI | muncul mulai rilis berikutnya; pasang tetap dari komputer |
 
 ## Urutan yang disarankan berikutnya
 1. Coba seluruh putaran ini di TV LG (mesin lama: kecepatan jadwal, memori, bunyi, resume film).
-2. `.ipk` di CI supaya ikut rilis.
-3. Akun Tahoe dan Handoff, lalu remote dari HP lewat layanan JS.
+2. Akun Tahoe dan Handoff, lalu remote dari HP lewat layanan JS.

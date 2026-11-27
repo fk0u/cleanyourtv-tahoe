@@ -27,6 +27,9 @@ Perbandingan dengan Android TV: [docs/id/WEBOS-PARITAS.md](../docs/id/WEBOS-PARI
 | Merah | favorit | favorit |
 
 ## Pasang ke TV
+Mulai rilis berikutnya, `TahoeTV-webOS.ipk` ikut di halaman rilis GitHub. Memasangnya tetap dari komputer dengan Developer
+Mode (`ares-install --device <nama> TahoeTV-webOS.ipk`), atau langsung dari kode sumber seperti di bawah.
+
 1. Di TV, pasang aplikasi **Developer Mode** (LG Content Store), masuk dengan akun developer LG,
    nyalakan *Dev Mode Status* dan *Key Server*.
 2. Di komputer yang satu jaringan:
@@ -47,7 +50,7 @@ Kode ada di `app/js/` dan harus tetap ES5 (ada tesnya).
 - Tes: `node --test webos/test/*.test.js`
 - Pratinjau di browser: sajikan folder `webos/app` (konfigurasi `webos` di `.claude/launch.json`). Browser menerapkan
   CORS, jadi sebagian playlist hanya termuat di TV.
-- Paket `.ipk`: `webos/package.sh` (versi mengikuti `gradle.properties`).
+- Paket `.ipk`: `webos/package.sh` (versi mengikuti `gradle.properties`). CI membuatnya di setiap push dan menyertakannya di rilis.
 
 ## Belum ada
 Siaran DRM, header Referer/User-Agent khusus (aplikasi web tidak bisa mengirimnya; sumber seperti itu dicoba terakhir),
