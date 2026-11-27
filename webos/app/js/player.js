@@ -48,7 +48,7 @@
     failed = true; clearTimeout(timer); release(); status(''); closePanel();
     seconds = Slate.RETRY_SECONDS;
     $('slate').hidden = false;
-    drawSlate(); showOsd(); chime();
+    drawSlate(); $('osd').className = ''; chime(); // the slate names the channel itself
     clearInterval(slateTimer);
     slateTimer = setInterval(function () {
       if (!open || !failed || tries >= Slate.MAX_RETRIES) return clearInterval(slateTimer);

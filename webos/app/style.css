@@ -149,5 +149,5 @@ h2 { font-size: 30px; font-weight: 600; margin: 18px 0 14px; }
 #panel .item { border-radius: 20px; height: 82px; display: block; line-height: 30px; padding: 6px 22px; margin-bottom: 6px; }
 #panel .item .title { display: block; white-space: nowrap; overflow: hidden; line-height: 38px; }
 #panel .item .sub { display: block; margin: 0; max-width: 100%; font-size: 18px; line-height: 24px; white-space: nowrap; }
-#toast { position: absolute; right: 70px; top: 50px; z-index: 9; padding: 16px 30px; border-radius: 999px; background: #f7f8fa; color: #0d0d12; font-size: 28px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast { position: absolute; right: 70px; bottom: 56px; z-index: 9; padding: 16px 30px; border-radius: 999px; background: #f7f8fa; color: #0d0d12; font-size: 28px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; }
 #toast.show { opacity: 1; }
