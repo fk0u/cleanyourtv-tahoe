@@ -7,17 +7,19 @@
 
   var app, video, playing = null, list = [], at = 0, source = 0, previous = null, open = false;
   var timer = 0, osdTimer = 0, watchdog = 0, slateTimer = 0, recentTimer = 0, lastTime = -1, stuck = 0;
-  var failed = false, tries = 0, seconds = 0, panel = null, resumeAt = 0, savedAt = 0, sound = null, audio = null, toneAt = {};
+  var failed = false, tries = 0, seconds = 0, panel = null, resumeAt = 0, position = 0, savedAt = 0, sound = null, audio = null, toneAt = {};
 
   function S() { return app.S; }
 
   function start(entry, entries, index) {
+    saveResume(true); // leaving one episode for another keeps its place
     if (playing && !playing.vod && entry.key !== playing.key) previous = { entry: playing, list: list, at: at };
     list = entries; at = index; playing = entry; open = true; closePanel();
     document.body.className = 'playing';
     var good = U.store.get('good', {});
     source = Math.max(0, entry.streams.indexOf(good[entry.key])); // the feed that worked last time first
-    tries = 0; resumeAt = entry.vod ? entry.resume || 0 : 0;
+    tries = 0; position = 0; resumeAt = entry.vod ? app.resumeAt(entry) : 0;
+    delete entry.fromStart;
     clearTimeout(recentTimer);
     if (!entry.vod) { U.store.set('last', entry.key); recentTimer = setTimeout(function () { if (open && playing === entry) app.watched(entry.key); }, 6000); }
     tune();
@@ -26,6 +28,7 @@
   var attempts = 0;
   function tune() {
     failed = false; stuck = 0; lastTime = -1; clearTimeout(timer); clearInterval(slateTimer); silence();
+    if (playing.vod && position > resumeAt) resumeAt = position; // a reconnected film goes on where it was
     $('slate').hidden = true;
     status(attempts ? Text.fill(S().backup, attempts + 1, playing.streams.length) : S().tune);
     showOsd();
@@ -103,7 +106,8 @@
   function saveResume(force) {
     if (!open || !playing || !playing.vod || !video.duration || !isFinite(video.duration)) return;
     var now = new Date().getTime();
-    if (!force && now - savedAt < 5000) return;
+    if (video.currentTime > 0) position = video.currentTime;
+    if (!(video.currentTime > 0) || (!force && now - savedAt < 5000)) return;
     savedAt = now; app.progress(playing, video.currentTime, video.duration);
   }
 
@@ -194,7 +198,7 @@
       clearTimeout(timer); clearInterval(slateTimer); silence(); status(''); $('slate').hidden = true; failed = false; attempts = 0; tries = 0;
       if (playing) { var good = U.store.get('good', {}); good[playing.key] = playing.streams[source]; U.store.set('good', good); }
     });
-    video.addEventListener('loadedmetadata', function () { if (resumeAt > 30 && resumeAt < video.duration - 60) video.currentTime = resumeAt; resumeAt = 0; });
+    video.addEventListener('loadedmetadata', function () { if (resumeAt > 0 && resumeAt < video.duration - 5) video.currentTime = resumeAt; resumeAt = 0; });
     video.addEventListener('timeupdate', function () { saveResume(false); });
     video.addEventListener('waiting', function () { if (open && !failed) status('…'); });
     video.addEventListener('error', function () { if (video.getAttribute('src')) next(); });
@@ -206,7 +210,7 @@
     });
     watchdog = setInterval(function () { // a live picture that stops moving for 20 s is reconnected on the next feed
       if (!open || failed || video.paused || !video.currentTime) return;
-      if (video.currentTime === lastTime) { if (++stuck >= 4) { stuck = 0; if (!playing.vod && playing.streams.length > 1) source = (source + 1) % playing.streams.length; if (playing.vod) resumeAt = video.currentTime; tune(); } }
+      if (video.currentTime === lastTime) { if (++stuck >= 4) { stuck = 0; if (!playing.vod && playing.streams.length > 1) source = (source + 1) % playing.streams.length; tune(); } }
       else stuck = 0;
       lastTime = video.currentTime;
     }, 5000);

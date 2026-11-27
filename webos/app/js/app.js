@@ -1,7 +1,7 @@
 /* Tahoe TV for webOS: state, menu, profiles, timers and the remote. ES5. */
 (function () {
   'use strict';
-  var U = window.TahoeUi, D = window.TahoeData, E = window.TahoeEpg, Text = window.TahoeText, Setup = window.TahoeSetup, Screens = window.TahoeScreens, Player = window.TahoePlayer;
+  var Resume = window.TahoeResume, U = window.TahoeUi, D = window.TahoeData, E = window.TahoeEpg, Text = window.TahoeText, Setup = window.TahoeSetup, Screens = window.TahoeScreens, Player = window.TahoePlayer;
   var KEY = U.KEY, $ = U.$, el = U.el, add = U.add, clear = U.clear, store = U.store;
 
   var DEFAULTS = { lang: null, name: '', city: '', lat: null, lon: null, country: '', countries: ['ID'], cats: [], prayer: true, playlist: '', sort: 'popularity', askProfile: false, pin: null, kidsMinutes: 0, setupDone: false };
@@ -62,14 +62,9 @@
     app.live.forEach(function (e) { byKey['$' + e.key] = e; });
     return store.get(pkey('recent'), []).map(function (k) { return byKey['$' + k]; }).filter(Boolean);
   };
-  app.progress = function (entry, t, duration) {
-    var r = store.get(pkey('resume'), {});
-    r[entry.streams[0]] = { t: t, d: duration, at: now() };
-    var keys = Object.keys(r);
-    if (keys.length > 200) { keys.sort(function (a, b) { return r[a].at - r[b].at; }); delete r[keys[0]]; }
-    store.set(pkey('resume'), r);
-  };
-  function done_(r) { return r && r.t / r.d > 0.92; }
+  app.progress = function (entry, t, duration) { store.set(pkey('resume'), Resume.remember(store.get(pkey('resume'), {}), entry.streams[0], t, duration, now())); };
+  app.resumeAt = function (entry) { return entry.fromStart ? 0 : Resume.seek(store.get(pkey('resume'), {})[entry.streams[0]]); };
+  var done_ = Resume.done;
   /** 0..1 for the progress bar: a film's own position, or the share of a series already watched. */
   app.titleProgress = function (x) {
     var r = store.get(pkey('resume'), {});
@@ -85,16 +80,16 @@
   // ---------------------------------------------------------------- watching
 
   app.watch = function (entries, index) { if (!blocked()) Player.start(entries[index], entries, index); };
-  function filmEntries(title, fromStart) {
+  function filmEntries(title) {
     var r = store.get(pkey('resume'), {});
     return title.items.map(function (it, k) {
       var label = it.episode ? (it.season ? 'S' + it.season + ' ' : '') + 'E' + it.episode : String(k + 1), saved = r[it.url];
-      return { key: title.key + ':' + k, name: title.title + (title.items.length > 1 ? ' · ' + label : ''), label: title.items.length > 1 && it.episode ? label : it.name, cat: null, streams: [it.url], vod: true, resume: !fromStart && saved && !done_(saved) ? saved.t : 0, saved: saved };
+      return { key: title.key + ':' + k, name: title.title + (title.items.length > 1 ? ' · ' + label : ''), label: title.items.length > 1 && it.episode ? label : it.name, cat: null, streams: [it.url], vod: true, resume: Resume.seek(saved), saved: saved };
     });
   }
   app.openTitle = function (title) {
-    var entries = filmEntries(title, false);
-    function play(i, fromStart) { if (blocked()) return; var list = filmEntries(title, fromStart); Player.start(list[i], list, i); }
+    var entries = filmEntries(title);
+    function play(i, fromStart) { if (blocked()) return; var list = filmEntries(title); list[i].fromStart = !!fromStart; Player.start(list[i], list, i); }
     if (entries.length > 1) {
       var d = Setup.dialog(app, title.title, function (body, nav) {
         entries.forEach(function (e, i) {
@@ -127,13 +122,15 @@
     store.set('reminders', list); app.toast(on ? app.S.unreminded : app.S.reminded);
   };
   function checkReminders() {
-    var t = now(), list = reminders(), due = null;
-    var keep = list.filter(function (r) { if (r.start - t <= 30000) { if (t - r.start < 5 * 60000) due = r; return false; } return true; });
+    var t = now(), list = reminders(), due = null, index = -1;
+    var keep = list.filter(function (r) {
+      if (t - r.start >= 5 * 60000) return false; // missed
+      if (due || r.start - t > 30000) return true;
+      for (var i = 0; i < app.live.length; i++) if (app.live[i].key === r.key) { due = r; index = i; return false; }
+      return true; // not on this profile's list: kept for one that has it
+    });
     if (keep.length !== list.length) store.set('reminders', keep);
     if (!due) return;
-    var index = -1;
-    app.live.forEach(function (e, i) { if (e.key === due.key) index = i; });
-    if (index < 0) return;
     Setup.ask(app, app.S.startsNow, due.title + ' — ' + due.name, [[app.S.watch, function () { app.watch(app.live, index); }], [app.S.later]]);
   }
   function usage() { var u = store.get('kidsUsage', null), day = new Date().toDateString(); return u && u.day === day ? u : { day: day, seconds: 0, bonus: 0 }; }
@@ -229,7 +226,7 @@
     var top = modals[modals.length - 1];
     // typing on a real keyboard, or the remote's digits on the PIN pad
     var typed = ev.key && ev.key.length === 1 ? ev.key : (k >= 48 && k <= 57 ? String(k - 48) : null);
-    var target = top || (!Player.isOpen() && screenId === 'search' ? screen : null);
+    var target = top || (!Player.isOpen() && screenId === 'search' && zone === 'page' ? screen : null);
     if (target && target.type) {
       if (ev.keyCode === KEY.BKSP) return target.type(null);
       if (typed) return target.type(typed);
