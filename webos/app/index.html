@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>Tahoe TV</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<video id="video" autoplay></video>
+
+<div id="browse">
+  <div id="side">
+    <div id="brand"><img src="icon.png" alt=""><span>Tahoe TV</span></div>
+    <div id="rail"></div>
+  </div>
+  <div id="main">
+    <div id="head"><h1 id="title"></h1><span id="count"></span></div>
+    <div id="searchBox" hidden><input id="query" type="text" autocomplete="off"></div>
+    <div id="settingsBox" hidden>
+      <label id="urlLabel" for="url"></label>
+      <input id="url" type="url" autocomplete="off">
+      <button id="save" type="button"></button>
+      <button id="reset" type="button"></button>
+      <button id="reload" type="button"></button>
+    </div>
+    <div id="note"></div>
+    <div id="grid"></div>
+    <div id="hint"></div>
+  </div>
+</div>
+
+<div id="episodes" hidden><div class="panel"><h2 id="epHead"></h2><div id="epList"></div></div></div>
+
+<div id="player">
+  <div id="status"></div>
+  <div id="slate" hidden><img src="largeIcon.png" alt=""><h2 id="slateTitle"></h2><p id="slateHint"></p></div>
+  <div id="osd"><span id="osdNum"></span><div><div id="osdName"></div><div id="osdCat"></div></div></div>
+</div>
+
+<div id="toast"></div>
+<script src="lib.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

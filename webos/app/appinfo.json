@@ -1,0 +1,15 @@
+{
+  "id": "tech.kousozo.tahoetv.webos",
+  "version": "3.8.6",
+  "vendor": "Tahoe TV",
+  "type": "web",
+  "main": "index.html",
+  "title": "Tahoe TV",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#0d1429",
+  "bgColor": "#08080d",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "requiredMemory": 200
+}
