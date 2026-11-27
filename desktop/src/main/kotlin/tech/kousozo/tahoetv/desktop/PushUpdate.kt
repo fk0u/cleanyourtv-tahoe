@@ -155,9 +155,6 @@ object DesktopPush {
 
     fun dismissUpdateModal() {
         val rel = latestRelease
-        val (curVer, curCode) = appVersion()
-        val mandatory = ControlPlane.isMandatory(curVer, curCode, rel)
-        if (mandatory) return
         rel?.version?.takeIf { it.isNotBlank() }?.let { ControlPlane.markUpdateModalDismissed(storageDir, it) }
         showUpdateModal = false
     }
@@ -426,11 +423,8 @@ fun DesktopUpdateModal() {
     val scope = rememberCoroutineScope()
     val r = DesktopPush.latestRelease
     val pol = DesktopPush.policy
-    val (currentVer, currentCode) = remember { DesktopPush.appVersion() }
+    val (currentVer, _) = remember { DesktopPush.appVersion() }
     val newerAvailable = r != null && Updates.newer(r.version, currentVer)
-    val mandatory = (pol.minVersionCode > 0 && currentCode < pol.minVersionCode) ||
-        (pol.forceModal && newerAvailable) ||
-        (r?.forceModal == true && newerAvailable)
     val installer = remember(r?.version) { DesktopPush.desktopInstallerAsset(r) }
 
     var status by remember(r?.version) { mutableStateOf("") }
@@ -438,7 +432,7 @@ fun DesktopUpdateModal() {
     var busy by remember { mutableStateOf(false) }
 
     AlertDialog(
-        onDismissRequest = { if (!mandatory && !busy) DesktopPush.dismissUpdateModal() },
+        onDismissRequest = { DesktopPush.dismissUpdateModal() }, // always closable, also while downloading
         containerColor = Tahoe.Surface,
         titleContentColor = Tahoe.Text,
         textContentColor = Tahoe.Text,
@@ -478,7 +472,7 @@ fun DesktopUpdateModal() {
             }
         },
         confirmButton = {
-            if (installer != null && r != null && (newerAvailable || mandatory)) {
+            if (installer != null && r != null && newerAvailable) {
                 PrimaryButton(if (busy) I18n.get(lang, "desktop.updates_downloading", progress ?: 0) else I18n.get(lang, "desktop.modal_download_btn", installer.first), Icons.Rounded.Download, enabled = !busy) {
                     busy = true
                     scope.launch {
@@ -504,7 +498,7 @@ fun DesktopUpdateModal() {
             } else {
                 PrimaryButton(if (r != null) I18n.get(lang, "desktop.modal_open_page") else I18n.get(lang, "desktop.close"), Icons.Rounded.OpenInBrowser) {
                     if (r != null) DesktopPush.openSafeUrl(r.page)
-                    if (!mandatory) DesktopPush.dismissUpdateModal()
+                    DesktopPush.dismissUpdateModal()
                 }
             }
         },
@@ -513,9 +507,7 @@ fun DesktopUpdateModal() {
                 if (r != null && installer != null) {
                     TextButton({ DesktopPush.openSafeUrl(r.page) }) { Text(I18n.get(lang, "desktop.modal_all_dl"), color = Tahoe.Accent) }
                 }
-                if (!mandatory && !busy) {
-                    TextButton({ DesktopPush.dismissUpdateModal() }) { Text(I18n.get(lang, "desktop.modal_later"), color = Tahoe.Dim) }
-                }
+                TextButton({ DesktopPush.dismissUpdateModal() }) { Text(I18n.get(lang, if (newerAvailable) "desktop.modal_later" else "desktop.close"), color = Tahoe.Dim) }
             }
         },
     )
